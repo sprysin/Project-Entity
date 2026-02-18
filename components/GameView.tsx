@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Player, Card, CardType, Phase, Position, PlacedCard } from '../types';
-import { createDeck } from '../constants';
-import { applyCardEffect, checkActivationConditions } from '../cardEffects';
+import { api } from '../api';
+import { CardDetail } from './CardDetail';
+import { Zone } from './Zone';
+import { Pile, DeckPile } from './Pile';
+import { Hand } from './Hand';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -29,7 +32,6 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const [tributeSummonMode, setTributeSummonMode] = useState<'normal' | 'hidden'>('normal');
 
   // Effect Resolution States
-  const [triggeredEffect, setTriggeredEffect] = useState<Card | null>(null);
   const [pendingEffectCard, setPendingEffectCard] = useState<Card | null>(null);
   const [isPeekingField, setIsPeekingField] = useState(false);
 
@@ -51,6 +53,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const [viewingVoidIdx, setViewingVoidIdx] = useState<number | null>(null);
 
   // Dynamic Animation Elements
+  const [drawStartIndex, setDrawStartIndex] = useState<number | null>(null);
   const [flyingCards, setFlyingCards] = useState<{ id: string, startX: number, startY: number, targetX: number, targetY: number, card?: Card }[]>([]);
   const [voidAnimations, setVoidAnimations] = useState<{ id: string, x: number, y: number }[]>([]);
   const [floatingTexts, setFloatingTexts] = useState<{ id: string, text: string, type: 'damage' | 'heal', x: number, y: number }[]>([]);
@@ -62,6 +65,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const prevDiscardLengths = useRef<[number, number]>([0, 0]);
   const prevVoidLengths = useRef<[number, number]>([0, 0]);
 
+  // Hand tracking for Draw Animation
+  const prevHandLengths = useRef<[number, number]>([5, 5]); // Start with 5 assuming initial hand
+
   // Layout State
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
 
@@ -70,7 +76,6 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const lastLp = useRef<[number, number]>([800, 800]);
   const isTransitioning = useRef(false);
   const processedAutoPhase = useRef<string>("");
-  const drawIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
    * Registers a DOM element's position for animation targeting.
@@ -83,7 +88,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   /**
    * Triggers visual animations for card movement.
    */
-  const triggerVisual = (sourceKey: string, targetKey: string, type: 'discard' | 'void' | 'retrieve', cardData?: Card) => {
+  const triggerVisual = (sourceKey: string, targetKey: string, type: 'discard' | 'void' | 'retrieve' | 'draw', cardData?: Card) => {
     const startEl = zoneRefs.current.get(sourceKey);
     // Fallback: If target slot doesn't exist (e.g. hand slot before render), target the container
     let endEl = zoneRefs.current.get(targetKey);
@@ -100,7 +105,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
 
     const id = Math.random().toString();
 
-    if (type === 'discard' || type === 'void' || type === 'retrieve') {
+    if (type === 'discard' || type === 'void' || type === 'retrieve' || type === 'draw') {
       if (!endEl) return;
       const eRect = endEl.getBoundingClientRect();
       const targetX = (eRect.left + eRect.width / 2) / window.innerWidth * 100;
@@ -139,73 +144,34 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
    * Initialization: Set up players, decks, and starting game state.
    */
   useEffect(() => {
-    const p1Id = 'player1';
-    const p2Id = 'player2';
-    const p1Deck = createDeck(p1Id);
-    const p2Deck = createDeck(p2Id);
-
-    const initialPlayer = (id: string, name: string, deck: Card[]): Player => ({
-      id,
-      name,
-      lp: 800,
-      deck: deck.slice(5),
-      hand: deck.slice(0, 5),
-      discard: [],
-      void: [],
-      entityZones: Array(5).fill(null),
-      actionZones: Array(5).fill(null),
-      normalSummonUsed: false,
-      hiddenSummonUsed: false,
-    });
-
-    lastLp.current = [800, 800];
-
-    setGameState({
-      players: [initialPlayer(p1Id, 'Player 1', p1Deck), initialPlayer(p2Id, 'Player 2', p2Deck)],
-      activePlayerIndex: 0,
-      currentPhase: Phase.DRAW,
-      turnNumber: 1,
-      log: ['Duel initialized.'],
-      winner: null,
-      pendingEffects: []
-    });
+    api.startGame().then(setGameState).catch(console.error);
   }, []);
 
   /**
-   * Monitor pile changes to trigger the glow flash animations.
+   * Monitor pile and hand changes to trigger animations.
    */
   useEffect(() => {
     if (!gameState) return;
     gameState.players.forEach((p, idx) => {
-      // Handle Discard pile glow trigger
+      // Discard Flash
       if (p.discard.length > prevDiscardLengths.current[idx]) {
-        setDiscardFlash(prev => {
-          const next = [...prev] as [boolean, boolean];
-          next[idx] = true;
-          return next;
-        });
-        setTimeout(() => setDiscardFlash(prev => {
-          const next = [...prev] as [boolean, boolean];
-          next[idx] = false;
-          return next;
-        }), 800);
+        setDiscardFlash(prev => { const n = [...prev] as [boolean, boolean]; n[idx] = true; return n; });
+        setTimeout(() => setDiscardFlash(prev => { const n = [...prev] as [boolean, boolean]; n[idx] = false; return n; }), 800);
       }
       prevDiscardLengths.current[idx] = p.discard.length;
 
-      // Handle Void pile glow trigger
+      // Void Flash
       if (p.void.length > prevVoidLengths.current[idx]) {
-        setVoidFlash(prev => {
-          const next = [...prev] as [boolean, boolean];
-          next[idx] = true;
-          return next;
-        });
-        setTimeout(() => setVoidFlash(prev => {
-          const next = [...prev] as [boolean, boolean];
-          next[idx] = false;
-          return next;
-        }), 800);
+        setVoidFlash(prev => { const n = [...prev] as [boolean, boolean]; n[idx] = true; return n; });
+        setTimeout(() => setVoidFlash(prev => { const n = [...prev] as [boolean, boolean]; n[idx] = false; return n; }), 800);
       }
       prevVoidLengths.current[idx] = p.void.length;
+
+      // Hand Length Tracking for Draw Animation
+      if (p.hand.length !== prevHandLengths.current[idx]) {
+        // Just update, actual draw animation triggered in Phase Change logic below
+        // Or could be here, but phase change logic handles 'turn change' well.
+      }
     });
   }, [gameState?.players]);
 
@@ -290,67 +256,17 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   /**
    * Advances the game to the next phase. Handles turn wrapping and skipping Battle on Turn 1.
    */
-  const nextPhase = useCallback(() => {
-    setGameState(prev => {
-      if (!prev || prev.winner) return prev;
-      let nextPhase = prev.currentPhase;
-      let activeIndex = prev.activePlayerIndex;
-      let turnNumber = prev.turnNumber;
-
-      if (prev.turnNumber === 1 && prev.currentPhase === Phase.MAIN1) {
-        nextPhase = Phase.END;
-      } else {
-        switch (prev.currentPhase) {
-          case Phase.DRAW: nextPhase = Phase.STANDBY; break;
-          case Phase.STANDBY: nextPhase = Phase.MAIN1; break;
-          case Phase.MAIN1: nextPhase = Phase.BATTLE; break;
-          case Phase.BATTLE: nextPhase = Phase.MAIN2; break;
-          case Phase.MAIN2: nextPhase = Phase.END; break;
-          case Phase.END:
-            nextPhase = Phase.DRAW;
-            activeIndex = (activeIndex + 1) % 2;
-            turnNumber += 1;
-            break;
-        }
-      }
-
-      // Handle End Phase Effects
-      let currentPendingEffects = prev.pendingEffects || [];
-      let updatedPlayers = [...prev.players];
-
-      if (nextPhase === Phase.END) {
-        const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && e.type === 'RESET_ATK');
-        const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && e.type === 'RESET_ATK'));
-
-        if (effectsToResolve.length > 0) {
-          updatedPlayers = updatedPlayers.map(p => ({
-            ...p,
-            entityZones: p.entityZones.map(z => {
-              if (!z) return null;
-              const effect = effectsToResolve.find(e => e.targetInstanceId === z.card.instanceId);
-              if (effect) {
-                return { ...z, card: { ...z.card, atk: effect.value } };
-              }
-              return z;
-            })
-          })) as [Player, Player];
-          currentPendingEffects = remainingEffects;
-        }
-      }
-
-      return {
-        ...prev,
-        currentPhase: nextPhase,
-        activePlayerIndex: activeIndex,
-        turnNumber,
-        players: updatedPlayers as [Player, Player],
-        pendingEffects: currentPendingEffects
-      };
-    });
-  }, []);
+  const nextPhase = useCallback(async () => {
+    if (!gameState || gameState.winner) return;
+    try {
+      const result = await api.nextPhase();
+      handleEffectResult(result);
+      isTransitioning.current = false;
+    } catch (e) { console.error(e); }
+  }, [gameState]);
 
   /**
-   * Automation Hook for Phase transitions (Draw/Standby logic).
+   * Automation Hook for Phase transitions & Draw Animation.
    */
   useEffect(() => {
     if (!gameState || gameState.winner) return;
@@ -366,7 +282,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
       }
       setTimeout(() => setPhaseFlash(Phase.DRAW), 1200);
 
-      // Reset turn-based limits and attack flags
+      // Reset turn-based limits and attack flags locally for immediate feedback
       setGameState(prev => {
         if (!prev) return null;
         const players = [...prev.players];
@@ -379,33 +295,27 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
         return { ...prev, players: players as [Player, Player] };
       });
 
-      // Animated Draw Mechanic
-      let drawCount = 0;
-      const targetHandSize = 5;
-      const minDraw = 1;
-      drawIntervalRef.current = setInterval(() => {
-        setGameState(current => {
-          if (!current) return null;
-          const p = current.players[current.activePlayerIndex];
-          const shouldStop = (p.hand.length >= targetHandSize && drawCount >= minDraw) || p.deck.length === 0;
-          if (shouldStop) {
-            if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
-            setTimeout(() => {
-              isTransitioning.current = false;
-              nextPhase();
-            }, 500);
-            return current;
-          }
-          drawCount++;
-          const players = [...current.players];
-          const ply = { ...players[current.activePlayerIndex] };
-          const card = ply.deck[0];
-          ply.deck = ply.deck.slice(1);
-          ply.hand = [...ply.hand, card];
-          players[current.activePlayerIndex] = ply;
-          return { ...current, players: players as [Player, Player] };
-        });
-      }, 300);
+      // Calculate drawn count and trigger animation
+      const activePlayer = gameState.players[gameState.activePlayerIndex];
+      const prevHandSize = prevHandLengths.current[gameState.activePlayerIndex];
+      const currentHandSize = activePlayer.hand.length;
+      const drawnCount = currentHandSize - prevHandSize;
+
+      if (drawnCount > 0 && gameState.turnNumber >= 0) {
+        setDrawStartIndex(prevHandSize);
+        // Reset animation state after max duration (drawnCount * 150ms + buffer)
+        setTimeout(() => setDrawStartIndex(null), drawnCount * 150 + 1000);
+      }
+
+      // Update prev length
+      prevHandLengths.current[gameState.activePlayerIndex] = currentHandSize;
+
+      // Auto-advance after animation
+      const delay = Math.max(1500, drawnCount * 200 + 1200);
+      setTimeout(() => {
+        isTransitioning.current = false;
+        nextPhase();
+      }, delay);
 
     } else if (gameState.currentPhase === Phase.STANDBY) {
       processedAutoPhase.current = phaseKey;
@@ -418,6 +328,12 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
     } else {
       setPhaseFlash(gameState.currentPhase);
     }
+
+    // Always update last known hand size for other phases to keep sync
+    gameState.players.forEach((p, idx) => {
+      prevHandLengths.current[idx] = p.hand.length;
+    });
+
   }, [gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, nextPhase]);
 
   /**
@@ -426,118 +342,69 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const canPlayCard = useCallback((card: Card) => {
     if (!gameState) return false;
     if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return false;
-    const activeIndex = gameState.activePlayerIndex;
-    const player = gameState.players[activeIndex];
-
-    if (card.type === CardType.ENTITY) {
-      if (card.level <= 4) {
-        return !player.normalSummonUsed || !player.hiddenSummonUsed;
-      } else {
-        const entityCount = player.entityZones.filter(z => z !== null).length;
-        return entityCount >= (card.level <= 7 ? 1 : 2);
-      }
-    } else {
-      return checkActivationConditions(gameState, card, activeIndex);
-    }
+    // Server-side validation handles complex checks (effects, costs, etc.)
+    return true;
   }, [gameState]);
 
   /**
-   * Executes a card's unique ability. Handles targeting logic.
+   * Helper to process effect results from API.
    */
-  const resolveEffect = useCallback((card: Card, target?: { playerIndex: number, type: 'entity' | 'action', index: number }, discardIndex?: number, handIndex?: number) => {
-    const activeIndex = gameState?.activePlayerIndex ?? 0;
+  const handleEffectResult = useCallback((result: any, sourceCard?: Card) => {
+    if (!result) return;
+    setGameState(result.newState);
 
-    // DELAYED ANIMATION HANDLING for Void Caster (entity_04)
-    if (card.id === 'entity_04') {
-      const cardInDiscard = gameState?.players[activeIndex].discard.find(c => c.id === 'action_01');
-      if (cardInDiscard) {
-        // Close modal immediately so we can see animation
-        setTriggeredEffect(null);
-        setPendingEffectCard(null);
-        setIsPeekingField(false);
-
-        triggerVisual(`discard-${activeIndex}`, `${activeIndex}-hand-${gameState?.players[activeIndex].hand.length ?? 0}`, 'retrieve', cardInDiscard);
-
-        // Wait for animation, then apply state change
-        setTimeout(() => {
-          setGameState(prev => {
-            if (!prev) return null;
-            const { newState, log } = applyCardEffect(prev, card, target, discardIndex, handIndex);
-            return { ...newState, log: [log, ...newState.log].slice(0, 50) };
-          });
-        }, 800); // 800ms Matches flight duration
-        return; // Exit here, state update is handled in timeout
-      }
-    }
-
-    if (card.id === 'condition_02' && target) {
-      // Void Call visual
-      if (gameState?.players[target.playerIndex].actionZones[target.index]) {
-        const targetCard = gameState.players[target.playerIndex].actionZones[target.index]!.card;
-        triggerVisual(`${target.playerIndex}-action-${target.index}`, `void-${target.playerIndex}`, 'void', targetCard);
-      }
-    }
-
-    setGameState(prev => {
-      if (!prev) return null;
-      const { newState, log, requireTarget, requireDiscardSelection, requireHandSelection } = applyCardEffect(prev, card, target, discardIndex, handIndex);
-
-      // If the effect requires a manual target on field
-      if (requireTarget && !target) {
-        setTriggeredEffect(null);
-        setPendingEffectCard(card);
-        setTargetSelectMode('effect');
-        setTargetSelectType(requireTarget);
-        setIsPeekingField(false);
-        return prev; // Do not update state yet
-      }
-
-      // If the effect requires selection from discard
-      if (requireDiscardSelection && discardIndex === undefined) {
-        setPendingEffectCard(card);
-        setDiscardSelectionReq(requireDiscardSelection);
-        setSelectedDiscardIndex(null); // Reset selection
-        return prev;
-      }
-
-      // If the effect requires selection from hand (e.g. Discard Cost)
-      if (requireHandSelection && handIndex === undefined) {
-        setPendingEffectCard(card);
-        setHandSelectionReq(requireHandSelection);
-        setSelectedHandSelectionIndex(null);
-        return prev;
-      }
-
-      // If simple log or finished
-      return { ...newState, log: [log, ...newState.log].slice(0, 50) };
-    });
-
-    // Cleanup Logic
-    // If we provided a target or discard/hand selection, we are finishing a complex step.
-    const isFinishingStep = target !== undefined || discardIndex !== undefined || handIndex !== undefined;
-
-    // Check if the card itself initiates a complex mode (target/discard).
-    // This list must match cards in cardEffects.ts that return requireTarget/requireDiscardSelection
-    const initiatesComplex = ['entity_02', 'condition_01', 'condition_02', 'action_02', 'entity_05'].includes(card.id);
-
-    if (isFinishingStep || !initiatesComplex) {
-      // Cleanup if we just finished a step OR if it was a simple card that didn't need a step.
-      setTriggeredEffect(null);
+    if (result.requireTarget) {
+      if (sourceCard) setPendingEffectCard(sourceCard);
+      setTargetSelectMode('effect');
+      setTargetSelectType(result.requireTarget);
+      setIsPeekingField(false);
+    } else if (result.requireDiscardSelection) {
+      if (sourceCard) setPendingEffectCard(sourceCard);
+      setDiscardSelectionReq(result.requireDiscardSelection);
+      setSelectedDiscardIndex(null);
+    } else if (result.requireHandSelection) {
+      if (sourceCard) setPendingEffectCard(sourceCard);
+      setHandSelectionReq(result.requireHandSelection);
+      setSelectedHandSelectionIndex(null);
+    } else {
+      // Clear states if resolved
       setPendingEffectCard(null);
       setTargetSelectMode(null);
-      setTargetSelectType('entity');
-      setIsPeekingField(false);
-
-      if (discardIndex !== undefined) {
-        setDiscardSelectionReq(null);
-        setSelectedDiscardIndex(null);
-      }
-      if (handIndex !== undefined) {
-        setHandSelectionReq(null);
-        setSelectedHandSelectionIndex(null);
-      }
+      setDiscardSelectionReq(null);
+      setHandSelectionReq(null);
     }
-  }, [gameState]);
+  }, []);
+
+  /**
+   * Helper to submit resolution (Target, Discard Selection, Hand Selection) to API.
+   */
+  const submitResolution = async (params: { target?: { playerIndex: number, type: 'entity' | 'action', index: number }, discardIndex?: number, handIndex?: number }) => {
+    if (!pendingEffectCard || !gameState) return;
+    const card = pendingEffectCard;
+    const pIdx = gameState.activePlayerIndex;
+    const p = gameState.players[pIdx];
+
+    // Hand Context
+    const handIdx = p.hand.findIndex(c => c.instanceId === card.instanceId);
+    if (handIdx !== -1) {
+      api.activateHand(card.instanceId, params.target, params.discardIndex, params.handIndex).then(r => handleEffectResult(r, card));
+      return;
+    }
+
+    // Field Action Context
+    const fieldActionIdx = p.actionZones.findIndex(z => z?.card.instanceId === card.instanceId);
+    if (fieldActionIdx !== -1) {
+      api.activateField(fieldActionIdx, 'action', params.target, params.discardIndex, params.handIndex).then(r => handleEffectResult(r, card));
+      return;
+    }
+
+    // Field Entity Context
+    const fieldEntityIdx = p.entityZones.findIndex(z => z?.card.instanceId === card.instanceId);
+    if (fieldEntityIdx !== -1) {
+      api.activateField(fieldEntityIdx, 'entity', params.target, params.discardIndex, params.handIndex).then(r => handleEffectResult(r, card));
+      return;
+    }
+  };
 
   /**
    * Handles selection from the Discard Pile Modal.
@@ -548,17 +415,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
     const pIdx = discardSelectionReq.playerIndex;
     const card = gameState.players[pIdx].discard[index];
 
-    // Close modal immediately so animation is visible
     setDiscardSelectionReq(null);
     setSelectedDiscardIndex(null);
 
-    // Trigger retrieval animation
     triggerVisual(`discard-${pIdx}`, `${pIdx}-hand-${gameState.players[pIdx].hand.length}`, 'retrieve', card);
 
-    // Resolve effect with selection after a short delay to sync with animation arrival
     setTimeout(() => {
-      resolveEffect(pendingEffectCard, undefined, index);
-      setPendingEffectCard(null); // Clear pending after resolution
+      submitResolution({ discardIndex: index });
     }, 700);
   };
 
@@ -571,91 +434,43 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
     const pIdx = handSelectionReq.playerIndex;
     const card = gameState.players[pIdx].hand[index];
 
-    // Close modal
     setHandSelectionReq(null);
     setSelectedHandSelectionIndex(null);
 
-    // Visual: Hand to Discard
     triggerVisual(`${pIdx}-hand-${index}`, `discard-${pIdx}`, 'discard', card);
 
-    // Resolve effect immediately (no long delay needed for discard costs usually, but short delay helps visual sync)
     setTimeout(() => {
-      resolveEffect(pendingEffectCard, undefined, undefined, index);
-      setPendingEffectCard(null);
+      submitResolution({ handIndex: index });
     }, 400);
   };
 
   /**
    * Core logic for Summoning or Setting an Entity. 
    */
-  const handleSummon = (card: Card, mode: 'normal' | 'hidden' | 'tribute') => {
+  const handleSummon = async (card: Card, mode: 'normal' | 'hidden' | 'tribute') => {
     if (!gameState || isPeekingField) return;
     if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return;
 
-    const pIdx = gameState.activePlayerIndex;
-    const p = gameState.players[pIdx];
-
-    // Check Tribute requirements for high-level cards
     if (card.level >= 5 && mode !== 'tribute') {
+      const p = gameState.players[gameState.activePlayerIndex];
       const entityCount = p.entityZones.filter(z => z !== null).length;
       const required = card.level <= 7 ? 1 : 2;
       if (entityCount < required) {
-        addLog(`ACCESS DENIED: Level ${card.level} requires ${required} sacrifices.`);
+        // Not enough tributes on field (Client-side pre-check for UX)
         return;
       }
       setPendingTributeCard(card);
       setTributeSummonMode(mode === 'hidden' ? 'hidden' : 'normal');
       setTributeSelection([]);
       setTargetSelectMode('tribute');
-      addLog(`TRIBUTE MODE (${mode === 'hidden' ? 'SET' : 'SUMMON'}): Select ${required} entities for sacrifice.`);
       return;
     }
 
-    // Per-turn limits for Level 4 or lower: 1 Normal AND 1 Set
-    if (card.level <= 4) {
-      if (mode === 'normal' && p.normalSummonUsed) {
-        addLog("Normal Summon limit reached for this turn.");
-        return;
-      }
-      if (mode === 'hidden' && p.hiddenSummonUsed) {
-        addLog("Set limit reached for this turn.");
-        return;
-      }
-    }
-
-    const emptySlot = p.entityZones.findIndex(z => z === null);
-    if (emptySlot === -1) {
-      addLog("SECTOR FULL: No field space available.");
-      return;
-    }
-
-    setGameState(prev => {
-      if (!prev) return null;
-      const players = JSON.parse(JSON.stringify(prev.players));
-      const ply = players[pIdx];
-      ply.entityZones[emptySlot] = {
-        card: { ...card },
-        position: mode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
-        hasAttacked: false,
-        hasChangedPosition: false,
-        summonedTurn: prev.turnNumber,
-        isSetTurn: mode === 'hidden'
-      };
-      ply.hand = ply.hand.filter(h => h.instanceId !== card.instanceId);
-
-      if (card.level <= 4) {
-        if (mode === 'normal') ply.normalSummonUsed = true;
-        if (mode === 'hidden') ply.hiddenSummonUsed = true;
-      }
-
-      players[pIdx] = ply;
-      return { ...prev, players: players as [Player, Player] };
-    });
-
-    if (mode !== 'hidden') {
-      // Trigger effect prompts for High King (target required) and Void Caster (optional trigger)
-      if (card.id === 'entity_02' || card.id === 'entity_04') setTriggeredEffect(card);
-      else resolveEffect(card);
+    try {
+      const result = await api.summon(card.instanceId, mode);
+      handleEffectResult(result, card);
+    } catch (e) {
+      console.error(e);
     }
     setSelectedHandIndex(null);
   };
@@ -663,50 +478,16 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   /**
    * Finalizes a tribute summon once the required sacrifices are selected.
    */
-  const handleTributeSummon = () => {
+  const handleTributeSummon = async () => {
     if (!gameState || !pendingTributeCard || isPeekingField) return;
-    const activeIndex = gameState.activePlayerIndex;
     const required = pendingTributeCard.level <= 7 ? 1 : 2;
     if (tributeSelection.length !== required) return;
 
-    tributeSelection.forEach(idx => {
-      const sacrifice = gameState.players[activeIndex].entityZones[idx];
-      if (sacrifice) {
-        triggerVisual(`${activeIndex}-entity-${idx}`, `discard-${activeIndex}`, 'discard', sacrifice.card);
-      }
-    });
-
-    setGameState(prev => {
-      if (!prev) return null;
-      const players = JSON.parse(JSON.stringify(prev.players));
-      const p = players[activeIndex];
-      tributeSelection.forEach(idx => {
-        const tribute = p.entityZones[idx];
-        if (tribute) {
-          p.discard = [...p.discard, tribute.card];
-          p.entityZones[idx] = null;
-        }
-      });
-      const emptySlot = p.entityZones.findIndex(z => z === null);
-      if (emptySlot !== -1) {
-        p.entityZones[emptySlot] = {
-          card: { ...pendingTributeCard },
-          position: tributeSummonMode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
-          hasAttacked: false,
-          hasChangedPosition: false,
-          summonedTurn: prev.turnNumber,
-          isSetTurn: tributeSummonMode === 'hidden'
-        };
-        p.hand = p.hand.filter(h => h.instanceId !== pendingTributeCard.instanceId);
-      }
-      players[activeIndex] = p;
-      return { ...prev, players: players as [Player, Player] };
-    });
-
-    if (tributeSummonMode !== 'hidden') {
-      // Trigger effect prompts for High King and Void Caster
-      if (pendingTributeCard.id === 'entity_02' || pendingTributeCard.id === 'entity_04') setTriggeredEffect(pendingTributeCard);
-      else resolveEffect(pendingTributeCard);
+    try {
+      const result = await api.summon(pendingTributeCard.instanceId, tributeSummonMode, tributeSelection);
+      handleEffectResult(result, pendingTributeCard);
+    } catch (e) {
+      console.error(e);
     }
 
     setPendingTributeCard(null);
@@ -718,191 +499,44 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   /**
    * Handles playing Action or Condition cards from hand.
    */
-  const handleActionFromHand = (card: Card, mode: 'activate' | 'set') => {
+  const handleActionFromHand = async (card: Card, mode: 'activate' | 'set') => {
     if (!gameState || isPeekingField) return;
     if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return;
 
-    const activeIndex = gameState.activePlayerIndex;
-
-    if (mode === 'set') {
-      triggerVisual(`${activeIndex}-hand-${selectedHandIndex}`, `${activeIndex}-action-0`, 'discard', card); // Representative target
-      setGameState(prev => {
-        if (!prev) return null;
-        const players = JSON.parse(JSON.stringify(prev.players));
-        const p = players[prev.activePlayerIndex];
-        const slot = p.actionZones.findIndex(z => z === null);
-        if (slot === -1) return prev;
-        p.actionZones[slot] = { card: { ...card }, position: Position.HIDDEN, hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: true };
-        p.hand = p.hand.filter(h => h.instanceId !== card.instanceId);
-        players[prev.activePlayerIndex] = p;
-        return { ...prev, players: players as [Player, Player] };
-      });
-    } else {
-      if (card.type === CardType.CONDITION) return;
-
-      // OVERSIGHT FIX: Validate conditions before activating from hand (e.g. via direct field click)
-      if (!checkActivationConditions(gameState, card, gameState.activePlayerIndex)) {
-        addLog(`RESTRICTION: Activation conditions for ${card.name} not met.`);
-        return;
+    try {
+      if (mode === 'set') {
+        const result = await api.setAction(card.instanceId);
+        handleEffectResult(result);
+      } else {
+        const result = await api.activateHand(card.instanceId);
+        handleEffectResult(result, card);
       }
-
-      if (selectedHandIndex !== null) {
-        triggerVisual(`${gameState.activePlayerIndex}-hand-${selectedHandIndex}`, `discard-${gameState.activePlayerIndex}`, 'discard', card);
-      }
-      setGameState(prev => {
-        if (!prev) return null;
-        const players = JSON.parse(JSON.stringify(prev.players));
-        const p = players[prev.activePlayerIndex];
-        p.hand = p.hand.filter(h => h.instanceId !== card.instanceId);
-        p.discard = [...p.discard, { ...card }];
-        players[prev.activePlayerIndex] = p;
-        return { ...prev, players: players as [Player, Player] };
-      });
-      resolveEffect(card);
-    }
+    } catch (e) { console.error(e); }
     setSelectedHandIndex(null);
   };
 
-  /**
-   * Activates a card that is already on the field (Flipping or activating a Condition).
-   */
-  const activateOnField = (playerIndex: number, type: 'entity' | 'action', index: number) => {
+  const activateOnField = async (playerIndex: number, type: 'entity' | 'action', index: number) => {
     if (!gameState || isPeekingField) return;
-    const p = gameState.players[playerIndex];
-    const zone = type === 'entity' ? p.entityZones : p.actionZones;
-    const placed = zone[index];
-    if (!placed) return;
 
-    // OVERSIGHT FIX: Validate conditions before field activation
-    if (!checkActivationConditions(gameState, placed.card, playerIndex)) {
-      addLog(`RESTRICTION: Activation conditions for ${placed.card.name} not met.`);
-      return;
-    }
-
-    if (placed.card.type === CardType.CONDITION && gameState.turnNumber <= placed.summonedTurn) return;
-
-    // Entities usually trigger their effects without changing state directly here (unless flipping)
-    // Actions/Conditions flip to face-up
-    if (placed.position === Position.HIDDEN) {
-      setGameState(prev => {
-        if (!prev) return null;
-        const players = JSON.parse(JSON.stringify(prev.players));
-        const ply = players[playerIndex];
-        const zn = type === 'entity' ? ply.entityZones : ply.actionZones;
-        zn[index] = { ...zn[index]!, position: Position.ATTACK };
-        players[playerIndex] = ply;
-        return { ...prev, players: players as [Player, Player] };
-      });
-    }
-
-    resolveEffect(placed.card);
-
-    // Auto-discard logic for consumed Action/Condition cards (Entities stay on field)
-    if (type !== 'entity') {
-      setTimeout(() => {
-        if (placed) triggerVisual(`${playerIndex}-${type}-${index}`, `discard-${playerIndex}`, 'discard', placed.card);
-        setGameState(prev => {
-          if (!prev) return null;
-          const players = JSON.parse(JSON.stringify(prev.players));
-          const ply = players[playerIndex];
-          const zn = ply.actionZones;
-          if (zn[index]) {
-            ply.discard = [...ply.discard, { ...zn[index]!.card }];
-            zn[index] = null;
-          }
-          players[playerIndex] = ply;
-          return { ...prev, players: players as [Player, Player] };
-        });
-      }, 3000);
-    }
+    try {
+      const result = await api.activateField(index, type);
+      // Find card for source
+      const p = gameState.players[playerIndex];
+      const card = type === 'entity' ? p.entityZones[index]?.card : p.actionZones[index]?.card;
+      handleEffectResult(result, card);
+    } catch (e) { console.error(e); }
     setSelectedFieldSlot(null);
   };
 
   /**
    * Combat resolution logic. Handles Attack vs Attack, Attack vs Defense, and Direct Attacks.
    */
-  const handleAttack = (attackerIdx: number, targetIdx: number | 'direct') => {
+  const handleAttack = async (attackerIdx: number, targetIdx: number | 'direct') => {
     if (!gameState || gameState.turnNumber === 1 || isPeekingField) return;
-    const activeIndex = gameState.activePlayerIndex;
-    const oppIndex = (activeIndex + 1) % 2;
-    const attacker = gameState.players[activeIndex].entityZones[attackerIdx];
-    if (!attacker) return;
-
-    setGameState(prev => {
-      if (!prev) return null;
-      const players = JSON.parse(JSON.stringify(prev.players));
-      const p = players[activeIndex];
-      const opp = players[oppIndex];
-      const atkEntity = { ...p.entityZones[attackerIdx]! };
-
-      if (targetIdx === 'direct') {
-        opp.lp -= atkEntity.card.atk;
-        addLog(`DIRECT IMPACT: -${atkEntity.card.atk} LP.`);
-      } else {
-        let defEntity = { ...opp.entityZones[targetIdx]! };
-        if (!defEntity) return prev;
-
-        // Auto-flip hidden entities when attacked
-        if (defEntity.position === Position.HIDDEN) {
-          defEntity.position = Position.DEFENSE;
-          opp.entityZones[targetIdx] = defEntity;
-          addLog(`${defEntity.card.name} was flipped!`);
-        }
-
-        if (defEntity.position === Position.ATTACK) {
-          const diff = atkEntity.card.atk - defEntity.card.atk;
-          if (diff > 0) {
-            triggerShatter(`${oppIndex}-entity-${targetIdx}`);
-            opp.lp -= diff;
-            triggerVisual(`${oppIndex}-entity-${targetIdx}`, `discard-${oppIndex}`, 'discard', defEntity.card);
-            opp.discard = [...opp.discard, defEntity.card];
-            opp.entityZones[targetIdx] = null;
-            addLog(`ATTACK SUCCESS: ${defEntity.card.name} destroyed. -${diff} LP.`);
-          } else if (diff < 0) {
-            triggerShatter(`${activeIndex}-entity-${attackerIdx}`);
-            p.lp += diff;
-            triggerVisual(`${activeIndex}-entity-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkEntity.card);
-            p.discard = [...p.discard, atkEntity.card];
-            p.entityZones[attackerIdx] = null;
-            addLog(`ATTACK FAILED: ${atkEntity.card.name} destroyed. Recoil ${diff}.`);
-          } else {
-            triggerShatter(`${activeIndex}-entity-${attackerIdx}`);
-            triggerShatter(`${oppIndex}-entity-${targetIdx}`);
-            triggerVisual(`${activeIndex}-entity-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkEntity.card);
-            triggerVisual(`${oppIndex}-entity-${targetIdx}`, `discard-${oppIndex}`, 'discard', defEntity.card);
-            p.discard = [...p.discard, atkEntity.card];
-            opp.discard = [...opp.discard, defEntity.card];
-            p.entityZones[attackerIdx] = null;
-            opp.entityZones[targetIdx] = null;
-            addLog("MUTUAL DESTRUCTION.");
-          }
-        } else {
-          // Resolve against Defense points
-          if (atkEntity.card.atk > defEntity.card.def) {
-            triggerShatter(`${oppIndex}-entity-${targetIdx}`);
-            triggerVisual(`${oppIndex}-entity-${targetIdx}`, `discard-${oppIndex}`, 'discard', defEntity.card);
-            opp.discard = [...opp.discard, defEntity.card];
-            opp.entityZones[targetIdx] = null;
-            addLog(`DEFENSE CRUSHED: ${defEntity.card.name} destroyed. 0 Damage.`);
-          } else if (atkEntity.card.atk < defEntity.card.def) {
-            const recoil = defEntity.card.def - atkEntity.card.atk;
-            p.lp -= recoil;
-            addLog(`DEFENSE HELD: Recoil -${recoil} LP.`);
-          } else {
-            addLog("STALEMATE: Defense equals Attack.");
-          }
-        }
-      }
-      if (p.entityZones[attackerIdx]) p.entityZones[attackerIdx]!.hasAttacked = true;
-      players[activeIndex] = p;
-      players[oppIndex] = opp;
-
-      // Check Win/Loss conditions
-      let winner = null;
-      if (opp.lp <= 0) winner = p.name;
-      else if (p.lp <= 0) winner = opp.name;
-      return { ...prev, players: players as [Player, Player], winner };
-    });
+    try {
+      const result = await api.attack(attackerIdx, targetIdx.toString()); // targetIdx "direct" or number
+      handleEffectResult(result);
+    } catch (e) { console.error(e); }
     setTargetSelectMode(null);
     setSelectedFieldSlot(null);
   };
@@ -914,7 +548,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const opponent = gameState.players[oppIdx];
   const selectedCard = selectedHandIndex !== null ? activePlayer.hand[selectedHandIndex] : null;
   const isLightTheme = gameState.activePlayerIndex === 1;
-  const actionsDisabled = triggeredEffect !== null || isPeekingField || discardSelectionReq !== null || handSelectionReq !== null;
+  const actionsDisabled = isPeekingField || discardSelectionReq !== null || handSelectionReq !== null;
 
   return (
     <div className={`flex-1 flex flex-col relative overflow-hidden font-roboto select-none transition-colors duration-1000 ${isLightTheme ? 'bg-slate-200 text-slate-900 retro-hash-light' : 'bg-[#050505] text-slate-100 retro-hash'}`}>
@@ -941,11 +575,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
                   {opponent.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" owner="opponent" domRef={setRef(`${oppIdx}-action-${i}`)} isSelected={selectedFieldSlot?.playerIndex === oppIdx && selectedFieldSlot?.type === 'action' && selectedFieldSlot?.index === i} isSelectable={targetSelectMode === 'effect' && (targetSelectType === 'any' || targetSelectType === 'action') && pendingEffectCard !== null} onClick={() => {
-                    if (targetSelectMode === 'effect' && pendingEffectCard) resolveEffect(pendingEffectCard, { playerIndex: oppIdx, type: 'action', index: i });
+                    if (targetSelectMode === 'effect' && pendingEffectCard) submitResolution({ target: { playerIndex: oppIdx, type: 'action', index: i } });
                     else setSelectedFieldSlot({ playerIndex: oppIdx, type: 'action', index: i })
                   }} />))}
                 </div>
-                <DeckPile count={opponent.deck.length} label="Deck" />
+                <div ref={setRef(`deck-${oppIdx}`)}>
+                  <DeckPile count={opponent.deck.length} label="Deck" />
+                </div>
               </div>
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
@@ -959,7 +595,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                       }
                     }
                     else if (targetSelectMode === 'effect' && pendingEffectCard) {
-                      if (opponent.entityZones[i]) resolveEffect(pendingEffectCard, { playerIndex: oppIdx, type: 'entity', index: i });
+                      if (opponent.entityZones[i]) submitResolution({ target: { playerIndex: oppIdx, type: 'entity', index: i } });
                     }
                     else setSelectedFieldSlot({ playerIndex: oppIdx, type: 'entity', index: i });
                   }} />))}
@@ -995,7 +631,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                   {activePlayer.entityZones.map((z, i) => (<Zone key={i} card={z} type="entity" owner="active" domRef={setRef(`${gameState.activePlayerIndex}-entity-${i}`)} isSelected={selectedFieldSlot?.playerIndex === gameState.activePlayerIndex && selectedFieldSlot?.type === 'entity' && selectedFieldSlot?.index === i} isTributeSelected={tributeSelection.includes(i)} isSelectable={targetSelectMode === 'effect' && (targetSelectType === 'any' || targetSelectType === 'entity') && pendingEffectCard !== null} isDropTarget={selectedCard?.type === CardType.ENTITY && z === null} onClick={() => {
                     if (targetSelectMode === 'tribute') { if (z) setTributeSelection(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]); }
                     else if (targetSelectMode === 'effect' && pendingEffectCard) {
-                      if (activePlayer.entityZones[i]) resolveEffect(pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i });
+                      if (activePlayer.entityZones[i]) submitResolution({ target: { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i } });
                     }
                     else if (selectedCard?.type === CardType.ENTITY && z === null) handleSummon(selectedCard, 'normal');
                     else { setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i } : null); setSelectedHandIndex(null); }
@@ -1013,35 +649,24 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                     else { setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'action', index: i } : null); setSelectedHandIndex(null); }
                   }} />))}
                 </div>
-                <DeckPile count={activePlayer.deck.length} label="Deck" />
+                <div ref={setRef(`deck-${gameState.activePlayerIndex}`)}>
+                  <DeckPile count={activePlayer.deck.length} label="Deck" />
+                </div>
               </div>
             </div>
           </div>
 
           {/* Active Player Hand Display (Bottom) */}
-          <div className="absolute bottom-0 w-full flex justify-center space-x-[-10px] z-50 pointer-events-none pb-0" ref={setRef(`${gameState.activePlayerIndex}-hand-container`)}>
-            {activePlayer.hand.map((card, i) => {
-              const isActivatable = canPlayCard(card);
-              return (
-                <div key={card.instanceId}
-                  ref={setRef(`${gameState.activePlayerIndex}-hand-${i}`)}
-                  onClick={() => { setSelectedHandIndex(i); setSelectedFieldSlot(null); }}
-                  className={`w-36 aspect-[2/3] rounded transition-all duration-300 cursor-pointer relative overflow-hidden border-2 border-slate-300 shadow-2xl pointer-events-auto 
-                     ${selectedHandIndex === i ? 'transform translate-y-[-20%] z-20 ring-4 ring-yellow-500' : 'transform translate-y-[30%] hover:translate-y-[0%] z-10 hover:z-20'}
-                     ${card.type === CardType.ENTITY ? 'card-entity' : card.type === CardType.ACTION ? 'card-action' : card.type === CardType.CONDITION ? 'card-condition' : ''}
-                     ${isActivatable ? 'glow-activatable' : (card.type === CardType.ENTITY ? 'glow-gold' : card.type === CardType.ACTION ? 'glow-green' : 'glow-pink')}
-                   `}
-                >
-                  <div className="card-inner-border"></div>
-                  <div className="p-2 flex flex-col h-full text-white relative z-10 text-[9px]">
-                    <div className="font-orbitron font-bold uppercase tracking-tight py-1 mb-1 border-b border-white/10 text-center truncate">{card.name}</div>
-                    <div className="flex-1 opacity-80 font-bold leading-tight font-mono p-1 bg-black/20 rounded-sm">{card.effectText}</div>
-                    {card.type === CardType.ENTITY && (<div className="flex justify-between font-orbitron font-black mt-auto text-[10px] pt-1 border-t border-white/10"><span className="text-yellow-500">A:{card.atk}</span><span className="text-blue-400">D:{card.def}</span></div>)}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <Hand
+            cards={activePlayer.hand}
+            activePlayerIndex={gameState.activePlayerIndex}
+            selectedHandIndex={selectedHandIndex}
+            onCardClick={(i) => { setSelectedHandIndex(i); setSelectedFieldSlot(null); }}
+            canPlayCard={canPlayCard}
+            domRef={(i) => setRef(`${gameState.activePlayerIndex}-hand-${i}`)}
+            containerRef={setRef(`${gameState.activePlayerIndex}-hand-container`)}
+            drawStartIndex={drawStartIndex}
+          />
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
           {flyingCards.map(fc => (
@@ -1182,22 +807,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             </div>
           )}
 
-          {/* Effect Activation Confirmation Modal */}
-          {triggeredEffect && !discardSelectionReq && !handSelectionReq && (
-            <div className={`fixed inset-0 z-[70] flex flex-col items-center justify-center transition-opacity duration-300 ${isPeekingField ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-              <div className="bg-slate-900 border-2 border-yellow-600 p-6 flex flex-col items-center space-y-4 shadow-[0_0_40px_rgba(234,179,8,0.5)]">
-                <h3 className="text-2xl font-orbitron font-black text-yellow-500 uppercase tracking-tighter">{triggeredEffect.name}</h3>
-                <p className="text-white/90 font-mono text-center max-w-sm font-bold text-sm">{triggeredEffect.effectText}</p>
-                <div className="flex flex-col w-full space-y-3">
-                  <button onClick={() => resolveEffect(triggeredEffect)} disabled={!checkActivationConditions(gameState, triggeredEffect, gameState.activePlayerIndex)} className={`px-8 py-3 text-white font-orbitron font-black uppercase tracking-widest border-b-4 ${!checkActivationConditions(gameState, triggeredEffect, gameState.activePlayerIndex) ? 'bg-gray-600 border-gray-800 opacity-50 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-500 border-yellow-800'}`}>ACTIVATE ABILITY</button>
-                  <div className="flex space-x-3 w-full">
-                    <button onClick={() => setIsPeekingField(true)} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-orbitron text-[10px] font-bold uppercase tracking-widest border border-white/10">Peek Field</button>
-                    <button onClick={() => { setTriggeredEffect(null); setPendingEffectCard(null); setIsPeekingField(false); }} className="flex-1 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-400 font-orbitron text-[10px] font-bold uppercase tracking-widest border border-red-500/30">Decline</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {isPeekingField && (
             <button onClick={() => setIsPeekingField(false)} className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] px-10 py-5 bg-yellow-600 text-white font-orbitron font-black shadow-2xl border-4 border-yellow-400 uppercase tracking-widest animate-pulse">Return to Activation</button>
@@ -1285,9 +895,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                                 {gameState.players[selectedFieldSlot.playerIndex].entityZones[selectedFieldSlot.index]?.position === Position.ATTACK &&
                                   ['entity_05'].includes(gameState.players[selectedFieldSlot.playerIndex].entityZones[selectedFieldSlot.index]!.card.id) && (
                                     <button
-                                      disabled={actionsDisabled || !checkActivationConditions(gameState, gameState.players[selectedFieldSlot.playerIndex].entityZones[selectedFieldSlot.index]!.card, selectedFieldSlot.playerIndex)}
+                                      disabled={actionsDisabled}
                                       onClick={() => activateOnField(selectedFieldSlot.playerIndex, selectedFieldSlot.type, selectedFieldSlot.index)}
-                                      className={`w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-orbitron text-xs font-black tracking-widest uppercase mt-2 shadow-[0_0_20px_rgba(147,51,234,0.3)] ${(actionsDisabled || !checkActivationConditions(gameState, gameState.players[selectedFieldSlot.playerIndex].entityZones[selectedFieldSlot.index]!.card, selectedFieldSlot.playerIndex)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      className={`w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-orbitron text-xs font-black tracking-widest uppercase mt-2 shadow-[0_0_20px_rgba(147,51,234,0.3)] ${(actionsDisabled) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                       ACTIVATE EFFECT
                                     </button>
@@ -1297,7 +907,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                             {/* Activation triggers for Action/Condition slots */}
                             {selectedFieldSlot.type === 'action' &&
                               (gameState.players[selectedFieldSlot.playerIndex].actionZones[selectedFieldSlot.index]!.position === Position.HIDDEN || gameState.players[selectedFieldSlot.playerIndex].actionZones[selectedFieldSlot.index]!.card.type === CardType.CONDITION) && (
-                                <button disabled={actionsDisabled || !checkActivationConditions(gameState, gameState.players[selectedFieldSlot.playerIndex].actionZones[selectedFieldSlot.index]!.card, selectedFieldSlot.playerIndex)} onClick={() => activateOnField(selectedFieldSlot.playerIndex, 'action', selectedFieldSlot.index)} className={`w-full py-4 bg-green-600 hover:bg-green-700 text-white font-orbitron text-xs font-black tracking-widest uppercase ${actionsDisabled || !checkActivationConditions(gameState, gameState.players[selectedFieldSlot.playerIndex].actionZones[selectedFieldSlot.index]!.card, selectedFieldSlot.playerIndex) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                <button disabled={actionsDisabled} onClick={() => activateOnField(selectedFieldSlot.playerIndex, 'action', selectedFieldSlot.index)} className={`w-full py-4 bg-green-600 hover:bg-green-700 text-white font-orbitron text-xs font-black tracking-widest uppercase ${actionsDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                   ACTIVATE {gameState.players[selectedFieldSlot.playerIndex].actionZones[selectedFieldSlot.index]!.card.type}
                                 </button>
                               )}
@@ -1328,7 +938,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                             ) : (
                               <>
                                 {selectedCard.type !== CardType.CONDITION && (
-                                  <button disabled={actionsDisabled || !checkActivationConditions(gameState, selectedCard, gameState.activePlayerIndex)} onClick={() => handleActionFromHand(selectedCard, 'activate')} className={`w-full py-4 bg-green-600 hover:bg-green-700 text-white font-orbitron text-xs font-black tracking-widest uppercase shadow-[0_0_20px_rgba(74,222,128,0.2)] ${actionsDisabled || !checkActivationConditions(gameState, selectedCard, gameState.activePlayerIndex) ? 'opacity-50 cursor-not-allowed' : ''}`}>ACTIVATE ACTION</button>
+                                  <button disabled={actionsDisabled} onClick={() => handleActionFromHand(selectedCard, 'activate')} className={`w-full py-4 bg-green-600 hover:bg-green-700 text-white font-orbitron text-xs font-black tracking-widest uppercase shadow-[0_0_20px_rgba(74,222,128,0.2)] ${actionsDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>ACTIVATE ACTION</button>
                                 )}
                                 <button disabled={actionsDisabled} onClick={() => handleActionFromHand(selectedCard, 'set')} className={`w-full py-4 bg-slate-800 hover:bg-slate-700 border border-white/20 font-orbitron text-xs uppercase font-bold text-slate-300 ${actionsDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>SET CARD</button>
                               </>
@@ -1404,117 +1014,6 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
               <CardDetail key={i} card={card} />
             ))}
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-/**
- * DeckPile Sub-component: Visualizes the deck with a card count.
- */
-const DeckPile: React.FC<{ count: number, label: string }> = ({ count, label }) => (
-  <div className="flex flex-col items-center group relative">
-    <div className={`w-32 aspect-[2/3] card-back rounded border-2 border-slate-400 flex items-center justify-center shadow-xl transition-transform group-hover:scale-105 relative`}>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-black text-white text-3xl font-orbitron drop-shadow-md z-20 pointer-events-none">{count}</span>
-      </div>
-    </div>
-    <span className="text-[11px] font-orbitron mt-2 text-white font-black drop-shadow-md tracking-widest">{label.toUpperCase()}</span>
-  </div>
-);
-
-/**
- * Pile Sub-component: Represents Discard and Void piles. Supports glow animations.
- */
-const Pile: React.FC<{ count: number, label: string, color: string, icon: string, isFlashing?: boolean, onClick?: () => void, domRef?: (el: HTMLElement | null) => void }> = ({ count, label, color, icon, isFlashing, onClick, domRef }) => (
-  <div ref={domRef} className="flex flex-col items-center group cursor-pointer" onClick={onClick}>
-    <div className={`w-32 aspect-[2/3] bg-${color}-900/40 border border-white/10 rounded flex flex-col items-center justify-center shadow-xl transition-all group-hover:scale-105 text-white font-orbitron ${isFlashing ? (color === 'slate' ? 'flash-gold' : 'flash-purple') : ''}`}>
-      <i className={`fa-solid ${icon} text-2xl mb-1 opacity-60`}></i>
-      <span className="text-xl font-black">{count}</span>
-    </div>
-    <span className="text-[11px] font-orbitron mt-2 text-white font-black drop-shadow-md tracking-widest">{label.toUpperCase()}</span>
-  </div>
-);
-
-/**
- * Zone Sub-component: A single slot on the field. Handles display of cards in Attack/Defense/Hidden positions.
- */
-const Zone: React.FC<{
-  card: PlacedCard | null;
-  type: 'entity' | 'action';
-  owner: 'active' | 'opponent';
-  onClick?: () => void;
-  isSelected?: boolean;
-  isSelectable?: boolean;
-  isTributeSelected?: boolean;
-  isDropTarget?: boolean;
-  domRef?: (el: HTMLElement | null) => void;
-}> = ({ card, type, owner, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, domRef }) => {
-  // Track previous stats to trigger pop animations
-  const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
-  const [popStats, setPopStats] = useState<{ atk: boolean, def: boolean }>({ atk: false, def: false });
-
-  useEffect(() => {
-    if (!card) {
-      prevStats.current = null;
-      return;
-    }
-
-    if (prevStats.current && prevStats.current.id === card.card.instanceId) {
-      if (card.card.atk !== prevStats.current.atk) {
-        setPopStats(prev => ({ ...prev, atk: true }));
-        setTimeout(() => setPopStats(prev => ({ ...prev, atk: false })), 800);
-      }
-      if (card.card.def !== prevStats.current.def) {
-        setPopStats(prev => ({ ...prev, def: true }));
-        setTimeout(() => setPopStats(prev => ({ ...prev, def: false })), 800);
-      }
-    }
-    prevStats.current = { id: card.card.instanceId, atk: card.card.atk, def: card.card.def };
-  }, [card]);
-
-  return (
-    <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col overflow-hidden relative ${isSelected ? 'border-yellow-400 scale-105 shadow-[0_0_30px_rgba(234,179,8,0.5)] z-10' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-10' : isSelectable ? 'border-red-500 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.4)] z-10' : isDropTarget ? 'zone-drop-target z-10' : 'border-white/5 bg-black/40 hover:border-white/20'}`}>
-      {card ? (
-        <div className={`w-full h-full p-1 flex flex-col transition-all duration-700 relative ${card.position === Position.HIDDEN ? 'card-back' : card.card.type === CardType.ENTITY ? 'card-entity' : card.card.type === CardType.ACTION ? 'card-action' : 'card-condition'} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.ENTITY)) ? 'rotate-90 scale-90' : ''}`}>
-          <div className="card-inner-border"></div>
-          {card.position === Position.HIDDEN ? (<div className="flex-1 flex items-center justify-center opacity-40"><i className="fa-solid fa-lock text-2xl text-slate-800"></i></div>) : (
-            <div className="flex flex-col h-full text-white relative z-10">
-              <div className="card-title-box px-0.5 mb-0.5 border-b border-white/20"><div className="text-[6px] font-orbitron font-bold leading-tight truncate">{card.card.name}</div></div>
-              <div className="flex-1 text-[5px] font-black leading-[1.2] opacity-80 overflow-hidden bg-black/20 p-0.5 mb-0.5 font-mono">{card.card.effectText}</div>
-              {card.card.type === CardType.ENTITY && (<div className="flex justify-between text-[7px] font-black p-0.5 bg-black/40 border border-white/10 font-orbitron"><span className={`text-yellow-500 ${popStats.atk ? 'stat-changed' : ''}`}>A:{card.card.atk}</span><span className={`text-blue-400 ${popStats.def ? 'stat-changed' : ''}`}>D:{card.card.def}</span></div>)}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center space-y-2 opacity-20"><i className={`${type === 'entity' ? 'fa-solid fa-chess-pawn text-3xl' : 'fa-solid fa-wand-sparkles text-2xl'} text-white`}></i><span className="text-[10px] font-orbitron tracking-widest text-white font-black drop-shadow-sm">{type.toUpperCase()}</span></div>
-      )}
-    </div>
-  );
-};
-
-/**
- * CardDetail Sub-component: A high-fidelity representation of a card.
- * Used in the Hand, the Sidebar, and the Database Gallery.
- */
-export const CardDetail: React.FC<{ card: Card, isSet?: boolean }> = ({ card, isSet }) => {
-  // Handle hidden state for opponent's Set cards
-  if (isSet) return (<div className="p-8 rounded-sm bg-slate-100 border-4 border-slate-400 flex flex-col items-center space-y-8 shadow-inner"><div className="w-24 h-24 rounded-sm border-2 border-slate-300 flex items-center justify-center bg-white/50 rotate-45 shadow-lg"><i className="fa-solid fa-eye-slash text-5xl opacity-40 -rotate-45 text-slate-600"></i></div><div className="text-center space-y-2"><h3 className="text-3xl font-orbitron font-black text-slate-600 uppercase tracking-widest">MASKED DATA</h3><p className="font-bold text-xs text-slate-500 uppercase tracking-[0.3em]">Signature Hidden</p></div></div>);
-
-  return (
-    <div className={`p-4 rounded border-4 shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-4 relative overflow-hidden transition-all aspect-[2/3] ${card.type === CardType.ENTITY ? 'card-entity glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''}`}>
-      <div className="card-inner-border"></div>
-      <div className="card-title-box p-3 relative z-10 border-b-2 border-white/10 flex justify-between items-center">
-        <h3 className="text-xs font-orbitron font-bold leading-tight tracking-tight text-white truncate mr-2">{card.name}</h3>
-        {card.type === CardType.ENTITY && <span className="text-xs font-orbitron font-black text-yellow-500 whitespace-nowrap">Lv.{card.level}</span>}
-      </div>
-      <div className="flex-1 text-[11px] font-bold leading-relaxed text-white/90 p-3 bg-black/40 border border-white/10 relative z-10 font-mono shadow-inner overflow-y-auto scrollbar-hide">
-        {card.effectText}
-      </div>
-      {card.type === CardType.ENTITY && (
-        <div className="flex justify-center items-center py-2 bg-black/50 border border-white/10 rounded-sm relative z-10">
-          <span className="font-orbitron font-black text-white text-md">ATK: {card.atk} / DEF: {card.def}</span>
         </div>
       )}
     </div>

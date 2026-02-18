@@ -1,23 +1,23 @@
 
 export enum CardType {
-  ENTITY = 'ENTITY',
-  ACTION = 'ACTION',
-  CONDITION = 'CONDITION'
+  ENTITY = 'Entity',
+  ACTION = 'Action',
+  CONDITION = 'Condition'
 }
 
 export enum Phase {
-  DRAW = 'DRAW',
-  STANDBY = 'STANDBY',
-  MAIN1 = 'MAIN1',
-  BATTLE = 'BATTLE',
-  MAIN2 = 'MAIN2',
-  END = 'END'
+  DRAW = 'Draw',
+  STANDBY = 'Standby',
+  MAIN1 = 'Main1',
+  BATTLE = 'Battle',
+  MAIN2 = 'Main2',
+  END = 'End'
 }
 
 export enum Position {
-  ATTACK = 'ATTACK',
-  DEFENSE = 'DEFENSE',
-  HIDDEN = 'HIDDEN'
+  ATTACK = 'Attack',
+  DEFENSE = 'Defense',
+  HIDDEN = 'Hidden'
 }
 
 export interface Card {
@@ -75,7 +75,7 @@ export interface GameState {
 export type EffectResult = {
   newState: GameState;
   log: string;
-  requireTarget?: 'entity' | 'action' | 'any'; 
+  requireTarget?: 'entity' | 'action' | 'any';
   requireDiscardSelection?: {
     playerIndex: number;
     filter: (c: Card) => boolean;
