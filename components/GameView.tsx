@@ -134,22 +134,16 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             {activePlayer.hand.map((card, i) => {
               const isActivatable = actions.canPlayCard(card);
               return (
-                <div key={card.instanceId}
-                  ref={actions.setRef(`${gameState.activePlayerIndex}-hand-${i}`)}
+                <CardDetail
+                  key={card.instanceId}
+                  card={card}
                   onClick={() => { actions.setSelectedHandIndex(i); actions.setSelectedFieldSlot(null); }}
-                  className={`w-36 aspect-[2/3] rounded transition-all duration-300 cursor-pointer relative overflow-hidden border-2 border-slate-300 shadow-2xl pointer-events-auto 
+                  compact={true}
+                  className={`w-36 rounded transition-all duration-300 cursor-pointer border-2 border-slate-300 shadow-2xl pointer-events-auto 
                      ${state.selectedHandIndex === i ? 'transform translate-y-[-20%] z-20 ring-4 ring-yellow-500' : 'transform translate-y-[30%] hover:translate-y-[0%] z-10 hover:z-20'}
-                     ${card.type === CardType.ENTITY ? 'card-entity' : card.type === CardType.ACTION ? 'card-action' : card.type === CardType.CONDITION ? 'card-condition' : ''}
-                     ${isActivatable ? 'glow-activatable' : (card.type === CardType.ENTITY ? 'glow-gold' : card.type === CardType.ACTION ? 'glow-green' : 'glow-pink')}
+                     ${isActivatable ? 'glow-activatable' : ''}
                    `}
-                >
-                  <div className="card-inner-border"></div>
-                  <div className="p-2 flex flex-col h-full text-white relative z-10 text-[9px]">
-                    <div className="font-orbitron font-bold uppercase tracking-tight py-1 mb-1 border-b border-white/10 text-center truncate">{card.name}</div>
-                    <div className="flex-1 opacity-80 font-bold leading-tight font-mono p-1 bg-black/20 rounded-sm">{card.effectText}</div>
-                    {card.type === CardType.ENTITY && (<div className="flex justify-between font-orbitron font-black mt-auto text-[10px] pt-1 border-t border-white/10"><span className="text-yellow-500">A:{card.atk}</span><span className="text-blue-400">D:{card.def}</span></div>)}
-                  </div>
-                </div>
+                />
               )
             })}
           </div>

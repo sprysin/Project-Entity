@@ -1,5 +1,5 @@
 
-import { CardType, Card } from './types';
+import { CardType, Card, Attribute, EntityType } from './types';
 
 export const BASE_CARDS: Card[] = [
   {
@@ -8,6 +8,8 @@ export const BASE_CARDS: Card[] = [
     name: 'Solstice Sentinel',
     type: CardType.ENTITY,
     level: 4,
+    attribute: Attribute.LIGHT,
+    entityType: EntityType.MECHANICAL,
     atk: 140,
     def: 110,
     effectText: 'ON NORMAL SUMMON: Gain 100 LP.',
@@ -19,6 +21,8 @@ export const BASE_CARDS: Card[] = [
     name: 'High King',
     type: CardType.ENTITY,
     level: 5,
+    attribute: Attribute.NORMAL,
+    entityType: EntityType.WARRIOR,
     atk: 170,
     def: 50,
     effectText: 'ON SUMMON: Target 1 face-up monster on the field; it loses 20 ATK.',
@@ -30,6 +34,8 @@ export const BASE_CARDS: Card[] = [
     name: 'Force Fire Sparker',
     type: CardType.ENTITY,
     level: 2,
+    attribute: Attribute.FIRE,
+    entityType: EntityType.DEMON,
     atk: 30,
     def: 150,
     effectText: 'ON NORMAL SUMMON: Deal 10 damage for each set Action/Condition on opponent\'s field.',
@@ -41,6 +47,8 @@ export const BASE_CARDS: Card[] = [
     name: 'Void Caster',
     type: CardType.ENTITY,
     level: 3,
+    attribute: Attribute.DARK,
+    entityType: EntityType.MAGICIAN,
     atk: 100,
     def: 80,
     effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',
@@ -52,6 +60,8 @@ export const BASE_CARDS: Card[] = [
     name: 'High Voltage - Charged Dragon',
     type: CardType.ENTITY,
     level: 8,
+    attribute: Attribute.ELECTRIC,
+    entityType: EntityType.DRAGON,
     atk: 250,
     def: 190,
     effectText: 'ON FIELD: Discard 1 card; this card gains 10 ATK.',
@@ -84,6 +94,7 @@ export const BASE_CARDS: Card[] = [
     id: 'condition_01',
     name: 'Reinforcement',
     type: CardType.CONDITION,
+    isLingering: true,
     level: 0,
     atk: 0,
     def: 0,
@@ -95,6 +106,7 @@ export const BASE_CARDS: Card[] = [
     id: 'condition_02',
     name: 'Void Call',
     type: CardType.CONDITION,
+    isLingering: false,
     level: 0,
     atk: 0,
     def: 0,

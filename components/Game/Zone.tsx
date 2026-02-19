@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlacedCard, Position, CardType } from '../../types';
+import { CardDetail } from './CardDetail';
 
 /**
  * Zone Sub-component: A single slot on the field. Handles display of cards in Attack/Defense/Hidden positions.
@@ -41,14 +42,17 @@ export const Zone: React.FC<{
     return (
         <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col overflow-hidden relative ${isSelected ? 'border-yellow-400 scale-105 shadow-[0_0_30px_rgba(234,179,8,0.5)] z-10' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-10' : isSelectable ? 'border-red-500 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.4)] z-10' : isDropTarget ? 'zone-drop-target z-10' : 'border-white/5 bg-black/40 hover:border-white/20'}`}>
             {card ? (
-                <div className={`w-full h-full p-1 flex flex-col transition-all duration-700 relative ${card.position === Position.HIDDEN ? 'card-back' : card.card.type === CardType.ENTITY ? 'card-entity' : card.card.type === CardType.ACTION ? 'card-action' : 'card-condition'} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.ENTITY)) ? 'rotate-90 scale-90' : ''}`}>
-                    <div className="card-inner-border"></div>
-                    {card.position === Position.HIDDEN ? (<div className="flex-1 flex items-center justify-center opacity-40"><i className="fa-solid fa-lock text-2xl text-slate-800"></i></div>) : (
-                        <div className="flex flex-col h-full text-white relative z-10">
-                            <div className="card-title-box px-0.5 mb-0.5 border-b border-white/20"><div className="text-[6px] font-orbitron font-bold leading-tight truncate">{card.card.name}</div></div>
-                            <div className="flex-1 text-[5px] font-black leading-[1.2] opacity-80 overflow-hidden bg-black/20 p-0.5 mb-0.5 font-mono">{card.card.effectText}</div>
-                            {card.card.type === CardType.ENTITY && (<div className="flex justify-between text-[7px] font-black p-0.5 bg-black/40 border border-white/10 font-orbitron"><span className={`text-yellow-500 ${popStats.atk ? 'stat-changed' : ''}`}>A:{card.card.atk}</span><span className={`text-blue-400 ${popStats.def ? 'stat-changed' : ''}`}>D:{card.card.def}</span></div>)}
-                        </div>
+                <div className={`w-full h-full transition-all duration-700 relative ${card.position === Position.HIDDEN ? 'card-back' : ''} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.ENTITY)) ? 'rotate-90 scale-90' : ''}`}>
+                    {card.position === Position.HIDDEN ? (
+                        <div className="flex-1 flex items-center justify-center opacity-40"><i className="fa-solid fa-lock text-2xl text-slate-800"></i></div>
+                    ) : (
+                        <CardDetail
+                            card={card.card}
+                            highlightAtk={popStats.atk}
+                            highlightDef={popStats.def}
+                            className="w-full h-full"
+                            compact={true}
+                        />
                     )}
                 </div>
             ) : (

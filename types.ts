@@ -20,12 +20,46 @@ export enum Position {
   HIDDEN = 'HIDDEN'
 }
 
+
+export enum Attribute {
+  FIRE = 'FIRE',
+  WATER = 'WATER',
+  EARTH = 'EARTH',
+  AIR = 'AIR',
+  ELECTRIC = 'ELECTRIC',
+  NORMAL = 'NORMAL',
+  DARK = 'DARK',
+  LIGHT = 'LIGHT'
+}
+
+export enum EntityType {
+  WARRIOR = 'WARRIOR',
+  MAGICIAN = 'MAGICIAN',
+  DRAGON = 'DRAGON',
+  MECHANICAL = 'MECHANICAL',
+  DEMON = 'DEMON',
+  ANGEL = 'ANGEL',
+  PLANT = 'PLANT',
+  FISH = 'FISH',
+  BEAST = 'BEAST',
+  ELEMENTAL = 'ELEMENTAL',
+  PRIMAL = 'PRIMAL',
+  AVION = 'AVION',
+  UNDEAD = 'UNDEAD',
+  BUG = 'BUG'
+}
+
+export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 export interface Card {
   instanceId: string;
   id: string;
   name: string;
   type: CardType;
-  level: number;
+  level: Level;
+  attribute?: Attribute;
+  entityType?: EntityType;
+  isLingering?: boolean;
   atk: number;
   def: number;
   effectText: string;
