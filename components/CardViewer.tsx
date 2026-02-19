@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { BASE_CARDS } from '../constants';
-import { CardDetail } from './GameView';
+import { CardDetail } from './Game/CardDetail';
 
 interface CardViewerProps {
   onBack: () => void;
@@ -22,7 +22,7 @@ const CardViewer: React.FC<CardViewerProps> = ({ onBack }) => {
             <h2 className="text-6xl font-orbitron font-bold text-yellow-500 tracking-tighter drop-shadow-[0_0_20px_rgba(234,179,8,0.3)] uppercase">Database</h2>
             <p className="text-slate-400 font-orbitron text-xs tracking-[0.4em] uppercase">Central Entity Index</p>
           </div>
-          <button 
+          <button
             onClick={onBack}
             className="px-10 py-4 bg-slate-900 hover:bg-slate-800 text-yellow-500 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-yellow-500/30 uppercase tracking-widest"
           >
