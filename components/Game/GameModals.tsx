@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, GameState, CardType } from '../../types';
 import { CardDetail } from './CardDetail';
-import { checkActivationConditions } from '../../cardEffects';
+import { checkActivationConditions } from '../../hooks/cardHelpers';
 
 interface WinnerModalProps {
     winner: string | null;

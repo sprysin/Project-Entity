@@ -75,7 +75,7 @@ export interface GameState {
 export type EffectResult = {
   newState: GameState;
   log: string;
-  requireTarget?: 'entity' | 'action' | 'any'; 
+  requireTarget?: 'entity' | 'action' | 'any';
   requireDiscardSelection?: {
     playerIndex: number;
     filter: (c: Card) => boolean;
@@ -86,3 +86,28 @@ export type EffectResult = {
     title: string;
   };
 };
+
+export interface CardContext {
+  card: Card;
+  playerIndex: number;
+  target?: { playerIndex: number, type: 'entity' | 'action', index: number };
+  discardIndex?: number;
+  handIndex?: number;
+}
+
+export interface IEffect {
+  // Triggered when an Entity is Normal Summoned or Set
+  onSummon?(state: GameState, context: CardContext): EffectResult;
+
+  // Triggered when a card is Tributed
+  onTribute?(state: GameState, context: CardContext): EffectResult;
+
+  // Triggered when an Effect is manually activated (Action key, or Entity Ignition effect)
+  onActivate?(state: GameState, context: CardContext): EffectResult;
+
+  // Triggered during Phase changes (e.g. End Phase maintenance)
+  onPhaseChange?(state: GameState, context: CardContext): EffectResult;
+
+  // Static check if effect can be activated
+  canActivate?(state: GameState, context: CardContext): boolean;
+}

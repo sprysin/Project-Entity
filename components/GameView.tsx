@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { CardType, Phase, Position, Player, Card } from '../types';
 import { useGameLogic } from '../hooks/useGameLogic';
-import { checkActivationConditions } from '../cardEffects';
+import { checkActivationConditions } from '../hooks/cardHelpers';
 import { CardDetail } from './Game/CardDetail';
 import { Pile, DeckPile } from './Game/Pile';
 import { Zone } from './Game/Zone';
