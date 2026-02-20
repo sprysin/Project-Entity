@@ -112,8 +112,34 @@ export const BASE_CARDS: Card[] = [
     def: 0,
     effectText: 'Target 1 Set Action/Condition card; send it to the Void.',
     ownerId: ''
+  },
+  {
+    instanceId: '',
+    id: 'entity_06',
+    name: 'Dual-Mode Beast',
+    type: CardType.ENTITY,
+    level: 9,
+    attribute: Attribute.DARK,
+    entityType: EntityType.BEAST,
+    atk: 240,
+    def: 170,
+    effectText: 'Discard 1 card; Target 1 attack position monster on your opponents field, switch it to defense position.',
+    ownerId: ''
+  },
+  {
+    instanceId: '',
+    id: 'condition_03',
+    name: 'Dark Draw',
+    type: CardType.CONDITION,
+    isLingering: false,
+    level: 0,
+    atk: 0,
+    def: 0,
+    effectText: 'Pay 200 life points, draw 1 card for every face up DARK monster on the field.',
+    ownerId: ''
   }
 ];
+
 
 export const createDeck = (playerId: string): Card[] => {
   const deck: Card[] = [];

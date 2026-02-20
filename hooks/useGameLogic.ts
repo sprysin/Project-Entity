@@ -16,8 +16,12 @@ export const useGameLogic = () => {
     // Selection States
     const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
     const [selectedFieldSlot, setSelectedFieldSlot] = useState<{ playerIndex: number, type: 'entity' | 'action', index: number } | null>(null);
-    const [targetSelectMode, setTargetSelectMode] = useState<'attack' | 'tribute' | 'effect' | null>(null);
+    const [targetSelectMode, setTargetSelectMode] = useState<'attack' | 'tribute' | 'effect' | 'place_entity' | 'place_action' | null>(null);
     const [targetSelectType, setTargetSelectType] = useState<'entity' | 'action' | 'any'>('entity');
+
+    // Card Play (Manual Placement)
+    const [pendingPlayCard, setPendingPlayCard] = useState<Card | null>(null);
+    const [playMode, setPlayMode] = useState<'normal' | 'hidden' | 'activate' | 'set' | null>(null);
 
     // Tribute
     const [tributeSelection, setTributeSelection] = useState<number[]>([]);
@@ -27,6 +31,7 @@ export const useGameLogic = () => {
     // Effect Resolution
     const [triggeredEffect, setTriggeredEffect] = useState<Card | null>(null);
     const [pendingEffectCard, setPendingEffectCard] = useState<Card | null>(null);
+    const [pendingTriggerType, setPendingTriggerType] = useState<'summon' | 'activate' | 'phase' | null>(null);
     const [isPeekingField, setIsPeekingField] = useState(false);
 
     // Discard/Hand Selection
@@ -57,6 +62,7 @@ export const useGameLogic = () => {
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
             setHandSelectionReq, setSelectedHandSelectionIndex,
             pendingEffectCard, discardSelectionReq,
+            setPendingTriggerType, pendingTriggerType
         }
     );
 
@@ -72,7 +78,7 @@ export const useGameLogic = () => {
     const cardActions = useCardActions(
         gameState, setGameState, stableResolveEffect, addLog,
         animations.triggerVisual, animations.triggerShatter,
-        selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, isPeekingField
+        selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, isPeekingField, targetSelectMode
     );
 
     /** Helper to append messages to the game log. */
@@ -276,7 +282,8 @@ export const useGameLogic = () => {
         state: {
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType,
             tributeSelection, pendingTributeCard, tributeSummonMode,
-            triggeredEffect, pendingEffectCard, isPeekingField,
+            pendingPlayCard, playMode,
+            triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
             phaseFlash: animations.phaseFlash, turnFlash: animations.turnFlash,
             displayedLp: animations.displayedLp, lpScale: animations.lpScale, lpFlash: animations.lpFlash,
@@ -296,10 +303,15 @@ export const useGameLogic = () => {
             nextPhase, canPlayCard, resolveEffect,
             handleDiscardSelection, handleHandSelection,
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute') =>
-                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection }),
+                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode }),
             handleTributeSummon: () =>
-                cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, { setPendingTributeCard, setTributeSelection }),
-            handleActionFromHand: cardActions.handleActionFromHand,
+                cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, { setPendingTributeCard, setTributeSelection, setPendingPlayCard, setPlayMode }),
+            handleActionFromHand: (card: Card, mode: 'activate' | 'set') => cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode }),
+            handlePlacement: (slotIndex: number) =>
+                cardActions.handlePlacement(slotIndex, pendingPlayCard, playMode, {
+                    setPendingPlayCard, setPlayMode,
+                    setTriggeredEffect, setPendingTriggerType
+                }),
             activateOnField: cardActions.activateOnField,
             handleAttack: cardActions.handleAttack,
             addLog,

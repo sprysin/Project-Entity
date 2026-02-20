@@ -15,8 +15,9 @@ export const useCardActions = (
     selectedHandIndex: number | null,
     setSelectedHandIndex: (idx: number | null) => void,
     setSelectedFieldSlot: (slot: any) => void,
-    setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | null) => void,
+    setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | 'place_entity' | 'place_action' | null) => void,
     isPeekingField: boolean,
+    targetSelectMode: 'attack' | 'tribute' | 'effect' | 'place_entity' | 'place_action' | null,
 ) => {
     // Tribute summon state is managed in the main hook and passed down
     // These are provided by the main hook via closure
@@ -28,6 +29,8 @@ export const useCardActions = (
             setPendingTributeCard: (c: Card | null) => void,
             setTributeSummonMode: (m: 'normal' | 'hidden') => void,
             setTributeSelection: (s: number[]) => void,
+            setPendingPlayCard: (c: Card | null) => void,
+            setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
         }
     ) => {
         if (!gameState || isPeekingField) return;
@@ -56,27 +59,11 @@ export const useCardActions = (
             if (mode === 'hidden' && p.hiddenSummonUsed) { addLog("Set limit reached for this turn."); return; }
         }
 
-        const emptySlot = p.entityZones.findIndex(z => z === null);
-        if (emptySlot === -1) { addLog("SECTOR FULL: No field space available."); return; }
-
-        setGameState(prev => {
-            if (!prev) return null;
-            const players = JSON.parse(JSON.stringify(prev.players));
-            const ply = players[pIdx];
-            ply.entityZones[emptySlot] = {
-                card: { ...card }, position: mode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
-                hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: mode === 'hidden'
-            };
-            ply.hand = ply.hand.filter((h: Card) => h.instanceId !== card.instanceId);
-            if (card.level <= 4) {
-                if (mode === 'normal') ply.normalSummonUsed = true;
-                if (mode === 'hidden') ply.hiddenSummonUsed = true;
-            }
-            players[pIdx] = ply;
-            return { ...prev, players: players as [Player, Player] };
-        });
-
-        if (mode !== 'hidden') resolveEffect(card, undefined, undefined, undefined, 'summon');
+        // Enter Placement Mode
+        tributeState.setPendingPlayCard(card);
+        tributeState.setPlayMode(mode === 'normal' ? 'normal' : 'hidden');
+        setTargetSelectMode('place_entity');
+        addLog(`SELECT ZONE: Choose a slot for ${card.name}.`);
         setSelectedHandIndex(null);
     }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, setSelectedHandIndex, setTargetSelectMode]);
 
@@ -88,6 +75,8 @@ export const useCardActions = (
         tributeState: {
             setPendingTributeCard: (c: Card | null) => void,
             setTributeSelection: (s: number[]) => void,
+            setPendingPlayCard: (c: Card | null) => void,
+            setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
         }
     ) => {
         if (!gameState || !pendingTributeCard || isPeekingField) return;
@@ -95,11 +84,13 @@ export const useCardActions = (
         const required = pendingTributeCard.level <= 7 ? 1 : 2;
         if (tributeSelection.length !== required) return;
 
+        // Visual discard effect for tributes
         tributeSelection.forEach(idx => {
             const sacrifice = gameState.players[activeIndex].entityZones[idx];
             if (sacrifice) triggerVisual(`${activeIndex}-entity-${idx}`, `discard-${activeIndex}`, 'discard', sacrifice.card);
         });
 
+        // Execute Tribute Logic (remove sacrifices)
         setGameState(prev => {
             if (!prev) return null;
             const players = JSON.parse(JSON.stringify(prev.players));
@@ -108,67 +99,164 @@ export const useCardActions = (
                 const tribute = p.entityZones[idx];
                 if (tribute) { p.discard = [...p.discard, tribute.card]; p.entityZones[idx] = null; }
             });
-            const emptySlot = p.entityZones.findIndex((z: any) => z === null);
-            if (emptySlot !== -1) {
-                p.entityZones[emptySlot] = {
-                    card: { ...pendingTributeCard }, position: tributeSummonMode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
-                    hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: tributeSummonMode === 'hidden'
-                };
-                p.hand = p.hand.filter((h: Card) => h.instanceId !== pendingTributeCard.instanceId);
-            }
             players[activeIndex] = p;
             return { ...prev, players: players as [Player, Player] };
         });
 
+        // Transition to Placement Mode
+        tributeState.setPendingPlayCard(pendingTributeCard);
+        tributeState.setPlayMode(tributeSummonMode);
         tributeState.setPendingTributeCard(null);
         tributeState.setTributeSelection([]);
-        setTargetSelectMode(null);
+        setTargetSelectMode('place_entity');
+        addLog(`SELECT ZONE: Choose a slot for ${pendingTributeCard.name}.`);
         setSelectedHandIndex(null);
 
-        if (tributeSummonMode !== 'hidden') resolveEffect(pendingTributeCard, undefined, undefined, undefined, 'summon');
     }, [gameState, isPeekingField, setGameState, resolveEffect, triggerVisual, setSelectedHandIndex, setTargetSelectMode]);
 
     /** Handles playing Action or Condition cards from hand. */
-    const handleActionFromHand = useCallback((card: Card, mode: 'activate' | 'set') => {
+    const handleActionFromHand = useCallback((
+        card: Card, mode: 'activate' | 'set',
+        playState: {
+            setPendingPlayCard: (c: Card | null) => void,
+            setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
+        }
+    ) => {
         if (!gameState || isPeekingField) return;
         if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return;
         const activeIndex = gameState.activePlayerIndex;
 
         if (mode === 'set') {
-            triggerVisual(`${activeIndex}-hand-${selectedHandIndex}`, `${activeIndex}-action-0`, 'discard', card);
-            setGameState(prev => {
-                if (!prev) return null;
-                const players = JSON.parse(JSON.stringify(prev.players));
-                const p = players[prev.activePlayerIndex];
-                const slot = p.actionZones.findIndex((z: any) => z === null);
-                if (slot === -1) return prev;
-                p.actionZones[slot] = { card: { ...card }, position: Position.HIDDEN, hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: true };
-                p.hand = p.hand.filter((h: Card) => h.instanceId !== card.instanceId);
-                players[prev.activePlayerIndex] = p;
-                return { ...prev, players: players as [Player, Player] };
-            });
+            // Enter Placement Mode for Set
+            playState.setPendingPlayCard(card);
+            playState.setPlayMode('set');
+            setTargetSelectMode('place_action');
+            addLog(`SELECT ZONE: Choose a slot to Set ${card.name}.`);
         } else {
             if (card.type === CardType.CONDITION) return;
+
+            // Check activation conditions first
             const context: CardContext = { card, playerIndex: activeIndex };
             const effect = cardRegistry.getEffect(card.id);
             if (effect?.canActivate && !effect.canActivate(gameState, context)) {
                 addLog(`RESTRICTION: Activation conditions for ${card.name} not met.`);
                 return;
             }
-            if (selectedHandIndex !== null) triggerVisual(`${gameState.activePlayerIndex}-hand-${selectedHandIndex}`, `discard-${gameState.activePlayerIndex}`, 'discard', card);
+
+            // Enter Placement Mode for Activation
+            playState.setPendingPlayCard(card);
+            playState.setPlayMode('activate');
+            setTargetSelectMode('place_action');
+            addLog(`SELECT ZONE: Choose a slot to Activate ${card.name}.`);
+        }
+        setSelectedHandIndex(null);
+    }, [gameState, isPeekingField, selectedHandIndex, setGameState, resolveEffect, addLog, triggerVisual, setSelectedHandIndex, setTargetSelectMode]);
+
+    /** Executes the actual placement of the card into the selected slot. */
+    const handlePlacement = useCallback((
+        slotIndex: number,
+        pendingPlayCard: Card | null,
+        playMode: 'normal' | 'hidden' | 'activate' | 'set' | null,
+        playState: {
+            setPendingPlayCard: (c: Card | null) => void,
+            setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
+            setTriggeredEffect?: (c: Card | null) => void,
+            setPendingTriggerType?: (t: 'summon' | 'activate' | 'phase' | null) => void,
+        }
+    ) => {
+        if (!gameState || !pendingPlayCard || !playMode) return;
+        const pIdx = gameState.activePlayerIndex;
+
+        if (targetSelectMode === 'place_entity' && pendingPlayCard.type === CardType.ENTITY) {
             setGameState(prev => {
                 if (!prev) return null;
                 const players = JSON.parse(JSON.stringify(prev.players));
-                const p = players[prev.activePlayerIndex];
-                p.hand = p.hand.filter((h: Card) => h.instanceId !== card.instanceId);
-                p.discard = [...p.discard, { ...card }];
-                players[prev.activePlayerIndex] = p;
+                const p = players[pIdx];
+                if (p.entityZones[slotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; } // Should be prevented by UI
+
+                p.entityZones[slotIndex] = {
+                    card: { ...pendingPlayCard }, position: playMode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
+                    hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: playMode === 'hidden'
+                };
+                p.hand = p.hand.filter((h: Card) => h.instanceId !== pendingPlayCard.instanceId);
+
+                // Mark summons used
+                if (playMode === 'normal') {
+                    if (pendingPlayCard.level <= 4) p.normalSummonUsed = true;
+                    // If level >= 5, it counts as a tribute summon which might track separately or as normal.
+                    // For now, let's treat it as using the normal summon slot.
+                    else p.normalSummonUsed = true;
+                }
+                if (playMode === 'hidden') {
+                    if (pendingPlayCard.level <= 4) p.hiddenSummonUsed = true;
+                    else p.hiddenSummonUsed = true;
+                }
+
+                players[pIdx] = p;
                 return { ...prev, players: players as [Player, Player] };
             });
-            resolveEffect(card, undefined, undefined, undefined, 'activate');
+
+            if (playMode !== 'hidden') {
+                const effect = cardRegistry.getEffect(pendingPlayCard.id);
+                if (effect?.onSummon && playState.setTriggeredEffect && playState.setPendingTriggerType) {
+                    playState.setPendingTriggerType('summon');
+                    playState.setTriggeredEffect(pendingPlayCard);
+                } else {
+                    resolveEffect(pendingPlayCard, undefined, undefined, undefined, 'summon');
+                }
+            }
+
+        } else if (targetSelectMode === 'place_action') {
+            setGameState(prev => {
+                if (!prev) return null;
+                const players = JSON.parse(JSON.stringify(prev.players));
+                const p = players[pIdx];
+                if (p.actionZones[slotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; }
+
+                if (playMode === 'set') {
+                    triggerVisual(`${pIdx}-hand-container`, `${pIdx}-action-${slotIndex}`, 'discard', pendingPlayCard); // Visual move
+                    p.actionZones[slotIndex] = { card: { ...pendingPlayCard }, position: Position.HIDDEN, hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: true };
+                    p.hand = p.hand.filter((h: Card) => h.instanceId !== pendingPlayCard.instanceId);
+                } else {
+                    // Activate Action
+                    triggerVisual(`${pIdx}-hand-container`, `${pIdx}-action-${slotIndex}`, 'discard', pendingPlayCard);
+                    p.actionZones[slotIndex] = { card: { ...pendingPlayCard }, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: false }; // Place temporarily
+                    p.hand = p.hand.filter((h: Card) => h.instanceId !== pendingPlayCard.instanceId);
+                    // Do not add to discard here; handle post-resolution cleanup
+                }
+                players[pIdx] = p;
+                return { ...prev, players: players as [Player, Player] };
+            });
+
+            if (playMode === 'activate') {
+                resolveEffect(pendingPlayCard, undefined, undefined, undefined, 'activate');
+
+                if (!pendingPlayCard.isLingering) {
+                    setTimeout(() => {
+                        triggerVisual(`${pIdx}-action-${slotIndex}`, `discard-${pIdx}`, 'discard', pendingPlayCard!);
+                        setGameState(current => {
+                            if (!current) return null;
+                            const players = JSON.parse(JSON.stringify(current.players));
+                            const ply = players[pIdx];
+                            if (ply.actionZones[slotIndex] !== null) {
+                                ply.discard = [...ply.discard, { ...ply.actionZones[slotIndex].card }];
+                                ply.actionZones[slotIndex] = null;
+                            }
+                            players[pIdx] = ply;
+                            return { ...current, players: players as [Player, Player] };
+                        });
+                    }, 1500);
+                }
+            }
         }
-        setSelectedHandIndex(null);
-    }, [gameState, isPeekingField, selectedHandIndex, setGameState, resolveEffect, addLog, triggerVisual, setSelectedHandIndex]);
+
+        // Reset State
+        playState.setPendingPlayCard(null);
+        playState.setPlayMode(null);
+        setTargetSelectMode(null);
+
+    }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, triggerVisual, setTargetSelectMode, targetSelectMode]);
+
 
     /** Activates a card already on the field (flipping or triggering). */
     const activateOnField = useCallback((playerIndex: number, type: 'entity' | 'action', index: number) => {
@@ -201,18 +289,21 @@ export const useCardActions = (
         resolveEffect(placed.card, undefined, undefined, undefined, 'activate');
 
         if (type !== 'entity') {
-            setTimeout(() => {
-                if (placed) triggerVisual(`${playerIndex}-${type}-${index}`, `discard-${playerIndex}`, 'discard', placed.card);
-                setGameState(prev => {
-                    if (!prev) return null;
-                    const players = JSON.parse(JSON.stringify(prev.players));
-                    const ply = players[playerIndex];
-                    const zn = ply.actionZones;
-                    if (zn[index]) { ply.discard = [...ply.discard, { ...zn[index]!.card }]; zn[index] = null; }
-                    players[playerIndex] = ply;
-                    return { ...prev, players: players as [Player, Player] };
-                });
-            }, 3000);
+            if (!placed.card.isLingering) {
+                setTimeout(() => {
+                    const currentPlaced = gameState?.players[playerIndex].actionZones[index];
+                    if (currentPlaced) triggerVisual(`${playerIndex}-${type}-${index}`, `discard-${playerIndex}`, 'discard', currentPlaced.card);
+                    setGameState(prev => {
+                        if (!prev) return null;
+                        const players = JSON.parse(JSON.stringify(prev.players));
+                        const ply = players[playerIndex];
+                        const zn = ply.actionZones;
+                        if (zn[index]) { ply.discard = [...ply.discard, { ...zn[index]!.card }]; zn[index] = null; }
+                        players[playerIndex] = ply;
+                        return { ...prev, players: players as [Player, Player] };
+                    });
+                }, 1500);
+            }
         }
         setSelectedFieldSlot(null);
     }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, triggerVisual, setSelectedFieldSlot]);
@@ -305,6 +396,7 @@ export const useCardActions = (
         handleSummon,
         handleTributeSummon,
         handleActionFromHand,
+        handlePlacement,
         activateOnField,
         handleAttack,
     };

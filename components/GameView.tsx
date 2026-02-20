@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { CardType, Phase, Position, Player, Card } from '../types';
 import { useGameLogic } from '../hooks/useGameLogic';
-import { checkActivationConditions } from '../hooks/cardHelpers';
+import { checkActivationConditions, hasOnActivateEffect } from '../hooks/cardHelpers';
 import { CardDetail } from './Game/CardDetail';
 import { Pile, DeckPile } from './Game/Pile';
 import { Zone } from './Game/Zone';
@@ -52,7 +52,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
                   {opponent.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" owner="opponent" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={state.targetSelectMode === 'effect' && (state.targetSelectType === 'any' || state.targetSelectType === 'action') && state.pendingEffectCard !== null} onClick={() => {
-                    if (state.targetSelectMode === 'effect' && state.pendingEffectCard) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'action', index: i });
+                    if (state.targetSelectMode === 'effect' && state.pendingEffectCard) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'action', index: i }, undefined, undefined, state.pendingTriggerType || 'activate');
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'action', index: i })
                   }} />))}
                 </div>
@@ -70,7 +70,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                       }
                     }
                     else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
-                      if (opponent.entityZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'entity', index: i });
+                      if (opponent.entityZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'entity', index: i }, undefined, undefined, state.pendingTriggerType || 'activate');
                     }
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'entity', index: i });
                   }} />))}
@@ -103,14 +103,26 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             <div className="flex flex-col items-center space-y-4">
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
-                  {activePlayer.entityZones.map((z, i) => (<Zone key={i} card={z} type="entity" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-entity-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === gameState.activePlayerIndex && state.selectedFieldSlot?.type === 'entity' && state.selectedFieldSlot?.index === i} isTributeSelected={state.tributeSelection.includes(i)} isSelectable={state.targetSelectMode === 'effect' && (state.targetSelectType === 'any' || state.targetSelectType === 'entity') && state.pendingEffectCard !== null} isDropTarget={selectedCard?.type === CardType.ENTITY && z === null} onClick={() => {
-                    if (state.targetSelectMode === 'tribute') { if (z) actions.setTributeSelection(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]); }
-                    else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
-                      if (activePlayer.entityZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i });
-                    }
-                    else if (selectedCard?.type === CardType.ENTITY && z === null) actions.handleSummon(selectedCard, 'normal');
-                    else { actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i } : null); actions.setSelectedHandIndex(null); }
-                  }} />))}
+                  {activePlayer.entityZones.map((z, i) => (<Zone key={i} card={z} type="entity" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-entity-${i}`)}
+                    isSelected={state.selectedFieldSlot?.playerIndex === gameState.activePlayerIndex && state.selectedFieldSlot?.type === 'entity' && state.selectedFieldSlot?.index === i}
+                    isTributeSelected={state.tributeSelection.includes(i)}
+                    isSelectable={state.targetSelectMode === 'effect' && (state.targetSelectType === 'any' || state.targetSelectType === 'entity') && state.pendingEffectCard !== null}
+                    isDropTarget={(selectedCard?.type === CardType.ENTITY && z === null) || (state.targetSelectMode === 'place_entity' && z === null)}
+                    onClick={() => {
+                      if (state.targetSelectMode === 'place_entity' && z === null) {
+                        actions.handlePlacement(i);
+                      } else if (state.targetSelectMode === 'tribute') {
+                        if (z) actions.setTributeSelection(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
+                      } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
+                        if (activePlayer.entityZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i }, undefined, undefined, state.pendingTriggerType || 'activate');
+                      } else if (selectedCard?.type === CardType.ENTITY && z === null && !state.targetSelectMode) {
+                        // Legacy click-to-summon backup (shouldn't trigger if logic is correct but good fallback)
+                        actions.handleSummon(selectedCard, 'normal');
+                      } else {
+                        actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i } : null);
+                        actions.setSelectedHandIndex(null);
+                      }
+                    }} />))}
                 </div>
                 <div className="flex space-x-6">
                   <Pile count={activePlayer.discard.length} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${gameState.activePlayerIndex}`)} isFlashing={state.discardFlash[gameState.activePlayerIndex]} onClick={() => actions.setViewingDiscardIdx(gameState.activePlayerIndex)} />
@@ -119,12 +131,26 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
               </div>
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
-                  {activePlayer.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === gameState.activePlayerIndex && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isDropTarget={(selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null} onClick={() => {
-                    if ((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null) actions.handleActionFromHand(selectedCard, selectedCard.type === CardType.CONDITION ? 'set' : 'activate');
-                    else { actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'action', index: i } : null); actions.setSelectedHandIndex(null); }
-                  }} />))}
+                  {activePlayer.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-action-${i}`)}
+                    isSelected={state.selectedFieldSlot?.playerIndex === gameState.activePlayerIndex && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i}
+                    isSelectable={state.targetSelectMode === 'effect' && (state.targetSelectType === 'any' || state.targetSelectType === 'action') && state.pendingEffectCard !== null}
+                    isDropTarget={((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null) || (state.targetSelectMode === 'place_action' && z === null)}
+                    onClick={() => {
+                      if (state.targetSelectMode === 'place_action' && z === null) {
+                        actions.handlePlacement(i);
+                      } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
+                        if (activePlayer.actionZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'action', index: i }, undefined, undefined, state.pendingTriggerType || 'activate');
+                      } else if ((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null && !state.targetSelectMode) {
+                        actions.handleActionFromHand(selectedCard, selectedCard.type === CardType.CONDITION ? 'set' : 'activate');
+                      } else {
+                        actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'action', index: i } : null);
+                        actions.setSelectedHandIndex(null);
+                      }
+                    }} />))}
                 </div>
-                <DeckPile count={activePlayer.deck.length} label="Deck" />
+                <div className="flex space-x-6 items-center">
+                  <DeckPile count={activePlayer.deck.length} label="Deck" />
+                </div>
               </div>
             </div>
           </div>
@@ -219,7 +245,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             triggeredEffect={state.triggeredEffect}
             gameState={gameState}
             isPeekingField={state.isPeekingField}
-            resolveEffect={actions.resolveEffect}
+            resolveEffect={(c) => actions.resolveEffect(c, undefined, undefined, undefined, state.pendingTriggerType || 'activate')}
             checkActivationConditions={checkActivationConditions}
             setIsPeekingField={actions.setIsPeekingField}
             setTriggeredEffect={actions.setTriggeredEffect}
@@ -306,7 +332,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
 
                                 {/* ACTIVATE ENTITY EFFECT BUTTON (For entities with On Field effects like Dragon) */}
                                 {gameState.players[state.selectedFieldSlot.playerIndex].entityZones[state.selectedFieldSlot.index]?.position === Position.ATTACK &&
-                                  ['entity_05'].includes(gameState.players[state.selectedFieldSlot.playerIndex].entityZones[state.selectedFieldSlot.index]!.card.id) && (
+                                  hasOnActivateEffect(gameState.players[state.selectedFieldSlot.playerIndex].entityZones[state.selectedFieldSlot.index]!.card) && (
                                     <button
                                       disabled={actionsDisabled || !checkActivationConditions(gameState, gameState.players[state.selectedFieldSlot.playerIndex].entityZones[state.selectedFieldSlot.index]!.card, state.selectedFieldSlot.playerIndex)}
                                       onClick={() => actions.activateOnField(state.selectedFieldSlot!.playerIndex, state.selectedFieldSlot!.type, state.selectedFieldSlot!.index)}

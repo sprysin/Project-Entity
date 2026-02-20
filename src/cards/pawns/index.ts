@@ -3,3 +3,4 @@ import './HighKing';
 import './ForceFireSparker';
 import './VoidCaster';
 import './ChargedDragon';
+import './DualModeBeast';
