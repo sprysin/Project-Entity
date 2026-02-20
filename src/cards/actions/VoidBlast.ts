@@ -1,16 +1,12 @@
-import { IEffect, GameState, CardContext, EffectResult } from '../../../types';
+import { IEffect } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
+import { buildEffect } from '../libs/Builder';
+import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
-    onActivate: (state: GameState, context: CardContext): EffectResult => {
-        const newState = JSON.parse(JSON.stringify(state));
-        const oppIdx = (state.activePlayerIndex + 1) % 2;
-        newState.players[oppIdx].lp -= 50;
-        return {
-            newState,
-            log: "VOID BLAST: 50 damage dealt."
-        };
-    }
+    onActivate: buildEffect([
+        Effect.DealDamage((state) => (state.activePlayerIndex + 1) % 2, 50, "VOID BLAST:")
+    ])
 };
 
 cardRegistry.register('action_01', effect);

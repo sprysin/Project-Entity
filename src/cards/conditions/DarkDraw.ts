@@ -1,43 +1,20 @@
-import { IEffect, GameState, CardContext, EffectResult, Position, Attribute } from '../../../types';
+import { IEffect, Attribute } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
+import { buildEffect, buildCondition } from '../libs/Builder';
+import { Require, Condition } from '../libs/Requirements';
+import { Cost } from '../libs/Costs';
+import { Effect } from '../libs/Effects';
+import { Query } from '../libs/Queries';
 
 const effect: IEffect = {
-    onActivate: (state: GameState, context: CardContext): EffectResult => {
-        const newState = JSON.parse(JSON.stringify(state));
-        const activePlayer = newState.players[state.activePlayerIndex];
-
-        if (activePlayer.lp <= 200) {
-            return {
-                newState,
-                log: "DARK DRAW: Not enough LP to activate."
-            };
-        }
-
-        // Pay cost
-        activePlayer.lp -= 200;
-
-        // Count face-up DARK monsters on the field
-        let darkCount = 0;
-        newState.players.forEach((player: any) => {
-            player.entityZones.forEach((zone: any) => {
-                if (zone && zone.position !== Position.HIDDEN && zone.card.attribute === Attribute.DARK) {
-                    darkCount++;
-                }
-            });
-        });
-
-        // Draw cards
-        const drawnCards = activePlayer.deck.splice(0, darkCount);
-        activePlayer.hand.push(...drawnCards);
-
-        return {
-            newState,
-            log: `DARK DRAW: Paid 200 LP. Drew ${drawnCards.length} card(s).`
-        };
-    },
-    canActivate: (state: GameState, context: CardContext): boolean => {
-        return state.players[context.playerIndex].lp > 200;
-    }
+    onActivate: buildEffect([
+        Require.CompareValue((s, c) => s.players[s.activePlayerIndex].lp, '>', 200),
+        Cost.PayLP(200),
+        Effect.DrawCards(Query.CountPawnAttribute(Attribute.DARK))
+    ]),
+    canActivate: buildCondition([
+        Condition.CompareValue((s, c) => s.players[s.activePlayerIndex].lp, '>', 200)
+    ])
 };
 
 cardRegistry.register('condition_03', effect);

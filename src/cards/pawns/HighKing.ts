@@ -1,37 +1,15 @@
-import { IEffect, GameState, CardContext, EffectResult, Position } from '../../../types';
+import { IEffect, Position } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
+import { buildEffect } from '../libs/Builder';
+import { Require } from '../libs/Requirements';
+import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
-    onSummon: (state: GameState, context: CardContext): EffectResult => {
-        const newState = JSON.parse(JSON.stringify(state));
-
-        if (!context.target) {
-            return {
-                newState,
-                log: "High King: Target an Entity to reduce ATK.",
-                requireTarget: 'entity'
-            };
-        }
-
-        const tP = newState.players[context.target.playerIndex];
-        const tE = tP.entityZones[context.target.index];
-
-        if (tE && tE.position !== Position.HIDDEN) {
-            tP.entityZones[context.target.index] = {
-                ...tE,
-                card: { ...tE.card, atk: Math.max(0, tE.card.atk - 20) }
-            };
-            return {
-                newState,
-                log: `High King: ${tE.card.name} loses 20 ATK.`
-            };
-        }
-
-        return {
-            newState,
-            log: "High King: Invalid target — must be a face-up Entity."
-        };
-    }
+    onSummon: buildEffect([
+        Require.Target('entity', "High King: Target an Entity to reduce ATK."),
+        Require.TargetMatchesPosition(Position.HIDDEN, true, "High King: Invalid target — must be a face-up Entity."),
+        Effect.ModifyTargetStats(-20, 0)
+    ])
 };
 
 cardRegistry.register('entity_02', effect);

@@ -1,45 +1,18 @@
-import { IEffect, GameState, CardContext, EffectResult, Position } from '../../../types';
+import { IEffect, Position } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
+import { buildEffect, buildCondition } from '../libs/Builder';
+import { Require, Condition } from '../libs/Requirements';
+import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
-    onActivate: (state: GameState, context: CardContext): EffectResult => {
-        const newState = JSON.parse(JSON.stringify(state));
-
-        if (!context.target) {
-            return {
-                newState,
-                log: "REINFORCEMENT: Target an Entity.",
-                requireTarget: 'entity'
-            };
-        }
-
-        const reP = newState.players[context.target.playerIndex];
-        const reE = reP.entityZones[context.target.index];
-
-        if (reE && reE.position !== Position.HIDDEN) {
-            const poweredCard = { ...reE.card, atk: reE.card.atk + 20 };
-            const newZones = [...reP.entityZones];
-            newZones[context.target.index] = { ...reE, card: poweredCard };
-
-            newState.players[context.target.playerIndex] = {
-                ...reP,
-                entityZones: newZones
-            };
-            return {
-                newState,
-                log: `REINFORCEMENT: ${reE.card.name} gains 20 ATK.`
-            };
-        } else {
-            return {
-                newState,
-                log: "REINFORCEMENT: Invalid target.",
-                requireTarget: 'entity'
-            };
-        }
-    },
-    canActivate: (state: GameState, context: CardContext): boolean => {
-        return state.players.some(p => p.entityZones.some(z => z !== null && z.position !== Position.HIDDEN));
-    }
+    onActivate: buildEffect([
+        Require.Target('entity', "REINFORCEMENT: Target an Entity."),
+        Require.TargetMatchesPosition(Position.HIDDEN, true, "REINFORCEMENT: Invalid target."),
+        Effect.ModifyTargetStats(20, 0)
+    ]),
+    canActivate: buildCondition([
+        Condition.PawnMatchesFilter('both', (z) => z.position !== Position.HIDDEN)
+    ])
 };
 
 cardRegistry.register('condition_01', effect);

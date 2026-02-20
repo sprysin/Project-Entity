@@ -1,31 +1,17 @@
-import { IEffect, GameState, CardContext, EffectResult, Position } from '../../../types';
+import { IEffect } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
+import { buildEffect } from '../libs/Builder';
+import { Effect } from '../libs/Effects';
+import { Query } from '../libs/Queries';
 
 const effect: IEffect = {
-    onSummon: (state: GameState, context: CardContext): EffectResult => {
-        const newState = JSON.parse(JSON.stringify(state));
-        const sparkerOppIdx = (state.activePlayerIndex + 1) % 2;
-        const sparkerOpp = newState.players[sparkerOppIdx];
-        const setCardCount = sparkerOpp.actionZones.filter((z: any) => z && z.position === Position.HIDDEN).length;
-        console.log('ForceFireSparker Debug:', { sparkerOppIdx, setCardCount, zones: sparkerOpp.actionZones });
-        const damage = setCardCount * 10;
-
-        if (damage > 0) {
-            newState.players[sparkerOppIdx] = {
-                ...sparkerOpp,
-                lp: sparkerOpp.lp - damage
-            };
-            return {
-                newState,
-                log: `FORCE FIRE SPARKER: ${damage} damage dealt (${setCardCount} set cards).`
-            };
-        } else {
-            return {
-                newState,
-                log: "FORCE FIRE SPARKER: No set cards found. 0 Damage."
-            };
-        }
-    }
+    onSummon: buildEffect([
+        Effect.DealDamage(
+            Query.ActiveOpponent(),
+            Query.Multiply(Query.CountSetActions('opponent'), 10),
+            "FORCE FIRE SPARKER:"
+        )
+    ])
 };
 
 cardRegistry.register('entity_03', effect);
