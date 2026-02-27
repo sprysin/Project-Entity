@@ -271,6 +271,11 @@ export const useGameLogic = () => {
             isTransitioning.current = true;
             animations.setPhaseFlash(Phase.STANDBY);
             setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 1200);
+        } else if (gameState.currentPhase === Phase.END) {
+            processedAutoPhase.current = phaseKey;
+            isTransitioning.current = true;
+            animations.setPhaseFlash(Phase.END);
+            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 1200);
         } else {
             animations.setPhaseFlash(gameState.currentPhase);
         }

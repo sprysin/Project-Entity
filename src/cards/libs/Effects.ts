@@ -32,7 +32,7 @@ export const Effect = {
 
     /** Modifies the activating card's stats on the field. */
     ModifySelfStats: (atkChange: number, defChange: number): EffectStep => (draftState, context) => {
-        const p = draftState.players[draftState.activePlayerIndex];
+        const p = draftState.players[context.playerIndex];
         const selfZone = p.entityZones.find(z => z && z.card.instanceId === context.card.instanceId);
         if (selfZone) {
             selfZone.card.atk = Math.max(0, selfZone.card.atk + atkChange);
@@ -48,7 +48,7 @@ export const Effect = {
         const resolvedAmount = resolveDynamic(amount, draftState, context);
         if (resolvedAmount <= 0) return;
 
-        const activePlayer = draftState.players[draftState.activePlayerIndex];
+        const activePlayer = draftState.players[context.playerIndex];
         const drawnCards = activePlayer.deck.splice(0, resolvedAmount);
         activePlayer.hand.push(...drawnCards);
 
@@ -95,7 +95,7 @@ export const Effect = {
     /** Moves a specific card from Discard to Hand. */
     RecoverFromDiscardToHand: (): EffectStep => (draftState, context) => {
         if (context.discardIndex !== undefined) {
-            const p = draftState.players[draftState.activePlayerIndex];
+            const p = draftState.players[context.playerIndex];
             const card = p.discard[context.discardIndex];
             if (card) {
                 p.discard.splice(context.discardIndex, 1);

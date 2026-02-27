@@ -5,7 +5,7 @@ import { Card } from '../../../types';
 export const Cost = {
     /** Deducts LP dynamically. */
     PayLP: (amount: Dynamic<number>): EffectStep => (draftState, context) => {
-        const activePlayer = draftState.players[draftState.activePlayerIndex];
+        const activePlayer = draftState.players[context.playerIndex];
         const resolvedAmount = resolveDynamic(amount, draftState, context);
         activePlayer.lp -= resolvedAmount;
         return { log: `Paid ${resolvedAmount} LP.` };
@@ -16,7 +16,7 @@ export const Cost = {
         if (context.handIndex === undefined) {
             return {
                 requireHandSelection: {
-                    playerIndex: draftState.activePlayerIndex,
+                    playerIndex: context.playerIndex,
                     title: message,
                     filter
                 },
@@ -24,7 +24,7 @@ export const Cost = {
             };
         }
 
-        const activePlayer = draftState.players[draftState.activePlayerIndex];
+        const activePlayer = draftState.players[context.playerIndex];
         const discardedCard = activePlayer.hand[context.handIndex];
 
         if (discardedCard) {
@@ -42,7 +42,7 @@ export const Cost = {
         if (context.discardIndex === undefined) {
             return {
                 requireDiscardSelection: {
-                    playerIndex: draftState.activePlayerIndex,
+                    playerIndex: context.playerIndex,
                     title: message,
                     filter
                 },

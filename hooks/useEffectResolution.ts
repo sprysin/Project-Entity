@@ -59,8 +59,9 @@ export const useEffectResolution = (
 
         // DELAYED ANIMATION HANDLING for Void Caster (entity_04)
         if (card.id === 'entity_04' && triggerType === 'summon') {
-            const cardInDiscard = gameState?.players[activeIndex].discard.find(c => c.id === 'action_01');
-            if (cardInDiscard) {
+            const discardIdx = gameState?.players[activeIndex].discard.findIndex(c => c.id === 'action_01');
+            if (discardIdx !== undefined && discardIdx !== -1) {
+                const cardInDiscard = gameState!.players[activeIndex].discard[discardIdx];
                 setTriggeredEffect(null);
                 setPendingEffectCard(null);
                 setIsPeekingField(false);
@@ -68,7 +69,7 @@ export const useEffectResolution = (
                 setTimeout(() => {
                     setGameState(prev => {
                         if (!prev) return null;
-                        const context: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: actualDiscardIndex, handIndex: actualHandIndex };
+                        const context: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: discardIdx, handIndex: actualHandIndex };
                         const effect = cardRegistry.getEffect(card.id);
                         if (effect && effect.onSummon) {
                             const { newState, log } = effect.onSummon(prev, context);

@@ -8,12 +8,12 @@ import { Query } from '../libs/Queries';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Require.CompareValue((s, c) => s.players[s.activePlayerIndex].lp, '>', 200),
+        Require.CompareValue((s, c) => s.players[c.playerIndex].lp, '>', 200),
         Cost.PayLP(200),
         Effect.DrawCards(Query.CountPawnAttribute(Attribute.DARK))
     ]),
     canActivate: buildCondition([
-        Condition.CompareValue((s, c) => s.players[s.activePlayerIndex].lp, '>', 200)
+        Condition.CompareValue((s, c) => s.players[c.playerIndex].lp, '>', 200)
     ])
 };
 
