@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardType, Attribute } from '../../types';
+import { BASE_CARDS } from '../../constants';
 
 const getAttributeColor = (attr?: Attribute) => {
     switch (attr) {
@@ -29,6 +30,14 @@ interface CardDetailProps {
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
 export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, compact = false }) => {
+    const originalCard = BASE_CARDS.find(c => c.id === card.id);
+    const getStatColor = (current: number, original?: number) => {
+        if (original === undefined) return 'text-yellow-400';
+        if (current > original) return 'text-blue-500';
+        if (current < original) return 'text-red-500';
+        return 'text-yellow-400';
+    };
+
     // Handle hidden state for opponent's Set cards (Sidebar view)
     if (isSet) return (
         <div className={`p-8 rounded-sm bg-slate-100 border-4 border-slate-400 flex flex-col items-center space-y-8 shadow-inner ${className}`}>
@@ -100,8 +109,8 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
             {/* Footer: Stats (Entities only) */}
             {card.type === CardType.ENTITY && (
                 <div className={`flex justify-between items-center ${compact ? 'px-2 py-0.5 mt-0.5' : 'px-4 py-1 mt-auto'} bg-black/50 border border-white/10 rounded-sm relative z-10`}>
-                    <span className={`font-orbitron font-bold text-yellow-400 ${compact ? 'text-[8px]' : 'text-xs'} transition-colors duration-300 ${highlightAtk ? 'text-red-500 scale-110' : ''}`}>ATK: {card.atk}</span>
-                    <span className={`font-orbitron font-bold text-blue-400 ${compact ? 'text-[8px]' : 'text-xs'} transition-colors duration-300 ${highlightDef ? 'text-green-500 scale-110' : ''}`}>DEF: {card.def}</span>
+                    <span className={`font-orbitron font-bold ${getStatColor(card.atk, originalCard?.atk)} ${compact ? 'text-[8px]' : 'text-xs'} transition-all duration-300 ${highlightAtk ? 'scale-125' : ''}`}>ATK: {card.atk}</span>
+                    <span className={`font-orbitron font-bold ${getStatColor(card.def, originalCard?.def)} ${compact ? 'text-[8px]' : 'text-xs'} transition-all duration-300 ${highlightDef ? 'scale-125' : ''}`}>DEF: {card.def}</span>
                 </div>
             )}
         </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Hub from './components/Hub';
 import GameView from './components/GameView';
-import CardViewer from './components/CardViewer';
+import CardDatabase from './components/CardDatabase';
 import RulesView from './components/RulesView';
 
 // Define the possible screens/views in the application
@@ -18,21 +18,21 @@ const App: React.FC = () => {
     <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col">
       {/* Main Menu / Hub View */}
       {currentView === 'HUB' && (
-        <Hub 
-          onStartGame={() => setCurrentView('GAME')} 
+        <Hub
+          onStartGame={() => setCurrentView('GAME')}
           onViewCards={() => setCurrentView('CARDS')}
-          onRules={() => setCurrentView('RULES')} 
+          onRules={() => setCurrentView('RULES')}
         />
       )}
-      
+
       {/* Active Battle / Game View */}
       {currentView === 'GAME' && (
         <GameView onQuit={() => setCurrentView('HUB')} />
       )}
-      
+
       {/* Card Database / Gallery View */}
       {currentView === 'CARDS' && (
-        <CardViewer onBack={() => setCurrentView('HUB')} />
+        <CardDatabase onBack={() => setCurrentView('HUB')} />
       )}
 
       {/* Rules View */}

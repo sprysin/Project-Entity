@@ -117,7 +117,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                         if (activePlayer.entityZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i }, undefined, undefined, state.pendingTriggerType || 'activate');
                       } else if (selectedCard?.type === CardType.ENTITY && z === null && !state.targetSelectMode) {
                         // Legacy click-to-summon backup (shouldn't trigger if logic is correct but good fallback)
-                        actions.handleSummon(selectedCard, 'normal');
+                        actions.handleSummon(selectedCard, 'normal', i);
                       } else {
                         actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'entity', index: i } : null);
                         actions.setSelectedHandIndex(null);
@@ -141,7 +141,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                       } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (activePlayer.actionZones[i]) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'action', index: i }, undefined, undefined, state.pendingTriggerType || 'activate');
                       } else if ((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null && !state.targetSelectMode) {
-                        actions.handleActionFromHand(selectedCard, selectedCard.type === CardType.CONDITION ? 'set' : 'activate');
+                        actions.handleActionFromHand(selectedCard, selectedCard.type === CardType.CONDITION ? 'set' : 'activate', i);
                       } else {
                         actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'action', index: i } : null);
                         actions.setSelectedHandIndex(null);

@@ -20,7 +20,7 @@ const CardViewer: React.FC<CardViewerProps> = ({ onBack }) => {
         <div className="flex justify-between items-center border-b-4 border-yellow-500/50 pb-6">
           <div className="space-y-1">
             <h2 className="text-6xl font-orbitron font-bold text-yellow-500 tracking-tighter drop-shadow-[0_0_20px_rgba(234,179,8,0.3)] uppercase">Database</h2>
-            <p className="text-slate-400 font-orbitron text-xs tracking-[0.4em] uppercase">Central Entity Index</p>
+            <p className="text-slate-400 font-orbitron text-xs tracking-[0.4em] uppercase">Card Index</p>
           </div>
           <button
             onClick={onBack}

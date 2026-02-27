@@ -307,11 +307,12 @@ export const useGameLogic = () => {
             setRef: animations.setRef,
             nextPhase, canPlayCard, resolveEffect,
             handleDiscardSelection, handleHandSelection,
-            handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute') =>
-                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode }),
+            handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
+                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
             handleTributeSummon: () =>
                 cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, { setPendingTributeCard, setTributeSelection, setPendingPlayCard, setPlayMode }),
-            handleActionFromHand: (card: Card, mode: 'activate' | 'set') => cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode }),
+            handleActionFromHand: (card: Card, mode: 'activate' | 'set', autoSlotIndex?: number) =>
+                cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
             handlePlacement: (slotIndex: number) =>
                 cardActions.handlePlacement(slotIndex, pendingPlayCard, playMode, {
                     setPendingPlayCard, setPlayMode,

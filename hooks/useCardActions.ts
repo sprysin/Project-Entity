@@ -31,7 +31,10 @@ export const useCardActions = (
             setTributeSelection: (s: number[]) => void,
             setPendingPlayCard: (c: Card | null) => void,
             setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
-        }
+            setTriggeredEffect?: (c: Card | null) => void,
+            setPendingTriggerType?: (t: 'summon' | 'activate' | 'phase' | null) => void,
+        },
+        autoSlotIndex?: number
     ) => {
         if (!gameState || isPeekingField) return;
         if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return;
@@ -57,6 +60,39 @@ export const useCardActions = (
         if (card.level <= 4) {
             if (mode === 'normal' && p.normalSummonUsed) { addLog("Normal Summon limit reached for this turn."); return; }
             if (mode === 'hidden' && p.hiddenSummonUsed) { addLog("Set limit reached for this turn."); return; }
+        }
+
+        if (autoSlotIndex !== undefined) {
+            setGameState(prev => {
+                if (!prev) return null;
+                const players = JSON.parse(JSON.stringify(prev.players));
+                const p = players[pIdx];
+                if (p.entityZones[autoSlotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; }
+
+                p.entityZones[autoSlotIndex] = {
+                    card: { ...card }, position: mode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
+                    hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: mode === 'hidden'
+                };
+                p.hand = p.hand.filter((h: Card) => h.instanceId !== card.instanceId);
+
+                if (mode === 'normal') p.normalSummonUsed = true;
+                if (mode === 'hidden') p.hiddenSummonUsed = true;
+
+                players[pIdx] = p;
+                return { ...prev, players: players as [Player, Player] };
+            });
+
+            if (mode !== 'hidden') {
+                const effect = cardRegistry.getEffect(card.id);
+                if (effect?.onSummon && tributeState.setTriggeredEffect && tributeState.setPendingTriggerType) {
+                    tributeState.setPendingTriggerType('summon');
+                    tributeState.setTriggeredEffect(card);
+                } else {
+                    resolveEffect(card, undefined, undefined, undefined, 'summon');
+                }
+            }
+            setSelectedHandIndex(null);
+            return;
         }
 
         // Enter Placement Mode
@@ -120,11 +156,61 @@ export const useCardActions = (
         playState: {
             setPendingPlayCard: (c: Card | null) => void,
             setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
-        }
+            setTriggeredEffect?: (c: Card | null) => void,
+            setPendingTriggerType?: (t: 'summon' | 'activate' | 'phase' | null) => void,
+        },
+        autoSlotIndex?: number
     ) => {
         if (!gameState || isPeekingField) return;
         if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return;
         const activeIndex = gameState.activePlayerIndex;
+
+        if (mode !== 'set') {
+            if (card.type === CardType.CONDITION) return;
+            const context: CardContext = { card, playerIndex: activeIndex };
+            const effect = cardRegistry.getEffect(card.id);
+            if (effect?.canActivate && !effect.canActivate(gameState, context)) {
+                addLog(`RESTRICTION: Activation conditions for ${card.name} not met.`);
+                return;
+            }
+        }
+
+        if (autoSlotIndex !== undefined) {
+            setGameState(prev => {
+                if (!prev) return null;
+                const players = JSON.parse(JSON.stringify(prev.players));
+                const p = players[activeIndex];
+                if (p.actionZones[autoSlotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; }
+
+                triggerVisual(`${activeIndex}-hand-container`, `${activeIndex}-action-${autoSlotIndex}`, 'discard', card);
+                p.actionZones[autoSlotIndex] = { card: { ...card }, position: mode === 'set' ? Position.HIDDEN : Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: mode === 'set' };
+                p.hand = p.hand.filter((h: Card) => h.instanceId !== card.instanceId);
+                players[activeIndex] = p;
+                return { ...prev, players: players as [Player, Player] };
+            });
+
+            if (mode === 'activate') {
+                resolveEffect(card, undefined, undefined, undefined, 'activate');
+                if (!card.isLingering) {
+                    setTimeout(() => {
+                        triggerVisual(`${activeIndex}-action-${autoSlotIndex}`, `discard-${activeIndex}`, 'discard', card);
+                        setGameState(current => {
+                            if (!current) return null;
+                            const players = JSON.parse(JSON.stringify(current.players));
+                            const ply = players[activeIndex];
+                            if (ply.actionZones[autoSlotIndex] !== null) {
+                                ply.discard = [...ply.discard, { ...ply.actionZones[autoSlotIndex].card }];
+                                ply.actionZones[autoSlotIndex] = null;
+                            }
+                            players[activeIndex] = ply;
+                            return { ...current, players: players as [Player, Player] };
+                        });
+                    }, 1500);
+                }
+            }
+            setSelectedHandIndex(null);
+            return;
+        }
 
         if (mode === 'set') {
             // Enter Placement Mode for Set
@@ -133,17 +219,6 @@ export const useCardActions = (
             setTargetSelectMode('place_action');
             addLog(`SELECT ZONE: Choose a slot to Set ${card.name}.`);
         } else {
-            if (card.type === CardType.CONDITION) return;
-
-            // Check activation conditions first
-            const context: CardContext = { card, playerIndex: activeIndex };
-            const effect = cardRegistry.getEffect(card.id);
-            if (effect?.canActivate && !effect.canActivate(gameState, context)) {
-                addLog(`RESTRICTION: Activation conditions for ${card.name} not met.`);
-                return;
-            }
-
-            // Enter Placement Mode for Activation
             playState.setPendingPlayCard(card);
             playState.setPlayMode('activate');
             setTargetSelectMode('place_action');
