@@ -73,6 +73,7 @@ export interface PlacedCard {
   hasChangedPosition: boolean;
   summonedTurn: number;
   isSetTurn: boolean;
+  hasActivatedEffect?: boolean;
 }
 
 export interface Player {

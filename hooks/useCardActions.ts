@@ -363,6 +363,16 @@ export const useCardActions = (
 
         resolveEffect(placed.card, undefined, undefined, undefined, 'activate');
 
+        setGameState(prev => {
+            if (!prev) return null;
+            const players = JSON.parse(JSON.stringify(prev.players));
+            const ply = players[playerIndex];
+            const zn = type === 'entity' ? ply.entityZones : ply.actionZones;
+            if (zn[index]) zn[index].hasActivatedEffect = true;
+            players[playerIndex] = ply;
+            return { ...prev, players: players as [Player, Player] };
+        });
+
         if (type !== 'entity') {
             if (!placed.card.isLingering) {
                 setTimeout(() => {

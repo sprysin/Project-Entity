@@ -78,6 +78,7 @@ export const useEffectResolution = (
                         return prev;
                     });
                 }, 800);
+                pendingContext.current = {};
                 return;
             }
         }

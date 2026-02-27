@@ -139,12 +139,36 @@ export const useGameLogic = () => {
                         ...p,
                         entityZones: p.entityZones.map(z => {
                             if (!z) return null;
+                            let newZ = { ...z };
+                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
                             const effect = effectsToResolve.find(e => e.targetInstanceId === z.card.instanceId);
-                            if (effect) return { ...z, card: { ...z.card, atk: effect.value } };
-                            return z;
+                            if (effect) newZ = { ...newZ, card: { ...newZ.card, atk: effect.value } };
+                            return newZ;
+                        }),
+                        actionZones: p.actionZones.map(z => {
+                            if (!z) return null;
+                            let newZ = { ...z };
+                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
+                            return newZ;
                         })
                     })) as [Player, Player];
                     currentPendingEffects = remainingEffects;
+                } else {
+                    updatedPlayers = updatedPlayers.map(p => ({
+                        ...p,
+                        entityZones: p.entityZones.map(z => {
+                            if (!z) return null;
+                            let newZ = { ...z };
+                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
+                            return newZ;
+                        }),
+                        actionZones: p.actionZones.map(z => {
+                            if (!z) return null;
+                            let newZ = { ...z };
+                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
+                            return newZ;
+                        })
+                    })) as [Player, Player];
                 }
             }
 

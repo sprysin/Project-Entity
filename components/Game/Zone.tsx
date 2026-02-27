@@ -14,8 +14,9 @@ export const Zone: React.FC<{
     isSelectable?: boolean;
     isTributeSelected?: boolean;
     isDropTarget?: boolean;
+    isActivatable?: boolean;
     domRef?: (el: HTMLElement | null) => void;
-}> = ({ card, type, owner, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, domRef }) => {
+}> = ({ card, type, owner, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, domRef }) => {
     // Track previous stats to trigger pop animations
     const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
     const [popStats, setPopStats] = useState<{ atk: boolean, def: boolean }>({ atk: false, def: false });
@@ -40,7 +41,7 @@ export const Zone: React.FC<{
     }, [card]);
 
     return (
-        <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col overflow-hidden relative ${isSelected ? 'border-yellow-400 scale-105 shadow-[0_0_30px_rgba(234,179,8,0.5)] z-10' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-10' : isSelectable ? 'border-red-500 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.4)] z-10' : isDropTarget ? 'zone-drop-target z-10' : 'border-white/5 bg-black/40 hover:border-white/20'}`}>
+        <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col overflow-hidden relative ${isSelected ? 'border-yellow-400 scale-105 shadow-[0_0_30px_rgba(234,179,8,0.5)] z-10' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-10' : isSelectable ? 'border-red-500 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.4)] z-10' : isDropTarget ? 'zone-drop-target z-10' : 'border-white/5 bg-black/40 hover:border-white/20'} ${isActivatable ? 'glow-activatable z-20' : ''}`}>
             {card ? (
                 <div className={`w-full h-full transition-all duration-700 relative ${card.position === Position.HIDDEN ? 'card-back' : ''} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.ENTITY)) ? 'rotate-90 scale-90' : ''}`}>
                     {card.position === Position.HIDDEN ? (
