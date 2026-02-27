@@ -102,7 +102,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                         {filteredCards.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-4">
                                 <i className="fa-solid fa-ghost text-6xl opacity-50"></i>
-                                <p className="font-orbitron tracking-widest uppercase font-bold">No Records Found</p>
+                                <p className="font-orbitron tracking-widest uppercase font-bold">No Cards Found</p>
                             </div>
                         )}
                     </div>
@@ -124,7 +124,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                 <>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">LEVEL:</span> <span className="text-white">{selectedCard.level}</span></div>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">ATTR:</span> <span className="text-white">{selectedCard.attribute || 'N/A'}</span></div>
-                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">RACE:</span> <span className="text-white">{selectedCard.entityType || 'N/A'}</span></div>
+                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TYPE:</span> <span className="text-white">{selectedCard.entityType || 'N/A'}</span></div>
                                 </>
                             )}
                         </div>
@@ -135,7 +135,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                             <i className="fa-solid fa-crosshairs text-5xl text-slate-500 animate-[spin_10s_linear_infinite_reverse]"></i>
                         </div>
                         <span className="text-[10px] font-orbitron tracking-widest text-center uppercase font-bold text-slate-400 tracking-[0.2em] leading-relaxed max-w-[200px]">
-                            Select Entity Data to View Detailed Telemetry...
+                            Select Card to View Details...
                         </span>
                     </div>
                 )}
