@@ -247,25 +247,56 @@ export const useGameLogic = () => {
                 return { ...prev, players: players as [Player, Player] };
             });
 
+            // Calculate based on initial hand size
+            const activePlayerPhaseStart = gameState.players[gameState.activePlayerIndex];
+            const initialHandSize = activePlayerPhaseStart.hand.length;
+
             let drawCount = 0;
-            drawIntervalRef.current = setInterval(() => {
-                setGameState(current => {
-                    if (!current) return null;
-                    const p = current.players[current.activePlayerIndex];
-                    if ((p.hand.length >= 5 && drawCount >= 1) || p.deck.length === 0) {
-                        if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
-                        setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 500);
-                        return current;
-                    }
+
+            if (gameState.turnNumber === 1) {
+                // Skip drawing on the very first turn of the game
+                setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 1700);
+            } else if (initialHandSize >= 5) {
+                drawIntervalRef.current = setInterval(() => {
                     drawCount++;
-                    const players = [...current.players];
-                    const ply = { ...players[current.activePlayerIndex] };
-                    ply.hand = [...ply.hand, ply.deck[0]];
-                    ply.deck = ply.deck.slice(1);
-                    players[current.activePlayerIndex] = ply;
-                    return { ...current, players: players as [Player, Player] };
-                });
-            }, 300);
+                    setGameState(current => {
+                        if (!current) return null;
+                        const p = current.players[current.activePlayerIndex];
+                        if (drawCount > 1 || p.deck.length === 0) {
+                            if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
+                            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 500);
+                            return current;
+                        }
+                        const players = [...current.players];
+                        const ply = { ...players[current.activePlayerIndex] };
+                        ply.hand = [...ply.hand, ply.deck[0]];
+                        ply.deck = ply.deck.slice(1);
+                        players[current.activePlayerIndex] = ply;
+                        return { ...current, players: players as [Player, Player] };
+                    });
+                }, 300);
+            } else {
+                drawIntervalRef.current = setInterval(() => {
+                    drawCount++;
+                    setGameState(current => {
+                        if (!current) return null;
+                        const p = current.players[current.activePlayerIndex];
+                        // Need to check if hand achieved 5 cards PRIOR to this tick's draw!
+                        // If it came in >= 5 and this is at least our 2nd interval tick, stop.
+                        if ((p.hand.length >= 5 && drawCount > 1) || p.deck.length === 0) {
+                            if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
+                            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 500);
+                            return current;
+                        }
+                        const players = [...current.players];
+                        const ply = { ...players[current.activePlayerIndex] };
+                        ply.hand = [...ply.hand, ply.deck[0]];
+                        ply.deck = ply.deck.slice(1);
+                        players[current.activePlayerIndex] = ply;
+                        return { ...current, players: players as [Player, Player] };
+                    });
+                }, 300);
+            }
         } else if (gameState.currentPhase === Phase.STANDBY) {
             processedAutoPhase.current = phaseKey;
             isTransitioning.current = true;
