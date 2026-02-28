@@ -47,6 +47,7 @@ export const useGameLogic = () => {
 
     // Layout
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+    const [isDeckViewerOpen, setIsDeckViewerOpen] = useState(false);
 
     // Refs
     const isTransitioning = useRef(false);
@@ -186,7 +187,7 @@ export const useGameLogic = () => {
         const p1Deck = createDeck('player1');
         const p2Deck = createDeck('player2');
         const mkPlayer = (id: string, name: string, deck: Card[]): Player => ({
-            id, name, lp: 800, deck: deck.slice(5), hand: deck.slice(0, 5), discard: [], void: [],
+            id, name, lp: 800, deck: deck.slice(5), initialDeck: [...deck], hand: deck.slice(0, 5), discard: [], void: [],
             pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null),
             normalSummonUsed: false, hiddenSummonUsed: false,
         });
@@ -354,14 +355,14 @@ export const useGameLogic = () => {
             flyingCards: animations.flyingCards, voidAnimations: animations.voidAnimations,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
-            isRightPanelOpen,
+            isRightPanelOpen, isDeckViewerOpen,
         },
         actions: {
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
             setTributeSelection, setIsPeekingField,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
             setTriggeredEffect, setPendingEffectCard,
-            setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen,
+            setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen,
             setRef: animations.setRef,
             nextPhase, canPlayCard, resolveEffect,
             handleDiscardSelection, handleHandSelection,

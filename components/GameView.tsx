@@ -5,7 +5,7 @@ import { checkActivationConditions, hasOnActivateEffect } from '../hooks/cardHel
 import { CardDetail } from './Game/CardDetail';
 import { Pile, DeckPile } from './Game/Pile';
 import { Zone } from './Game/Zone';
-import { WinnerModal, HandSelectionModal, DiscardSelectionModal, EffectModal, PileViewModal } from './Game/GameModals';
+import { WinnerModal, HandSelectionModal, DiscardSelectionModal, EffectModal, PileViewModal, DeckViewModal } from './Game/GameModals';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -42,9 +42,12 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   return (
     <div className={`flex-1 flex flex-col relative overflow-hidden font-roboto select-none transition-colors duration-1000 ${isLightTheme ? 'bg-slate-200 text-slate-900 retro-hash-light' : 'bg-[#050505] text-slate-100 retro-hash'}`}>
       {/* HUD: Exit Control */}
-      <div className="absolute top-4 left-4 z-40">
+      <div className="absolute top-4 left-4 z-40 flex flex-col space-y-2">
         <button onClick={onQuit} className="px-4 py-2 bg-slate-900/80 border border-white/10 hover:bg-red-950/80 text-slate-400 font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest">
           <i className="fa-solid fa-power-off mr-2"></i> EXIT GAME
+        </button>
+        <button onClick={() => actions.setIsDeckViewerOpen(true)} className="px-4 py-2 bg-slate-900/80 border border-yellow-500/50 hover:bg-yellow-900/80 text-yellow-400 font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest">
+          <i className="fa-solid fa-layer-group mr-2"></i> VIEW DECK
         </button>
       </div>
 
@@ -442,6 +445,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
         gameState={gameState}
         setViewingDiscardIdx={actions.setViewingDiscardIdx}
         setViewingVoidIdx={actions.setViewingVoidIdx}
+      />
+
+      <DeckViewModal
+        isOpen={state.isDeckViewerOpen}
+        onClose={() => actions.setIsDeckViewerOpen(false)}
+        deck={activePlayer.initialDeck}
+        playerName={activePlayer.name}
       />
     </div>
   );

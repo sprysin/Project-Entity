@@ -81,6 +81,7 @@ export interface Player {
   name: string;
   lp: number;
   deck: Card[];
+  initialDeck: Card[];
   hand: Card[];
   discard: Card[];
   void: Card[];

@@ -218,3 +218,94 @@ export const PileViewModal: React.FC<PileViewModalProps> = ({
 
     return null;
 };
+
+interface DeckViewModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    deck: Card[];
+    playerName: string;
+}
+
+export const DeckViewModal: React.FC<DeckViewModalProps> = ({
+    isOpen, onClose, deck, playerName
+}) => {
+    const [selectedCard, setSelectedCard] = React.useState<Card | null>(null);
+
+    // --- TWEAKABLE DECK VIEWER SIZES ---
+    // Change these values to adjust the layout sizing of the deck viewer's card container.
+    const deckContainerWidth = "50vw"; // Adjust to make the card grid wider/narrower (e.g. 50vw is 50% of screen width)
+    const deckContainerHeight = "65vh"; // Adjust to make the card grid taller/shorter
+    const gridColsPattern = "repeat(10, minmax(0, 1fr))"; // The grid columns. Change the "10" to fit more/less per row.
+    const cardScaleTransform = "scale(1)"; // Adjust to change the size of the individual cards relative to their slot.
+    // ------------------------------------
+
+    if (!isOpen) return null;
+
+    // Sort: PAWN -> ACTION -> CONDITION, then alphabetically
+    const typeOrder = { [CardType.PAWN]: 1, [CardType.ACTION]: 2, [CardType.CONDITION]: 3 };
+    const sortedDeck = [...deck].sort((a, b) => {
+        if (typeOrder[a.type] !== typeOrder[b.type]) {
+            return typeOrder[a.type] - typeOrder[b.type];
+        }
+        return a.name.localeCompare(b.name);
+    });
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-[150] flex flex-col items-center justify-center p-8 animate-in fade-in text-white">
+
+            {/* The detached modal window */}
+            <div className="bg-black border-2 border-slate-600 rounded-xl flex flex-col relative p-8">
+
+                {/* Top Right Close Button */}
+                <div className="absolute -top-4 -right-4">
+                    <button onClick={onClose} className="w-12 h-12 flex items-center justify-center bg-red-900 border-2 border-red-500 hover:bg-red-700 text-white font-orbitron text-xl uppercase font-black transition-all shadow-[0_0_15px_rgba(220,38,38,0.8)]">
+                        <i className="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div className="flex w-full justify-center items-stretch space-x-8 lg:space-x-12">
+                    {/* Left Panel: Zoomed in card view */}
+                    <div className="w-80 h-[32rem] items-center justify-center p-4 bg-black/30 border-2 border-slate-800 rounded-lg shadow-inner">
+                        {selectedCard ? (
+                            <div className="w-full h-full items-center justify-center">
+                                <CardDetail card={selectedCard} />
+                            </div>
+                        ) : (
+                            <div className="text-slate-500 font-orbitron uppercase tracking-widest text-sm text-center opacity-50 border-2 border-slate-800 border-dashed w-full h-full flex items-center justify-center rounded-lg">
+                                Select a card to view
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Panel: Deck Container with tweakable sizes */}
+                    <div className="flex flex-col" style={{ width: deckContainerWidth }}>
+                        <div className="mb-4">
+                            <h2 className="text-3xl font-orbitron font-black text-yellow-500 tracking-[0.2em] uppercase drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">
+                                {playerName} - [DECK NAME PLACEHOLDER]
+                            </h2>
+                            <p className="font-orbitron text-slate-400 text-xs tracking-widest mt-1">Number of Cards: {deck.length}</p>
+                        </div>
+
+                        <div
+                            className="grid gap-2 p-4 content-start bg-black/40 border-2 border-slate-800 rounded-lg overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-yellow-500 scrollbar-track-transparent shadow-inner"
+                            style={{ height: deckContainerHeight, gridTemplateColumns: gridColsPattern }}
+                        >
+                            {sortedDeck.map((card, i) => (
+                                <div
+                                    key={i}
+                                    className={`cursor-pointer transition-colors duration-200 border-2 flex items-center justify-center overflow-hidden aspect-[2/3] ${selectedCard === card ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]' : 'border-slate-800 hover:border-slate-600'}`}
+                                    onClick={() => setSelectedCard(card)}
+                                    style={{ padding: '2px' }}
+                                >
+                                    <div className="w-full h-full transform-origin-center flex justify-center items-center" style={{ transform: cardScaleTransform }}>
+                                        <CardDetail card={card} compact={true} className="pointer-events-none w-full h-full" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

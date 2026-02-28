@@ -16,7 +16,7 @@ cardRegistry.register({
     level: 4,
     attribute: Attribute.LIGHT,
     pawnType: PawnType.MECHANICAL,
-    atk: 140,
+    atk: 120,
     def: 110,
     effectText: 'ON NORMAL SUMMON: Gain 100 LP.',
 }, effect);
