@@ -17,4 +17,12 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('action_02', effect);
+cardRegistry.register({
+    id: 'action_02',
+    name: 'Quick recovery',
+    type: CardType.ACTION,
+    level: 0,
+    atk: 0,
+    def: 0,
+    effectText: 'If opponent has Pawn: Return Lv 3 or lower Pawn from Discard to hand, gain 20 LP.',
+}, effect);

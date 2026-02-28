@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardType, Attribute } from '../../types';
-import { BASE_CARDS } from '../../constants';
+import { cardRegistry } from '../../src/cards/CardRegistry';
 
 const getAttributeColor = (attr?: Attribute) => {
     switch (attr) {
@@ -30,7 +30,7 @@ interface CardDetailProps {
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
 export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, compact = false }) => {
-    const originalCard = BASE_CARDS.find(c => c.id === card.id);
+    const originalCard = cardRegistry.getAllCards().find(c => c.id === card.id);
     const getStatColor = (current: number, original?: number) => {
         if (original === undefined) return 'text-yellow-400';
         if (current > original) return 'text-blue-500';

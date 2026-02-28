@@ -1,4 +1,4 @@
-import { IEffect } from '../../../types';
+import { IEffect, CardType, Attribute, PawnType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../libs/Builder';
 import { Condition } from '../libs/Requirements';
@@ -15,4 +15,14 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('pawn_04', effect);
+cardRegistry.register({
+    id: 'pawn_04',
+    name: 'Void Caster',
+    type: CardType.PAWN,
+    level: 3,
+    attribute: Attribute.DARK,
+    pawnType: PawnType.MAGICIAN,
+    atk: 100,
+    def: 80,
+    effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',
+}, effect);

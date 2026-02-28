@@ -1,4 +1,4 @@
-import { IEffect, Position, GameState, CardContext } from '../../../types';
+import { IEffect, Position, GameState, CardContext, CardType, Attribute, PawnType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../libs/Builder';
 import { Effect } from '../libs/Effects';
@@ -19,4 +19,14 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('pawn_07', effect);
+cardRegistry.register({
+    id: 'pawn_07',
+    name: 'Big Bear Beast King',
+    type: CardType.PAWN,
+    level: 8,
+    attribute: Attribute.EARTH,
+    pawnType: PawnType.BEAST,
+    atk: 220,
+    def: 200,
+    effectText: 'Gain 20 LP then switch this Pawn from ATK to DEF, and if you do that, this card gains 60 DEF until the end of your opponents next turn.',
+}, effect);

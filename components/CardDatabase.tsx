@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { BASE_CARDS } from '../constants';
+import { cardRegistry } from '../src/cards/CardRegistry';
 import { CardDetail } from './Game/CardDetail';
 import { CardType, Card } from '../types';
 
@@ -12,7 +12,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
     const filteredCards = useMemo(() => {
-        return BASE_CARDS.filter(card =>
+        return cardRegistry.getAllCards().filter(card =>
             card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             card.effectText.toLowerCase().includes(searchQuery.toLowerCase())
         );

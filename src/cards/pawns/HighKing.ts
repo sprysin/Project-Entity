@@ -1,4 +1,4 @@
-import { IEffect, Position } from '../../../types';
+import { IEffect, Position, CardType, Attribute, PawnType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect } from '../libs/Builder';
 import { Require } from '../libs/Requirements';
@@ -12,4 +12,14 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('pawn_02', effect);
+cardRegistry.register({
+    id: 'pawn_02',
+    name: 'High King',
+    type: CardType.PAWN,
+    level: 5,
+    attribute: Attribute.NORMAL,
+    pawnType: PawnType.WARRIOR,
+    atk: 170,
+    def: 50,
+    effectText: 'ON SUMMON: Target 1 face-up monster on the field; it loses 20 ATK.',
+}, effect);

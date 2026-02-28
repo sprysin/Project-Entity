@@ -1,4 +1,4 @@
-import { IEffect, Attribute } from '../../../types';
+import { IEffect, Attribute, CardType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../libs/Builder';
 import { Require, Condition } from '../libs/Requirements';
@@ -17,4 +17,13 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('condition_03', effect);
+cardRegistry.register({
+    id: 'condition_03',
+    name: 'Dark Draw',
+    type: CardType.CONDITION,
+    isLingering: false,
+    level: 0,
+    atk: 0,
+    def: 0,
+    effectText: 'Pay 200 life points, draw 1 card for every face up DARK monster on the field.',
+}, effect);

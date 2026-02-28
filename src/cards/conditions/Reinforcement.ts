@@ -1,4 +1,4 @@
-import { IEffect, Position } from '../../../types';
+import { IEffect, Position, CardType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../libs/Builder';
 import { Require, Condition } from '../libs/Requirements';
@@ -15,4 +15,13 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('condition_01', effect);
+cardRegistry.register({
+    id: 'condition_01',
+    name: 'Reinforcement',
+    type: CardType.CONDITION,
+    isLingering: true,
+    level: 0,
+    atk: 0,
+    def: 0,
+    effectText: 'Target Pawn gains +20 ATK.',
+}, effect);
