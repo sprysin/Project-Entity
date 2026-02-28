@@ -4,3 +4,4 @@ import './ForceFireSparker';
 import './VoidCaster';
 import './ChargedDragon';
 import './DualModeBeast';
+import './BigBearBeastKing';

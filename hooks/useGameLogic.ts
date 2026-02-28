@@ -132,8 +132,8 @@ export const useGameLogic = () => {
             let currentPendingEffects = prev.pendingEffects || [];
             let updatedPlayers = [...prev.players];
             if (nextPhase === Phase.END) {
-                const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && e.type === 'RESET_ATK');
-                const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && e.type === 'RESET_ATK'));
+                const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
+                const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
                 if (effectsToResolve.length > 0) {
                     updatedPlayers = updatedPlayers.map(p => ({
                         ...p,
@@ -141,8 +141,10 @@ export const useGameLogic = () => {
                             if (!z) return null;
                             let newZ = { ...z };
                             if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
-                            const effect = effectsToResolve.find(e => e.targetInstanceId === z.card.instanceId);
-                            if (effect) newZ = { ...newZ, card: { ...newZ.card, atk: effect.value } };
+                            const atkEffect = effectsToResolve.find(e => e.type === 'RESET_ATK' && e.targetInstanceId === z.card.instanceId);
+                            if (atkEffect) newZ = { ...newZ, card: { ...newZ.card, atk: atkEffect.value } };
+                            const defEffect = effectsToResolve.find(e => e.type === 'RESET_DEF' && e.targetInstanceId === z.card.instanceId);
+                            if (defEffect) newZ = { ...newZ, card: { ...newZ.card, def: defEffect.value } };
                             return newZ;
                         }),
                         actionZones: p.actionZones.map(z => {

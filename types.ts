@@ -91,7 +91,7 @@ export interface Player {
 }
 
 export interface PendingEffect {
-  type: 'RESET_ATK';
+  type: 'RESET_ATK' | 'RESET_DEF';
   targetInstanceId: string;
   value: number;
   dueTurn: number;

@@ -137,6 +137,19 @@ export const BASE_CARDS: Card[] = [
     def: 0,
     effectText: 'Pay 200 life points, draw 1 card for every face up DARK monster on the field.',
     ownerId: ''
+  },
+  {
+    instanceId: '',
+    id: 'pawn_07',
+    name: 'Big Bear Beast King',
+    type: CardType.PAWN,
+    level: 6,
+    attribute: Attribute.EARTH,
+    pawnType: PawnType.BEAST,
+    atk: 220,
+    def: 200,
+    effectText: 'Gain 20 LP then switch this Pawn from ATK to DEF, and if you do that, this card gains 60 DEF until the end of your opponents next turn.',
+    ownerId: ''
   }
 ];
 

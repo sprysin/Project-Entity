@@ -30,6 +30,16 @@ export const Effect = {
         }
     },
 
+    /** Changes position of the activating card. */
+    ChangeSelfPosition: (newPosition: Position): EffectStep => (draftState, context) => {
+        const p = draftState.players[context.playerIndex];
+        const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId);
+        if (selfZone && selfZone.position !== newPosition) {
+            selfZone.position = newPosition;
+            return { log: `Changed ${selfZone.card.name} to ${newPosition} position.` };
+        }
+    },
+
     /** Modifies the activating card's stats on the field. */
     ModifySelfStats: (atkChange: number, defChange: number): EffectStep => (draftState, context) => {
         const p = draftState.players[context.playerIndex];
@@ -117,12 +127,12 @@ export const Effect = {
     },
 
     /** Registers a Lingering Effect on the active activating card. */
-    RegisterSelfPendingEffect: (type: 'RESET_ATK', value: number): EffectStep => (draftState, context) => {
+    RegisterSelfPendingEffect: (type: 'RESET_ATK' | 'RESET_DEF', value: number, durationTurns: number = 0): EffectStep => (draftState, context) => {
         draftState.pendingEffects.push({
             type,
             targetInstanceId: context.card.instanceId,
             value,
-            dueTurn: draftState.turnNumber
+            dueTurn: draftState.turnNumber + durationTurns
         });
         return { log: `(Resets During End Phase).` };
     }
