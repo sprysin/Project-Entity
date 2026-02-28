@@ -1,15 +1,15 @@
 
-import { CardType, Card, Attribute, EntityType } from './types';
+import { CardType, Card, Attribute, PawnType } from './types';
 
 export const BASE_CARDS: Card[] = [
   {
     instanceId: '',
-    id: 'entity_01',
+    id: 'pawn_01',
     name: 'Solstice Sentinel',
-    type: CardType.ENTITY,
+    type: CardType.PAWN,
     level: 4,
     attribute: Attribute.LIGHT,
-    entityType: EntityType.MECHANICAL,
+    pawnType: PawnType.MECHANICAL,
     atk: 140,
     def: 110,
     effectText: 'ON NORMAL SUMMON: Gain 100 LP.',
@@ -17,12 +17,12 @@ export const BASE_CARDS: Card[] = [
   },
   {
     instanceId: '',
-    id: 'entity_02',
+    id: 'pawn_02',
     name: 'High King',
-    type: CardType.ENTITY,
+    type: CardType.PAWN,
     level: 5,
     attribute: Attribute.NORMAL,
-    entityType: EntityType.WARRIOR,
+    pawnType: PawnType.WARRIOR,
     atk: 170,
     def: 50,
     effectText: 'ON SUMMON: Target 1 face-up monster on the field; it loses 20 ATK.',
@@ -30,12 +30,12 @@ export const BASE_CARDS: Card[] = [
   },
   {
     instanceId: '',
-    id: 'entity_03',
+    id: 'pawn_03',
     name: 'Force Fire Sparker',
-    type: CardType.ENTITY,
+    type: CardType.PAWN,
     level: 2,
     attribute: Attribute.FIRE,
-    entityType: EntityType.DEMON,
+    pawnType: PawnType.DEMON,
     atk: 30,
     def: 150,
     effectText: 'ON NORMAL SUMMON: Deal 10 damage for each set Action/Condition on opponent\'s field.',
@@ -43,12 +43,12 @@ export const BASE_CARDS: Card[] = [
   },
   {
     instanceId: '',
-    id: 'entity_04',
+    id: 'pawn_04',
     name: 'Void Caster',
-    type: CardType.ENTITY,
+    type: CardType.PAWN,
     level: 3,
     attribute: Attribute.DARK,
-    entityType: EntityType.MAGICIAN,
+    pawnType: PawnType.MAGICIAN,
     atk: 100,
     def: 80,
     effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',
@@ -56,12 +56,12 @@ export const BASE_CARDS: Card[] = [
   },
   {
     instanceId: '',
-    id: 'entity_05',
+    id: 'pawn_05',
     name: 'High Voltage - Charged Dragon',
-    type: CardType.ENTITY,
+    type: CardType.PAWN,
     level: 8,
     attribute: Attribute.ELECTRIC,
-    entityType: EntityType.DRAGON,
+    pawnType: PawnType.DRAGON,
     atk: 250,
     def: 190,
     effectText: 'ON FIELD: Discard 1 card; this card gains 10 ATK.',
@@ -86,7 +86,7 @@ export const BASE_CARDS: Card[] = [
     level: 0,
     atk: 0,
     def: 0,
-    effectText: 'If opponent has Entity: Return Lv 3 or lower Entity from Discard to hand, gain 20 LP.',
+    effectText: 'If opponent has Pawn: Return Lv 3 or lower Pawn from Discard to hand, gain 20 LP.',
     ownerId: ''
   },
   {
@@ -98,7 +98,7 @@ export const BASE_CARDS: Card[] = [
     level: 0,
     atk: 0,
     def: 0,
-    effectText: 'Target Entity gains +20 ATK.',
+    effectText: 'Target Pawn gains +20 ATK.',
     ownerId: ''
   },
   {
@@ -115,12 +115,12 @@ export const BASE_CARDS: Card[] = [
   },
   {
     instanceId: '',
-    id: 'entity_06',
+    id: 'pawn_06',
     name: 'Dual-Mode Beast',
-    type: CardType.ENTITY,
+    type: CardType.PAWN,
     level: 9,
     attribute: Attribute.DARK,
-    entityType: EntityType.BEAST,
+    pawnType: PawnType.BEAST,
     atk: 240,
     def: 170,
     effectText: 'Discard 1 card; Target 1 attack position monster on your opponents field, switch it to defense position.',

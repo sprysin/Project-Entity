@@ -1,6 +1,6 @@
 
 export enum CardType {
-  ENTITY = 'ENTITY',
+  PAWN = 'PAWN',
   ACTION = 'ACTION',
   CONDITION = 'CONDITION'
 }
@@ -32,7 +32,7 @@ export enum Attribute {
   LIGHT = 'LIGHT'
 }
 
-export enum EntityType {
+export enum PawnType {
   WARRIOR = 'WARRIOR',
   MAGICIAN = 'MAGICIAN',
   DRAGON = 'DRAGON',
@@ -58,7 +58,7 @@ export interface Card {
   type: CardType;
   level: Level;
   attribute?: Attribute;
-  entityType?: EntityType;
+  pawnType?: PawnType;
   isLingering?: boolean;
   atk: number;
   def: number;
@@ -84,7 +84,7 @@ export interface Player {
   hand: Card[];
   discard: Card[];
   void: Card[];
-  entityZones: (PlacedCard | null)[];
+  pawnZones: (PlacedCard | null)[];
   actionZones: (PlacedCard | null)[];
   normalSummonUsed: boolean;
   hiddenSummonUsed: boolean;
@@ -110,7 +110,7 @@ export interface GameState {
 export type EffectResult = {
   newState: GameState;
   log: string;
-  requireTarget?: 'entity' | 'action' | 'any';
+  requireTarget?: 'pawn' | 'action' | 'any';
   requireDiscardSelection?: {
     playerIndex: number;
     filter: (c: Card) => boolean;
@@ -125,19 +125,19 @@ export type EffectResult = {
 export interface CardContext {
   card: Card;
   playerIndex: number;
-  target?: { playerIndex: number, type: 'entity' | 'action', index: number };
+  target?: { playerIndex: number, type: 'pawn' | 'action', index: number };
   discardIndex?: number;
   handIndex?: number;
 }
 
 export interface IEffect {
-  // Triggered when an Entity is Normal Summoned or Set
+  // Triggered when an Pawn is Normal Summoned or Set
   onSummon?(state: GameState, context: CardContext): EffectResult;
 
   // Triggered when a card is Tributed
   onTribute?(state: GameState, context: CardContext): EffectResult;
 
-  // Triggered when an Effect is manually activated (Action key, or Entity Ignition effect)
+  // Triggered when an Effect is manually activated (Action key, or Pawn Ignition effect)
   onActivate?(state: GameState, context: CardContext): EffectResult;
 
   // Triggered during Phase changes (e.g. End Phase maintenance)

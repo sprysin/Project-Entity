@@ -13,7 +13,7 @@ export const useEffectResolution = (
         setTriggeredEffect: (card: Card | null) => void,
         setPendingEffectCard: (card: Card | null) => void,
         setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | null) => void,
-        setTargetSelectType: (type: 'entity' | 'action' | 'any') => void,
+        setTargetSelectType: (type: 'pawn' | 'action' | 'any') => void,
         setIsPeekingField: (peek: boolean) => void,
         setDiscardSelectionReq: (req: any) => void,
         setSelectedDiscardIndex: (idx: number | null) => void,
@@ -38,7 +38,7 @@ export const useEffectResolution = (
     /** Executes a card's unique ability. Handles targeting logic with peek-first pattern. */
     const resolveEffect = useCallback((
         card: Card,
-        target?: { playerIndex: number, type: 'entity' | 'action', index: number },
+        target?: { playerIndex: number, type: 'pawn' | 'action', index: number },
         discardIndex?: number,
         handIndex?: number,
         triggerType: 'summon' | 'activate' | 'phase' = 'activate'
@@ -57,8 +57,8 @@ export const useEffectResolution = (
             triggerType: actualTriggerType
         };
 
-        // DELAYED ANIMATION HANDLING for Void Caster (entity_04)
-        if (card.id === 'entity_04' && triggerType === 'summon') {
+        // DELAYED ANIMATION HANDLING for Void Caster (pawn_04)
+        if (card.id === 'pawn_04' && triggerType === 'summon') {
             const discardIdx = gameState?.players[activeIndex].discard.findIndex(c => c.id === 'action_01');
             if (discardIdx !== undefined && discardIdx !== -1) {
                 const cardInDiscard = gameState!.players[activeIndex].discard[discardIdx];
@@ -141,7 +141,7 @@ export const useEffectResolution = (
         setTriggeredEffect(null);
         setPendingEffectCard(null);
         setTargetSelectMode(null);
-        setTargetSelectType('entity');
+        setTargetSelectType('pawn');
         setIsPeekingField(false);
         setPendingTriggerType(null);
         pendingContext.current = {};

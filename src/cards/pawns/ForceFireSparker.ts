@@ -14,4 +14,4 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register('entity_03', effect);
+cardRegistry.register('pawn_03', effect);

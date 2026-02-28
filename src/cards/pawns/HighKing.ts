@@ -6,10 +6,10 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Require.Target('entity', "High King: Target an Entity to reduce ATK."),
-        Require.TargetMatchesPosition(Position.HIDDEN, true, "High King: Invalid target — must be a face-up Entity."),
+        Require.Target('pawn', "High King: Target an Pawn to reduce ATK."),
+        Require.TargetMatchesPosition(Position.HIDDEN, true, "High King: Invalid target — must be a face-up Pawn."),
         Effect.ModifyTargetStats(-20, 0)
     ])
 };
 
-cardRegistry.register('entity_02', effect);
+cardRegistry.register('pawn_02', effect);

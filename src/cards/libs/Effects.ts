@@ -3,14 +3,14 @@ import { Dynamic, resolveDynamic } from './Dynamic';
 import { Position } from '../../../types';
 
 export const Effect = {
-    /** Changes the position of the targeted entity. */
+    /** Changes the position of the targeted pawn. */
     ChangeTargetPosition: (newPosition: Position): EffectStep => (draftState, context) => {
         if (context.target) {
             const player = draftState.players[context.target.playerIndex];
-            const targetEntity = player.entityZones[context.target.index];
-            if (targetEntity && targetEntity.position !== newPosition) {
-                targetEntity.position = newPosition;
-                return { log: `Changed ${targetEntity.card.name} to ${newPosition} position.` };
+            const targetPawn = player.pawnZones[context.target.index];
+            if (targetPawn && targetPawn.position !== newPosition) {
+                targetPawn.position = newPosition;
+                return { log: `Changed ${targetPawn.card.name} to ${newPosition} position.` };
             }
         }
     },
@@ -19,7 +19,7 @@ export const Effect = {
     ModifyTargetStats: (atkChange: number, defChange: number): EffectStep => (draftState, context) => {
         if (context.target) {
             const p = draftState.players[context.target.playerIndex];
-            const tE = p.entityZones[context.target.index];
+            const tE = p.pawnZones[context.target.index];
             if (tE) {
                 tE.card.atk = Math.max(0, tE.card.atk + atkChange);
                 tE.card.def = Math.max(0, tE.card.def + defChange);
@@ -33,7 +33,7 @@ export const Effect = {
     /** Modifies the activating card's stats on the field. */
     ModifySelfStats: (atkChange: number, defChange: number): EffectStep => (draftState, context) => {
         const p = draftState.players[context.playerIndex];
-        const selfZone = p.entityZones.find(z => z && z.card.instanceId === context.card.instanceId);
+        const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId);
         if (selfZone) {
             selfZone.card.atk = Math.max(0, selfZone.card.atk + atkChange);
             selfZone.card.def = Math.max(0, selfZone.card.def + defChange);
@@ -81,7 +81,7 @@ export const Effect = {
     BanishTargetToVoid: (): EffectStep => (draftState, context) => {
         if (context.target) {
             const p = draftState.players[context.target.playerIndex];
-            const zones = context.target.type === 'entity' ? p.entityZones : p.actionZones;
+            const zones = context.target.type === 'pawn' ? p.pawnZones : p.actionZones;
             const cardInZone = zones[context.target.index];
 
             if (cardInZone) {

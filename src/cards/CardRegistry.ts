@@ -15,7 +15,7 @@ class CardRegistry {
 
     /**
      * Register a card's effect logic.
-     * @param id The unique card ID (e.g., 'entity_01')
+     * @param id The unique card ID (e.g., 'pawn_01')
      * @param effect The effect implementation
      */
     public register(id: string, effect: IEffect): void {

@@ -18,7 +18,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
         );
     }, [searchQuery]);
 
-    const pawns = filteredCards.filter(c => c.type === CardType.ENTITY);
+    const pawns = filteredCards.filter(c => c.type === CardType.PAWN);
     const actions = filteredCards.filter(c => c.type === CardType.ACTION);
     const conditions = filteredCards.filter(c => c.type === CardType.CONDITION);
 
@@ -120,11 +120,11 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                             </div>
                             <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TAG:</span> <span className="text-white">{selectedCard.id.toUpperCase()}</span></div>
                             <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">CLASS:</span> <span className="text-white">{selectedCard.type}</span></div>
-                            {selectedCard.type === CardType.ENTITY && (
+                            {selectedCard.type === CardType.PAWN && (
                                 <>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">LEVEL:</span> <span className="text-white">{selectedCard.level}</span></div>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">ATTR:</span> <span className="text-white">{selectedCard.attribute || 'N/A'}</span></div>
-                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TYPE:</span> <span className="text-white">{selectedCard.entityType || 'N/A'}</span></div>
+                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TYPE:</span> <span className="text-white">{selectedCard.pawnType || 'N/A'}</span></div>
                                 </>
                             )}
                         </div>

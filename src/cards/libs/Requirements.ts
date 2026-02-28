@@ -4,7 +4,7 @@ import { Position, CardType } from '../../../types';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
-    Target: (type: 'entity' | 'action' | 'any' = 'entity', message = "Select a target."): EffectStep => (draftState, context) => {
+    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', message = "Select a target."): EffectStep => (draftState, context) => {
         if (!context.target) return { requireTarget: type, log: message };
     },
 
@@ -21,7 +21,7 @@ export const Require = {
     TargetMatchesPosition: (position: Position, invert = false, message = "Invalid target position."): EffectStep => (draftState, context) => {
         if (context.target) {
             const p = draftState.players[context.target.playerIndex];
-            const t = context.target.type === 'entity' ? p.entityZones[context.target.index] : p.actionZones[context.target.index];
+            const t = context.target.type === 'pawn' ? p.pawnZones[context.target.index] : p.actionZones[context.target.index];
             if (!t) return { log: message, halt: true };
 
             const matches = t.position === position;
@@ -67,7 +67,7 @@ export const Condition = {
         return state.players.some((player: any, idx: number) => {
             if (scope === 'active' && idx !== activeIdx) return false;
             if (scope === 'opponent' && idx !== oppIdx) return false;
-            return player.entityZones.some((z: any) => z !== null && filter(z));
+            return player.pawnZones.some((z: any) => z !== null && filter(z));
         });
     },
 

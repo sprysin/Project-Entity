@@ -15,14 +15,14 @@ export const useCardActions = (
     selectedHandIndex: number | null,
     setSelectedHandIndex: (idx: number | null) => void,
     setSelectedFieldSlot: (slot: any) => void,
-    setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | 'place_entity' | 'place_action' | null) => void,
+    setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null) => void,
     isPeekingField: boolean,
-    targetSelectMode: 'attack' | 'tribute' | 'effect' | 'place_entity' | 'place_action' | null,
+    targetSelectMode: 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null,
 ) => {
     // Tribute summon state is managed in the main hook and passed down
     // These are provided by the main hook via closure
 
-    /** Core logic for Summoning or Setting an Entity. */
+    /** Core logic for Summoning or Setting an Pawn. */
     const handleSummon = useCallback((
         card: Card, mode: 'normal' | 'hidden' | 'tribute',
         tributeState: {
@@ -43,9 +43,9 @@ export const useCardActions = (
         const p = gameState.players[pIdx];
 
         if (card.level >= 5 && mode !== 'tribute') {
-            const entityCount = p.entityZones.filter(z => z !== null).length;
+            const pawnCount = p.pawnZones.filter(z => z !== null).length;
             const required = card.level <= 7 ? 1 : 2;
-            if (entityCount < required) {
+            if (pawnCount < required) {
                 addLog(`ACCESS DENIED: Level ${card.level} requires ${required} sacrifices.`);
                 return;
             }
@@ -67,9 +67,9 @@ export const useCardActions = (
                 if (!prev) return null;
                 const players = JSON.parse(JSON.stringify(prev.players));
                 const p = players[pIdx];
-                if (p.entityZones[autoSlotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; }
+                if (p.pawnZones[autoSlotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; }
 
-                p.entityZones[autoSlotIndex] = {
+                p.pawnZones[autoSlotIndex] = {
                     card: { ...card }, position: mode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
                     hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: mode === 'hidden'
                 };
@@ -98,7 +98,7 @@ export const useCardActions = (
         // Enter Placement Mode
         tributeState.setPendingPlayCard(card);
         tributeState.setPlayMode(mode === 'normal' ? 'normal' : 'hidden');
-        setTargetSelectMode('place_entity');
+        setTargetSelectMode('place_pawn');
         addLog(`SELECT ZONE: Choose a slot for ${card.name}.`);
         setSelectedHandIndex(null);
     }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, setSelectedHandIndex, setTargetSelectMode]);
@@ -122,8 +122,8 @@ export const useCardActions = (
 
         // Visual discard effect for tributes
         tributeSelection.forEach(idx => {
-            const sacrifice = gameState.players[activeIndex].entityZones[idx];
-            if (sacrifice) triggerVisual(`${activeIndex}-entity-${idx}`, `discard-${activeIndex}`, 'discard', sacrifice.card);
+            const sacrifice = gameState.players[activeIndex].pawnZones[idx];
+            if (sacrifice) triggerVisual(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', sacrifice.card);
         });
 
         // Execute Tribute Logic (remove sacrifices)
@@ -132,8 +132,8 @@ export const useCardActions = (
             const players = JSON.parse(JSON.stringify(prev.players));
             const p = players[activeIndex];
             tributeSelection.forEach(idx => {
-                const tribute = p.entityZones[idx];
-                if (tribute) { p.discard = [...p.discard, tribute.card]; p.entityZones[idx] = null; }
+                const tribute = p.pawnZones[idx];
+                if (tribute) { p.discard = [...p.discard, tribute.card]; p.pawnZones[idx] = null; }
             });
             players[activeIndex] = p;
             return { ...prev, players: players as [Player, Player] };
@@ -144,7 +144,7 @@ export const useCardActions = (
         tributeState.setPlayMode(tributeSummonMode);
         tributeState.setPendingTributeCard(null);
         tributeState.setTributeSelection([]);
-        setTargetSelectMode('place_entity');
+        setTargetSelectMode('place_pawn');
         addLog(`SELECT ZONE: Choose a slot for ${pendingTributeCard.name}.`);
         setSelectedHandIndex(null);
 
@@ -242,14 +242,14 @@ export const useCardActions = (
         if (!gameState || !pendingPlayCard || !playMode) return;
         const pIdx = gameState.activePlayerIndex;
 
-        if (targetSelectMode === 'place_entity' && pendingPlayCard.type === CardType.ENTITY) {
+        if (targetSelectMode === 'place_pawn' && pendingPlayCard.type === CardType.PAWN) {
             setGameState(prev => {
                 if (!prev) return null;
                 const players = JSON.parse(JSON.stringify(prev.players));
                 const p = players[pIdx];
-                if (p.entityZones[slotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; } // Should be prevented by UI
+                if (p.pawnZones[slotIndex] !== null) { addLog("SLOT OCCUPIED."); return prev; } // Should be prevented by UI
 
-                p.entityZones[slotIndex] = {
+                p.pawnZones[slotIndex] = {
                     card: { ...pendingPlayCard }, position: playMode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
                     hasAttacked: false, hasChangedPosition: false, summonedTurn: prev.turnNumber, isSetTurn: playMode === 'hidden'
                 };
@@ -334,12 +334,20 @@ export const useCardActions = (
 
 
     /** Activates a card already on the field (flipping or triggering). */
-    const activateOnField = useCallback((playerIndex: number, type: 'entity' | 'action', index: number) => {
+    const activateOnField = useCallback((playerIndex: number, type: 'pawn' | 'action', index: number) => {
         if (!gameState || isPeekingField) return;
         const p = gameState.players[playerIndex];
-        const zone = type === 'entity' ? p.entityZones : p.actionZones;
+        const zone = type === 'pawn' ? p.pawnZones : p.actionZones;
         const placed = zone[index];
         if (!placed) return;
+
+        if (gameState.currentPhase === Phase.BATTLE && placed.card.type === CardType.ACTION) {
+            if (!placed.card.isLingering) {
+                return;
+            } else if (placed.position === Position.HIDDEN) {
+                return;
+            }
+        }
 
         const context: CardContext = { card: placed.card, playerIndex };
         const effect = cardRegistry.getEffect(placed.card.id);
@@ -354,7 +362,7 @@ export const useCardActions = (
                 if (!prev) return null;
                 const players = JSON.parse(JSON.stringify(prev.players));
                 const ply = players[playerIndex];
-                const zn = type === 'entity' ? ply.entityZones : ply.actionZones;
+                const zn = type === 'pawn' ? ply.pawnZones : ply.actionZones;
                 zn[index] = { ...zn[index]!, position: Position.ATTACK };
                 players[playerIndex] = ply;
                 return { ...prev, players: players as [Player, Player] };
@@ -367,13 +375,13 @@ export const useCardActions = (
             if (!prev) return null;
             const players = JSON.parse(JSON.stringify(prev.players));
             const ply = players[playerIndex];
-            const zn = type === 'entity' ? ply.entityZones : ply.actionZones;
+            const zn = type === 'pawn' ? ply.pawnZones : ply.actionZones;
             if (zn[index]) zn[index].hasActivatedEffect = true;
             players[playerIndex] = ply;
             return { ...prev, players: players as [Player, Player] };
         });
 
-        if (type !== 'entity') {
+        if (type !== 'pawn') {
             if (!placed.card.isLingering) {
                 setTimeout(() => {
                     const currentPlaced = gameState?.players[playerIndex].actionZones[index];
@@ -398,7 +406,7 @@ export const useCardActions = (
         if (!gameState || gameState.turnNumber === 1 || isPeekingField) return;
         const activeIndex = gameState.activePlayerIndex;
         const oppIndex = (activeIndex + 1) % 2;
-        const attacker = gameState.players[activeIndex].entityZones[attackerIdx];
+        const attacker = gameState.players[activeIndex].pawnZones[attackerIdx];
         if (!attacker) return;
 
         setGameState(prev => {
@@ -406,57 +414,57 @@ export const useCardActions = (
             const players = JSON.parse(JSON.stringify(prev.players));
             const p = players[activeIndex];
             const opp = players[oppIndex];
-            const atkEntity = { ...p.entityZones[attackerIdx]! };
+            const atkPawn = { ...p.pawnZones[attackerIdx]! };
 
             if (targetIdx === 'direct') {
-                opp.lp -= atkEntity.card.atk;
-                addLog(`DIRECT IMPACT: -${atkEntity.card.atk} LP.`);
+                opp.lp -= atkPawn.card.atk;
+                addLog(`DIRECT IMPACT: -${atkPawn.card.atk} LP.`);
             } else {
-                let defEntity = { ...opp.entityZones[targetIdx]! };
-                if (!defEntity) return prev;
+                let defPawn = { ...opp.pawnZones[targetIdx]! };
+                if (!defPawn) return prev;
 
-                if (defEntity.position === Position.HIDDEN) {
-                    defEntity.position = Position.DEFENSE;
-                    opp.entityZones[targetIdx] = defEntity;
-                    addLog(`${defEntity.card.name} was flipped!`);
+                if (defPawn.position === Position.HIDDEN) {
+                    defPawn.position = Position.DEFENSE;
+                    opp.pawnZones[targetIdx] = defPawn;
+                    addLog(`${defPawn.card.name} was flipped!`);
                 }
 
-                if (defEntity.position === Position.ATTACK) {
-                    const diff = atkEntity.card.atk - defEntity.card.atk;
+                if (defPawn.position === Position.ATTACK) {
+                    const diff = atkPawn.card.atk - defPawn.card.atk;
                     if (diff > 0) {
-                        triggerShatter(`${oppIndex}-entity-${targetIdx}`);
+                        triggerShatter(`${oppIndex}-pawn-${targetIdx}`);
                         opp.lp -= diff;
-                        triggerVisual(`${oppIndex}-entity-${targetIdx}`, `discard-${oppIndex}`, 'discard', defEntity.card);
-                        opp.discard = [...opp.discard, defEntity.card];
-                        opp.entityZones[targetIdx] = null;
-                        addLog(`ATTACK SUCCESS: ${defEntity.card.name} destroyed. -${diff} LP.`);
+                        triggerVisual(`${oppIndex}-pawn-${targetIdx}`, `discard-${oppIndex}`, 'discard', defPawn.card);
+                        opp.discard = [...opp.discard, defPawn.card];
+                        opp.pawnZones[targetIdx] = null;
+                        addLog(`ATTACK SUCCESS: ${defPawn.card.name} destroyed. -${diff} LP.`);
                     } else if (diff < 0) {
-                        triggerShatter(`${activeIndex}-entity-${attackerIdx}`);
+                        triggerShatter(`${activeIndex}-pawn-${attackerIdx}`);
                         p.lp += diff;
-                        triggerVisual(`${activeIndex}-entity-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkEntity.card);
-                        p.discard = [...p.discard, atkEntity.card];
-                        p.entityZones[attackerIdx] = null;
-                        addLog(`ATTACK FAILED: ${atkEntity.card.name} destroyed. Recoil ${diff}.`);
+                        triggerVisual(`${activeIndex}-pawn-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkPawn.card);
+                        p.discard = [...p.discard, atkPawn.card];
+                        p.pawnZones[attackerIdx] = null;
+                        addLog(`ATTACK FAILED: ${atkPawn.card.name} destroyed. Recoil ${diff}.`);
                     } else {
-                        triggerShatter(`${activeIndex}-entity-${attackerIdx}`);
-                        triggerShatter(`${oppIndex}-entity-${targetIdx}`);
-                        triggerVisual(`${activeIndex}-entity-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkEntity.card);
-                        triggerVisual(`${oppIndex}-entity-${targetIdx}`, `discard-${oppIndex}`, 'discard', defEntity.card);
-                        p.discard = [...p.discard, atkEntity.card];
-                        opp.discard = [...opp.discard, defEntity.card];
-                        p.entityZones[attackerIdx] = null;
-                        opp.entityZones[targetIdx] = null;
+                        triggerShatter(`${activeIndex}-pawn-${attackerIdx}`);
+                        triggerShatter(`${oppIndex}-pawn-${targetIdx}`);
+                        triggerVisual(`${activeIndex}-pawn-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkPawn.card);
+                        triggerVisual(`${oppIndex}-pawn-${targetIdx}`, `discard-${oppIndex}`, 'discard', defPawn.card);
+                        p.discard = [...p.discard, atkPawn.card];
+                        opp.discard = [...opp.discard, defPawn.card];
+                        p.pawnZones[attackerIdx] = null;
+                        opp.pawnZones[targetIdx] = null;
                         addLog("MUTUAL DESTRUCTION.");
                     }
                 } else {
-                    if (atkEntity.card.atk > defEntity.card.def) {
-                        triggerShatter(`${oppIndex}-entity-${targetIdx}`);
-                        triggerVisual(`${oppIndex}-entity-${targetIdx}`, `discard-${oppIndex}`, 'discard', defEntity.card);
-                        opp.discard = [...opp.discard, defEntity.card];
-                        opp.entityZones[targetIdx] = null;
-                        addLog(`DEFENSE CRUSHED: ${defEntity.card.name} destroyed. 0 Damage.`);
-                    } else if (atkEntity.card.atk < defEntity.card.def) {
-                        const recoil = defEntity.card.def - atkEntity.card.atk;
+                    if (atkPawn.card.atk > defPawn.card.def) {
+                        triggerShatter(`${oppIndex}-pawn-${targetIdx}`);
+                        triggerVisual(`${oppIndex}-pawn-${targetIdx}`, `discard-${oppIndex}`, 'discard', defPawn.card);
+                        opp.discard = [...opp.discard, defPawn.card];
+                        opp.pawnZones[targetIdx] = null;
+                        addLog(`DEFENSE CRUSHED: ${defPawn.card.name} destroyed. 0 Damage.`);
+                    } else if (atkPawn.card.atk < defPawn.card.def) {
+                        const recoil = defPawn.card.def - atkPawn.card.atk;
                         p.lp -= recoil;
                         addLog(`DEFENSE HELD: Recoil -${recoil} LP.`);
                     } else {
@@ -464,7 +472,7 @@ export const useCardActions = (
                     }
                 }
             }
-            if (p.entityZones[attackerIdx]) p.entityZones[attackerIdx]!.hasAttacked = true;
+            if (p.pawnZones[attackerIdx]) p.pawnZones[attackerIdx]!.hasAttacked = true;
             players[activeIndex] = p;
             players[oppIndex] = opp;
 

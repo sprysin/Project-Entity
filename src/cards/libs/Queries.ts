@@ -6,7 +6,7 @@ export const Query = {
     CountPawnAttribute: (attribute: Attribute) => (state: GameState, context: CardContext): number => {
         let count = 0;
         state.players.forEach(player => {
-            player.entityZones.forEach(zone => {
+            player.pawnZones.forEach(zone => {
                 if (zone && zone.position !== Position.HIDDEN && zone.card.attribute === attribute) {
                     count++;
                 }

@@ -54,7 +54,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
     return (
         <div
             onClick={onClick}
-            className={`${compact ? 'p-1 border-2' : 'p-2 border-4'} rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${card.type === CardType.ENTITY ? 'card-entity glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''} ${className}`}
+            className={`${compact ? 'p-1 border-2' : 'p-2 border-4'} rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''} ${className}`}
         >
             {/* Header: Name + Level */}
             <div className="card-inner-border"></div>
@@ -62,7 +62,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
                 <div className="card-title-box flex-grow p-1 flex items-center border-b-[1px] border-white/10">
                     <h3 className={`${compact ? 'text-[7px]' : 'text-[10px]'} font-orbitron font-bold leading-tight tracking-tight text-white line-clamp-2`}>{card.name}</h3>
                 </div>
-                {card.type === CardType.ENTITY && (
+                {card.type === CardType.PAWN && (
                     <div className={`card-title-box ${compact ? 'w-5' : 'w-8'} flex-shrink-0 flex items-center justify-center border-b-[1px] border-white/10`}>
                         <span className={`${compact ? 'text-[6px]' : 'text-[8px]'} font-orbitron font-black text-yellow-500 leading-tight`}>Lv.{card.level}</span>
                     </div>
@@ -71,7 +71,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
 
             {/* Sub-Header: Attribute/Type OR Action/Condition Status */}
             <div className={`relative z-10 border-b border-white/10 ${compact ? 'pb-0.5 mb-0.5 min-h-[12px]' : 'pb-1 mb-1 min-h-[20px]'} flex items-center`}>
-                {card.type === CardType.ENTITY ? (
+                {card.type === CardType.PAWN ? (
                     <div className="flex items-center space-x-1 w-full">
                         {/* Attribute Bubble */}
                         <div className={`${compact ? 'w-3 h-3 text-[5px]' : 'w-5 h-5 text-[8px]'} rounded-full flex items-center justify-center ${getAttributeColor(card.attribute)} font-bold border border-white/20`}>
@@ -89,7 +89,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
                             })()}
                         </div>
                         <span className={`${compact ? 'text-[6px]' : 'text-[9px]'} font-orbitron text-slate-300 font-bold uppercase tracking-wider`}>
-                            [{card.entityType || 'Unknown'}/Entity]
+                            [{card.pawnType || 'Unknown'}/Pawn]
                         </span>
                     </div>
                 ) : (
@@ -107,7 +107,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
             </div>
 
             {/* Footer: Stats (Entities only) */}
-            {card.type === CardType.ENTITY && (
+            {card.type === CardType.PAWN && (
                 <div className={`flex justify-between items-center ${compact ? 'px-2 py-0.5 mt-0.5' : 'px-4 py-1 mt-auto'} bg-black/50 border border-white/10 rounded-sm relative z-10`}>
                     <span className={`font-orbitron font-bold ${getStatColor(card.atk, originalCard?.atk)} ${compact ? 'text-[8px]' : 'text-xs'} transition-all duration-300 ${highlightAtk ? 'scale-125' : ''}`}>ATK: {card.atk}</span>
                     <span className={`font-orbitron font-bold ${getStatColor(card.def, originalCard?.def)} ${compact ? 'text-[8px]' : 'text-xs'} transition-all duration-300 ${highlightDef ? 'scale-125' : ''}`}>DEF: {card.def}</span>

@@ -6,7 +6,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Require.Target('entity', "REINFORCEMENT: Target an Entity."),
+        Require.Target('pawn', "REINFORCEMENT: Target an Pawn."),
         Require.TargetMatchesPosition(Position.HIDDEN, true, "REINFORCEMENT: Invalid target."),
         Effect.ModifyTargetStats(20, 0)
     ]),

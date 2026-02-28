@@ -15,9 +15,9 @@ export const useGameLogic = () => {
 
     // Selection States
     const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
-    const [selectedFieldSlot, setSelectedFieldSlot] = useState<{ playerIndex: number, type: 'entity' | 'action', index: number } | null>(null);
-    const [targetSelectMode, setTargetSelectMode] = useState<'attack' | 'tribute' | 'effect' | 'place_entity' | 'place_action' | null>(null);
-    const [targetSelectType, setTargetSelectType] = useState<'entity' | 'action' | 'any'>('entity');
+    const [selectedFieldSlot, setSelectedFieldSlot] = useState<{ playerIndex: number, type: 'pawn' | 'action', index: number } | null>(null);
+    const [targetSelectMode, setTargetSelectMode] = useState<'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null>(null);
+    const [targetSelectType, setTargetSelectType] = useState<'pawn' | 'action' | 'any'>('pawn');
 
     // Card Play (Manual Placement)
     const [pendingPlayCard, setPendingPlayCard] = useState<Card | null>(null);
@@ -93,9 +93,9 @@ export const useGameLogic = () => {
         const activeIndex = gameState.activePlayerIndex;
         const player = gameState.players[activeIndex];
 
-        if (card.type === CardType.ENTITY) {
+        if (card.type === CardType.PAWN) {
             if (card.level <= 4) return !player.normalSummonUsed || !player.hiddenSummonUsed;
-            else return player.entityZones.filter(z => z !== null).length >= (card.level <= 7 ? 1 : 2);
+            else return player.pawnZones.filter(z => z !== null).length >= (card.level <= 7 ? 1 : 2);
         } else {
             const effect = cardRegistry.getEffect(card.id);
             const context: CardContext = { card, playerIndex: activeIndex };
@@ -137,7 +137,7 @@ export const useGameLogic = () => {
                 if (effectsToResolve.length > 0) {
                     updatedPlayers = updatedPlayers.map(p => ({
                         ...p,
-                        entityZones: p.entityZones.map(z => {
+                        pawnZones: p.pawnZones.map(z => {
                             if (!z) return null;
                             let newZ = { ...z };
                             if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
@@ -156,7 +156,7 @@ export const useGameLogic = () => {
                 } else {
                     updatedPlayers = updatedPlayers.map(p => ({
                         ...p,
-                        entityZones: p.entityZones.map(z => {
+                        pawnZones: p.pawnZones.map(z => {
                             if (!z) return null;
                             let newZ = { ...z };
                             if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
@@ -184,7 +184,7 @@ export const useGameLogic = () => {
         const p2Deck = createDeck('player2');
         const mkPlayer = (id: string, name: string, deck: Card[]): Player => ({
             id, name, lp: 800, deck: deck.slice(5), hand: deck.slice(0, 5), discard: [], void: [],
-            entityZones: Array(5).fill(null), actionZones: Array(5).fill(null),
+            pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null),
             normalSummonUsed: false, hiddenSummonUsed: false,
         });
         animations.lastLp.current = [800, 800];
@@ -266,7 +266,7 @@ export const useGameLogic = () => {
                 const players = [...prev.players];
                 const p = { ...players[prev.activePlayerIndex] };
                 p.normalSummonUsed = false; p.hiddenSummonUsed = false;
-                p.entityZones = p.entityZones.map(z => z ? { ...z, hasAttacked: false, hasChangedPosition: false } : null);
+                p.pawnZones = p.pawnZones.map(z => z ? { ...z, hasAttacked: false, hasChangedPosition: false } : null);
                 players[prev.activePlayerIndex] = p;
                 return { ...prev, players: players as [Player, Player] };
             });

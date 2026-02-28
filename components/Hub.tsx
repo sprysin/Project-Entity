@@ -19,7 +19,7 @@ const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules }) => {
       {/* Branding Header */}
       <div className="relative z-10 text-center space-y-4">
         <h1 className="text-8xl font-orbitron font-bold tracking-tighter text-yellow-500 drop-shadow-[0_0_30px_rgba(234,179,8,0.5)]">
-          PROJECT ENTITY
+          PROJECT PAWN
         </h1>
         <p className="text-xl text-slate-400 font-light tracking-[0.3em] uppercase">
           Tactical Card Framework
