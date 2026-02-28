@@ -6,7 +6,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Require.Target('action', "VOID CALL: Target a set Action/Condition."),
+        Require.Target('action', "VOID CALL: Target a set Action/Condition.", 'hidden'),
         Require.TargetMatchesPosition(Position.HIDDEN, false, "VOID CALL: Invalid target (Must be Set Action/Condition Card)."),
         Effect.BanishTargetToVoid()
     ]),

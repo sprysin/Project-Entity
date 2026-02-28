@@ -19,6 +19,7 @@ export const buildEffect = (steps: EffectStep[]) => {
                         newState: draftState,
                         log: result.log || "",
                         requireTarget: result.requireTarget,
+                        requireTargetPosition: result.requireTargetPosition,
                         requireDiscardSelection: result.requireDiscardSelection,
                         requireHandSelection: result.requireHandSelection
                     };

@@ -41,11 +41,20 @@ export const Zone: React.FC<{
     }, [card]);
 
     return (
-        <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col overflow-hidden relative ${isSelected ? 'border-yellow-400 scale-105 shadow-[0_0_30px_rgba(234,179,8,0.5)] z-10' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-10' : isSelectable ? 'border-red-500 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.4)] z-10' : isDropTarget ? 'zone-drop-target z-10' : 'border-white/5 bg-black/40 hover:border-white/20'} ${isActivatable ? 'glow-activatable z-20' : ''}`}>
-            {card ? (
-                <div className={`w-full h-full transition-all duration-700 relative ${card.position === Position.HIDDEN ? 'card-back' : ''} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.PAWN)) ? 'rotate-90 scale-90' : ''}`}>
+        <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col relative hover:z-50 ${isSelected ? 'border-yellow-400 scale-105 z-40' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-40' : isSelectable ? 'border-red-500 animate-pulse z-40' : isDropTarget ? 'zone-drop-target z-40' : 'border-white/5 bg-black/40 hover:border-white/20'} ${isActivatable ? 'glow-activatable z-30' : 'z-10'}`}>
+            {/* Base Zone Content (Empty State) */}
+            <div className={`absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${card ? 'opacity-0' : 'opacity-20'}`}>
+                <i className={`${type === 'pawn' ? 'fa-solid fa-chess-pawn text-3xl' : 'fa-solid fa-wand-sparkles text-2xl'} text-white`}></i>
+                <span className="text-[10px] font-orbitron tracking-widest text-white font-black">{type.toUpperCase()}</span>
+            </div>
+
+            {/* Floating Card Content */}
+            {card && (
+                <div className={`absolute inset-0 w-full h-full transition-all duration-700 z-20 ${card.position === Position.HIDDEN ? 'card-back' : ''} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.PAWN)) ? 'rotate-90' : ''}`}>
                     {card.position === Position.HIDDEN ? (
-                        <div className="flex-1 flex items-center justify-center opacity-40"><i className="fa-solid fa-lock text-2xl text-slate-800"></i></div>
+                        <div className="w-full h-full flex items-center justify-center opacity-40">
+                            <i className="fa-solid fa-lock text-2xl text-slate-800"></i>
+                        </div>
                     ) : (
                         <CardDetail
                             card={card.card}
@@ -56,8 +65,6 @@ export const Zone: React.FC<{
                         />
                     )}
                 </div>
-            ) : (
-                <div className="flex-1 flex flex-col items-center justify-center space-y-2 opacity-20"><i className={`${type === 'pawn' ? 'fa-solid fa-chess-pawn text-3xl' : 'fa-solid fa-wand-sparkles text-2xl'} text-white`}></i><span className="text-[10px] font-orbitron tracking-widest text-white font-black drop-shadow-sm">{type.toUpperCase()}</span></div>
             )}
         </div>
     );

@@ -18,6 +18,7 @@ export const useGameLogic = () => {
     const [selectedFieldSlot, setSelectedFieldSlot] = useState<{ playerIndex: number, type: 'pawn' | 'action', index: number } | null>(null);
     const [targetSelectMode, setTargetSelectMode] = useState<'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null>(null);
     const [targetSelectType, setTargetSelectType] = useState<'pawn' | 'action' | 'any'>('pawn');
+    const [targetSelectPosition, setTargetSelectPosition] = useState<'hidden' | 'faceup' | 'both'>('both');
 
     // Card Play (Manual Placement)
     const [pendingPlayCard, setPendingPlayCard] = useState<Card | null>(null);
@@ -58,7 +59,7 @@ export const useGameLogic = () => {
     const { resolveEffect, handleDiscardSelection, handleHandSelection } = useEffectResolution(
         gameState, setGameState, animations.triggerVisual,
         {
-            setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType,
+            setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
             setHandSelectionReq, setSelectedHandSelectionIndex,
             pendingEffectCard, discardSelectionReq,
@@ -342,7 +343,7 @@ export const useGameLogic = () => {
     return {
         gameState, setGameState,
         state: {
-            selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType,
+            selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition,
             tributeSelection, pendingTributeCard, tributeSummonMode,
             pendingPlayCard, playMode,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField,
@@ -356,7 +357,7 @@ export const useGameLogic = () => {
             isRightPanelOpen,
         },
         actions: {
-            setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType,
+            setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
             setTributeSelection, setIsPeekingField,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
             setTriggeredEffect, setPendingEffectCard,

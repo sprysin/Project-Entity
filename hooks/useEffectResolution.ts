@@ -14,6 +14,7 @@ export const useEffectResolution = (
         setPendingEffectCard: (card: Card | null) => void,
         setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | null) => void,
         setTargetSelectType: (type: 'pawn' | 'action' | 'any') => void,
+        setTargetSelectPosition: (pos: 'hidden' | 'faceup' | 'both') => void,
         setIsPeekingField: (peek: boolean) => void,
         setDiscardSelectionReq: (req: any) => void,
         setSelectedDiscardIndex: (idx: number | null) => void,
@@ -26,7 +27,7 @@ export const useEffectResolution = (
     }
 ) => {
     const {
-        setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType,
+        setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
         setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
         setHandSelectionReq, setSelectedHandSelectionIndex,
         setPendingTriggerType, pendingTriggerType,
@@ -106,6 +107,7 @@ export const useEffectResolution = (
             setPendingEffectCard(card);
             setTargetSelectMode('effect');
             setTargetSelectType(peekResult.requireTarget);
+            setTargetSelectPosition(peekResult.requireTargetPosition || 'both');
             setIsPeekingField(false);
             setPendingTriggerType(actualTriggerType);
             return;
@@ -142,12 +144,13 @@ export const useEffectResolution = (
         setPendingEffectCard(null);
         setTargetSelectMode(null);
         setTargetSelectType('pawn');
+        setTargetSelectPosition('both');
         setIsPeekingField(false);
         setPendingTriggerType(null);
         pendingContext.current = {};
         if (actualDiscardIndex !== undefined) { setDiscardSelectionReq(null); setSelectedDiscardIndex(null); }
         if (actualHandIndex !== undefined) { setHandSelectionReq(null); setSelectedHandSelectionIndex(null); }
-    }, [gameState, setGameState, triggerVisual, setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex]);
+    }, [gameState, setGameState, triggerVisual, setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex]);
 
     /** Handles selection from the Discard Pile Modal. */
     const handleDiscardSelection = useCallback((index: number) => {

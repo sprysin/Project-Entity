@@ -4,8 +4,8 @@ import { Position, CardType } from '../../../types';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
-    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', message = "Select a target."): EffectStep => (draftState, context) => {
-        if (!context.target) return { requireTarget: type, log: message };
+    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', message = "Select a target.", set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (draftState, context) => {
+        if (!context.target) return { requireTarget: type, requireTargetPosition: set, log: message };
     },
 
     /** Verifies the provided target relies on a specific player scope. */

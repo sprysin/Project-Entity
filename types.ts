@@ -111,6 +111,7 @@ export type EffectResult = {
   newState: GameState;
   log: string;
   requireTarget?: 'pawn' | 'action' | 'any';
+  requireTargetPosition?: 'hidden' | 'faceup' | 'both';
   requireDiscardSelection?: {
     playerIndex: number;
     filter: (c: Card) => boolean;
