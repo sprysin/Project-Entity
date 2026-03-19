@@ -8,7 +8,7 @@ import { cardRegistry } from '../src/cards/CardRegistry';
 export const useCardActions = (
     gameState: GameState | null,
     setGameState: Dispatch<SetStateAction<GameState | null>>,
-    resolveEffect: (card: Card, target?: any, discardIndex?: number, handIndex?: number, triggerType?: 'summon' | 'activate' | 'phase') => void,
+    resolveEffect: (card: Card, target?: any, discardIndex?: number, handIndex?: number, deckIndex?: number, triggerType?: 'summon' | 'activate' | 'phase' | 'field_activate', tributeIndices?: number[]) => void,
     addLog: (msg: string) => void,
     triggerVisual: (src: string, tgt: string, type: 'discard' | 'void' | 'retrieve', card?: Card) => void,
     triggerShatter: (zoneKey: string) => void,
@@ -88,7 +88,7 @@ export const useCardActions = (
                     tributeState.setPendingTriggerType('summon');
                     tributeState.setTriggeredEffect(card);
                 } else {
-                    resolveEffect(card, undefined, undefined, undefined, 'summon');
+                    resolveEffect(card, undefined, undefined, undefined, undefined, 'summon');
                 }
             }
             setSelectedHandIndex(null);
@@ -190,7 +190,7 @@ export const useCardActions = (
             });
 
             if (mode === 'activate') {
-                resolveEffect(card, undefined, undefined, undefined, 'activate');
+                resolveEffect(card, undefined, undefined, undefined, undefined, 'activate');
                 if (!card.isLingering) {
                     setTimeout(() => {
                         triggerVisual(`${activeIndex}-action-${autoSlotIndex}`, `discard-${activeIndex}`, 'discard', card);
@@ -277,7 +277,7 @@ export const useCardActions = (
                     playState.setPendingTriggerType('summon');
                     playState.setTriggeredEffect(pendingPlayCard);
                 } else {
-                    resolveEffect(pendingPlayCard, undefined, undefined, undefined, 'summon');
+                    resolveEffect(pendingPlayCard, undefined, undefined, undefined, undefined, 'summon');
                 }
             }
 
@@ -304,7 +304,7 @@ export const useCardActions = (
             });
 
             if (playMode === 'activate') {
-                resolveEffect(pendingPlayCard, undefined, undefined, undefined, 'activate');
+                resolveEffect(pendingPlayCard, undefined, undefined, undefined, undefined, 'activate');
 
                 if (!pendingPlayCard.isLingering) {
                     setTimeout(() => {
@@ -369,7 +369,8 @@ export const useCardActions = (
             });
         }
 
-        resolveEffect(placed.card, undefined, undefined, undefined, 'activate');
+        const trigger = (type === 'action' && placed.position !== Position.HIDDEN) ? 'field_activate' : 'activate';
+        resolveEffect(placed.card, undefined, undefined, undefined, undefined, trigger);
 
         setGameState(prev => {
             if (!prev) return null;

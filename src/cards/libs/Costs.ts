@@ -11,6 +11,25 @@ export const Cost = {
         return { log: `Paid ${resolvedAmount} LP.` };
     },
 
+    /** Prompts the player to tribute pawns on their field. */
+    TributePawns: (count: number, message: string, filter?: (c: Card) => boolean): EffectStep => (draftState, context) => {
+        if (context.tributeIndices === undefined) {
+            return {
+                requireEffectTribute: {
+                    playerIndex: context.playerIndex,
+                    count,
+                    title: message,
+                    filter
+                },
+                log: `Awaiting tribute selection...`
+            };
+        }
+        
+        // At this point, the game engine has already removed the pawns and sent them to the discard pile.
+        // So we just log the successful completion.
+        return { log: `Tributed ${count} Pawn(s).` };
+    },
+
     /** Prompts the player to discard a card matching a specific filter. */
     DiscardCardFilter: (message: string, filter?: (c: Card) => boolean): EffectStep => (draftState, context) => {
         if (context.handIndex === undefined) {

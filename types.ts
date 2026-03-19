@@ -89,6 +89,7 @@ export interface Player {
   actionZones: (PlacedCard | null)[];
   normalSummonUsed: boolean;
   hiddenSummonUsed: boolean;
+  activatedHardOncePerTurns: string[];
 }
 
 export interface PendingEffect {
@@ -122,6 +123,17 @@ export type EffectResult = {
     playerIndex: number;
     title: string;
   };
+  requireDeckSelection?: {
+    playerIndex: number;
+    filter: (c: Card) => boolean;
+    title: string;
+  };
+  requireEffectTribute?: {
+    playerIndex: number;
+    count: number;
+    title: string;
+    filter?: (c: Card) => boolean;
+  };
 };
 
 export interface CardContext {
@@ -130,6 +142,8 @@ export interface CardContext {
   target?: { playerIndex: number, type: 'pawn' | 'action', index: number };
   discardIndex?: number;
   handIndex?: number;
+  deckIndex?: number;
+  tributeIndices?: number[];
 }
 
 export interface IEffect {
@@ -141,6 +155,9 @@ export interface IEffect {
 
   // Triggered when an Effect is manually activated (Action key, or Pawn Ignition effect)
   onActivate?(state: GameState, context: CardContext): EffectResult;
+
+  // Triggered when a Lingering Action is activated while already face-up on the field
+  onFieldActivate?(state: GameState, context: CardContext): EffectResult;
 
   // Triggered during Phase changes (e.g. End Phase maintenance)
   onPhaseChange?(state: GameState, context: CardContext): EffectResult;

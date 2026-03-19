@@ -21,7 +21,7 @@ cardRegistry.register({
     type: CardType.PAWN,
     level: 3,
     attribute: Attribute.DARK,
-    pawnType: PawnType.MAGICIAN,
+    pawnType: PawnType.MECHANICAL,
     atk: 100,
     def: 80,
     effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',

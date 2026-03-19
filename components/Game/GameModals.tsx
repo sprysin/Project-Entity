@@ -134,6 +134,61 @@ export const DiscardSelectionModal: React.FC<DiscardSelectionModalProps> = ({
 };
 
 
+interface DeckSelectionModalProps {
+    selectionReq: { playerIndex: number, filter: (c: Card) => boolean, title: string } | null;
+    gameState: GameState | null;
+    selectedDeckIndex: number | null;
+    setSelectedDeckIndex: (idx: number | null) => void;
+    setDeckSelectionReq: (req: null) => void;
+    handleDeckSelection: (idx: number) => void;
+}
+
+export const DeckSelectionModal: React.FC<DeckSelectionModalProps> = ({
+    selectionReq, gameState, selectedDeckIndex, setSelectedDeckIndex, setDeckSelectionReq, handleDeckSelection
+}) => {
+    if (!selectionReq || !gameState) return null;
+    const deck = gameState.players[selectionReq.playerIndex].deck;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[120] flex flex-col items-center justify-center p-8 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-slate-900 border-2 border-indigo-600 rounded-lg p-8 w-full max-w-5xl max-h-[80vh] flex flex-col shadow-[0_0_50px_rgba(79,70,229,0.3)]">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/10">
+                    <h2 className="text-2xl font-orbitron font-black text-indigo-500 uppercase tracking-widest">{selectionReq.title}</h2>
+                    <button onClick={() => setDeckSelectionReq(null)} className="px-6 py-2 bg-red-900/40 hover:bg-red-800 text-white font-orbitron text-xs border border-red-500/50 uppercase font-bold tracking-widest">CANCEL</button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 p-2 scrollbar-hide mb-6">
+                    {deck
+                        .map((card, idx) => ({ card, idx, valid: selectionReq.filter(card) }))
+                        .sort((a, b) => (b.valid ? 1 : 0) - (a.valid ? 1 : 0)) // Sort valid first
+                        .map(({ card, idx, valid }) => (
+                            <div key={idx} onClick={() => valid && setSelectedDeckIndex(idx)} className={`relative transition-all duration-300 ${valid ? 'cursor-pointer hover:scale-105' : 'opacity-40 grayscale pointer-events-none'} ${selectedDeckIndex === idx ? 'ring-4 ring-indigo-500 scale-105 z-10' : ''}`}>
+                                <CardDetail card={card} />
+                                {valid && selectedDeckIndex !== idx && <div className="absolute inset-0 bg-indigo-500/10 hover:bg-indigo-500/0 transition-colors"></div>}
+                                {selectedDeckIndex === idx && <div className="absolute inset-0 bg-indigo-500/20 pointer-events-none"></div>}
+                            </div>
+                        ))
+                    }
+                    {deck.length === 0 && (
+                        <div className="col-span-full text-center py-12 text-slate-500 font-orbitron uppercase tracking-widest">No Cards in Deck</div>
+                    )}
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-white/10">
+                    <button
+                        onClick={() => selectedDeckIndex !== null && handleDeckSelection(selectedDeckIndex)}
+                        disabled={selectedDeckIndex === null}
+                        className={`px-12 py-4 font-orbitron font-black text-xl uppercase tracking-widest transition-all ${selectedDeckIndex !== null ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.5)]' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                    >
+                        CONFIRM SELECTION
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 interface EffectModalProps {
     triggeredEffect: Card | null;
     gameState: GameState | null;

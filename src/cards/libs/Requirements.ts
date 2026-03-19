@@ -87,5 +87,17 @@ export const Condition = {
             if (scope === 'opponent' && idx !== oppIdx) return false;
             return player.actionZones.some((z: any) => z !== null && filter(z));
         });
+    },
+
+    /** Checks if this specific card instance has activated its effect this turn. */
+    SoftOncePerTurn: (): (state: any, context: any) => boolean => (state, context) => {
+        const p = state.players[context.playerIndex];
+        const selfZone = p.pawnZones.find((z: any) => z && z.card.instanceId === context.card.instanceId) || p.actionZones.find((z: any) => z && z.card.instanceId === context.card.instanceId);
+        return selfZone ? !selfZone.hasActivatedEffect : true;
+    },
+
+    /** Checks if any card with this ID has activated its effect this turn globally. */
+    HardOncePerTurn: (cardId: string): (state: any, context: any) => boolean => (state, context) => {
+        return !state.players[context.playerIndex].activatedHardOncePerTurns?.includes(cardId);
     }
 };

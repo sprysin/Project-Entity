@@ -14,14 +14,16 @@ export const buildEffect = (steps: EffectStep[]) => {
             if (result) {
                 if (result.log) logs.push(result.log);
 
-                if (result.requireTarget || result.requireDiscardSelection || result.requireHandSelection) {
+                if (result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requireDeckSelection || result.requireEffectTribute) {
                     return {
                         newState: draftState,
                         log: result.log || "",
                         requireTarget: result.requireTarget,
                         requireTargetPosition: result.requireTargetPosition,
                         requireDiscardSelection: result.requireDiscardSelection,
-                        requireHandSelection: result.requireHandSelection
+                        requireHandSelection: result.requireHandSelection,
+                        requireDeckSelection: result.requireDeckSelection,
+                        requireEffectTribute: result.requireEffectTribute
                     };
                 }
 

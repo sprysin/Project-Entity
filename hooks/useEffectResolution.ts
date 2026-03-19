@@ -24,6 +24,10 @@ export const useEffectResolution = (
         discardSelectionReq: any,
         setPendingTriggerType: (t: 'summon' | 'activate' | 'phase' | null) => void,
         pendingTriggerType: 'summon' | 'activate' | 'phase' | null,
+        setDeckSelectionReq: (req: any) => void,
+        setSelectedDeckIndex: (idx: number | null) => void,
+        deckSelectionReq: any,
+        setEffectTributeReq: (req: any) => void,
     }
 ) => {
     const {
@@ -31,6 +35,8 @@ export const useEffectResolution = (
         setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
         setHandSelectionReq, setSelectedHandSelectionIndex,
         setPendingTriggerType, pendingTriggerType,
+        setDeckSelectionReq, setSelectedDeckIndex, deckSelectionReq,
+        setEffectTributeReq
     } = selectionState;
 
     // Use a ref to persist context properties (like target or handIndex) between chained prompts.
@@ -42,20 +48,26 @@ export const useEffectResolution = (
         target?: { playerIndex: number, type: 'pawn' | 'action', index: number },
         discardIndex?: number,
         handIndex?: number,
-        triggerType: 'summon' | 'activate' | 'phase' = 'activate'
+        deckIndex?: number,
+        triggerType: 'summon' | 'activate' | 'phase' | 'field_activate' = 'activate',
+        tributeIndices?: number[]
     ) => {
         const activeIndex = gameState?.activePlayerIndex ?? 0;
 
         const actualTarget = target ?? pendingContext.current.target;
         const actualDiscardIndex = discardIndex ?? pendingContext.current.discardIndex;
         const actualHandIndex = handIndex ?? pendingContext.current.handIndex;
+        const actualDeckIndex = deckIndex ?? pendingContext.current.deckIndex;
         const actualTriggerType = pendingContext.current.triggerType ?? triggerType;
+        const actualTributeIndices = tributeIndices ?? pendingContext.current.tributeIndices;
 
         pendingContext.current = {
             target: actualTarget,
             discardIndex: actualDiscardIndex,
             handIndex: actualHandIndex,
-            triggerType: actualTriggerType
+            deckIndex: actualDeckIndex,
+            triggerType: actualTriggerType,
+            tributeIndices: actualTributeIndices
         };
 
         // DELAYED ANIMATION HANDLING for Void Caster (pawn_04)
@@ -70,7 +82,7 @@ export const useEffectResolution = (
                 setTimeout(() => {
                     setGameState(prev => {
                         if (!prev) return null;
-                        const context: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: discardIdx, handIndex: actualHandIndex };
+                        const context: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: discardIdx, handIndex: actualHandIndex, deckIndex: actualDeckIndex, tributeIndices: actualTributeIndices };
                         const effect = cardRegistry.getEffect(card.id);
                         if (effect && effect.onSummon) {
                             const { newState, log } = effect.onSummon(prev, context);
@@ -94,11 +106,12 @@ export const useEffectResolution = (
         // Peek at the effect result to check if we need a selection mode
         const effect = cardRegistry.getEffect(card.id);
         let peekResult: EffectResult | undefined;
-        const contextForPeek: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: actualDiscardIndex, handIndex: actualHandIndex };
+        const contextForPeek: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, tributeIndices: actualTributeIndices };
 
         if (effect && gameState) {
             if (actualTriggerType === 'summon' && effect.onSummon) peekResult = effect.onSummon(gameState, contextForPeek);
             else if (actualTriggerType === 'activate' && effect.onActivate) peekResult = effect.onActivate(gameState, contextForPeek);
+            else if (actualTriggerType === 'field_activate' && effect.onFieldActivate) peekResult = effect.onFieldActivate(gameState, contextForPeek);
         }
 
         // Enter selection mode if needed — return early without touching game state
@@ -116,23 +129,44 @@ export const useEffectResolution = (
             setPendingEffectCard(card);
             setDiscardSelectionReq(peekResult.requireDiscardSelection);
             setSelectedDiscardIndex(null);
+            setPendingTriggerType(actualTriggerType);
             return;
         }
         if (peekResult?.requireHandSelection && actualHandIndex === undefined) {
             setPendingEffectCard(card);
             setHandSelectionReq(peekResult.requireHandSelection);
             setSelectedHandSelectionIndex(null);
+            setPendingTriggerType(actualTriggerType);
+            return;
+        }
+        if (peekResult?.requireDeckSelection && actualDeckIndex === undefined) {
+            // Commit intermediate state (e.g. LP costs) before showing the modal
+            if (peekResult.newState) {
+                setGameState(peekResult.newState);
+            }
+            setPendingEffectCard(card);
+            setDeckSelectionReq(peekResult.requireDeckSelection);
+            setSelectedDeckIndex(null);
+            setPendingTriggerType(actualTriggerType);
+            return;
+        }
+        if (peekResult?.requireEffectTribute && actualTributeIndices === undefined) {
+            setPendingEffectCard(card);
+            setEffectTributeReq(peekResult.requireEffectTribute);
+            setTargetSelectMode('tribute');
+            setPendingTriggerType(actualTriggerType);
             return;
         }
 
         // Apply the effect to game state
         setGameState(prev => {
             if (!prev) return null;
-            const executionContext: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: actualDiscardIndex, handIndex: actualHandIndex };
+            const executionContext: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, tributeIndices: actualTributeIndices };
             let result: EffectResult | undefined;
             if (effect) {
                 if (actualTriggerType === 'summon' && effect.onSummon) result = effect.onSummon(prev, executionContext);
                 else if (actualTriggerType === 'activate' && effect.onActivate) result = effect.onActivate(prev, executionContext);
+                else if (actualTriggerType === 'field_activate' && effect.onFieldActivate) result = effect.onFieldActivate(prev, executionContext);
             }
             if (!result) return prev;
             const { newState, log } = result;
@@ -150,7 +184,9 @@ export const useEffectResolution = (
         pendingContext.current = {};
         if (actualDiscardIndex !== undefined) { setDiscardSelectionReq(null); setSelectedDiscardIndex(null); }
         if (actualHandIndex !== undefined) { setHandSelectionReq(null); setSelectedHandSelectionIndex(null); }
-    }, [gameState, setGameState, triggerVisual, setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex]);
+        if (actualDeckIndex !== undefined) { setDeckSelectionReq(null); setSelectedDeckIndex(null); }
+        if (actualTributeIndices !== undefined) { setEffectTributeReq(null); }
+    }, [gameState, setGameState, triggerVisual, setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex, setDeckSelectionReq, setSelectedDeckIndex, setEffectTributeReq]);
 
     /** Handles selection from the Discard Pile Modal. */
     const handleDiscardSelection = useCallback((index: number) => {
@@ -163,10 +199,11 @@ export const useEffectResolution = (
         triggerVisual(`discard-${pIdx}`, `${pIdx}-hand-${gameState.players[pIdx].hand.length}`, 'retrieve', card);
 
         const pendingCard = selectionState.pendingEffectCard;
+        const pendingTrigger = selectionState.pendingTriggerType || 'activate';
         setTimeout(() => {
-            resolveEffect(pendingCard, undefined, index, undefined, undefined);
+            resolveEffect(pendingCard, undefined, index, undefined, undefined, pendingTrigger);
         }, 700);
-    }, [gameState, selectionState.discardSelectionReq, selectionState.pendingEffectCard, resolveEffect, triggerVisual, setDiscardSelectionReq, setSelectedDiscardIndex, setPendingEffectCard]);
+    }, [gameState, selectionState.discardSelectionReq, selectionState.pendingEffectCard, selectionState.pendingTriggerType, resolveEffect, triggerVisual, setDiscardSelectionReq, setSelectedDiscardIndex, setPendingEffectCard]);
 
     /** Handles selection from the Hand Selection Modal (e.g. for Discard costs). */
     const handleHandSelection = useCallback((index: number) => {
@@ -181,10 +218,33 @@ export const useEffectResolution = (
         triggerVisual(`${pIdx}-hand-${index}`, `discard-${pIdx}`, 'discard', card);
 
         const pendingCard = selectionState.pendingEffectCard;
+        const pendingTrigger = selectionState.pendingTriggerType || 'activate';
         setTimeout(() => {
-            resolveEffect(pendingCard, undefined, undefined, index, undefined);
+            resolveEffect(pendingCard, undefined, undefined, index, undefined, pendingTrigger);
         }, 400);
-    }, [gameState, selectionState.pendingEffectCard, resolveEffect, triggerVisual, setHandSelectionReq, setSelectedHandSelectionIndex, setPendingEffectCard]);
+    }, [gameState, selectionState.pendingEffectCard, selectionState.pendingTriggerType, resolveEffect, triggerVisual, setHandSelectionReq, setSelectedHandSelectionIndex, setPendingEffectCard]);
 
-    return { resolveEffect, handleDiscardSelection, handleHandSelection };
+    /** Handles selection from the Deck Selection Modal. */
+    const handleDeckSelection = useCallback((index: number) => {
+        if (!selectionState.deckSelectionReq || !gameState || !selectionState.pendingEffectCard) return;
+        const pIdx = selectionState.deckSelectionReq.playerIndex;
+        // The card is pulled out of deck during final resolution to ensure state is consistent,
+        // but visually we can trigger it immediately:
+        const card = gameState.players[pIdx].deck[index];
+
+        setDeckSelectionReq(null);
+        setSelectedDeckIndex(null);
+        
+        // Try not to trigger visual animation yet, actually let's do 'retrieve' 
+        // to fly a card to hand, which visually simulates searching from deck.
+        triggerVisual(`deck-${pIdx}`, `${pIdx}-hand-${gameState.players[pIdx].hand.length}`, 'retrieve', card);
+
+        const pendingCard = selectionState.pendingEffectCard;
+        const pendingTrigger = selectionState.pendingTriggerType || 'activate';
+        setTimeout(() => {
+            resolveEffect(pendingCard, undefined, undefined, undefined, index, pendingTrigger);
+        }, 800);
+    }, [gameState, selectionState.deckSelectionReq, selectionState.pendingEffectCard, selectionState.pendingTriggerType, resolveEffect, triggerVisual, setDeckSelectionReq, setSelectedDeckIndex, setPendingEffectCard]);
+
+    return { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection };
 };

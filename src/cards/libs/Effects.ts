@@ -135,5 +135,42 @@ export const Effect = {
             dueTurn: draftState.turnNumber + durationTurns
         });
         return { log: `(Resets During End Phase).` };
+    },
+
+    /** Marks the card instance as having used its effect this turn. */
+    SetSoftOncePerTurn: (): EffectStep => (draftState, context) => {
+        const p = draftState.players[context.playerIndex];
+        const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z && z.card.instanceId === context.card.instanceId);
+        if (selfZone) selfZone.hasActivatedEffect = true;
+    },
+
+    /** Marks the card ID as having used its effect globally for the rest of the turn. */
+    SetHardOncePerTurn: (cardId: string): EffectStep => (draftState, context) => {
+        const p = draftState.players[context.playerIndex];
+        if (!p.activatedHardOncePerTurns) p.activatedHardOncePerTurns = [];
+        if (!p.activatedHardOncePerTurns.includes(cardId)) p.activatedHardOncePerTurns.push(cardId);
+    },
+
+    // --- DECK SEARCHING ---
+
+    /** Prompts the player to select a card from their deck matching a filter, then adds it to hand and shuffles. */
+    SearchDeck: (message: string, filter: (card: any) => boolean): EffectStep => (draftState, context) => {
+        if (context.deckIndex === undefined) {
+            return { requireDeckSelection: { playerIndex: context.playerIndex, filter, title: message }, log: `Searching deck...` };
+        } else {
+            const p = draftState.players[context.playerIndex];
+            const card = p.deck[context.deckIndex];
+            if (card) {
+                p.deck.splice(context.deckIndex, 1);
+                p.hand.push(card);
+                
+                // Shuffle deck (Fisher-Yates)
+                for (let i = p.deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [p.deck[i], p.deck[j]] = [p.deck[j], p.deck[i]];
+                }
+                return { log: `Added ${card.name} to hand from deck.` };
+            }
+        }
     }
 };

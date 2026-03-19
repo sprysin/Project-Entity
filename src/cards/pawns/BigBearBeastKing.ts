@@ -28,5 +28,5 @@ cardRegistry.register({
     pawnType: PawnType.BEAST,
     atk: 220,
     def: 200,
-    effectText: 'Gain 20 LP then switch this Pawn from ATK to DEF, and if you do that, this card gains 60 DEF until the end of your opponents next turn.',
+    effectText: 'During your turn: you can Gain 20 LP then switch this Pawn from ATK to DEF, and if you do that, this card gains 60 DEF until the end of your opponents next turn.',
 }, effect);

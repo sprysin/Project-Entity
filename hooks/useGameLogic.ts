@@ -40,6 +40,9 @@ export const useGameLogic = () => {
     const [selectedDiscardIndex, setSelectedDiscardIndex] = useState<number | null>(null);
     const [handSelectionReq, setHandSelectionReq] = useState<{ playerIndex: number, title: string } | null>(null);
     const [selectedHandSelectionIndex, setSelectedHandSelectionIndex] = useState<number | null>(null);
+    const [deckSelectionReq, setDeckSelectionReq] = useState<{ playerIndex: number, filter: (c: Card) => boolean, title: string } | null>(null);
+    const [selectedDeckIndex, setSelectedDeckIndex] = useState<number | null>(null);
+    const [effectTributeReq, setEffectTributeReq] = useState<{ playerIndex: number, count: number, filter?: (c: Card) => boolean, title: string } | null>(null);
 
     // Pile viewing
     const [viewingDiscardIdx, setViewingDiscardIdx] = useState<number | null>(null);
@@ -57,14 +60,16 @@ export const useGameLogic = () => {
     // Compose sub-hooks
     const animations = useAnimations();
 
-    const { resolveEffect, handleDiscardSelection, handleHandSelection } = useEffectResolution(
+    const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection } = useEffectResolution(
         gameState, setGameState, animations.triggerVisual,
         {
             setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
             setHandSelectionReq, setSelectedHandSelectionIndex,
-            pendingEffectCard, discardSelectionReq,
-            setPendingTriggerType, pendingTriggerType
+            setDeckSelectionReq, setSelectedDeckIndex,
+            pendingEffectCard, discardSelectionReq, deckSelectionReq,
+            setPendingTriggerType, pendingTriggerType,
+            setEffectTributeReq
         }
     );
 
@@ -139,6 +144,7 @@ export const useGameLogic = () => {
                 if (effectsToResolve.length > 0) {
                     updatedPlayers = updatedPlayers.map(p => ({
                         ...p,
+                        activatedHardOncePerTurns: [],
                         pawnZones: p.pawnZones.map(z => {
                             if (!z) return null;
                             let newZ = { ...z };
@@ -160,6 +166,7 @@ export const useGameLogic = () => {
                 } else {
                     updatedPlayers = updatedPlayers.map(p => ({
                         ...p,
+                        activatedHardOncePerTurns: [],
                         pawnZones: p.pawnZones.map(z => {
                             if (!z) return null;
                             let newZ = { ...z };
@@ -189,7 +196,7 @@ export const useGameLogic = () => {
         const mkPlayer = (id: string, name: string, deck: Card[]): Player => ({
             id, name, lp: 800, deck: deck.slice(5), initialDeck: [...deck], hand: deck.slice(0, 5), discard: [], void: [],
             pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null),
-            normalSummonUsed: false, hiddenSummonUsed: false,
+            normalSummonUsed: false, hiddenSummonUsed: false, activatedHardOncePerTurns: [],
         });
         animations.lastLp.current = [800, 800];
         setGameState({
@@ -349,27 +356,58 @@ export const useGameLogic = () => {
             pendingPlayCard, playMode,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
+            deckSelectionReq, selectedDeckIndex,
             phaseFlash: animations.phaseFlash, turnFlash: animations.turnFlash,
             displayedLp: animations.displayedLp, lpScale: animations.lpScale, lpFlash: animations.lpFlash,
             viewingDiscardIdx, viewingVoidIdx,
             flyingCards: animations.flyingCards, voidAnimations: animations.voidAnimations,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
-            isRightPanelOpen, isDeckViewerOpen,
+            isRightPanelOpen, isDeckViewerOpen, effectTributeReq,
         },
         actions: {
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
             setTributeSelection, setIsPeekingField,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
+            setDeckSelectionReq, setSelectedDeckIndex,
             setTriggeredEffect, setPendingEffectCard,
             setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen,
             setRef: animations.setRef,
             nextPhase, canPlayCard, resolveEffect,
-            handleDiscardSelection, handleHandSelection,
+            handleDiscardSelection, handleHandSelection, handleDeckSelection,
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
                 cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
             handleTributeSummon: () =>
                 cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, { setPendingTributeCard, setTributeSelection, setPendingPlayCard, setPlayMode }),
+            handleEffectTribute: () => {
+                if (!gameState || !pendingEffectCard || !effectTributeReq) return;
+                if (tributeSelection.length !== effectTributeReq.count) return;
+                const activeIndex = gameState.activePlayerIndex;
+                const copiedSelection = [...tributeSelection];
+                
+                setGameState(prev => {
+                    if (!prev) return null;
+                    const players = JSON.parse(JSON.stringify(prev.players));
+                    const p = players[activeIndex];
+                    copiedSelection.forEach(idx => {
+                        const tribute = p.pawnZones[idx];
+                        if (tribute) { 
+                            animations.triggerVisual(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', tribute.card);
+                            p.discard = [...p.discard, tribute.card]; 
+                            p.pawnZones[idx] = null; 
+                        }
+                    });
+                    players[activeIndex] = p;
+                    return { ...prev, players: players as [Player, Player] };
+                });
+                
+                setTargetSelectMode(null);
+                setEffectTributeReq(null);
+                setTributeSelection([]);
+                setTimeout(() => {
+                    stableResolveEffect(pendingEffectCard, undefined, undefined, undefined, undefined, pendingTriggerType || 'activate', copiedSelection);
+                }, 700);
+            },
             handleActionFromHand: (card: Card, mode: 'activate' | 'set', autoSlotIndex?: number) =>
                 cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
             handlePlacement: (slotIndex: number) =>
