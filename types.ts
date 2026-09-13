@@ -64,6 +64,7 @@ export interface Card {
   def: number;
   effectText: string;
   ownerId: string;
+  tributedByAction?: boolean;
 }
 
 export interface PlacedCard {
@@ -74,6 +75,8 @@ export interface PlacedCard {
   summonedTurn: number;
   isSetTurn: boolean;
   hasActivatedEffect?: boolean;
+  nextBattleAttacks?: number;
+  attacksRemaining?: number;
 }
 
 export interface Player {

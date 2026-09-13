@@ -361,7 +361,8 @@ export const useCardActions = (
         const activeIndex = gameState.activePlayerIndex;
         const oppIndex = (activeIndex + 1) % 2;
         const attacker = gameState.players[activeIndex].pawnZones[attackerIdx];
-        if (!attacker || attacker.hasAttacked || attacker.position !== Position.ATTACK) return;
+        if (!attacker || attacker.position !== Position.ATTACK) return;
+        if (attacker.attacksRemaining !== undefined ? attacker.attacksRemaining <= 0 : attacker.hasAttacked) return;
         if (targetIdx === 'direct' && gameState.players[oppIndex].pawnZones.some(Boolean)) return;
 
         {
@@ -429,7 +430,15 @@ export const useCardActions = (
                     }
                 }
             }
-            if (p.pawnZones[attackerIdx]) p.pawnZones[attackerIdx]!.hasAttacked = true;
+            if (p.pawnZones[attackerIdx]) {
+                const placedAttacker = p.pawnZones[attackerIdx]!;
+                if (placedAttacker.attacksRemaining !== undefined) {
+                    placedAttacker.attacksRemaining -= 1;
+                    placedAttacker.hasAttacked = placedAttacker.attacksRemaining <= 0;
+                } else {
+                    placedAttacker.hasAttacked = true;
+                }
+            }
             players[activeIndex] = p;
             players[oppIndex] = opp;
 

@@ -395,7 +395,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                                 </button>
                               )}
                             {/* Battle triggers */}
-                            {state.selectedFieldSlot.type === 'pawn' && gameState.currentPhase === Phase.BATTLE && !activePlayer.pawnZones[state.selectedFieldSlot.index]?.hasAttacked && activePlayer.pawnZones[state.selectedFieldSlot.index]?.position === Position.ATTACK && (
+                            {state.selectedFieldSlot.type === 'pawn' && gameState.currentPhase === Phase.BATTLE && (activePlayer.pawnZones[state.selectedFieldSlot.index]?.attacksRemaining !== undefined ? activePlayer.pawnZones[state.selectedFieldSlot.index]!.attacksRemaining! > 0 : !activePlayer.pawnZones[state.selectedFieldSlot.index]?.hasAttacked) && activePlayer.pawnZones[state.selectedFieldSlot.index]?.position === Position.ATTACK && (
                               <button disabled={actionsDisabled} onClick={() => { if (gameState.turnNumber === 1) actions.addLog("INTERCEPT: Combat blocked cycle 1."); else actions.setTargetSelectMode('attack'); }} className={`w-full py-4 border-2 font-orbitron text-xs font-black uppercase transition-all ${actionsDisabled ? 'opacity-50 cursor-not-allowed' : ''} ${gameState.turnNumber === 1 ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-red-900/40 hover:bg-red-800 text-red-200 border-red-500'}`}>ENGAGE TARGET</button>
                             )}
                           </>

@@ -135,6 +135,31 @@ export const useGameLogic = () => {
             // Handle End Phase pending effects (e.g. ATK resets)
             let currentPendingEffects = prev.pendingEffects || [];
             let updatedPlayers = [...prev.players];
+
+            if (nextPhase === Phase.BATTLE) {
+                updatedPlayers = updatedPlayers.map(p => ({
+                    ...p,
+                    pawnZones: p.pawnZones.map(z => z ? {
+                        ...z,
+                        attacksRemaining: z.nextBattleAttacks ?? 1,
+                        nextBattleAttacks: undefined,
+                    } : null)
+                })) as [Player, Player];
+            }
+
+            if (nextPhase === Phase.STANDBY) {
+                let phaseState = { ...prev, players: updatedPlayers as [Player, Player], currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber };
+                const standbyPlayer = phaseState.players[activeIndex];
+                for (const card of [...standbyPlayer.discard]) {
+                    if (!card.tributedByAction) continue;
+                    const phaseEffect = cardRegistry.getEffect(card.id)?.onPhaseChange;
+                    if (!phaseEffect) continue;
+                    const result = phaseEffect(phaseState, { card, playerIndex: activeIndex });
+                    if (result?.newState) phaseState = result.newState;
+                }
+                updatedPlayers = phaseState.players;
+            }
+
             if (nextPhase === Phase.END) {
                 const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
                 const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
@@ -351,7 +376,7 @@ export const useGameLogic = () => {
                     copiedSelection.forEach(idx => {
                         const tribute = p.pawnZones[idx];
                         if (tribute) { 
-                            p.discard = [...p.discard, tribute.card]; 
+                            p.discard = [...p.discard, { ...tribute.card, tributedByAction: pendingEffectCard.type === CardType.ACTION }];
                             p.pawnZones[idx] = null; 
                         }
                     });

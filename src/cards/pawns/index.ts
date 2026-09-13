@@ -5,3 +5,5 @@ import './VoidCaster';
 import './ChargedDragon';
 import './DualModeBeast';
 import './BigBearBeastKing';
+import './QuickstrikeSerpent';
+import './LingeringLamb';
