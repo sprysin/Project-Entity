@@ -32,7 +32,7 @@ export const useGameLogic = () => {
     // Effect Resolution
     const [triggeredEffect, setTriggeredEffect] = useState<Card | null>(null);
     const [pendingEffectCard, setPendingEffectCard] = useState<Card | null>(null);
-    const [pendingTriggerType, setPendingTriggerType] = useState<'summon' | 'activate' | 'phase' | null>(null);
+    const [pendingTriggerType, setPendingTriggerType] = useState<'summon' | 'activate' | 'phase' | 'field_activate' | null>(null);
     const [isPeekingField, setIsPeekingField] = useState(false);
 
     // Discard/Hand Selection
@@ -52,15 +52,10 @@ export const useGameLogic = () => {
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
     const [isDeckViewerOpen, setIsDeckViewerOpen] = useState(false);
 
-    // Refs
-    const isTransitioning = useRef(false);
-    const processedAutoPhase = useRef<string>("");
-    const drawIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
     // Compose sub-hooks
     const animations = useAnimations();
 
-    const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection } = useEffectResolution(
+    const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
         gameState, setGameState, animations.triggerVisual,
         {
             setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
@@ -85,7 +80,8 @@ export const useGameLogic = () => {
     const cardActions = useCardActions(
         gameState, setGameState, stableResolveEffect, addLog,
         animations.triggerVisual, animations.triggerShatter,
-        selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, isPeekingField, targetSelectMode
+        selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode,
+        isPeekingField || pendingEffectCard !== null || triggeredEffect !== null, targetSelectMode
     );
 
     /** Helper to append messages to the game log. */
@@ -95,7 +91,7 @@ export const useGameLogic = () => {
 
     /** Checks if a card in hand is playable. */
     const canPlayCard = useCallback((card: Card) => {
-        if (!gameState) return false;
+        if (!gameState || gameState.winner) return false;
         if (gameState.currentPhase !== Phase.MAIN1 && gameState.currentPhase !== Phase.MAIN2) return false;
         const activeIndex = gameState.activePlayerIndex;
         const player = gameState.players[activeIndex];
@@ -112,6 +108,7 @@ export const useGameLogic = () => {
 
     /** Advances the game to the next phase. */
     const nextPhase = useCallback(() => {
+        if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
             let nextPhase = prev.currentPhase;
@@ -185,7 +182,7 @@ export const useGameLogic = () => {
 
             return { ...prev, currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber, players: updatedPlayers as [Player, Player], pendingEffects: currentPendingEffects };
         });
-    }, []);
+    }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
 
     // === EFFECTS ===
 
@@ -235,6 +232,7 @@ export const useGameLogic = () => {
                 animations.lastLp.current[idx] = player.lp;
             }
         });
+        const timers: ReturnType<typeof setInterval>[] = [];
         gameState.players.forEach((player, idx) => {
             if (player.lp !== animations.displayedLp[idx]) {
                 const diff = player.lp - animations.displayedLp[idx];
@@ -255,96 +253,52 @@ export const useGameLogic = () => {
                         return newLp;
                     });
                 }, 20);
-                return () => clearInterval(timer);
+                timers.push(timer);
             }
         });
-    }, [gameState?.players[0]?.lp, gameState?.players[1]?.lp, animations.displayedLp]);
+        return () => timers.forEach(clearInterval);
+    }, [gameState?.players[0]?.lp, gameState?.players[1]?.lp]);
 
-    /** Phase automation (Draw/Standby). */
+    /** Timers animate phase transitions; state updater functions stay pure. */
     useEffect(() => {
         if (!gameState || gameState.winner) return;
-        const phaseKey = `${gameState.turnNumber}-${gameState.activePlayerIndex}-${gameState.currentPhase}`;
-        if (processedAutoPhase.current === phaseKey) return;
-
-        if (gameState.currentPhase === Phase.DRAW) {
-            processedAutoPhase.current = phaseKey;
-            isTransitioning.current = true;
-            if (gameState.turnNumber > 0) { animations.setTurnFlash("TURN CHANGE"); setTimeout(() => animations.setTurnFlash(null), 1500); }
-            setTimeout(() => animations.setPhaseFlash(Phase.DRAW), 1200);
-
+        const timers: ReturnType<typeof setTimeout>[] = [];
+        const later = (fn: () => void, ms: number) => timers.push(setTimeout(fn, ms));
+        const phase = gameState.currentPhase;
+        const active = gameState.activePlayerIndex;
+        const turn = gameState.turnNumber;
+        if (phase === Phase.DRAW) {
+            animations.setTurnFlash("TURN CHANGE");
+            later(() => animations.setTurnFlash(null), 1500);
+            later(() => animations.setPhaseFlash(Phase.DRAW), 1200);
             setGameState(prev => {
-                if (!prev) return null;
-                const players = [...prev.players];
-                const p = { ...players[prev.activePlayerIndex] };
-                p.normalSummonUsed = false; p.hiddenSummonUsed = false;
-                p.pawnZones = p.pawnZones.map(z => z ? { ...z, hasAttacked: false, hasChangedPosition: false } : null);
-                players[prev.activePlayerIndex] = p;
-                return { ...prev, players: players as [Player, Player] };
+                if (!prev || prev.winner) return prev;
+                const players = [...prev.players] as [Player, Player];
+                const p = players[active];
+                players[active] = { ...p, normalSummonUsed: false, hiddenSummonUsed: false,
+                    pawnZones: p.pawnZones.map(z => z ? { ...z, hasAttacked: false, hasChangedPosition: false } : null) };
+                return { ...prev, players };
             });
-
-            // Calculate based on initial hand size
-            const activePlayerPhaseStart = gameState.players[gameState.activePlayerIndex];
-            const initialHandSize = activePlayerPhaseStart.hand.length;
-
-            let drawCount = 0;
-
-            if (gameState.turnNumber === 1) {
-                // Skip drawing on the very first turn of the game
-                setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 1700);
-            } else if (initialHandSize >= 5) {
-                drawIntervalRef.current = setInterval(() => {
-                    drawCount++;
-                    setGameState(current => {
-                        if (!current) return null;
-                        const p = current.players[current.activePlayerIndex];
-                        if (drawCount > 1 || p.deck.length === 0) {
-                            if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
-                            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 500);
-                            return current;
-                        }
-                        const players = [...current.players];
-                        const ply = { ...players[current.activePlayerIndex] };
-                        ply.hand = [...ply.hand, ply.deck[0]];
-                        ply.deck = ply.deck.slice(1);
-                        players[current.activePlayerIndex] = ply;
-                        return { ...current, players: players as [Player, Player] };
-                    });
-                }, 300);
-            } else {
-                drawIntervalRef.current = setInterval(() => {
-                    drawCount++;
-                    setGameState(current => {
-                        if (!current) return null;
-                        const p = current.players[current.activePlayerIndex];
-                        // Need to check if hand achieved 5 cards PRIOR to this tick's draw!
-                        // If it came in >= 5 and this is at least our 2nd interval tick, stop.
-                        if ((p.hand.length >= 5 && drawCount > 1) || p.deck.length === 0) {
-                            if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
-                            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 500);
-                            return current;
-                        }
-                        const players = [...current.players];
-                        const ply = { ...players[current.activePlayerIndex] };
-                        ply.hand = [...ply.hand, ply.deck[0]];
-                        ply.deck = ply.deck.slice(1);
-                        players[current.activePlayerIndex] = ply;
-                        return { ...current, players: players as [Player, Player] };
-                    });
-                }, 300);
+            const player = gameState.players[active];
+            const count = turn === 1 ? 0 : Math.min(player.deck.length, Math.max(1, 5 - player.hand.length));
+            for (let i = 0; i < count; i++) {
+                later(() => setGameState(prev => {
+                    if (!prev || prev.winner || prev.turnNumber !== turn || prev.currentPhase !== Phase.DRAW) return prev;
+                    const p = prev.players[active];
+                    if (!p.deck.length) return prev;
+                    const players = [...prev.players] as [Player, Player];
+                    players[active] = { ...p, hand: [...p.hand, p.deck[0]], deck: p.deck.slice(1) };
+                    return { ...prev, players };
+                }), (i + 1) * 300);
             }
-        } else if (gameState.currentPhase === Phase.STANDBY) {
-            processedAutoPhase.current = phaseKey;
-            isTransitioning.current = true;
-            animations.setPhaseFlash(Phase.STANDBY);
-            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 1200);
-        } else if (gameState.currentPhase === Phase.END) {
-            processedAutoPhase.current = phaseKey;
-            isTransitioning.current = true;
-            animations.setPhaseFlash(Phase.END);
-            setTimeout(() => { isTransitioning.current = false; nextPhase(); }, 1200);
+            later(nextPhase, Math.max(1700, count * 300 + 500));
+        } else if (phase === Phase.STANDBY || phase === Phase.END) {
+            animations.setPhaseFlash(phase);
+            later(nextPhase, 1200);
         } else {
-            animations.setPhaseFlash(gameState.currentPhase);
+            animations.setPhaseFlash(phase);
         }
+        return () => timers.forEach(clearTimeout);
     }, [gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, nextPhase]);
 
     // === RETURN ===
@@ -373,7 +327,7 @@ export const useGameLogic = () => {
             setTriggeredEffect, setPendingEffectCard,
             setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen,
             setRef: animations.setRef,
-            nextPhase, canPlayCard, resolveEffect,
+            nextPhase, canPlayCard, resolveEffect, cancelEffect,
             handleDiscardSelection, handleHandSelection, handleDeckSelection,
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
                 cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
@@ -385,6 +339,11 @@ export const useGameLogic = () => {
                 const activeIndex = gameState.activePlayerIndex;
                 const copiedSelection = [...tributeSelection];
                 
+                if (new Set(copiedSelection).size !== effectTributeReq.count || copiedSelection.some(idx => {
+                    const zone = gameState.players[activeIndex].pawnZones[idx];
+                    return !zone || (effectTributeReq.filter && !effectTributeReq.filter(zone.card));
+                })) return;
+                copiedSelection.forEach(idx => animations.triggerVisual(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', gameState.players[activeIndex].pawnZones[idx]!.card));
                 setGameState(prev => {
                     if (!prev) return null;
                     const players = JSON.parse(JSON.stringify(prev.players));
@@ -392,7 +351,6 @@ export const useGameLogic = () => {
                     copiedSelection.forEach(idx => {
                         const tribute = p.pawnZones[idx];
                         if (tribute) { 
-                            animations.triggerVisual(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', tribute.card);
                             p.discard = [...p.discard, tribute.card]; 
                             p.pawnZones[idx] = null; 
                         }
@@ -404,9 +362,7 @@ export const useGameLogic = () => {
                 setTargetSelectMode(null);
                 setEffectTributeReq(null);
                 setTributeSelection([]);
-                setTimeout(() => {
-                    stableResolveEffect(pendingEffectCard, undefined, undefined, undefined, undefined, pendingTriggerType || 'activate', copiedSelection);
-                }, 700);
+                stableResolveEffect(pendingEffectCard, undefined, undefined, undefined, undefined, pendingTriggerType || 'activate', copiedSelection);
             },
             handleActionFromHand: (card: Card, mode: 'activate' | 'set', autoSlotIndex?: number) =>
                 cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),

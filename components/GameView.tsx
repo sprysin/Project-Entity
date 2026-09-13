@@ -25,7 +25,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const opponent = gameState.players[oppIdx];
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = gameState.activePlayerIndex === 1;
-  const actionsDisabled = state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null;
+  const actionsDisabled = !!gameState.winner || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null;
 
   const checkIsSelectable = (z: typeof activePlayer.pawnZones[0], zoneType: 'pawn' | 'action', isOpponentPawn: boolean) => {
     if (isOpponentPawn && state.targetSelectMode === 'attack') return true;
@@ -248,7 +248,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             gameState={gameState}
             selectedHandSelectionIndex={state.selectedHandSelectionIndex}
             setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex}
-            setHandSelectionReq={actions.setHandSelectionReq}
+            setHandSelectionReq={actions.cancelEffect}
             handleHandSelection={actions.handleHandSelection}
           />
 
@@ -257,7 +257,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             gameState={gameState}
             selectedDiscardIndex={state.selectedDiscardIndex}
             setSelectedDiscardIndex={actions.setSelectedDiscardIndex}
-            setDiscardSelectionReq={actions.setDiscardSelectionReq}
+            setDiscardSelectionReq={actions.cancelEffect}
             handleDiscardSelection={actions.handleDiscardSelection}
           />
 
@@ -266,7 +266,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             gameState={gameState}
             selectedDeckIndex={state.selectedDeckIndex}
             setSelectedDeckIndex={actions.setSelectedDeckIndex}
-            setDeckSelectionReq={actions.setDeckSelectionReq}
+            setDeckSelectionReq={actions.cancelEffect}
             handleDeckSelection={actions.handleDeckSelection}
           />
 
@@ -313,6 +313,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
               <span className="text-xl tracking-tighter whitespace-nowrap leading-none">NEXT PHASE</span>
               <span className="text-[10px] opacity-90 tracking-widest font-bold font-orbitron italic">({gameState.currentPhase})</span>
             </button>
+            {state.pendingEffectCard && <button onClick={actions.cancelEffect} className="px-4 py-2 bg-red-900 text-white">Cancel effect</button>}
             {state.targetSelectMode === 'effect' && (<div className="px-4 py-2 bg-red-900 border-2 border-red-500 text-white font-orbitron font-black animate-pulse text-[10px] text-center shadow-lg uppercase tracking-widest">{state.pendingEffectCard?.name}: SELECT TARGET</div>)}
             {state.targetSelectMode === 'tribute' && (
               <div className="flex flex-col space-y-2">
@@ -359,7 +360,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                                 <button disabled={actionsDisabled || gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.summonedTurn === gameState.turnNumber} onClick={() => {
                                   setGameState(prev => {
                                     if (!prev) return null;
-                                    const p = { ...prev.players[prev.activePlayerIndex] };
+                                    const original = prev.players[prev.activePlayerIndex];
+                                    const p = { ...original, pawnZones: original.pawnZones.map(z => z ? { ...z } : null) };
                                     const z = p.pawnZones[state.selectedFieldSlot!.index];
                                     if (!z || z.hasChangedPosition || z.summonedTurn === prev.turnNumber) return prev;
                                     z.position = z.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK;

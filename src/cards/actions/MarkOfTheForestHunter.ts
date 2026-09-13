@@ -20,7 +20,7 @@ const effect: IEffect = {
         const p = state.players[context.playerIndex];
         if (!Condition.SoftOncePerTurn()(state, context)) return false;
         if (p.lp <= 1) return false;
-        return true;
+        return p.deck.some(c => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST);
     }
 };
 

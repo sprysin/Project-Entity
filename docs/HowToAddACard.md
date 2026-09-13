@@ -329,7 +329,7 @@ Pass 2: [PayLP] → [SearchDeck → processes]    ← LP deduction committed thi
 This means costs always re-execute. The final pass is the only one that commits to game state.
 
 ### Intermediate State Commits
-If a cost (like LP payment) must be **visually reflected before** a UI modal opens (e.g., lose LP before deck search appears), the engine commits intermediate state for `requireDeckSelection`. Other selection types (discard, hand, tribute) do NOT currently commit intermediate state.
+Selection previews do not commit their draft state, including deck searches. Costs and results are committed together on the final pass, so LP and discard costs are paid once. Tribute selections are removed by the tribute handler before continuing; `Cost.TributePawns` recognizes the supplied tribute indices and does not remove them again. Disposable Actions and Conditions move to discard on completion or cancellation, located by instance ID rather than a timed slot cleanup.
 
 ### Unique Card IDs
 Every card MUST have a unique `id`. The convention is:
