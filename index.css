@@ -8,3 +8,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.card-travel {
+  position: fixed;
+  z-index: 150;
+  pointer-events: none;
+  transform-origin: top left;
+  opacity: 0;
+  animation: card-zone-travel 490ms cubic-bezier(.22,.68,.25,1) forwards;
+  filter: drop-shadow(0 10px 12px #0009);
+}
+@keyframes card-zone-travel {
+  from { opacity: 1; transform: translate(0, 0); }
+  45% { filter: drop-shadow(0 24px 18px #000b) brightness(1.12); }
+  75%, to { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)) scale(var(--travel-scale-x), var(--travel-scale-y)); }
+}
+.card-travel-face { animation: card-zone-turn 490ms ease-out forwards; animation-duration: inherit; animation-delay: inherit; }
+@keyframes card-zone-turn { from { transform: rotate(var(--from-rotation)); } 75%, to { transform: rotate(var(--to-rotation)); } }
+.card-travel-activation::after { content: ''; position: absolute; inset: 0; background: #fde68a66; border: 2px solid #fef3c7; opacity: 0; animation: effect-activation 220ms 420ms; }
+.effect-marker { position: absolute; inset: -5px; z-index: 80; pointer-events: none; border-radius: 5px; }
+.effect-activation { background: #fde68a66; border: 2px solid #fef3c7; animation: effect-activation 550ms ease-out both; }
+@keyframes effect-activation {
+  0% { opacity: 0; }
+  22% { opacity: 1; box-shadow: 0 0 24px #fbbf2499; }
+  100% { opacity: 0; }
+}
+.effect-target {
+  background: linear-gradient(#67e8f9,#67e8f9) left top/18px 3px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) left top/3px 18px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) right top/18px 3px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) right top/3px 18px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) left bottom/18px 3px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) left bottom/3px 18px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) right bottom/18px 3px no-repeat,
+    linear-gradient(#67e8f9,#67e8f9) right bottom/3px 18px no-repeat;
+  animation: effect-target 850ms ease-out both;
+}
+.effect-target::after { content: 'TARGET'; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); color: #a5f3fc; background: #083344; padding: 3px 6px; font: 9px Orbitron, sans-serif; letter-spacing: .15em; }
+@keyframes effect-target { 0% { opacity: 0; transform: scale(1.18); } 20%, 75% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+.pile-drawer { animation: pile-enter 180ms ease-out; }
+@keyframes pile-enter { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pile-drawer { animation: none; }
+  .effect-target { animation-name: effect-activation; }
+}

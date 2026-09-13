@@ -22,7 +22,37 @@ function setup(edit: (s: GameState) => void) {
     }));
 }
 beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
-afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); });
+afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+it('instant actions visually visit the field while gameplay resolves immediately', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    const rect = (left: number) => ({ left, top: 100, width: 128, height: 192 });
+    const element = (left: number) => ({ getBoundingClientRect: () => rect(left) }) as unknown as HTMLElement;
+    game.actions.setRef('0-hand-0')(element(0));
+    game.actions.setRef('0-action-0')(element(200));
+    game.actions.setRef('discard-0')(element(400));
+    const blast = card('action_01');
+    setup(s => { s.players[0].hand = [blast]; });
+    act(() => game.actions.handleActionFromHand(blast, 'activate', 0));
+    expect(game.gameState!.players[1].lp).toBe(750);
+    expect(game.gameState!.players[0].discard[0].instanceId).toBe(blast.instanceId);
+    expect(game.state.cardMotions).toHaveLength(2);
+    expect(game.state.cardMotions.map(m => [m.from.left, m.to.left])).toEqual([[0, 200], [200, 400]]);
+    expect(game.state.cardMotions[0].activation).toBe(true);
+    const committed = game.gameState;
+    act(() => game.state.cardMotions.forEach(m => game.state.finishMotion(m.id)));
+    expect(game.gameState).toBe(committed);
+});
+
+it('returning a card animates the transfer without animating hand reordering', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    const element = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 128, height: 192 }) } as unknown as HTMLElement;
+    ['0-hand-0', '0-hand-1', 'discard-0'].forEach(key => game.actions.setRef(key)(element));
+    const first = card('pawn_01'), second = card('pawn_04');
+    setup(s => { s.players[0].hand = [first]; s.players[0].discard = [second]; });
+    setup(s => { s.players[0].hand = [second, first]; });
+    expect(game.state.cardMotions.map(m => m.card.instanceId)).toEqual([second.instanceId]);
+});
 
 it('Void Blast wins immediately and is discarded exactly once', () => {
     const blast = card('action_01');

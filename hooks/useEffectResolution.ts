@@ -29,6 +29,7 @@ export const useEffectResolution = (
         setSelectedDeckIndex: (idx: number | null) => void,
         deckSelectionReq: any,
         setEffectTributeReq: (req: any) => void,
+        showEffect?: (card: Card, target?: { playerIndex: number; type: 'pawn' | 'action'; index: number }) => void,
     }
 ) => {
     const {
@@ -130,6 +131,8 @@ export const useEffectResolution = (
             setPendingTriggerType(actualTriggerType);
             return;
         }
+
+        selectionState.showEffect?.(card, actualTarget);
 
         // Apply the effect to game state
         setGameState(prev => {

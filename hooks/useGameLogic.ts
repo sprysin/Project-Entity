@@ -3,6 +3,7 @@ import { GameState, Player, Card, CardType, Phase, Position, CardContext } from 
 import { createDeck } from '../constants';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { useAnimations } from './useAnimations';
+import { useCardMotion } from './useCardMotion';
 import { useEffectResolution } from './useEffectResolution';
 import { useCardActions } from './useCardActions';
 import '../src/cards/pawns';
@@ -54,9 +55,10 @@ export const useGameLogic = () => {
 
     // Compose sub-hooks
     const animations = useAnimations();
+    const cardMotion = useCardMotion(gameState, animations.zoneRefs);
 
     const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
-        gameState, setGameState, animations.triggerVisual,
+        gameState, setGameState, cardMotion.recordMovement,
         {
             setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
@@ -64,7 +66,24 @@ export const useGameLogic = () => {
             setDeckSelectionReq, setSelectedDeckIndex,
             pendingEffectCard, discardSelectionReq, deckSelectionReq,
             setPendingTriggerType, pendingTriggerType,
-            setEffectTributeReq
+            setEffectTributeReq,
+            showEffect: (card, target) => {
+                cardMotion.recordActivation(card);
+                const pulse = (key: string, kind: string) => {
+                    const el = animations.zoneRefs.current.get(key);
+                    if (!el) return;
+                    const marker = document.createElement('div');
+                    marker.className = `effect-marker ${kind}`;
+                    el.appendChild(marker);
+                    marker.addEventListener('animationend', () => marker.remove(), { once: true });
+                };
+                gameState?.players.forEach((p, pi) => {
+                    (['pawn', 'action'] as const).forEach(type => p[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((z, i) => {
+                        if (z?.card.instanceId === card.instanceId) pulse(`${pi}-${type}-${i}`, 'effect-activation');
+                    }));
+                });
+                if (target) pulse(`${target.playerIndex}-${target.type}-${target.index}`, 'effect-target');
+            }
         }
     );
 
@@ -79,7 +98,7 @@ export const useGameLogic = () => {
 
     const cardActions = useCardActions(
         gameState, setGameState, stableResolveEffect, addLog,
-        animations.triggerVisual, animations.triggerShatter,
+        cardMotion.recordMovement, animations.triggerShatter,
         selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode,
         isPeekingField || pendingEffectCard !== null || triggeredEffect !== null, targetSelectMode
     );
@@ -339,7 +358,8 @@ export const useGameLogic = () => {
             phaseFlash: animations.phaseFlash, turnFlash: animations.turnFlash,
             displayedLp: animations.displayedLp, lpScale: animations.lpScale, lpFlash: animations.lpFlash,
             viewingDiscardIdx, viewingVoidIdx,
-            flyingCards: animations.flyingCards, voidAnimations: animations.voidAnimations,
+            cardMotions: cardMotion.motions, finishMotion: cardMotion.finishMotion,
+            voidAnimations: animations.voidAnimations,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
             isRightPanelOpen, isDeckViewerOpen, effectTributeReq,
@@ -368,7 +388,7 @@ export const useGameLogic = () => {
                     const zone = gameState.players[activeIndex].pawnZones[idx];
                     return !zone || (effectTributeReq.filter && !effectTributeReq.filter(zone.card));
                 })) return;
-                copiedSelection.forEach(idx => animations.triggerVisual(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', gameState.players[activeIndex].pawnZones[idx]!.card));
+                copiedSelection.forEach(idx => cardMotion.recordMovement(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', gameState.players[activeIndex].pawnZones[idx]!.card));
                 setGameState(prev => {
                     if (!prev) return null;
                     const players = JSON.parse(JSON.stringify(prev.players));

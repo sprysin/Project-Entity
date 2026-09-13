@@ -56,8 +56,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
         <div className="flex-1 flex flex-col items-center justify-between p-4 relative overflow-hidden">
           {/* Opponent Hand (Semi-Visible) */}
           <div className="absolute top-0 w-full flex justify-center space-x-[-10px] z-20 pointer-events-none">
-            {opponent.hand.map((_, i) => (
-              <div key={i} className="w-28 aspect-[2/3] card-back rounded shadow-2xl border-2 border-slate-300 transform -translate-y-[60%] hover:translate-y-[-10%] transition-transform duration-300 cursor-pointer pointer-events-auto"></div>
+            {opponent.hand.map((card, i) => (
+              <div ref={actions.setRef(`${oppIdx}-hand-${i}`)} key={card.instanceId} className="w-28 aspect-[2/3] card-back rounded shadow-2xl border-2 border-slate-300 transform -translate-y-[60%] hover:translate-y-[-10%] transition-transform duration-300 cursor-pointer pointer-events-auto"></div>
             ))}
           </div>
 
@@ -73,7 +73,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'action', index: i })
                   }} />))}
                 </div>
-                <DeckPile count={opponent.deck.length} label="Deck" />
+                <DeckPile count={opponent.deck.length} label="Deck" domRef={actions.setRef(`deck-${oppIdx}`)} />
               </div>
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
@@ -93,8 +93,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                   }} />))}
                 </div>
                 <div className="flex space-x-6">
-                  <Pile count={opponent.discard.length} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${oppIdx}`)} isFlashing={state.discardFlash[oppIdx]} onClick={() => actions.setViewingDiscardIdx(oppIdx)} />
-                  <Pile count={opponent.void.length} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${oppIdx}`)} isFlashing={state.voidFlash[oppIdx]} onClick={() => actions.setViewingVoidIdx(oppIdx)} />
+                  <Pile count={opponent.discard.length} topCard={opponent.discard[opponent.discard.length - 1]} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${oppIdx}`)} isFlashing={state.discardFlash[oppIdx]} onClick={() => actions.setViewingDiscardIdx(oppIdx)} />
+                  <Pile count={opponent.void.length} topCard={opponent.void[opponent.void.length - 1]} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${oppIdx}`)} isFlashing={state.voidFlash[oppIdx]} onClick={() => actions.setViewingVoidIdx(oppIdx)} />
                 </div>
               </div>
             </div>
@@ -145,8 +145,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                     }} />))}
                 </div>
                 <div className="flex space-x-6">
-                  <Pile count={activePlayer.discard.length} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${gameState.activePlayerIndex}`)} isFlashing={state.discardFlash[gameState.activePlayerIndex]} onClick={() => actions.setViewingDiscardIdx(gameState.activePlayerIndex)} />
-                  <Pile count={activePlayer.void.length} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${gameState.activePlayerIndex}`)} isFlashing={state.voidFlash[gameState.activePlayerIndex]} onClick={() => actions.setViewingVoidIdx(gameState.activePlayerIndex)} />
+                  <Pile count={activePlayer.discard.length} topCard={activePlayer.discard[activePlayer.discard.length - 1]} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${gameState.activePlayerIndex}`)} isFlashing={state.discardFlash[gameState.activePlayerIndex]} onClick={() => actions.setViewingDiscardIdx(gameState.activePlayerIndex)} />
+                  <Pile count={activePlayer.void.length} topCard={activePlayer.void[activePlayer.void.length - 1]} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${gameState.activePlayerIndex}`)} isFlashing={state.voidFlash[gameState.activePlayerIndex]} onClick={() => actions.setViewingVoidIdx(gameState.activePlayerIndex)} />
                 </div>
               </div>
               <div className="flex space-x-6 items-center">
@@ -169,7 +169,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                     }} />))}
                 </div>
                 <div className="flex space-x-6 items-center">
-                  <DeckPile count={activePlayer.deck.length} label="Deck" />
+                  <DeckPile count={activePlayer.deck.length} label="Deck" domRef={actions.setRef(`deck-${gameState.activePlayerIndex}`)} />
                 </div>
               </div>
             </div>
@@ -183,6 +183,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                 <CardDetail
                   key={card.instanceId}
                   card={card}
+                  domRef={actions.setRef(`${gameState.activePlayerIndex}-hand-${i}`)}
                   onClick={() => { actions.setSelectedHandIndex(i); actions.setSelectedFieldSlot(null); }}
                   compact={true}
                   className={`w-36 rounded transition-all duration-300 cursor-pointer border-2 border-slate-300 shadow-2xl pointer-events-auto 
@@ -195,27 +196,21 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
           </div>
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
-          {state.flyingCards.map(fc => (
-            <div
-              key={fc.id}
-              className={`fixed w-16 h-24 ${fc.card ? 'border-2' : 'bg-slate-200 border-2 border-yellow-500'} flying-card z-[150] shadow-[0_0_20px_rgba(234,179,8,0.8)]`}
+          {state.cardMotions.map(motion => (
+            <div key={motion.id} className={`card-travel ${motion.activation ? 'card-travel-activation' : ''}`} onAnimationEnd={event => { if (event.target === event.currentTarget) state.finishMotion(motion.id); }}
               style={{
-                left: `${fc.startX}%`,
-                top: `${fc.startY}%`,
-                '--tx': `${fc.targetX - fc.startX}vw`,
-                '--ty': `${fc.targetY - fc.startY}vh`,
-                background: fc.card ? 'transparent' : undefined
-              } as React.CSSProperties}
-            >
-              {fc.card && (
-                <div className="w-full h-full relative overflow-hidden rounded bg-black">
-                  {/* Mini Card Representation */}
-                  <div className={`absolute inset-0 border-2 ${fc.card.type === CardType.PAWN ? 'border-yellow-500 bg-yellow-900/50' : fc.card.type === CardType.ACTION ? 'border-green-500 bg-green-900/50' : 'border-pink-500 bg-pink-900/50'}`}></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-[6px] font-orbitron text-white text-center font-bold p-1 leading-tight">{fc.card.name}</div>
-                  </div>
-                </div>
-              )}
+                left: motion.from.left, top: motion.from.top, width: motion.from.width, height: motion.from.height,
+                animationDelay: `${motion.delay ?? 0}ms`, animationDuration: `${motion.duration ?? 490}ms`,
+                '--travel-x': `${motion.to.left - motion.from.left}px`,
+                '--travel-y': `${motion.to.top - motion.from.top}px`,
+                '--travel-scale-x': motion.to.width / motion.from.width,
+                '--travel-scale-y': motion.to.height / motion.from.height,
+                '--from-rotation': `${motion.fromRotation}deg`,
+                '--to-rotation': `${motion.rotation}deg`,
+              } as React.CSSProperties}>
+              <div className="card-travel-face w-full h-full">
+                {motion.hidden ? <div className="card-back w-full h-full rounded border-2 border-slate-400" /> : <CardDetail card={motion.card} compact className="w-full h-full" />}
+              </div>
             </div>
           ))}
 

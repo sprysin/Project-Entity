@@ -193,8 +193,8 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <section className="rulebook-cover">
             <div className="rulebook-cover-copy">
               <span className="rulebook-eyebrow">LEARN THE GAME</span>
-              <h1 ref={heading} tabIndex={-1}>YOUR CARDS.<br /><em>YOUR MOVE.</em></h1>
-              <p>From your first draw to the final attack.<br />Choose a chapter and get straight to the rules.</p>
+              <h1 ref={heading} tabIndex={-1}>PROJECT<br /><em>ENTITY</em></h1>
+              <p>Covers all the major rules and mechanics of standard play.<br />These are subject to change as the game receives balance updates.</p>
               <button className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
             </div>
             <div className="rulebook-card-fan" aria-label="Example Pawn, Action and Condition cards">

@@ -23,13 +23,14 @@ interface CardDetailProps {
     highlightAtk?: boolean;
     highlightDef?: boolean;
     compact?: boolean;
+    domRef?: (el: HTMLElement | null) => void;
 }
 
 /**
  * CardDetail Sub-component: A high-fidelity representation of a card.
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
-export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, compact = false }) => {
+export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, compact = false, domRef }) => {
     const originalCard = cardRegistry.getAllCards().find(c => c.id === card.id);
     const getStatColor = (current: number, original?: number) => {
         if (original === undefined) return 'text-yellow-400';
@@ -53,6 +54,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
 
     return (
         <div
+            ref={domRef}
             onClick={onClick}
             className={`${compact ? 'p-1 border-2' : 'p-2 border-4'} rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''} ${className}`}
         >

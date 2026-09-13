@@ -50,6 +50,7 @@ export const Zone: React.FC<{
 
             {/* Floating Card Content */}
             {card && (
+                <div key={card.card.instanceId} data-card-face className="absolute inset-0">
                 <div className={`absolute inset-0 w-full h-full transition-all duration-700 z-20 ${card.position === Position.HIDDEN ? 'card-back' : ''} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.PAWN)) ? 'rotate-90' : ''}`}>
                     {card.position === Position.HIDDEN ? (
                         <div className="w-full h-full flex items-center justify-center opacity-40">
@@ -64,6 +65,7 @@ export const Zone: React.FC<{
                             compact={true}
                         />
                     )}
+                </div>
                 </div>
             )}
         </div>

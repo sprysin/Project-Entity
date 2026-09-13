@@ -233,47 +233,44 @@ interface PileViewModalProps {
 export const PileViewModal: React.FC<PileViewModalProps> = ({
     viewingDiscardIdx, viewingVoidIdx, gameState, setViewingDiscardIdx, setViewingVoidIdx
 }) => {
-    if (!gameState) return null;
-
-    if (viewingDiscardIdx !== null) {
-        return (
-            <div className="fixed inset-0 bg-black/50 z-[110] flex flex-col p-12 backdrop-blur-md animate-in fade-in text-white">
-                <div className="flex justify-between items-center mb-8 border-b border-white/20 pb-4">
-                    <h2 className="text-4xl font-orbitron font-black text-yellow-500 tracking-[0.2em] uppercase">
-                        {gameState.players[viewingDiscardIdx].name} Discard Pile
-                    </h2>
-                    <button onClick={() => setViewingDiscardIdx(null)} className="px-10 py-4 bg-red-900/40 hover:bg-red-800 text-white font-orbitron text-md border border-red-500/50 uppercase font-bold tracking-widest transition-all">CLOSE VIEW</button>
+    const panelRef = React.useRef<HTMLElement>(null);
+    const close = () => { setViewingDiscardIdx(null); setViewingVoidIdx(null); };
+    React.useEffect(() => {
+        if (viewingDiscardIdx === null && viewingVoidIdx === null) return;
+        const outside = (event: PointerEvent) => {
+            const target = event.target as HTMLElement;
+            if (!panelRef.current?.contains(target)) close();
+        };
+        const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+        document.addEventListener('pointerdown', outside);
+        document.addEventListener('keydown', escape);
+        return () => {
+            document.removeEventListener('pointerdown', outside);
+            document.removeEventListener('keydown', escape);
+        };
+    }, [viewingDiscardIdx, viewingVoidIdx]);
+    const pi = viewingDiscardIdx ?? viewingVoidIdx;
+    if (!gameState || pi === null) return null;
+    const isVoid = viewingDiscardIdx === null;
+    const cards = gameState.players[pi][isVoid ? 'void' : 'discard'];
+    return (
+        <aside ref={panelRef} aria-label={isVoid ? 'Void pile contents' : 'Discard pile contents'}
+            className="pile-drawer absolute right-0 inset-y-0 w-80 max-w-[90vw] z-[110] bg-slate-950 text-white border-l border-white/20 shadow-2xl flex flex-col">
+            <div className="p-5 border-b border-white/15 flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs text-slate-400">{gameState.players[pi].name}</p>
+                    <h2 className={`font-orbitron text-lg ${isVoid ? 'text-purple-400' : 'text-yellow-400'}`}>{isVoid ? 'VOID' : 'DISCARD'} · {cards.length}</h2>
+                    <p className="text-xs text-slate-400 mt-1">Most recent first</p>
                 </div>
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 p-4 scrollbar-hide">
-                    {gameState.players[viewingDiscardIdx].discard.map((card, i) => (
-                        <CardDetail key={i} card={card} />
-                    ))}
-                </div>
+                <button aria-label="Close pile" onClick={close} className="px-3 py-2 hover:bg-white/10 rounded">✕</button>
             </div>
-        );
-    }
-
-    if (viewingVoidIdx !== null) {
-        return (
-            <div className="fixed inset-0 bg-purple-900/50 z-[110] flex flex-col p-12 backdrop-blur-md animate-in fade-in text-white">
-                <div className="flex justify-between items-center mb-8 border-b border-white/20 pb-4">
-                    <h2 className="text-4xl font-orbitron font-black text-purple-400 tracking-[0.2em] uppercase drop-shadow-[0_0_10px_rgba(167,139,250,0.5)]">
-                        {gameState.players[viewingVoidIdx].name} Void
-                    </h2>
-                    <button onClick={() => setViewingVoidIdx(null)} className="px-10 py-4 bg-purple-900/40 hover:bg-purple-800 text-white font-orbitron text-md border border-purple-500/50 uppercase font-bold tracking-widest transition-all">CLOSE VIEW</button>
-                </div>
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 p-4 scrollbar-hide">
-                    {gameState.players[viewingVoidIdx].void.map((card, i) => (
-                        <CardDetail key={i} card={card} />
-                    ))}
-                </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {cards.length === 0 && <p className="text-sm text-slate-400 py-8 text-center">This pile is empty.</p>}
+                {[...cards].reverse().map(card => <CardDetail key={card.instanceId} card={card} />)}
             </div>
-        );
-    }
-
-    return null;
+        </aside>
+    );
 };
-
 interface DeckViewModalProps {
     isOpen: boolean;
     onClose: () => void;

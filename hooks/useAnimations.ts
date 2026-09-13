@@ -37,34 +37,6 @@ export const useAnimations = () => {
         else zoneRefs.current.delete(key);
     };
 
-    /** Triggers visual animations for card movement between zones. */
-    const triggerVisual = (sourceKey: string, targetKey: string, type: 'discard' | 'void' | 'retrieve', cardData?: Card) => {
-        const startEl = zoneRefs.current.get(sourceKey);
-        let endEl = zoneRefs.current.get(targetKey);
-        if (!endEl && targetKey.includes('hand')) {
-            const playerIndex = targetKey.split('-')[0];
-            endEl = zoneRefs.current.get(`${playerIndex}-hand-container`);
-        }
-        if (!startEl) return;
-
-        const sRect = startEl.getBoundingClientRect();
-        const startX = (sRect.left + sRect.width / 2) / window.innerWidth * 100;
-        const startY = (sRect.top + sRect.height / 2) / window.innerHeight * 100;
-        const id = Math.random().toString();
-
-        if (type === 'discard' || type === 'void' || type === 'retrieve') {
-            if (!endEl) return;
-            const eRect = endEl.getBoundingClientRect();
-            const targetX = (eRect.left + eRect.width / 2) / window.innerWidth * 100;
-            const targetY = (eRect.top + eRect.height / 2) / window.innerHeight * 100;
-            setFlyingCards(prev => [...prev, { id, startX, startY, targetX, targetY, card: cardData }]);
-            setTimeout(() => setFlyingCards(prev => prev.filter(c => c.id !== id)), 800);
-        } else {
-            setVoidAnimations(prev => [...prev, { id, x: startX, y: startY }]);
-            setTimeout(() => setVoidAnimations(prev => prev.filter(c => c.id !== id)), 1500);
-        }
-    };
-
     /** Triggers a glass shatter effect at the specified zone. */
     const triggerShatter = (zoneKey: string) => {
         const el = zoneRefs.current.get(zoneKey);
@@ -86,7 +58,7 @@ export const useAnimations = () => {
 
     return {
         // State
-        flyingCards, voidAnimations, floatingTexts, shatterEffects,
+        voidAnimations, floatingTexts, shatterEffects,
         discardFlash, voidFlash, displayedLp, lpScale, lpFlash,
         phaseFlash, turnFlash,
         // Setters
@@ -96,6 +68,6 @@ export const useAnimations = () => {
         // Refs
         prevDiscardLengths, prevVoidLengths, lastLp,
         // Actions
-        setRef, triggerVisual, triggerShatter,
+        setRef, triggerShatter, zoneRefs,
     };
 };
