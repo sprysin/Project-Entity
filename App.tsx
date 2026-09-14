@@ -3,9 +3,10 @@ import Hub from './components/Hub';
 import GameView from './components/GameView';
 import CardDatabase from './components/CardDatabase';
 import RulesView from './components/RulesView';
+import DeckCreator from './components/DeckCreator';
 
 // Define the possible screens/views in the application
-type View = 'HUB' | 'GAME' | 'CARDS' | 'RULES';
+type View = 'HUB' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS';
 
 /**
  * Main App Component
@@ -22,6 +23,7 @@ const App: React.FC = () => {
           onStartGame={() => setCurrentView('GAME')}
           onViewCards={() => setCurrentView('CARDS')}
           onRules={() => setCurrentView('RULES')}
+          onCreateDeck={() => setCurrentView('DECKS')}
         />
       )}
 
@@ -36,6 +38,7 @@ const App: React.FC = () => {
       )}
 
       {/* Rules View */}
+      {currentView === 'DECKS' && <DeckCreator onBack={() => setCurrentView('HUB')} />}
       {currentView === 'RULES' && (
         <RulesView onBack={() => setCurrentView('HUB')} />
       )}

@@ -15,8 +15,9 @@ export const Zone: React.FC<{
     isTributeSelected?: boolean;
     isDropTarget?: boolean;
     isActivatable?: boolean;
+    contextualActions?: React.ReactNode;
     domRef?: (el: HTMLElement | null) => void;
-}> = ({ card, type, owner, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, domRef }) => {
+}> = ({ card, type, owner, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, contextualActions, domRef }) => {
     // Track previous stats to trigger pop animations
     const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
     const [popStats, setPopStats] = useState<{ atk: boolean, def: boolean }>({ atk: false, def: false });
@@ -42,6 +43,14 @@ export const Zone: React.FC<{
 
     return (
         <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col relative hover:z-50 ${isSelected ? 'border-yellow-400 scale-105 z-40' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-40' : isSelectable ? 'border-red-500 animate-pulse z-40' : isDropTarget ? 'zone-drop-target z-40' : 'border-white/5 bg-black/40 hover:border-white/20'} ${isActivatable ? 'glow-activatable z-30' : 'z-10'}`}>
+            {contextualActions && (
+                <div
+                    className="absolute bottom-[calc(100%+0.65rem)] left-1/2 z-[100] w-max max-w-64 -translate-x-1/2 cursor-default"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    {contextualActions}
+                </div>
+            )}
             {/* Base Zone Content (Empty State) */}
             <div className={`absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${card ? 'opacity-0' : 'opacity-20'}`}>
                 <i className={`${type === 'pawn' ? 'fa-solid fa-chess-pawn text-3xl' : 'fa-solid fa-wand-sparkles text-2xl'} text-white`}></i>

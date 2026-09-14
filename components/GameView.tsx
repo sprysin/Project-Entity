@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { CardType, Phase, Position, Player, Card } from '../types';
+import React from 'react';
+import { CardType, Phase, Position } from '../types';
 import { useGameLogic } from '../hooks/useGameLogic';
 import { checkActivationConditions, hasOnActivateEffect } from '../hooks/cardHelpers';
 import { CardDetail } from './Game/CardDetail';
@@ -26,6 +26,69 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = gameState.activePlayerIndex === 1;
   const actionsDisabled = !!gameState.winner || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null;
+
+  const isSelectedZone = (type: 'pawn' | 'action', index: number) =>
+    state.selectedFieldSlot?.playerIndex === gameState.activePlayerIndex &&
+    state.selectedFieldSlot.type === type &&
+    state.selectedFieldSlot.index === index;
+
+  const canPawnAttack = (index: number) => {
+    const pawn = activePlayer.pawnZones[index];
+    return gameState.currentPhase === Phase.BATTLE && gameState.turnNumber > 1 && !!pawn &&
+      pawn.position === Position.ATTACK &&
+      (pawn.attacksRemaining !== undefined ? pawn.attacksRemaining > 0 : !pawn.hasAttacked);
+  };
+
+  const changePawnPosition = (index: number) => {
+    setGameState(prev => {
+      if (!prev) return null;
+      const original = prev.players[prev.activePlayerIndex];
+      const pawnZones = original.pawnZones.map(zone => zone ? { ...zone } : null);
+      const zone = pawnZones[index];
+      if (!zone || zone.hasChangedPosition || zone.summonedTurn === prev.turnNumber) return prev;
+      zone.position = zone.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK;
+      zone.hasChangedPosition = true;
+      const players = [...prev.players];
+      players[prev.activePlayerIndex] = { ...original, pawnZones };
+      return { ...prev, players: players as typeof prev.players };
+    });
+    actions.setSelectedFieldSlot(null);
+  };
+
+  const contextualMenu = (title: string, children: React.ReactNode) => (
+    <div className="w-64 max-w-[calc(100vw-1rem)] rounded border border-yellow-400/60 bg-slate-950/95 p-2 text-white shadow-[0_0_28px_rgba(0,0,0,0.85)] backdrop-blur-md">
+      <div className="overflow-hidden px-2 pb-2 text-center font-orbitron text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400 whitespace-nowrap">
+        <span
+          className="inline-block whitespace-nowrap"
+          style={{ transform: `scaleX(${Math.max(0.58, Math.min(1, 22 / title.length))})` }}
+        >
+          {title}
+        </span>
+      </div>
+      <div className="flex gap-2">{children}</div>
+      <div className="absolute left-1/2 top-full -translate-x-1/2 border-x-8 border-t-8 border-x-transparent border-t-yellow-400/60" />
+    </div>
+  );
+
+  const menuButton = (label: string, onClick: () => void, disabled = false, tone: 'gold' | 'slate' | 'green' | 'purple' | 'red' = 'slate') => {
+    const tones = {
+      gold: 'border-yellow-500 bg-yellow-600 hover:bg-yellow-500',
+      slate: 'border-slate-500 bg-slate-800 hover:bg-slate-700',
+      green: 'border-green-500 bg-green-700 hover:bg-green-600',
+      purple: 'border-purple-500 bg-purple-700 hover:bg-purple-600',
+      red: 'border-red-500 bg-red-900 hover:bg-red-800',
+    };
+    return (
+      <button disabled={disabled} onClick={onClick} className={`min-w-0 flex-1 overflow-hidden whitespace-nowrap border px-2 py-2 font-orbitron text-[9px] font-black uppercase tracking-wider transition-colors ${tones[tone]} ${disabled ? 'cursor-not-allowed opacity-35 grayscale' : ''}`}>
+        <span
+          className="inline-block whitespace-nowrap"
+          style={{ transform: `scaleX(${Math.max(0.72, Math.min(1, 14 / label.length))})` }}
+        >
+          {label}
+        </span>
+      </button>
+    );
+  };
 
   const checkIsSelectable = (z: typeof activePlayer.pawnZones[0], zoneType: 'pawn' | 'action', isOpponentPawn: boolean) => {
     if (isOpponentPawn && state.targetSelectMode === 'attack') return true;
@@ -120,11 +183,30 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
             <div className="flex flex-col items-center space-y-4">
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
-                  {activePlayer.pawnZones.map((z, i) => (<Zone key={i} card={z} type="pawn" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-pawn-${i}`)}
-                    isSelected={state.selectedFieldSlot?.playerIndex === gameState.activePlayerIndex && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i}
+                  {activePlayer.pawnZones.map((z, i) => {
+                    const selected = isSelectedZone('pawn', i);
+                    const canChangePosition = !!z && !z.hasChangedPosition && z.summonedTurn !== gameState.turnNumber;
+                    const canActivateEffect = !!z && z.position === Position.ATTACK && hasOnActivateEffect(z.card) && checkActivationConditions(gameState, z.card, gameState.activePlayerIndex) && !(z.hasActivatedEffect && z.card.effectText?.includes('Once per turn'));
+                    const attackReady = canPawnAttack(i);
+                    const showHandMenu = selected && !z && selectedCard?.type === CardType.PAWN && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
+                    const showFieldMenu = selected && !!z && !state.targetSelectMode && !selectedCard && (
+                      ((gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (canChangePosition || hasOnActivateEffect(z.card))) ||
+                      gameState.currentPhase === Phase.BATTLE
+                    );
+                    return <Zone key={i} card={z} type="pawn" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-pawn-${i}`)}
+                    isSelected={selected}
                     isTributeSelected={state.tributeSelection.includes(i)}
                     isSelectable={checkIsSelectable(z, 'pawn', false)}
                     isDropTarget={(selectedCard?.type === CardType.PAWN && z === null) || (state.targetSelectMode === 'place_pawn' && z === null)}
+                    isActivatable={attackReady}
+                    contextualActions={showHandMenu ? contextualMenu('Choose summon method', <>
+                      {menuButton(selectedCard.level >= 5 ? 'Tribute Summon' : 'Normal Summon', () => actions.handleSummon(selectedCard, 'normal', i), actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed), 'gold')}
+                      {menuButton(selectedCard.level >= 5 ? 'Tribute Set' : 'Set Hidden', () => actions.handleSummon(selectedCard, 'hidden', i), actionsDisabled || (selectedCard.level <= 4 && activePlayer.hiddenSummonUsed), 'slate')}
+                    </>) : showFieldMenu ? contextualMenu(z!.card.name, <>
+                      {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && menuButton(z!.position === Position.HIDDEN ? 'Flip Summon' : 'Change Position', () => changePawnPosition(i), actionsDisabled || !canChangePosition, 'slate')}
+                      {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && hasOnActivateEffect(z!.card) && menuButton('Activate Effect', () => actions.activateOnField(gameState.activePlayerIndex, 'pawn', i), actionsDisabled || !canActivateEffect, 'purple')}
+                      {gameState.currentPhase === Phase.BATTLE && menuButton(attackReady ? 'Attack' : 'Cannot Attack', () => actions.setTargetSelectMode('attack'), actionsDisabled || !attackReady, 'red')}
+                    </>) : null}
                     onClick={() => {
                       if (state.targetSelectMode === 'place_pawn' && z === null) {
                         actions.handlePlacement(i);
@@ -136,13 +218,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                       } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (checkIsSelectable(z, 'pawn', false)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'pawn', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
                       } else if (selectedCard?.type === CardType.PAWN && z === null && !state.targetSelectMode) {
-                        // Legacy click-to-summon backup (shouldn't trigger if logic is correct but good fallback)
-                        actions.handleSummon(selectedCard, 'normal', i);
+                        actions.setSelectedFieldSlot({ playerIndex: gameState.activePlayerIndex, type: 'pawn', index: i });
                       } else {
                         actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'pawn', index: i } : null);
                         actions.setSelectedHandIndex(null);
                       }
-                    }} />))}
+                    }} />;
+                  })}
                 </div>
                 <div className="flex space-x-6">
                   <Pile count={activePlayer.discard.length} topCard={activePlayer.discard[activePlayer.discard.length - 1]} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${gameState.activePlayerIndex}`)} isFlashing={state.discardFlash[gameState.activePlayerIndex]} onClick={() => actions.setViewingDiscardIdx(gameState.activePlayerIndex)} />
@@ -151,22 +233,36 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
               </div>
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
-                  {activePlayer.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-action-${i}`)}
+                  {activePlayer.actionZones.map((z, i) => {
+                    const selected = isSelectedZone('action', i);
+                    const fieldActivationAvailable = !!z && (z.position === Position.HIDDEN || z.card.type === CardType.CONDITION || (z.card.type === CardType.ACTION && z.card.isLingering));
+                    const canActivateFieldCard = fieldActivationAvailable && !!z && checkActivationConditions(gameState, z.card, gameState.activePlayerIndex) && !(z.card.type === CardType.CONDITION && gameState.turnNumber <= z.summonedTurn) && !z.hasActivatedEffect;
+                    const showHandMenu = selected && !z && !!selectedCard && selectedCard.type !== CardType.PAWN && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
+                    const showFieldMenu = selected && !!z && !selectedCard && !state.targetSelectMode && fieldActivationAvailable;
+                    return <Zone key={i} card={z} type="action" owner="active" domRef={actions.setRef(`${gameState.activePlayerIndex}-action-${i}`)}
+                    isSelected={selected}
                     isSelectable={checkIsSelectable(z, 'action', false)}
                     isDropTarget={((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null) || (state.targetSelectMode === 'place_action' && z === null)}
-                    isActivatable={z !== null && (z.position === Position.HIDDEN || z.card.type === CardType.CONDITION || (z.card.type === CardType.ACTION && z.card.isLingering)) && checkActivationConditions(gameState, z.card, gameState.activePlayerIndex) && !(z.card.type === CardType.CONDITION && gameState.turnNumber <= z.summonedTurn) && !z.hasActivatedEffect}
+                    isActivatable={canActivateFieldCard}
+                    contextualActions={showHandMenu ? contextualMenu('Choose card action', <>
+                      {selectedCard.type !== CardType.CONDITION && menuButton('Activate', () => actions.handleActionFromHand(selectedCard, 'activate', i), actionsDisabled || !checkActivationConditions(gameState, selectedCard, gameState.activePlayerIndex), 'green')}
+                      {menuButton('Set Hidden', () => actions.handleActionFromHand(selectedCard, 'set', i), actionsDisabled, 'slate')}
+                    </>) : showFieldMenu ? contextualMenu(z!.card.name, <>
+                      {menuButton(`Activate ${z!.card.type}`, () => actions.activateOnField(gameState.activePlayerIndex, 'action', i), actionsDisabled || !canActivateFieldCard, 'green')}
+                    </>) : null}
                     onClick={() => {
                       if (state.targetSelectMode === 'place_action' && z === null) {
                         actions.handlePlacement(i);
                       } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (checkIsSelectable(z, 'action', false)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
                       } else if ((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null && !state.targetSelectMode) {
-                        actions.handleActionFromHand(selectedCard, selectedCard.type === CardType.CONDITION ? 'set' : 'activate', i);
+                        actions.setSelectedFieldSlot({ playerIndex: gameState.activePlayerIndex, type: 'action', index: i });
                       } else {
                         actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'action', index: i } : null);
                         actions.setSelectedHandIndex(null);
                       }
-                    }} />))}
+                    }} />;
+                  })}
                 </div>
                 <div className="flex space-x-6 items-center">
                   <DeckPile count={activePlayer.deck.length} label="Deck" domRef={actions.setRef(`deck-${gameState.activePlayerIndex}`)} />
@@ -346,84 +442,11 @@ const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
                   {state.selectedFieldSlot && gameState.players[state.selectedFieldSlot.playerIndex][state.selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][state.selectedFieldSlot.index] ? (
                     <div className="space-y-6 animate-in slide-in-from-right-4">
                       <CardDetail card={gameState.players[state.selectedFieldSlot.playerIndex][state.selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][state.selectedFieldSlot.index]!.card} isSet={gameState.players[state.selectedFieldSlot.playerIndex][state.selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][state.selectedFieldSlot.index]!.position === Position.HIDDEN && state.selectedFieldSlot.playerIndex !== gameState.activePlayerIndex} />
-                      <div className="flex flex-col space-y-3">
-                        {/* Contextual Actions for On-Field Cards */}
-                        {state.selectedFieldSlot.playerIndex === gameState.activePlayerIndex && (
-                          <>
-                            {state.selectedFieldSlot.type === 'pawn' && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (
-                              <>
-                                <button disabled={actionsDisabled || gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.summonedTurn === gameState.turnNumber} onClick={() => {
-                                  setGameState(prev => {
-                                    if (!prev) return null;
-                                    const original = prev.players[prev.activePlayerIndex];
-                                    const p = { ...original, pawnZones: original.pawnZones.map(z => z ? { ...z } : null) };
-                                    const z = p.pawnZones[state.selectedFieldSlot!.index];
-                                    if (!z || z.hasChangedPosition || z.summonedTurn === prev.turnNumber) return prev;
-                                    z.position = z.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK;
-                                    z.hasChangedPosition = true;
-                                    const players = [...prev.players];
-                                    players[prev.activePlayerIndex] = p;
-                                    return { ...prev, players: players as [Player, Player] };
-                                  });
-                                  actions.setSelectedFieldSlot(null);
-                                }} className={`w-full py-4 border border-white/20 font-orbitron text-xs uppercase font-bold transition-all ${(actionsDisabled || gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.summonedTurn === gameState.turnNumber) ? 'opacity-30 bg-slate-900 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'}`}>
-                                  {gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.position === Position.HIDDEN ? 'FLIP SUMMON' : 'CHANGE POSITION'}
-                                </button>
-
-                                {/* ACTIVATE PAWN EFFECT BUTTON (For entities with On Field effects like Dragon) */}
-                                {gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.position === Position.ATTACK &&
-                                  hasOnActivateEffect(gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]!.card) && (
-                                    <button
-                                      disabled={actionsDisabled || !checkActivationConditions(gameState, gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]!.card, state.selectedFieldSlot.playerIndex) || (gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.hasActivatedEffect && gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]!.card.effectText?.includes('Once per turn'))}
-                                      onClick={() => actions.activateOnField(state.selectedFieldSlot!.playerIndex, state.selectedFieldSlot!.type, state.selectedFieldSlot!.index)}
-                                      className={`w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-orbitron text-xs font-black tracking-widest uppercase mt-2 shadow-[0_0_20px_rgba(147,51,234,0.3)] ${(actionsDisabled || !checkActivationConditions(gameState, gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]!.card, state.selectedFieldSlot.playerIndex) || (gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]?.hasActivatedEffect && gameState.players[state.selectedFieldSlot.playerIndex].pawnZones[state.selectedFieldSlot.index]!.card.effectText?.includes('Once per turn'))) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                      ACTIVATE EFFECT
-                                    </button>
-                                  )}
-                              </>
-                            )}
-                            {state.selectedFieldSlot.type === 'action' &&
-                              (gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.position === Position.HIDDEN || gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card.type === CardType.CONDITION || (gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card.type === CardType.ACTION && gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card.isLingering)) && (
-                                <button disabled={actionsDisabled || !checkActivationConditions(gameState, gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card, state.selectedFieldSlot.playerIndex) || (gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card.type === CardType.CONDITION && gameState.turnNumber <= gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.summonedTurn) || gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.hasActivatedEffect} onClick={() => actions.activateOnField(state.selectedFieldSlot!.playerIndex, 'action', state.selectedFieldSlot!.index)} className={`w-full py-4 bg-green-600 hover:bg-green-700 text-white font-orbitron text-xs font-black tracking-widest uppercase ${(actionsDisabled || !checkActivationConditions(gameState, gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card, state.selectedFieldSlot.playerIndex) || (gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card.type === CardType.CONDITION && gameState.turnNumber <= gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.summonedTurn) || gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.hasActivatedEffect) ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                  ACTIVATE {gameState.players[state.selectedFieldSlot.playerIndex].actionZones[state.selectedFieldSlot.index]!.card.type}
-                                </button>
-                              )}
-                            {/* Battle triggers */}
-                            {state.selectedFieldSlot.type === 'pawn' && gameState.currentPhase === Phase.BATTLE && (activePlayer.pawnZones[state.selectedFieldSlot.index]?.attacksRemaining !== undefined ? activePlayer.pawnZones[state.selectedFieldSlot.index]!.attacksRemaining! > 0 : !activePlayer.pawnZones[state.selectedFieldSlot.index]?.hasAttacked) && activePlayer.pawnZones[state.selectedFieldSlot.index]?.position === Position.ATTACK && (
-                              <button disabled={actionsDisabled} onClick={() => { if (gameState.turnNumber === 1) actions.addLog("INTERCEPT: Combat blocked cycle 1."); else actions.setTargetSelectMode('attack'); }} className={`w-full py-4 border-2 font-orbitron text-xs font-black uppercase transition-all ${actionsDisabled ? 'opacity-50 cursor-not-allowed' : ''} ${gameState.turnNumber === 1 ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-red-900/40 hover:bg-red-800 text-red-200 border-red-500'}`}>ENGAGE TARGET</button>
-                            )}
-                          </>
-                        )}
-                      </div>
                     </div>
                   ) : selectedCard ? (
                     <div className="space-y-6 animate-in slide-in-from-right-4">
                       <CardDetail card={selectedCard} />
-                      <div className="flex flex-col space-y-3">
-                        {/* Contextual Actions for Hand Cards (Summon/Set/Execute) */}
-                        {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (
-                          <>
-                            {selectedCard.type === CardType.PAWN ? (
-                              <>
-                                <button disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed)} onClick={() => actions.handleSummon(selectedCard, 'normal')} className={`w-full py-4 text-white font-orbitron text-xs font-black tracking-widest border-b-4 uppercase transition-all ${(actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed)) ? 'bg-slate-800 border-slate-900 opacity-50 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-500 border-yellow-800'}`}>
-                                  {(selectedCard.level <= 4 && activePlayer.normalSummonUsed) ? 'NORMAL LIMIT REACHED' : (selectedCard.level >= 5 ? 'TRIBUTE SUMMON' : 'NORMAL SUMMON')}
-                                </button>
-                                <button disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.hiddenSummonUsed)} onClick={() => actions.handleSummon(selectedCard, 'hidden')} className={`w-full py-4 bg-slate-800 hover:bg-slate-700 border border-white/20 font-orbitron text-xs uppercase font-bold text-slate-300 transition-all ${(actionsDisabled || (selectedCard.level <= 4 && activePlayer.hiddenSummonUsed)) ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                  {(selectedCard.level <= 4 && activePlayer.hiddenSummonUsed) ? 'SET LIMIT REACHED' : 'SET HIDDEN'}
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {selectedCard.type !== CardType.CONDITION && (
-                                  <button disabled={actionsDisabled || !checkActivationConditions(gameState, selectedCard, gameState.activePlayerIndex)} onClick={() => actions.handleActionFromHand(selectedCard, 'activate')} className={`w-full py-4 bg-green-600 hover:bg-green-700 text-white font-orbitron text-xs font-black tracking-widest uppercase shadow-[0_0_20px_rgba(74,222,128,0.2)] ${actionsDisabled || !checkActivationConditions(gameState, selectedCard, gameState.activePlayerIndex) ? 'opacity-50 cursor-not-allowed' : ''}`}>ACTIVATE ACTION</button>
-                                )}
-                                <button disabled={actionsDisabled} onClick={() => actions.handleActionFromHand(selectedCard, 'set')} className={`w-full py-4 bg-slate-800 hover:bg-slate-700 border border-white/20 font-orbitron text-xs uppercase font-bold text-slate-300 ${actionsDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>SET CARD</button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
+                      <p className="text-center font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500">Select an open zone to choose how to play this card.</p>
                     </div>
                   ) : (
                     /* Empty State for Detail Panel */
