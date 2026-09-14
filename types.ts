@@ -112,37 +112,50 @@ export interface GameState {
   pendingEffects: PendingEffect[];
 }
 
+export type CardTarget = {
+  playerIndex: number;
+  type: 'pawn' | 'action';
+  index: number;
+};
+
+export type CardFilter = (card: Card) => boolean;
+
+export interface CardSelectionRequest {
+  playerIndex: number;
+  title: string;
+  filter: CardFilter;
+}
+
+export interface HandSelectionRequest {
+  playerIndex: number;
+  title: string;
+}
+
+export interface TributeSelectionRequest extends HandSelectionRequest {
+  count: number;
+  filter?: CardFilter;
+}
+
+export type EffectTrigger = 'summon' | 'activate' | 'phase' | 'field_activate';
+export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
+export type TargetSelectType = 'pawn' | 'action' | 'any';
+export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
+
 export type EffectResult = {
   newState: GameState;
   log: string;
-  requireTarget?: 'pawn' | 'action' | 'any';
-  requireTargetPosition?: 'hidden' | 'faceup' | 'both';
-  requireDiscardSelection?: {
-    playerIndex: number;
-    filter: (c: Card) => boolean;
-    title: string;
-  };
-  requireHandSelection?: {
-    playerIndex: number;
-    title: string;
-  };
-  requireDeckSelection?: {
-    playerIndex: number;
-    filter: (c: Card) => boolean;
-    title: string;
-  };
-  requireEffectTribute?: {
-    playerIndex: number;
-    count: number;
-    title: string;
-    filter?: (c: Card) => boolean;
-  };
+  requireTarget?: TargetSelectType;
+  requireTargetPosition?: TargetSelectPosition;
+  requireDiscardSelection?: CardSelectionRequest;
+  requireHandSelection?: HandSelectionRequest;
+  requireDeckSelection?: CardSelectionRequest;
+  requireEffectTribute?: TributeSelectionRequest;
 };
 
 export interface CardContext {
   card: Card;
   playerIndex: number;
-  target?: { playerIndex: number, type: 'pawn' | 'action', index: number };
+  target?: CardTarget;
   discardIndex?: number;
   handIndex?: number;
   deckIndex?: number;

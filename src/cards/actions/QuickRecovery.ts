@@ -1,7 +1,7 @@
 import { IEffect, CardType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../libs/Builder';
-import { Require, Condition } from '../libs/Requirements';
+import { Condition } from '../libs/Requirements';
 import { Cost } from '../libs/Costs';
 import { Effect } from '../libs/Effects';
 

@@ -1,4 +1,5 @@
 import { GameState, CardContext, EffectResult } from '../../../types';
+import { cloneGameState } from '../../game/cloneState';
 
 export type EffectStepResult = Omit<EffectResult, 'newState' | 'log'> & { log?: string, halt?: boolean };
 export type EffectStep = (draftState: GameState, context: CardContext) => EffectStepResult | void;
@@ -6,7 +7,7 @@ export type ConditionStep = (state: GameState, context: CardContext) => boolean;
 
 export const buildEffect = (steps: EffectStep[]) => {
     return (state: GameState, context: CardContext): EffectResult => {
-        const draftState = JSON.parse(JSON.stringify(state));
+        const draftState = cloneGameState(state);
         const logs: string[] = [];
 
         for (const step of steps) {

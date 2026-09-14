@@ -31,7 +31,7 @@ interface CardDetailProps {
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
 export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, compact = false, domRef }) => {
-    const originalCard = cardRegistry.getAllCards().find(c => c.id === card.id);
+    const originalCard = cardRegistry.getCard(card.id);
     const getStatColor = (current: number, original?: number) => {
         if (original === undefined) return 'text-yellow-400';
         if (current > original) return 'text-blue-500';
@@ -104,7 +104,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
             </div>
 
             {/* Body: Effect Text */}
-            <div className={`flex-1 ${compact ? 'text-[7px] p-1' : 'text-[10px] p-2'} font-medium leading-tight text-white/90 bg-black/40 border border-white/10 relative z-10 font-mono shadow-inner overflow-y-auto scrollbar-hide`}>
+            <div className={`flex-1 ${compact ? 'text-[7px] p-1' : 'text-[10px] p-2'} font-medium leading-tight text-white/90 bg-black/40 border border-white/10 relative z-10 font-mono shadow-inner overflow-y-auto`}>
                 {card.effectText}
             </div>
 

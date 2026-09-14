@@ -1,7 +1,8 @@
 import { useCallback, Dispatch, SetStateAction } from 'react';
-import { GameState, Card, CardType, Phase, Position, Player, CardContext, EffectResult } from '../types';
+import { GameState, Card, CardType, Phase, Position, Player, CardContext, CardTarget, EffectTrigger, TargetSelectMode } from '../types';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { checkVictory } from '../src/game/finishEffect';
+import { clonePlayers } from '../src/game/cloneState';
+import { useCombatActions } from './useCombatActions';
 
 /**
  * Hook for card action handlers: summon, tribute, action cards, field activation, and combat.
@@ -9,19 +10,21 @@ import { checkVictory } from '../src/game/finishEffect';
 export const useCardActions = (
     gameState: GameState | null,
     setGameState: Dispatch<SetStateAction<GameState | null>>,
-    resolveEffect: (card: Card, target?: any, discardIndex?: number, handIndex?: number, deckIndex?: number, triggerType?: 'summon' | 'activate' | 'phase' | 'field_activate', tributeIndices?: number[]) => void,
+    resolveEffect: (card: Card, target?: CardTarget, discardIndex?: number, handIndex?: number, deckIndex?: number, triggerType?: EffectTrigger, tributeIndices?: number[]) => void,
     addLog: (msg: string) => void,
     triggerVisual: (src: string, tgt: string, type: 'discard' | 'void' | 'retrieve', card?: Card) => void,
     triggerShatter: (zoneKey: string) => void,
     selectedHandIndex: number | null,
     setSelectedHandIndex: (idx: number | null) => void,
-    setSelectedFieldSlot: (slot: any) => void,
-    setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null) => void,
+    setSelectedFieldSlot: (slot: CardTarget | null) => void,
+    setTargetSelectMode: (mode: TargetSelectMode) => void,
     isPeekingField: boolean,
-    targetSelectMode: 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null,
+    targetSelectMode: TargetSelectMode,
 ) => {
-    // Tribute summon state is managed in the main hook and passed down
-    // These are provided by the main hook via closure
+    const handleAttack = useCombatActions(
+        gameState, setGameState, isPeekingField, triggerVisual, triggerShatter,
+        setTargetSelectMode, setSelectedFieldSlot
+    );
 
     /** Core logic for Summoning or Setting an Pawn. */
     const handleSummon = useCallback((
@@ -67,7 +70,7 @@ export const useCardActions = (
             if (p.pawnZones[autoSlotIndex] !== null) return;
             setGameState(prev => {
                 if (!prev) return null;
-                const players = JSON.parse(JSON.stringify(prev.players));
+                const players = clonePlayers(prev.players);
                 const p = players[pIdx];
                 if (p.pawnZones[autoSlotIndex] !== null) { return prev; }
 
@@ -131,7 +134,7 @@ export const useCardActions = (
         // Execute Tribute Logic (remove sacrifices)
         setGameState(prev => {
             if (!prev) return null;
-            const players = JSON.parse(JSON.stringify(prev.players));
+            const players = clonePlayers(prev.players);
             const p = players[activeIndex];
             tributeSelection.forEach(idx => {
                 const tribute = p.pawnZones[idx];
@@ -182,7 +185,7 @@ export const useCardActions = (
             triggerVisual(`${activeIndex}-hand-container`, `${activeIndex}-action-${autoSlotIndex}`, 'discard', card);
             setGameState(prev => {
                 if (!prev) return null;
-                const players = JSON.parse(JSON.stringify(prev.players));
+                const players = clonePlayers(prev.players);
                 const p = players[activeIndex];
                 if (p.actionZones[autoSlotIndex] !== null) { return prev; }
 
@@ -233,7 +236,7 @@ export const useCardActions = (
             if (gameState.players[pIdx].pawnZones[slotIndex] !== null) return;
             setGameState(prev => {
                 if (!prev) return null;
-                const players = JSON.parse(JSON.stringify(prev.players));
+                const players = clonePlayers(prev.players);
                 const p = players[pIdx];
                 if (p.pawnZones[slotIndex] !== null) { return prev; } // Should be prevented by UI
 
@@ -274,7 +277,7 @@ export const useCardActions = (
             triggerVisual(`${pIdx}-hand-container`, `${pIdx}-action-${slotIndex}`, 'discard', pendingPlayCard);
             setGameState(prev => {
                 if (!prev) return null;
-                const players = JSON.parse(JSON.stringify(prev.players));
+                const players = clonePlayers(prev.players);
                 const p = players[pIdx];
                 if (p.actionZones[slotIndex] !== null) { return prev; }
 
@@ -331,7 +334,7 @@ export const useCardActions = (
         if (placed.position === Position.HIDDEN) {
             setGameState(prev => {
                 if (!prev) return null;
-                const players = JSON.parse(JSON.stringify(prev.players));
+                const players = clonePlayers(prev.players);
                 const ply = players[playerIndex];
                 const zn = type === 'pawn' ? ply.pawnZones : ply.actionZones;
                 zn[index] = { ...zn[index]!, position: Position.ATTACK };
@@ -345,7 +348,7 @@ export const useCardActions = (
 
         setGameState(prev => {
             if (!prev) return null;
-            const players = JSON.parse(JSON.stringify(prev.players));
+            const players = clonePlayers(prev.players);
             const ply = players[playerIndex];
             const zn = type === 'pawn' ? ply.pawnZones : ply.actionZones;
             if (zn[index]) zn[index].hasActivatedEffect = true;
@@ -354,100 +357,6 @@ export const useCardActions = (
         });
         setSelectedFieldSlot(null);
     }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, triggerVisual, setSelectedFieldSlot]);
-
-    /** Combat resolution: Attack vs Attack, Attack vs Defense, Direct Attacks. */
-    const handleAttack = useCallback((attackerIdx: number, targetIdx: number | 'direct') => {
-        if (!gameState || gameState.winner || gameState.currentPhase !== Phase.BATTLE || gameState.turnNumber === 1 || isPeekingField) return;
-        const activeIndex = gameState.activePlayerIndex;
-        const oppIndex = (activeIndex + 1) % 2;
-        const attacker = gameState.players[activeIndex].pawnZones[attackerIdx];
-        if (!attacker || attacker.position !== Position.ATTACK) return;
-        if (attacker.attacksRemaining !== undefined ? attacker.attacksRemaining <= 0 : attacker.hasAttacked) return;
-        if (targetIdx === 'direct' && gameState.players[oppIndex].pawnZones.some(Boolean)) return;
-
-        {
-            const prev = gameState;
-            const logs: string[] = [];
-            const players = JSON.parse(JSON.stringify(prev.players));
-            const p = players[activeIndex];
-            const opp = players[oppIndex];
-            const atkPawn = { ...p.pawnZones[attackerIdx]! };
-
-            if (targetIdx === 'direct') {
-                opp.lp -= atkPawn.card.atk;
-                logs.unshift(`DIRECT IMPACT: -${atkPawn.card.atk} LP.`);
-            } else {
-                const defending = opp.pawnZones[targetIdx];
-                if (!defending) return;
-                let defPawn = { ...defending };
-
-                if (defPawn.position === Position.HIDDEN) {
-                    defPawn.position = Position.DEFENSE;
-                    opp.pawnZones[targetIdx] = defPawn;
-                    logs.unshift(`${defPawn.card.name} was flipped!`);
-                }
-
-                if (defPawn.position === Position.ATTACK) {
-                    const diff = atkPawn.card.atk - defPawn.card.atk;
-                    if (diff > 0) {
-                        triggerShatter(`${oppIndex}-pawn-${targetIdx}`);
-                        opp.lp -= diff;
-                        triggerVisual(`${oppIndex}-pawn-${targetIdx}`, `discard-${oppIndex}`, 'discard', defPawn.card);
-                        opp.discard = [...opp.discard, defPawn.card];
-                        opp.pawnZones[targetIdx] = null;
-                        logs.unshift(`ATTACK SUCCESS: ${defPawn.card.name} destroyed. -${diff} LP.`);
-                    } else if (diff < 0) {
-                        triggerShatter(`${activeIndex}-pawn-${attackerIdx}`);
-                        p.lp += diff;
-                        triggerVisual(`${activeIndex}-pawn-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkPawn.card);
-                        p.discard = [...p.discard, atkPawn.card];
-                        p.pawnZones[attackerIdx] = null;
-                        logs.unshift(`ATTACK FAILED: ${atkPawn.card.name} destroyed. Recoil ${diff}.`);
-                    } else {
-                        triggerShatter(`${activeIndex}-pawn-${attackerIdx}`);
-                        triggerShatter(`${oppIndex}-pawn-${targetIdx}`);
-                        triggerVisual(`${activeIndex}-pawn-${attackerIdx}`, `discard-${activeIndex}`, 'discard', atkPawn.card);
-                        triggerVisual(`${oppIndex}-pawn-${targetIdx}`, `discard-${oppIndex}`, 'discard', defPawn.card);
-                        p.discard = [...p.discard, atkPawn.card];
-                        opp.discard = [...opp.discard, defPawn.card];
-                        p.pawnZones[attackerIdx] = null;
-                        opp.pawnZones[targetIdx] = null;
-                        logs.unshift("MUTUAL DESTRUCTION.");
-                    }
-                } else {
-                    if (atkPawn.card.atk > defPawn.card.def) {
-                        triggerShatter(`${oppIndex}-pawn-${targetIdx}`);
-                        triggerVisual(`${oppIndex}-pawn-${targetIdx}`, `discard-${oppIndex}`, 'discard', defPawn.card);
-                        opp.discard = [...opp.discard, defPawn.card];
-                        opp.pawnZones[targetIdx] = null;
-                        logs.unshift(`DEFENSE CRUSHED: ${defPawn.card.name} destroyed. 0 Damage.`);
-                    } else if (atkPawn.card.atk < defPawn.card.def) {
-                        const recoil = defPawn.card.def - atkPawn.card.atk;
-                        p.lp -= recoil;
-                        logs.unshift(`DEFENSE HELD: Recoil -${recoil} LP.`);
-                    } else {
-                        logs.unshift("STALEMATE: Defense equals Attack.");
-                    }
-                }
-            }
-            if (p.pawnZones[attackerIdx]) {
-                const placedAttacker = p.pawnZones[attackerIdx]!;
-                if (placedAttacker.attacksRemaining !== undefined) {
-                    placedAttacker.attacksRemaining -= 1;
-                    placedAttacker.hasAttacked = placedAttacker.attacksRemaining <= 0;
-                } else {
-                    placedAttacker.hasAttacked = true;
-                }
-            }
-            players[activeIndex] = p;
-            players[oppIndex] = opp;
-
-            setGameState(checkVictory({ ...prev, players: players as [Player, Player], log: [...logs, ...prev.log].slice(0, 50) }));
-        }
-
-        setTargetSelectMode(null);
-        setSelectedFieldSlot(null);
-    }, [gameState, isPeekingField, setGameState, addLog, triggerVisual, triggerShatter, setTargetSelectMode, setSelectedFieldSlot]);
 
     return {
         handleSummon,

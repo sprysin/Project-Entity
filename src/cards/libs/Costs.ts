@@ -12,7 +12,7 @@ export const Cost = {
     },
 
     /** Prompts the player to tribute pawns on their field. */
-    TributePawns: (count: number, message: string, filter?: (c: Card) => boolean): EffectStep => (draftState, context) => {
+    TributePawns: (count: number, message: string, filter?: (c: Card) => boolean): EffectStep => (_draftState, context) => {
         if (context.tributeIndices === undefined) {
             return {
                 requireEffectTribute: {
@@ -57,7 +57,7 @@ export const Cost = {
     },
 
     /** Request selection of a card from the discard. */
-    SelectDiscardRecovery: (message: string, filter: (c: Card) => boolean): EffectStep => (draftState, context) => {
+    SelectDiscardRecovery: (message: string, filter: (c: Card) => boolean): EffectStep => (_draftState, context) => {
         if (context.discardIndex === undefined) {
             return {
                 requireDiscardSelection: {

@@ -145,7 +145,7 @@ const examples = [
 
 function ExampleCard({ index, decorative = false }: { index: number; decorative?: boolean }) {
   const example = examples[index];
-  const definition = cardRegistry.getAllCards().find(card => card.id === example.id);
+  const definition = cardRegistry.getCard(example.id);
   if (!definition) return null;
   const card: Card = { ...definition, instanceId: `rules-${definition.id}`, ownerId: 'rulebook' };
   return <div className={decorative ? 'rule-cover-card' : 'rule-example-card'}><CardDetail card={card} /></div>;

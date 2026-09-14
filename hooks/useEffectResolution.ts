@@ -1,5 +1,9 @@
 import { useCallback, Dispatch, SetStateAction, useRef } from 'react';
-import { GameState, Card, CardContext, EffectResult } from '../types';
+import {
+    GameState, Card, CardContext, EffectResult, CardSelectionRequest, CardTarget,
+    EffectTrigger, HandSelectionRequest, TargetSelectMode, TargetSelectPosition,
+    TargetSelectType, TributeSelectionRequest
+} from '../types';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { finishEffect } from '../src/game/finishEffect';
 
@@ -13,45 +17,45 @@ export const useEffectResolution = (
     selectionState: {
         setTriggeredEffect: (card: Card | null) => void,
         setPendingEffectCard: (card: Card | null) => void,
-        setTargetSelectMode: (mode: 'attack' | 'tribute' | 'effect' | null) => void,
-        setTargetSelectType: (type: 'pawn' | 'action' | 'any') => void,
-        setTargetSelectPosition: (pos: 'hidden' | 'faceup' | 'both') => void,
+        setTargetSelectMode: (mode: TargetSelectMode) => void,
+        setTargetSelectType: (type: TargetSelectType) => void,
+        setTargetSelectPosition: (pos: TargetSelectPosition) => void,
         setIsPeekingField: (peek: boolean) => void,
-        setDiscardSelectionReq: (req: any) => void,
+        setDiscardSelectionReq: (req: CardSelectionRequest | null) => void,
         setSelectedDiscardIndex: (idx: number | null) => void,
-        setHandSelectionReq: (req: any) => void,
+        setHandSelectionReq: (req: HandSelectionRequest | null) => void,
         setSelectedHandSelectionIndex: (idx: number | null) => void,
         pendingEffectCard: Card | null,
-        discardSelectionReq: any,
-        setPendingTriggerType: (t: 'summon' | 'activate' | 'phase' | 'field_activate' | null) => void,
-        pendingTriggerType: 'summon' | 'activate' | 'phase' | 'field_activate' | null,
-        setDeckSelectionReq: (req: any) => void,
+        discardSelectionReq: CardSelectionRequest | null,
+        setPendingTriggerType: (t: EffectTrigger | null) => void,
+        pendingTriggerType: EffectTrigger | null,
+        setDeckSelectionReq: (req: CardSelectionRequest | null) => void,
         setSelectedDeckIndex: (idx: number | null) => void,
-        deckSelectionReq: any,
-        setEffectTributeReq: (req: any) => void,
-        showEffect?: (card: Card, target?: { playerIndex: number; type: 'pawn' | 'action'; index: number }) => void,
+        deckSelectionReq: CardSelectionRequest | null,
+        setEffectTributeReq: (req: TributeSelectionRequest | null) => void,
+        showEffect?: (card: Card, target?: CardTarget) => void,
     }
 ) => {
     const {
         setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
         setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
         setHandSelectionReq, setSelectedHandSelectionIndex,
-        setPendingTriggerType, pendingTriggerType,
-        setDeckSelectionReq, setSelectedDeckIndex, deckSelectionReq,
+        setPendingTriggerType,
+        setDeckSelectionReq, setSelectedDeckIndex,
         setEffectTributeReq
     } = selectionState;
 
     // Use a ref to persist context properties (like target or handIndex) between chained prompts.
-    const pendingContext = useRef<Partial<CardContext> & { triggerType?: 'summon' | 'activate' | 'phase' | 'field_activate' }>({});
+    const pendingContext = useRef<Partial<CardContext> & { triggerType?: EffectTrigger }>({});
 
     /** Executes a card's unique ability. Handles targeting logic with peek-first pattern. */
     const resolveEffect = useCallback((
         card: Card,
-        target?: { playerIndex: number, type: 'pawn' | 'action', index: number },
+        target?: CardTarget,
         discardIndex?: number,
         handIndex?: number,
         deckIndex?: number,
-        triggerType: 'summon' | 'activate' | 'phase' | 'field_activate' = 'activate',
+        triggerType: EffectTrigger = 'activate',
         tributeIndices?: number[]
     ) => {
         if (!gameState || gameState.winner) return;

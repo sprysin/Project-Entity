@@ -6,7 +6,7 @@ import { Cost } from '../libs/Costs';
 
 const tributePawns = Cost.TributePawns(2, "Select 2 Mechanical Pawns to Sacrifice", c => c.pawnType === PawnType.MECHANICAL);
 
-const selectFromDiscard: EffectStep = (draftState, context) => {
+const selectFromDiscard: EffectStep = (_draftState, context) => {
     if (context.discardIndex === undefined) {
         return {
             requireDiscardSelection: {

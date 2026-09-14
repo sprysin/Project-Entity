@@ -1,10 +1,10 @@
-import { EffectStep } from './Builder';
+import { ConditionStep, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Position, CardType } from '../../../types';
+import { Card, PlacedCard, Position } from '../../../types';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
-    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', message = "Select a target.", set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (draftState, context) => {
+    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', message = "Select a target.", set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (_draftState, context) => {
         if (!context.target) return { requireTarget: type, requireTargetPosition: set, log: message };
     },
 
@@ -49,7 +49,7 @@ export const Require = {
 
 export const Condition = {
     /** Generically checks if a numerical evaluation matches the required threshold. */
-    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): (state: any, context: any) => boolean => (state, context) => {
+    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): ConditionStep => (state, context) => {
         const val1 = resolveDynamic(valueFn, state, context);
         const val2 = resolveDynamic(compareTo, state, context);
         if (operator === '>=') return val1 >= val2;
@@ -60,44 +60,44 @@ export const Condition = {
     },
 
     /** Checks if a specific attribute exists on any valid Pawn on the provided player scope field. */
-    PawnMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: any) => boolean): (state: any, context: any) => boolean => (state, context) => {
+    PawnMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, _context) => {
         const activeIdx = state.activePlayerIndex;
         const oppIdx = (activeIdx + 1) % 2;
 
-        return state.players.some((player: any, idx: number) => {
+        return state.players.some((player, idx) => {
             if (scope === 'active' && idx !== activeIdx) return false;
             if (scope === 'opponent' && idx !== oppIdx) return false;
-            return player.pawnZones.some((z: any) => z !== null && filter(z));
+            return player.pawnZones.some(z => z !== null && filter(z));
         });
     },
 
     /** Verifies a specific item exists in a specific player's discard. */
-    DiscardMatchesFilter: (scope: 'active' | 'opponent', filter: (card: any) => boolean): (state: any, context: any) => boolean => (state, context) => {
+    DiscardMatchesFilter: (scope: 'active' | 'opponent', filter: (card: Card) => boolean): ConditionStep => (state, _context) => {
         const pIdx = scope === 'active' ? state.activePlayerIndex : (state.activePlayerIndex + 1) % 2;
         return state.players[pIdx].discard.some(filter);
     },
 
     /** Checks if a specific Action/Condition is on the board. */
-    ActionMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: any) => boolean): (state: any, context: any) => boolean => (state, context) => {
+    ActionMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, _context) => {
         const activeIdx = state.activePlayerIndex;
         const oppIdx = (activeIdx + 1) % 2;
 
-        return state.players.some((player: any, idx: number) => {
+        return state.players.some((player, idx) => {
             if (scope === 'active' && idx !== activeIdx) return false;
             if (scope === 'opponent' && idx !== oppIdx) return false;
-            return player.actionZones.some((z: any) => z !== null && filter(z));
+            return player.actionZones.some(z => z !== null && filter(z));
         });
     },
 
     /** Checks if this specific card instance has activated its effect this turn. */
-    SoftOncePerTurn: (): (state: any, context: any) => boolean => (state, context) => {
+    SoftOncePerTurn: (): ConditionStep => (state, context) => {
         const p = state.players[context.playerIndex];
-        const selfZone = p.pawnZones.find((z: any) => z && z.card.instanceId === context.card.instanceId) || p.actionZones.find((z: any) => z && z.card.instanceId === context.card.instanceId);
+        const selfZone = p.pawnZones.find(z => z?.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z?.card.instanceId === context.card.instanceId);
         return selfZone ? !selfZone.hasActivatedEffect : true;
     },
 
     /** Checks if any card with this ID has activated its effect this turn globally. */
-    HardOncePerTurn: (cardId: string): (state: any, context: any) => boolean => (state, context) => {
+    HardOncePerTurn: (cardId: string): ConditionStep => (state, context) => {
         return !state.players[context.playerIndex].activatedHardOncePerTurns?.includes(cardId);
     }
 };

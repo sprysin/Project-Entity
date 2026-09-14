@@ -5,7 +5,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Effect.RestoreLP((s, c) => c.playerIndex, 20),
+        Effect.RestoreLP((_state, context) => context.playerIndex, 20),
         Effect.ChangeSelfPosition(Position.DEFENSE),
         Effect.ModifySelfStats(0, 60),
         Effect.RegisterSelfPendingEffect('RESET_DEF', 200, 1) // Base DEF is 200, resets in 1 turn

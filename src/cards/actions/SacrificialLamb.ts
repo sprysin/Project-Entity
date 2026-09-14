@@ -1,9 +1,9 @@
 import { IEffect, CardType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect } from '../libs/Builder';
+import { buildEffect, EffectStep } from '../libs/Builder';
 import { Cost } from '../libs/Costs';
 
-const resolveTributeAndGainAttack = (state: any, context: any) => {
+const resolveTributeAndGainAttack: EffectStep = (state, context) => {
     const player = state.players[context.playerIndex];
     const tributeIndex = context.tributeIndices?.[0];
     const fieldTribute = tributeIndex === undefined ? undefined : player.pawnZones[tributeIndex]?.card;

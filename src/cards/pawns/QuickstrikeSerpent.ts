@@ -1,11 +1,11 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect } from '../libs/Builder';
+import { buildEffect, EffectStep } from '../libs/Builder';
 import { Cost } from '../libs/Costs';
 
-const prepareExtraAttacks = (state: any, context: any) => {
+const prepareExtraAttacks: EffectStep = (state, context) => {
     const player = state.players[context.playerIndex];
-    const zone = player.pawnZones.find((z: any) => z && z.card.instanceId === context.card.instanceId);
+    const zone = player.pawnZones.find(z => z?.card.instanceId === context.card.instanceId);
     if (zone) {
         zone.nextBattleAttacks = 2;
         return { log: 'Quickstrike Serpent can attack twice during the next Battle Phase.' };

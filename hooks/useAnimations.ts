@@ -1,14 +1,13 @@
 import { useState, useRef } from 'react';
-import { Card } from '../types';
+import { useManagedTimeout } from './useManagedTimeout';
 
 /**
  * Hook that manages all visual/animation state: flying cards, shatters, LP animations,
  * floating texts, pile flashes, and refs for zone position tracking.
  */
 export const useAnimations = () => {
+    const schedule = useManagedTimeout();
     // Dynamic Animation Elements
-    const [flyingCards, setFlyingCards] = useState<{ id: string, startX: number, startY: number, targetX: number, targetY: number, card?: Card }[]>([]);
-    const [voidAnimations, setVoidAnimations] = useState<{ id: string, x: number, y: number }[]>([]);
     const [floatingTexts, setFloatingTexts] = useState<{ id: string, text: string, type: 'damage' | 'heal', x: number, y: number }[]>([]);
     const [shatterEffects, setShatterEffects] = useState<{ id: string, x: number, y: number, shards: { tx: string, ty: string, rot: string }[] }[]>([]);
 
@@ -53,12 +52,12 @@ export const useAnimations = () => {
 
         const id = Math.random().toString();
         setShatterEffects(prev => [...prev, { id, x, y, shards }]);
-        setTimeout(() => setShatterEffects(prev => prev.filter(e => e.id !== id)), 1000);
+        schedule(() => setShatterEffects(prev => prev.filter(e => e.id !== id)), 1000);
     };
 
     return {
         // State
-        voidAnimations, floatingTexts, shatterEffects,
+        floatingTexts, shatterEffects,
         discardFlash, voidFlash, displayedLp, lpScale, lpFlash,
         phaseFlash, turnFlash,
         // Setters

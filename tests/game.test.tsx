@@ -10,7 +10,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
 let root: ReturnType<typeof create>;
 let serial = 0;
-const card = (id: string, player = 0): Card => ({ ...cardRegistry.getAllCards().find(c => c.id === id)!, instanceId: `test-${serial++}`, ownerId: `player${player + 1}` });
+const card = (id: string, player = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `test-${serial++}`, ownerId: `player${player + 1}` });
 const placed = (c: Card) => ({ card: c, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: 1, isSetTurn: false });
 function Harness() { game = useGameLogic(); return null; }
 function setup(edit: (s: GameState) => void) {

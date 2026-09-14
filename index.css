@@ -4,10 +4,47 @@
 @import '@fontsource/roboto/400.css';
 @import '@fontsource/roboto/700.css';
 @import '@fortawesome/fontawesome-free/css/all.min.css';
+@import './styles/game.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --scrollbar-track: #070a0f;
+  --scrollbar-thumb: #475569;
+  --scrollbar-thumb-hover: #ca8a04;
+}
+
+* {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
 
 .card-travel {
   position: fixed;

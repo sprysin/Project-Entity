@@ -1,4 +1,4 @@
-import { IEffect, Card, CardType, Attribute, PawnType, Position } from '../../types';
+import { IEffect, Card } from '../../types';
 
 export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId'>;
 
@@ -31,7 +31,6 @@ class CardRegistry {
             console.warn(`CardRegistry: Overwriting effect for card ${id}`);
         }
         this.cards.set(id, { cardData, effect });
-        // console.log(`CardRegistry: Registered logic for ${id}`);
     }
 
     /**
@@ -40,6 +39,11 @@ class CardRegistry {
      */
     public getEffect(id: string): IEffect | undefined {
         return this.cards.get(id)?.effect;
+    }
+
+    /** Retrieve one registered card without allocating and searching an array. */
+    public getCard(id: string): CardDefinition | undefined {
+        return this.cards.get(id)?.cardData;
     }
 
     /**

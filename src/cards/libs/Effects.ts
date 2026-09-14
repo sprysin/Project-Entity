@@ -1,6 +1,6 @@
 import { EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Position } from '../../../types';
+import { CardFilter, Position } from '../../../types';
 
 export const Effect = {
     /** Changes the position of the targeted pawn. */
@@ -116,7 +116,7 @@ export const Effect = {
     },
 
     /** Registers a Lingering Effect (e.g. ATK reset at End Phase). */
-    RegisterPendingEffect: (type: 'RESET_ATK', targetInstanceId: string, value: number): EffectStep => (draftState, context) => {
+    RegisterPendingEffect: (type: 'RESET_ATK', targetInstanceId: string, value: number): EffectStep => (draftState, _context) => {
         draftState.pendingEffects.push({
             type,
             targetInstanceId,
@@ -154,7 +154,7 @@ export const Effect = {
     // --- DECK SEARCHING ---
 
     /** Prompts the player to select a card from their deck matching a filter, then adds it to hand and shuffles. */
-    SearchDeck: (message: string, filter: (card: any) => boolean): EffectStep => (draftState, context) => {
+    SearchDeck: (message: string, filter: CardFilter): EffectStep => (draftState, context) => {
         if (context.deckIndex === undefined) {
             return { requireDeckSelection: { playerIndex: context.playerIndex, filter, title: message }, log: `Searching deck...` };
         } else {
