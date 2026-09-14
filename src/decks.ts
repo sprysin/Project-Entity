@@ -1,5 +1,5 @@
 import { cardRegistry, CardDefinition } from './cards/CardRegistry';
-import { CardType } from '../types';
+import { Card, CardType } from '../types';
 import './cards/pawns';
 import './cards/actions';
 import './cards/conditions';
@@ -21,6 +21,25 @@ export const isDeckPlayable = (deck: SavedDeck) => deckSize(deck) >= MIN_DECK_SI
 const order = { [CardType.PAWN]: 0, [CardType.ACTION]: 1, [CardType.CONDITION]: 2 };
 export const sortedCards = (): CardDefinition[] => cardRegistry.getAllCards().sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name));
 export const newDeck = (): SavedDeck => ({ version: 1, id: crypto.randomUUID(), name: 'Untitled deck', cards: [] });
+
+/** Expands stable saved-deck entries into shuffled runtime card instances. */
+export function createRuntimeDeck(deck: SavedDeck, playerId: string): Card[] {
+    if (!isDeckPlayable(deck)) throw new Error('A playtest deck must contain 40–60 cards with no more than 3 copies of each card.');
+    const cards = deck.cards.flatMap(entry => {
+        const definition = cardRegistry.getCard(entry.cardId);
+        if (!definition) throw new Error(`The deck contains an unknown card: ${entry.cardId}`);
+        return Array.from({ length: entry.quantity }, (_, copyIndex) => ({
+            ...definition,
+            instanceId: `${playerId}_${entry.cardId}_${copyIndex}_${crypto.randomUUID()}`,
+            ownerId: playerId,
+        }));
+    });
+    for (let i = cards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    return cards;
+}
 
 // Only stable card IDs and quantities belong in files, never runtime game state.
 export function parseDeck(value: unknown, enforceLimits = true): SavedDeck {

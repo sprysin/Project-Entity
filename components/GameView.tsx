@@ -9,17 +9,19 @@ import { PileViewModal, DeckViewModal } from './Game/GameModals';
 import { ContextMenu, ContextMenuButton } from './Game/ContextMenu';
 import { GameOverlays } from './Game/GameOverlays';
 import { GameSidebar } from './Game/GameSidebar';
+import { SavedDeck } from '../src/decks';
 
 interface GameViewProps {
   onQuit: () => void;
+  initialDecks?: [SavedDeck | null, SavedDeck | null];
 }
 
 /**
  * GameView Component
  * The core battle interface. Manages game state, turn logic, animations, and user interactions.
  */
-const GameView: React.FC<GameViewProps> = ({ onQuit }) => {
-  const { gameState, setGameState, state, actions } = useGameLogic();
+const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
+  const { gameState, setGameState, state, actions } = useGameLogic(initialDecks);
 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 

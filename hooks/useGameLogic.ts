@@ -15,8 +15,9 @@ import { useGameAnimationEffects } from './useGameAnimationEffects';
 import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
+import { createRuntimeDeck, SavedDeck } from '../src/decks';
 
-export const useGameLogic = () => {
+export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null]) => {
     // Core Game State
     const [gameState, setGameState] = useState<GameState | null>(null);
 
@@ -238,8 +239,8 @@ export const useGameLogic = () => {
 
     /** Initialization */
     useEffect(() => {
-        const p1Deck = createDeck('player1');
-        const p2Deck = createDeck('player2');
+        const p1Deck = initialDecks[0] ? createRuntimeDeck(initialDecks[0], 'player1') : createDeck('player1');
+        const p2Deck = initialDecks[1] ? createRuntimeDeck(initialDecks[1], 'player2') : createDeck('player2');
         const mkPlayer = (id: string, name: string, deck: Card[]): Player => ({
             id, name, lp: 800, deck: deck.slice(5), initialDeck: [...deck], hand: deck.slice(0, 5), discard: [], void: [],
             pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null),
@@ -248,7 +249,9 @@ export const useGameLogic = () => {
         animations.lastLp.current = [800, 800];
         setGameState({
             players: [mkPlayer('player1', 'Player 1', p1Deck), mkPlayer('player2', 'Player 2', p2Deck)],
-            activePlayerIndex: 0, currentPhase: Phase.DRAW, turnNumber: 1, log: ['Duel initialized.'], winner: null, pendingEffects: []
+            activePlayerIndex: 0, currentPhase: Phase.DRAW, turnNumber: 1,
+            log: [`Duel initialized. Player 1: ${initialDecks[0]?.name ?? 'Random test deck'}; Player 2: ${initialDecks[1]?.name ?? 'Random test deck'}.`],
+            winner: null, pendingEffects: []
         });
     }, []);
 

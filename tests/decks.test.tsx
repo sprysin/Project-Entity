@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { DECK_STORAGE_KEY, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, isDeckPlayable } from '../src/decks';
+import { DECK_STORAGE_KEY, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, isDeckPlayable, createRuntimeDeck } from '../src/decks';
 import { CardType } from '../types';
 
 it('round-trips a named deck through JSON and local storage, updating only that deck', () => {
@@ -54,4 +54,13 @@ it('rejects malformed imports and does not overwrite unreadable saved data', () 
     expect(() => parseDeck(null)).toThrow();
     expect(() => loadDecks({ getItem: () => '{broken' })).toThrow();
     expect(loadDecks({ getItem: () => null })).toEqual([]);
+});
+
+it('expands a playable saved deck into owned runtime card instances', () => {
+    const definitions = sortedCards().slice(0, 14);
+    const deck = { ...newDeck(), cards: definitions.map((card, index) => ({ cardId: card.id, quantity: index < 12 ? 3 : 2 })) };
+    const runtime = createRuntimeDeck(deck, 'player1');
+    expect(runtime).toHaveLength(40);
+    expect(runtime.every(card => card.ownerId === 'player1')).toBe(true);
+    expect(new Set(runtime.map(card => card.instanceId))).toHaveLength(40);
 });
