@@ -16,12 +16,11 @@ const resolveTributeAndGainAttack: EffectStep = (state, context) => {
         player.pawnZones[tributeIndex] = null;
     }
     state.players[context.playerIndex].lp += tributed.atk;
-    return { log: `Gained ${tributed.atk} LP from ${tributed.name}.` };
 };
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Cost.TributePawns(1, 'Tribute 1 Level 3 or lower Pawn.', card => card.type === CardType.PAWN && card.level <= 3),
+        Cost.TributePawns(1, card => card.type === CardType.PAWN && card.level <= 3),
         resolveTributeAndGainAttack
     ]),
     canActivate: (state, context) => state.players[context.playerIndex].pawnZones.some(zone => zone?.card.type === CardType.PAWN && zone.card.level <= 3)

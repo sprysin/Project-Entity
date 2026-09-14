@@ -6,6 +6,7 @@ import {
 } from '../types';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { finishEffect } from '../src/game/finishEffect';
+import { formatEffectLog } from '../src/game/effectLog';
 
 /**
  * Hook for resolving card effects, including target/discard/hand selection flows.
@@ -46,7 +47,7 @@ export const useEffectResolution = (
     } = selectionState;
 
     // Use a ref to persist context properties (like target or handIndex) between chained prompts.
-    const pendingContext = useRef<Partial<CardContext> & { triggerType?: EffectTrigger }>({});
+    const pendingContext = useRef<Partial<CardContext> & { triggerType?: EffectTrigger, tributeCards?: Card[] }>({});
 
     /** Executes a card's unique ability. Handles targeting logic with peek-first pattern. */
     const resolveEffect = useCallback((
@@ -68,6 +69,9 @@ export const useEffectResolution = (
         const actualDeckIndex = deckIndex ?? pendingContext.current.deckIndex;
         const actualTriggerType = pendingContext.current.triggerType ?? triggerType;
         const actualTributeIndices = tributeIndices ?? pendingContext.current.tributeIndices;
+        const tributeCards = tributeIndices
+            ? tributeIndices.flatMap(index => gameState.players[activeIndex].pawnZones[index]?.card ?? [])
+            : pendingContext.current.tributeCards ?? [];
 
         pendingContext.current = {
             target: actualTarget,
@@ -75,7 +79,8 @@ export const useEffectResolution = (
             handIndex: actualHandIndex,
             deckIndex: actualDeckIndex,
             triggerType: actualTriggerType,
-            tributeIndices: actualTributeIndices
+            tributeIndices: actualTributeIndices,
+            tributeCards
         };
 
         if (card.id === 'condition_02' && actualTarget) {
@@ -109,30 +114,39 @@ export const useEffectResolution = (
         }
         if (peekResult?.requireDiscardSelection && actualDiscardIndex === undefined) {
             setPendingEffectCard(card);
-            setDiscardSelectionReq(peekResult.requireDiscardSelection);
+            setDiscardSelectionReq({ ...peekResult.requireDiscardSelection, title: `${card.name}: Select a card from the discard pile` });
             setSelectedDiscardIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
         }
         if (peekResult?.requireHandSelection && actualHandIndex === undefined) {
             setPendingEffectCard(card);
-            setHandSelectionReq(peekResult.requireHandSelection);
+            setHandSelectionReq({ ...peekResult.requireHandSelection, title: `${card.name}: Select a card to discard` });
             setSelectedHandSelectionIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
         }
         if (peekResult?.requireDeckSelection && actualDeckIndex === undefined) {
             setPendingEffectCard(card);
-            setDeckSelectionReq(peekResult.requireDeckSelection);
+            setDeckSelectionReq({ ...peekResult.requireDeckSelection, title: `${card.name}: Select a card from the deck` });
             setSelectedDeckIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
         }
         if (peekResult?.requireEffectTribute && actualTributeIndices === undefined) {
             setPendingEffectCard(card);
-            setEffectTributeReq(peekResult.requireEffectTribute);
+            setEffectTributeReq({ ...peekResult.requireEffectTribute, title: `${card.name}: Select ${peekResult.requireEffectTribute.count} Pawn(s) to tribute` });
             setTargetSelectMode('tribute');
             setPendingTriggerType(actualTriggerType);
+            return;
+        }
+
+        if (peekResult?.halted) {
+            setTriggeredEffect(null);
+            setPendingEffectCard(null);
+            setTargetSelectMode(null);
+            setPendingTriggerType(null);
+            pendingContext.current = {};
             return;
         }
 
@@ -148,7 +162,11 @@ export const useEffectResolution = (
                 else if (actualTriggerType === 'activate' && effect.onActivate) result = effect.onActivate(prev, executionContext);
                 else if (actualTriggerType === 'field_activate' && effect.onFieldActivate) result = effect.onFieldActivate(prev, executionContext);
             }
-            return finishEffect(result?.newState ?? prev, card, result?.log);
+            if (result?.halted) return prev;
+            if (!result) return finishEffect(prev, card);
+            const next = result?.newState ?? prev;
+            const log = formatEffectLog(prev, next, card, executionContext, actualTriggerType, tributeCards);
+            return finishEffect(next, card, log);
         });
 
         // Cleanup selection modes
@@ -223,7 +241,7 @@ export const useEffectResolution = (
 
     const cancelEffect = () => {
         const card = selectionState.pendingEffectCard;
-        if (card) setGameState(prev => prev ? finishEffect(prev, card, 'Effect cancelled.') : prev);
+        if (card) setGameState(prev => prev ? finishEffect(prev, card) : prev);
         pendingContext.current = {};
         setTriggeredEffect(null);
         setPendingEffectCard(null);

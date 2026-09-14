@@ -6,8 +6,8 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Require.Target('pawn', "High King: Target an Pawn to reduce ATK."),
-        Require.TargetMatchesPosition(Position.HIDDEN, true, "High King: Invalid target — must be a face-up Pawn."),
+        Require.Target('pawn'),
+        Require.TargetMatchesPosition(Position.HIDDEN, true),
         Effect.ModifyTargetStats(-20, 0)
     ])
 };

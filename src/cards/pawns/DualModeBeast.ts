@@ -7,10 +7,10 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Cost.DiscardCardFilter("Discard Cost: Select 1 Card"),
-        Require.Target('pawn', "DUAL-MODE BEAST: Target 1 attack position monster on your opponent's field."),
-        Require.TargetIsPlayerScope('opponent', "DUAL-MODE BEAST: Must target an opponent's monster."),
-        Require.TargetMatchesPosition(Position.ATTACK, false, "DUAL-MODE BEAST: Target must be in Attack position."),
+        Cost.DiscardCardFilter(),
+        Require.Target('pawn'),
+        Require.TargetIsPlayerScope('opponent'),
+        Require.TargetMatchesPosition(Position.ATTACK),
         Effect.ChangeTargetPosition(Position.DEFENSE)
     ]),
     canActivate: buildCondition([

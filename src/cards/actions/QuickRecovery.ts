@@ -7,7 +7,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Cost.SelectDiscardRecovery("Select Level 3 or Lower Pawn", (c) => c.type === CardType.PAWN && c.level <= 3),
+        Cost.SelectDiscardRecovery((c) => c.type === CardType.PAWN && c.level <= 3),
         Effect.RecoverFromDiscardToHand(),
         Effect.RestoreLP((state) => state.activePlayerIndex, 20)
     ]),

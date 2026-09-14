@@ -4,35 +4,35 @@ import { Card, PlacedCard, Position } from '../../../types';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
-    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', message = "Select a target.", set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (_draftState, context) => {
-        if (!context.target) return { requireTarget: type, requireTargetPosition: set, log: message };
+    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (_draftState, context) => {
+        if (!context.target) return { requireTarget: type, requireTargetPosition: set };
     },
 
     /** Verifies the provided target relies on a specific player scope. */
-    TargetIsPlayerScope: (scope: 'active' | 'opponent', message = "Invalid target player scope."): EffectStep => (draftState, context) => {
+    TargetIsPlayerScope: (scope: 'active' | 'opponent'): EffectStep => (draftState, context) => {
         if (context.target) {
             const expectOpponent = scope === 'opponent';
             const isOpponent = context.target.playerIndex !== draftState.activePlayerIndex;
-            if (isOpponent !== expectOpponent) return { log: message, halt: true };
+            if (isOpponent !== expectOpponent) return { halt: true };
         }
     },
 
     /** Verifies the provided target matches a position state. */
-    TargetMatchesPosition: (position: Position, invert = false, message = "Invalid target position."): EffectStep => (draftState, context) => {
+    TargetMatchesPosition: (position: Position, invert = false): EffectStep => (draftState, context) => {
         if (context.target) {
             const p = draftState.players[context.target.playerIndex];
             const t = context.target.type === 'pawn' ? p.pawnZones[context.target.index] : p.actionZones[context.target.index];
-            if (!t) return { log: message, halt: true };
+            if (!t) return { halt: true };
 
             const matches = t.position === position;
             if ((matches && invert) || (!matches && !invert)) {
-                return { log: message, halt: true };
+                return { halt: true };
             }
         }
     },
 
     /** Generically checks if a numerical evaluation matches the required threshold, halting if it fails. */
-    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>, message = "Requirement not met."): EffectStep => (draftState, context) => {
+    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): EffectStep => (draftState, context) => {
         const val1 = resolveDynamic(valueFn, draftState, context);
         const val2 = resolveDynamic(compareTo, draftState, context);
 
@@ -43,7 +43,7 @@ export const Require = {
         else if (operator === '<') pass = val1 < val2;
         else pass = val1 === val2;
 
-        if (!pass) return { log: message, halt: true };
+        if (!pass) return { halt: true };
     }
 };
 

@@ -7,6 +7,7 @@ import {
 import { createDeck } from '../constants';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { clonePlayers } from '../src/game/cloneState';
+import { formatEffectLog } from '../src/game/effectLog';
 import { useAnimations } from './useAnimations';
 import { useCardMotion } from './useCardMotion';
 import { useEffectResolution } from './useEffectResolution';
@@ -104,16 +105,11 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     );
 
     const cardActions = useCardActions(
-        gameState, setGameState, stableResolveEffect, addLog,
+        gameState, setGameState, stableResolveEffect,
         cardMotion.recordMovement, animations.triggerShatter,
         selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode,
         isPeekingField || pendingEffectCard !== null || triggeredEffect !== null, targetSelectMode
     );
-
-    /** Helper to append messages to the game log. */
-    function addLog(msg: string) {
-        setGameState(prev => prev ? { ...prev, log: [msg, ...prev.log].slice(0, 50) } : null);
-    }
 
     /** Checks if a card in hand is playable. */
     const canPlayCard = useCallback((card: Card) => {
@@ -161,6 +157,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             // Handle End Phase pending effects (e.g. ATK resets)
             let currentPendingEffects = prev.pendingEffects || [];
             let updatedPlayers = [...prev.players];
+            let updatedLog = prev.log;
 
             if (nextPhase === Phase.BATTLE) {
                 updatedPlayers = updatedPlayers.map(p => ({
@@ -180,10 +177,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                     if (!card.tributedByAction) continue;
                     const phaseEffect = cardRegistry.getEffect(card.id)?.onPhaseChange;
                     if (!phaseEffect) continue;
-                    const result = phaseEffect(phaseState, { card, playerIndex: activeIndex });
-                    if (result?.newState) phaseState = result.newState;
+                    const context = { card, playerIndex: activeIndex };
+                    const result = phaseEffect(phaseState, context);
+                    if (result?.newState && !result.halted) {
+                        const log = formatEffectLog(phaseState, result.newState, card, context, 'phase');
+                        phaseState = { ...result.newState, log: [log, ...phaseState.log].slice(0, 50) };
+                    }
                 }
                 updatedPlayers = phaseState.players;
+                updatedLog = phaseState.log;
             }
 
             if (nextPhase === Phase.END) {
@@ -231,7 +233,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 }
             }
 
-            return { ...prev, currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber, players: updatedPlayers as [Player, Player], pendingEffects: currentPendingEffects };
+            return { ...prev, currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber, players: updatedPlayers as [Player, Player], pendingEffects: currentPendingEffects, log: updatedLog };
         });
     }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
 
@@ -329,7 +331,6 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 }),
             activateOnField: cardActions.activateOnField,
             handleAttack: cardActions.handleAttack,
-            addLog,
         }
     };
 };

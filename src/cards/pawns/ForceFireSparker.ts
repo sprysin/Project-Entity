@@ -8,8 +8,7 @@ const effect: IEffect = {
     onSummon: buildEffect([
         Effect.DealDamage(
             Query.ActiveOpponent(),
-            Query.Multiply(Query.CountSetActions('opponent'), 10),
-            "FORCE FIRE SPARKER:"
+            Query.Multiply(Query.CountSetActions('opponent'), 10)
         )
     ])
 };

@@ -14,7 +14,7 @@ const effect: IEffect = {
     onFieldActivate: buildEffect([
         payHalfLp,
         Effect.SetSoftOncePerTurn(),
-        Effect.SearchDeck("Select Beast Pawn", (c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
+        Effect.SearchDeck((c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
     ]),
     canActivate: (state, context) => {
         const p = state.players[context.playerIndex];

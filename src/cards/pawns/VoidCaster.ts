@@ -7,7 +7,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Cost.SelectDiscardRecovery("VOID CASTER: Recover Void Blast", (c) => c.id === 'action_01'),
+        Cost.SelectDiscardRecovery((c) => c.id === 'action_01'),
         Effect.RecoverFromDiscardToHand()
     ]),
     canActivate: buildCondition([

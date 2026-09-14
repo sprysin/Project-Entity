@@ -122,13 +122,13 @@ export type CardFilter = (card: Card) => boolean;
 
 export interface CardSelectionRequest {
   playerIndex: number;
-  title: string;
+  title?: string;
   filter: CardFilter;
 }
 
 export interface HandSelectionRequest {
   playerIndex: number;
-  title: string;
+  title?: string;
 }
 
 export interface TributeSelectionRequest extends HandSelectionRequest {
@@ -143,7 +143,7 @@ export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
 
 export type EffectResult = {
   newState: GameState;
-  log: string;
+  halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
   requireDiscardSelection?: CardSelectionRequest;

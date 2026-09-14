@@ -7,7 +7,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Cost.DiscardCardFilter("Discard Cost: Select 1 Card"),
+        Cost.DiscardCardFilter(),
         Effect.ModifySelfStats(10, 0),
         Effect.RegisterSelfPendingEffect('RESET_ATK', 250)
     ]),

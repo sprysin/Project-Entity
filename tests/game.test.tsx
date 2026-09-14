@@ -62,9 +62,61 @@ it('Void Blast wins immediately and is discarded exactly once', () => {
     expect(game.gameState!.players[1].lp).toBe(0);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
     expect(game.gameState!.players[0].discard.map(c => c.instanceId)).toEqual([blast.instanceId]);
+    expect(game.gameState!.log[0]).toBe('"Void Blast" activated, "Player 2" -50 LP.');
     const ended = game.gameState;
     act(() => { game.actions.nextPhase(); game.actions.resolveEffect(blast); vi.advanceTimersByTime(5000); });
     expect(game.gameState).toBe(ended);
+});
+
+it('logs a resolved target from the effect context', () => {
+    const king = card('pawn_02');
+    const dragon = card('pawn_05', 1);
+    setup(s => {
+        s.players[0].pawnZones[0] = placed(king);
+        s.players[1].pawnZones[0] = placed(dragon);
+    });
+    act(() => game.actions.resolveEffect(king, { playerIndex: 1, type: 'pawn', index: 0 }, undefined, undefined, undefined, 'summon'));
+    expect(game.gameState!.log[0]).toBe('"High King" effect activated, targets "High Voltage - Charged Dragon"; "High Voltage - Charged Dragon" -20 ATK.');
+});
+
+it('logs normal and tribute summons separately from their effects', () => {
+    const serpent = card('pawn_08');
+    setup(s => { s.players[0].hand = [serpent]; });
+    act(() => game.actions.handleSummon(serpent, 'normal', 0));
+    expect(game.gameState!.log[0]).toBe('"Quickstrike Serpent" summoned.');
+
+    const king = card('pawn_02');
+    setup(s => {
+        s.players[0].hand = [king];
+        s.players[0].pawnZones[0] = placed(card('pawn_01'));
+    });
+    act(() => game.actions.handleSummon(king, 'normal'));
+    act(() => game.actions.setTributeSelection([0]));
+    act(() => game.actions.handleTributeSummon());
+    act(() => game.actions.handlePlacement(0));
+    expect(game.gameState!.log[0]).toBe('"High King" tribute summoned.');
+});
+
+it('does not narrate attack-count changes in an effect log', () => {
+    const serpent = card('pawn_08');
+    const discard = card('action_01');
+    setup(s => {
+        s.players[0].pawnZones[0] = placed(serpent);
+        s.players[0].hand = [discard];
+    });
+    act(() => game.actions.activateOnField(0, 'pawn', 0));
+    act(() => game.actions.handleHandSelection(0));
+    expect(game.gameState!.log[0]).toBe('"Quickstrike Serpent" effect activated, discards "Void Blast".');
+});
+
+it('silently rejects an action whose activation requirements are not met', () => {
+    const recovery = card('action_02');
+    setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('pawn_04')]; });
+    const previousLog = game.gameState!.log;
+    act(() => game.actions.handleActionFromHand(recovery, 'activate', 0));
+    expect(game.gameState!.log).toBe(previousLog);
+    expect(game.gameState!.players[0].hand[0].instanceId).toBe(recovery.instanceId);
+    expect(game.gameState!.players[0].actionZones[0]).toBeNull();
 });
 
 it('on-summon effect damage also wins', () => {
@@ -120,7 +172,7 @@ it('combat commits damage and one log without mutating prior state', () => {
     act(() => game.actions.handleAttack(0, 0));
     expect(before.players[1].lp).toBe(800);
     expect(game.gameState!.players[1].lp).toBe(780);
-    expect(game.gameState!.log.filter(l => l.includes('ATTACK SUCCESS'))).toHaveLength(1);
+    expect(game.gameState!.log).toHaveLength(before.log.length + 1);
     act(() => game.actions.handleAttack(0, 'direct'));
     expect(game.gameState!.players[1].lp).toBe(780);
 });
@@ -161,6 +213,9 @@ it('effect tributes are paid once and the source survives until recovery selecti
     expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(recovered.instanceId);
     expect(game.gameState!.players[0].discard).toHaveLength(3);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
+    expect(game.gameState!.log[0]).toContain('"Mechanical Maintenance" activated');
+    expect(game.gameState!.log[0]).toContain('tributes "Solstice Sentinel", "Void Caster"');
+    expect(game.gameState!.log[0]).toContain('special summons "Solstice Sentinel"');
 });
 
 it('automated drawing refills to five and advances exactly one turn under StrictMode', () => {

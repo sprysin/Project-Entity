@@ -10,7 +10,6 @@ export const Effect = {
             const targetPawn = player.pawnZones[context.target.index];
             if (targetPawn && targetPawn.position !== newPosition) {
                 targetPawn.position = newPosition;
-                return { log: `Changed ${targetPawn.card.name} to ${newPosition} position.` };
             }
         }
     },
@@ -23,9 +22,6 @@ export const Effect = {
             if (tE) {
                 tE.card.atk = Math.max(0, tE.card.atk + atkChange);
                 tE.card.def = Math.max(0, tE.card.def + defChange);
-                const statStr = [atkChange !== 0 ? `${Math.abs(atkChange)} ATK` : '', defChange !== 0 ? `${Math.abs(defChange)} DEF` : ''].filter(s => s).join(' & ');
-                const verb = atkChange > 0 || defChange > 0 ? 'gains' : 'loses';
-                return { log: `${tE.card.name} ${verb} ${statStr}.` };
             }
         }
     },
@@ -36,7 +32,6 @@ export const Effect = {
         const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId);
         if (selfZone && selfZone.position !== newPosition) {
             selfZone.position = newPosition;
-            return { log: `Changed ${selfZone.card.name} to ${newPosition} position.` };
         }
     },
 
@@ -47,9 +42,6 @@ export const Effect = {
         if (selfZone) {
             selfZone.card.atk = Math.max(0, selfZone.card.atk + atkChange);
             selfZone.card.def = Math.max(0, selfZone.card.def + defChange);
-            const statStr = [atkChange !== 0 ? `${Math.abs(atkChange)} ATK` : '', defChange !== 0 ? `${Math.abs(defChange)} DEF` : ''].filter(s => s).join(' & ');
-            const verb = atkChange > 0 || defChange > 0 ? 'gains' : 'loses';
-            return { log: `${selfZone.card.name} ${verb} ${statStr}.` };
         }
     },
 
@@ -62,18 +54,16 @@ export const Effect = {
         const drawnCards = activePlayer.deck.splice(0, resolvedAmount);
         activePlayer.hand.push(...drawnCards);
 
-        return { log: `Drew ${drawnCards.length} card(s).` };
     },
 
     /** Deals damage to a specific player's LP. */
-    DealDamage: (playerIndex: Dynamic<number>, amount: Dynamic<number>, reasonLog?: string): EffectStep => (draftState, context) => {
+    DealDamage: (playerIndex: Dynamic<number>, amount: Dynamic<number>): EffectStep => (draftState, context) => {
         const resolvedAmount = resolveDynamic(amount, draftState, context);
         const resolvedPlayerIndex = resolveDynamic(playerIndex, draftState, context);
 
-        if (resolvedAmount <= 0) return { log: reasonLog ? `${reasonLog} 0 Damage.` : "Dealt 0 Damage." };
+        if (resolvedAmount <= 0) return;
 
         draftState.players[resolvedPlayerIndex].lp -= resolvedAmount;
-        return { log: reasonLog ? `${reasonLog} Dealt ${resolvedAmount} Damage.` : `Dealt ${resolvedAmount} Damage.` };
     },
 
     /** Restores LP to a specific player. */
@@ -84,7 +74,6 @@ export const Effect = {
         if (resolvedAmount <= 0) return;
 
         draftState.players[resolvedPlayerIndex].lp += resolvedAmount;
-        return { log: `Restored ${resolvedAmount} LP.` };
     },
 
     /** Sends a targeted card to the Void. */
@@ -97,7 +86,6 @@ export const Effect = {
             if (cardInZone) {
                 p.void.push(cardInZone.card);
                 zones[context.target.index] = null;
-                return { log: `Banished ${cardInZone.card.name} to the Void.` };
             }
         }
     },
@@ -110,7 +98,6 @@ export const Effect = {
             if (card) {
                 p.discard.splice(context.discardIndex, 1);
                 p.hand.push(card);
-                return { log: `Returned ${card.name} to hand.` };
             }
         }
     },
@@ -123,7 +110,6 @@ export const Effect = {
             value,
             dueTurn: draftState.turnNumber
         });
-        return { log: `(Effect resets during End Phase).` };
     },
 
     /** Registers a Lingering Effect on the active activating card. */
@@ -134,7 +120,6 @@ export const Effect = {
             value,
             dueTurn: draftState.turnNumber + durationTurns
         });
-        return { log: `(Resets During End Phase).` };
     },
 
     /** Marks the card instance as having used its effect this turn. */
@@ -154,9 +139,9 @@ export const Effect = {
     // --- DECK SEARCHING ---
 
     /** Prompts the player to select a card from their deck matching a filter, then adds it to hand and shuffles. */
-    SearchDeck: (message: string, filter: CardFilter): EffectStep => (draftState, context) => {
+    SearchDeck: (filter: CardFilter): EffectStep => (draftState, context) => {
         if (context.deckIndex === undefined) {
-            return { requireDeckSelection: { playerIndex: context.playerIndex, filter, title: message }, log: `Searching deck...` };
+            return { requireDeckSelection: { playerIndex: context.playerIndex, filter } };
         } else {
             const p = draftState.players[context.playerIndex];
             const card = p.deck[context.deckIndex];
@@ -169,7 +154,6 @@ export const Effect = {
                     const j = Math.floor(Math.random() * (i + 1));
                     [p.deck[i], p.deck[j]] = [p.deck[j], p.deck[i]];
                 }
-                return { log: `Added ${card.name} to hand from deck.` };
             }
         }
     }

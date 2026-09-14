@@ -4,14 +4,13 @@ import { buildEffect } from '../libs/Builder';
 import { EffectStep } from '../libs/Builder';
 import { Cost } from '../libs/Costs';
 
-const tributePawns = Cost.TributePawns(2, "Select 2 Mechanical Pawns to Sacrifice", c => c.pawnType === PawnType.MECHANICAL);
+const tributePawns = Cost.TributePawns(2, c => c.pawnType === PawnType.MECHANICAL);
 
 const selectFromDiscard: EffectStep = (_draftState, context) => {
     if (context.discardIndex === undefined) {
         return {
             requireDiscardSelection: {
                 playerIndex: context.playerIndex,
-                title: "Select Mechanical Pawn to Special Summon",
                 filter: (c: Card) => c.pawnType === PawnType.MECHANICAL
             }
         };
@@ -36,9 +35,8 @@ const specialSummonFromDiscard: EffectStep = (draftState, context) => {
                     summonedTurn: draftState.turnNumber,
                     isSetTurn: false
                 };
-                return { log: `Special Summoned ${card.name} from discard pile.` };
             } else {
-                return { log: `No empty zone to Special Summon.`, halt: true };
+                return { halt: true };
             }
         }
     }

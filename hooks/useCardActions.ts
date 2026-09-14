@@ -3,6 +3,7 @@ import { GameState, Card, CardType, Phase, Position, Player, CardContext, CardTa
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { clonePlayers } from '../src/game/cloneState';
 import { useCombatActions } from './useCombatActions';
+import { formatSummonLog } from '../src/game/effectLog';
 
 /**
  * Hook for card action handlers: summon, tribute, action cards, field activation, and combat.
@@ -11,7 +12,6 @@ export const useCardActions = (
     gameState: GameState | null,
     setGameState: Dispatch<SetStateAction<GameState | null>>,
     resolveEffect: (card: Card, target?: CardTarget, discardIndex?: number, handIndex?: number, deckIndex?: number, triggerType?: EffectTrigger, tributeIndices?: number[]) => void,
-    addLog: (msg: string) => void,
     triggerVisual: (src: string, tgt: string, type: 'discard' | 'void' | 'retrieve', card?: Card) => void,
     triggerShatter: (zoneKey: string) => void,
     selectedHandIndex: number | null,
@@ -50,20 +50,18 @@ export const useCardActions = (
             const pawnCount = p.pawnZones.filter(z => z !== null).length;
             const required = card.level <= 7 ? 1 : 2;
             if (pawnCount < required) {
-                addLog(`ACCESS DENIED: Level ${card.level} requires ${required} sacrifices.`);
                 return;
             }
             tributeState.setPendingTributeCard(card);
             tributeState.setTributeSummonMode(mode === 'hidden' ? 'hidden' : 'normal');
             tributeState.setTributeSelection([]);
             setTargetSelectMode('tribute');
-            addLog(`TRIBUTE MODE (${mode === 'hidden' ? 'SET' : 'SUMMON'}): Select ${required} entities for sacrifice.`);
             return;
         }
 
         if (card.level <= 4) {
-            if (mode === 'normal' && p.normalSummonUsed) { addLog("Normal Summon limit reached for this turn."); return; }
-            if (mode === 'hidden' && p.hiddenSummonUsed) { addLog("Set limit reached for this turn."); return; }
+            if (mode === 'normal' && p.normalSummonUsed) return;
+            if (mode === 'hidden' && p.hiddenSummonUsed) return;
         }
 
         if (autoSlotIndex !== undefined) {
@@ -84,7 +82,8 @@ export const useCardActions = (
                 if (mode === 'hidden') p.hiddenSummonUsed = true;
 
                 players[pIdx] = p;
-                return { ...prev, players: players as [Player, Player] };
+                const log = mode === 'hidden' ? prev.log : [formatSummonLog(card), ...prev.log].slice(0, 50);
+                return { ...prev, players: players as [Player, Player], log };
             });
 
             if (mode !== 'hidden') {
@@ -104,9 +103,8 @@ export const useCardActions = (
         tributeState.setPendingPlayCard(card);
         tributeState.setPlayMode(mode === 'normal' ? 'normal' : 'hidden');
         setTargetSelectMode('place_pawn');
-        addLog(`SELECT ZONE: Choose a slot for ${card.name}.`);
         setSelectedHandIndex(null);
-    }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, setSelectedHandIndex, setTargetSelectMode]);
+    }, [gameState, isPeekingField, setGameState, resolveEffect, setSelectedHandIndex, setTargetSelectMode]);
 
     /** Finalizes a tribute summon once required sacrifices are selected. */
     const handleTributeSummon = useCallback((
@@ -150,7 +148,6 @@ export const useCardActions = (
         tributeState.setPendingTributeCard(null);
         tributeState.setTributeSelection([]);
         setTargetSelectMode('place_pawn');
-        addLog(`SELECT ZONE: Choose a slot for ${pendingTributeCard.name}.`);
         setSelectedHandIndex(null);
 
     }, [gameState, isPeekingField, setGameState, resolveEffect, triggerVisual, setSelectedHandIndex, setTargetSelectMode]);
@@ -175,7 +172,6 @@ export const useCardActions = (
             const context: CardContext = { card, playerIndex: activeIndex };
             const effect = cardRegistry.getEffect(card.id);
             if (effect?.canActivate && !effect.canActivate(gameState, context)) {
-                addLog(`RESTRICTION: Activation conditions for ${card.name} not met.`);
                 return;
             }
         }
@@ -207,15 +203,13 @@ export const useCardActions = (
             playState.setPendingPlayCard(card);
             playState.setPlayMode('set');
             setTargetSelectMode('place_action');
-            addLog(`SELECT ZONE: Choose a slot to Set ${card.name}.`);
         } else {
             playState.setPendingPlayCard(card);
             playState.setPlayMode('activate');
             setTargetSelectMode('place_action');
-            addLog(`SELECT ZONE: Choose a slot to Activate ${card.name}.`);
         }
         setSelectedHandIndex(null);
-    }, [gameState, isPeekingField, selectedHandIndex, setGameState, resolveEffect, addLog, triggerVisual, setSelectedHandIndex, setTargetSelectMode]);
+    }, [gameState, isPeekingField, selectedHandIndex, setGameState, resolveEffect, triggerVisual, setSelectedHandIndex, setTargetSelectMode]);
 
     /** Executes the actual placement of the card into the selected slot. */
     const handlePlacement = useCallback((
@@ -259,7 +253,8 @@ export const useCardActions = (
                 }
 
                 players[pIdx] = p;
-                return { ...prev, players: players as [Player, Player] };
+                const log = playMode === 'hidden' ? prev.log : [formatSummonLog(pendingPlayCard), ...prev.log].slice(0, 50);
+                return { ...prev, players: players as [Player, Player], log };
             });
 
             if (playMode !== 'hidden') {
@@ -304,7 +299,7 @@ export const useCardActions = (
         playState.setPlayMode(null);
         if (playMode !== 'activate') setTargetSelectMode(null);
 
-    }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, triggerVisual, setTargetSelectMode, targetSelectMode]);
+    }, [gameState, isPeekingField, setGameState, resolveEffect, triggerVisual, setTargetSelectMode, targetSelectMode]);
 
 
     /** Activates a card already on the field (flipping or triggering). */
@@ -326,7 +321,6 @@ export const useCardActions = (
         const context: CardContext = { card: placed.card, playerIndex };
         const effect = cardRegistry.getEffect(placed.card.id);
         if (effect?.canActivate && !effect.canActivate(gameState, context)) {
-            addLog(`RESTRICTION: Activation conditions for ${placed.card.name} not met.`);
             return;
         }
         if (placed.card.type === CardType.CONDITION && gameState.turnNumber <= placed.summonedTurn) return;
@@ -356,7 +350,7 @@ export const useCardActions = (
             return { ...prev, players: players as [Player, Player] };
         });
         setSelectedFieldSlot(null);
-    }, [gameState, isPeekingField, setGameState, resolveEffect, addLog, triggerVisual, setSelectedFieldSlot]);
+    }, [gameState, isPeekingField, setGameState, resolveEffect, triggerVisual, setSelectedFieldSlot]);
 
     return {
         handleSummon,

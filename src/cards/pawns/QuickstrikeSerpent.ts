@@ -8,13 +8,12 @@ const prepareExtraAttacks: EffectStep = (state, context) => {
     const zone = player.pawnZones.find(z => z?.card.instanceId === context.card.instanceId);
     if (zone) {
         zone.nextBattleAttacks = 2;
-        return { log: 'Quickstrike Serpent can attack twice during the next Battle Phase.' };
     }
 };
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Cost.DiscardCardFilter('Discard 1 card for Quickstrike Serpent.', () => true),
+        Cost.DiscardCardFilter(() => true),
         prepareExtraAttacks
     ]),
     canActivate: (state, context) => state.players[context.playerIndex].hand.length > 0

@@ -7,7 +7,7 @@ const effect: IEffect = {
         const player = draftState.players[context.playerIndex];
         const discardIndex = player.discard.findIndex(card => card.instanceId === context.card.instanceId && card.tributedByAction);
         const zoneIndex = player.pawnZones.findIndex(zone => zone === null);
-        if (discardIndex === -1 || zoneIndex === -1) return { newState: draftState, log: '' };
+        if (discardIndex === -1 || zoneIndex === -1) return { newState: draftState, halted: true };
 
         const [card] = player.discard.splice(discardIndex, 1);
         delete card.tributedByAction;
@@ -19,7 +19,7 @@ const effect: IEffect = {
             summonedTurn: draftState.turnNumber,
             isSetTurn: false,
         };
-        return { newState: draftState, log: 'Lingering Lamb was Special Summoned from the Discard Pile.' };
+        return { newState: draftState };
     }
 };
 

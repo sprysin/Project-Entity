@@ -8,38 +8,32 @@ export const Cost = {
         const activePlayer = draftState.players[context.playerIndex];
         const resolvedAmount = resolveDynamic(amount, draftState, context);
         activePlayer.lp -= resolvedAmount;
-        return { log: `Paid ${resolvedAmount} LP.` };
     },
 
     /** Prompts the player to tribute pawns on their field. */
-    TributePawns: (count: number, message: string, filter?: (c: Card) => boolean): EffectStep => (_draftState, context) => {
+    TributePawns: (count: number, filter?: (c: Card) => boolean): EffectStep => (_draftState, context) => {
         if (context.tributeIndices === undefined) {
             return {
                 requireEffectTribute: {
                     playerIndex: context.playerIndex,
                     count,
-                    title: message,
                     filter
-                },
-                log: `Awaiting tribute selection...`
+                }
             };
         }
         
-        // At this point, the game engine has already removed the pawns and sent them to the discard pile.
-        // So we just log the successful completion.
-        return { log: `Tributed ${count} Pawn(s).` };
+        // The tribute handler has already moved the selected pawns to the discard pile.
+        return;
     },
 
     /** Prompts the player to discard a card matching a specific filter. */
-    DiscardCardFilter: (message: string, filter?: (c: Card) => boolean): EffectStep => (draftState, context) => {
+    DiscardCardFilter: (filter?: (c: Card) => boolean): EffectStep => (draftState, context) => {
         if (context.handIndex === undefined) {
             return {
                 requireHandSelection: {
                     playerIndex: context.playerIndex,
-                    title: message,
                     filter
-                },
-                log: "Select a card to discard."
+                }
             };
         }
 
@@ -50,24 +44,22 @@ export const Cost = {
             // In future, you might evaluate the filter here too if needed, but the UI locks it down.
             activePlayer.hand.splice(context.handIndex, 1);
             activePlayer.discard.push(discardedCard);
-            return { log: `Discarded ${discardedCard.name}.` };
+            return;
         }
 
-        return { log: "Error: Could not discard card.", halt: true };
+        return { halt: true };
     },
 
     /** Request selection of a card from the discard. */
-    SelectDiscardRecovery: (message: string, filter: (c: Card) => boolean): EffectStep => (_draftState, context) => {
+    SelectDiscardRecovery: (filter: (c: Card) => boolean): EffectStep => (_draftState, context) => {
         if (context.discardIndex === undefined) {
             return {
                 requireDiscardSelection: {
                     playerIndex: context.playerIndex,
-                    title: message,
                     filter
-                },
-                log: "Select a card from the Void/Discard pile."
+                }
             };
         }
-        return { log: "Target recovered from discard." };
+        return;
     }
 };

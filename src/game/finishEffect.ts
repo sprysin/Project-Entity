@@ -1,7 +1,7 @@
 import { Card, CardType, GameState } from '../../types';
 
 /** Complete an activation atomically; locate the source by identity, never by an old slot. */
-export function finishEffect(state: GameState, card: Card, log = ''): GameState {
+export function finishEffect(state: GameState, card: Card, log?: string): GameState {
     const next: GameState = structuredClone(state);
     if (card.type !== CardType.PAWN && !card.isLingering) {
         for (const player of next.players) {

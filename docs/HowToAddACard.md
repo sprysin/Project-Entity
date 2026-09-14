@@ -181,8 +181,8 @@ const myCustomStep: EffectStep = (draftState, context) => {
     const p = draftState.players[context.playerIndex];
     p.lp += 50;
 
-    return { log: "Gained 50 LP." };
-    // Return nothing (void) if no log needed
+    // The engine derives the log entry from the state change.
+    return;
     // Return { halt: true } to stop the chain
     // Return { requireTarget: 'pawn' } to prompt for target selection
 };
@@ -235,7 +235,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Effect.ChangeSelfPosition(pos)` | Change the activating pawn's position |
 | `Effect.ModifySelfStats(atk, def)` | Modify the activating pawn's own stats |
 | `Effect.DrawCards(amount)` | Draw cards (amount can be Dynamic) |
-| `Effect.DealDamage(playerIdx, amount, reason?)` | Deal LP damage |
+| `Effect.DealDamage(playerIdx, amount)` | Deal LP damage |
 | `Effect.RestoreLP(playerIdx, amount)` | Heal LP |
 | `Effect.BanishTargetToVoid()` | Send target to the Void zone |
 | `Effect.RecoverFromDiscardToHand()` | Move selected discard card to hand |
@@ -243,16 +243,16 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Effect.RegisterSelfPendingEffect(type, value, durationTurns)` | Schedule self stat reset |
 | `Effect.SetSoftOncePerTurn()` | Mark this card instance's effect as used (resets per copy) |
 | `Effect.SetHardOncePerTurn(cardId)` | Mark this card ID as used globally for the turn |
-| `Effect.SearchDeck(message, filter)` | Open deck UI, player picks a card matching filter, add to hand, shuffle |
+| `Effect.SearchDeck(filter)` | Open deck UI, player picks a card matching filter, add to hand, shuffle |
 
 ### Costs (`src/cards/libs/Costs.ts`)
 
 | Function | Description |
 |----------|-------------|
 | `Cost.PayLP(amount)` | Deduct LP (amount can be Dynamic) |
-| `Cost.TributePawns(count, message, filter?)` | Prompt sacrifice of field pawns matching an optional filter |
-| `Cost.DiscardCardFilter(message, filter?)` | Prompt discard of a hand card matching a filter |
-| `Cost.SelectDiscardRecovery(message, filter)` | Prompt selection from discard pile |
+| `Cost.TributePawns(count, filter?)` | Prompt sacrifice of field pawns matching an optional filter |
+| `Cost.DiscardCardFilter(filter?)` | Prompt discard of a hand card matching a filter |
+| `Cost.SelectDiscardRecovery(filter)` | Prompt selection from discard pile |
 
 ### Requirements (`src/cards/libs/Requirements.ts`)
 
@@ -260,7 +260,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 
 | Function | Description |
 |----------|-------------|
-| `Require.Target(type, message, set)` | Prompt the player to select a target |
+| `Require.Target(type, set)` | Prompt the player to select a target |
 | `Require.TargetIsPlayerScope(scope)` | Verify target belongs to active/opponent |
 | `Require.TargetMatchesPosition(pos, invert?)` | Verify target position state |
 | `Require.CompareValue(valueFn, op, compareTo)` | Generic numerical check |
@@ -348,7 +348,7 @@ Check existing IDs before choosing yours. If you reuse an ID, the registry will 
 // src/cards/pawns/ForceFireSparker.ts
 const effect: IEffect = {
     onSummon: buildEffect([
-        Effect.DealDamage(Query.ActiveOpponent(), Query.Multiply(Query.CountSetActions('opponent'), 10), "FORCE FIRE SPARKER:")
+        Effect.DealDamage(Query.ActiveOpponent(), Query.Multiply(Query.CountSetActions('opponent'), 10))
     ])
 };
 cardRegistry.register({ id: 'pawn_03', name: 'Force Fire Sparker', type: CardType.PAWN, level: 2, attribute: Attribute.FIRE, pawnType: PawnType.DEMON, atk: 30, def: 150, effectText: '...' }, effect);
@@ -359,8 +359,8 @@ cardRegistry.register({ id: 'pawn_03', name: 'Force Fire Sparker', type: CardTyp
 // src/cards/conditions/Reinforcement.ts
 const effect: IEffect = {
     onActivate: buildEffect([
-        Require.Target('pawn', "REINFORCEMENT: Target an Pawn."),
-        Require.TargetMatchesPosition(Position.HIDDEN, true, "REINFORCEMENT: Invalid target."),
+        Require.Target('pawn'),
+        Require.TargetMatchesPosition(Position.HIDDEN, true),
         Effect.ModifyTargetStats(20, 0)
     ]),
     canActivate: buildCondition([Condition.PawnMatchesFilter('both', (z) => z.position !== Position.HIDDEN)])
@@ -375,7 +375,7 @@ const effect: IEffect = {
     onFieldActivate: buildEffect([
         payHalfLp,                                    // Custom step: deducts half LP
         Effect.SetSoftOncePerTurn(),                  // Marks as used this turn
-        Effect.SearchDeck("Select Beast Pawn", (c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
+        Effect.SearchDeck((c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
     ]),
     canActivate: (state, context) => {
         if (!Condition.SoftOncePerTurn()(state, context)) return false;
@@ -391,7 +391,7 @@ cardRegistry.register({ id: 'action_03', name: 'Mark of the Forest Hunter', type
 // src/cards/actions/MechanicalMaintenance.ts
 const effect: IEffect = {
     onActivate: buildEffect([
-        Cost.TributePawns(2, "Select 2 Mechanical Pawns to Sacrifice", c => c.pawnType === PawnType.MECHANICAL),
+        Cost.TributePawns(2, c => c.pawnType === PawnType.MECHANICAL),
         selectFromDiscard,        // Custom step: requireDiscardSelection
         specialSummonFromDiscard  // Custom step: moves card to pawn zone
     ]),

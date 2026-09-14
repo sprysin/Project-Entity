@@ -5,7 +5,7 @@ import { Effect } from '../libs/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Effect.RestoreLP((state) => state.activePlayerIndex, 100)
+        Effect.RestoreLP((_state, context) => context.playerIndex, 100)
     ])
 };
 
@@ -18,5 +18,5 @@ cardRegistry.register({
     pawnType: PawnType.MECHANICAL,
     atk: 120,
     def: 110,
-    effectText: 'ON NORMAL SUMMON: Gain 100 LP.',
+    effectText: 'On normal summon: Gain 100 LP.',
 }, effect);

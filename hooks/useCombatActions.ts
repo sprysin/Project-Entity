@@ -28,14 +28,14 @@ export const useCombatActions = (
 
     if (targetIndex === 'direct') {
         opponent.lp -= attackingPawn.card.atk;
-        logs.unshift(`DIRECT IMPACT: -${attackingPawn.card.atk} LP.`);
+        logs.unshift(`DIRECT ATTACK: -${attackingPawn.card.atk} LP.`);
     } else {
         const defending = opponent.pawnZones[targetIndex];
         if (!defending) return;
         const defendingPawn = { ...defending, position: defending.position === Position.HIDDEN ? Position.DEFENSE : defending.position };
         if (defending.position === Position.HIDDEN) {
             opponent.pawnZones[targetIndex] = defendingPawn;
-            logs.unshift(`${defendingPawn.card.name} was flipped!`);
+            logs.unshift(`${defendingPawn.card.name} was Switched`);
         }
 
         if (defendingPawn.position === Position.ATTACK) {
@@ -46,14 +46,14 @@ export const useCombatActions = (
                 triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
                 opponent.discard.push(defendingPawn.card);
                 opponent.pawnZones[targetIndex] = null;
-                logs.unshift(`ATTACK SUCCESS: ${defendingPawn.card.name} destroyed. -${difference} LP.`);
+                logs.unshift(` ${defendingPawn.card.name} destroyed by ${attackingPawn.card.name} by battle. -${difference} LP.`);
             } else if (difference < 0) {
                 triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
                 activePlayer.lp += difference;
                 triggerVisual(`${activeIndex}-pawn-${attackerIndex}`, `discard-${activeIndex}`, 'discard', attackingPawn.card);
                 activePlayer.discard.push(attackingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
-                logs.unshift(`ATTACK FAILED: ${attackingPawn.card.name} destroyed. Recoil ${difference}.`);
+                logs.unshift(`${attackingPawn.card.name} destroyed. -${difference} LP.`);
             } else {
                 triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
                 triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
@@ -63,20 +63,20 @@ export const useCombatActions = (
                 opponent.discard.push(defendingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
                 opponent.pawnZones[targetIndex] = null;
-                logs.unshift('MUTUAL DESTRUCTION.');
+                logs.unshift(`${defendingPawn.card.name} & ${attackingPawn.card.name} destroyed each other by battle.`);
             }
         } else if (attackingPawn.card.atk > defendingPawn.card.def) {
             triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
             triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
             opponent.discard.push(defendingPawn.card);
             opponent.pawnZones[targetIndex] = null;
-            logs.unshift(`DEFENSE CRUSHED: ${defendingPawn.card.name} destroyed. 0 Damage.`);
+            logs.unshift(`${defendingPawn.card.name} destroyed.`);
         } else if (attackingPawn.card.atk < defendingPawn.card.def) {
             const recoil = defendingPawn.card.def - attackingPawn.card.atk;
             activePlayer.lp -= recoil;
-            logs.unshift(`DEFENSE HELD: Recoil -${recoil} LP.`);
+            logs.unshift(`${attackingPawn.card.name} -${recoil} LP.`);
         } else {
-            logs.unshift('STALEMATE: Defense equals Attack.');
+
         }
     }
 
