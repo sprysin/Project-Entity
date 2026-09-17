@@ -38,6 +38,5 @@ export const Pile: React.FC<{
             <span className="text-xl font-black">{count}</span>
             </div>
         </div>
-        <span className="text-[11px] font-orbitron mt-2 text-white font-black drop-shadow-md tracking-widest">{label.toUpperCase()}</span>
     </button>
 );

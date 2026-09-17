@@ -241,3 +241,23 @@ it('allows successive tribute summons after the normal summon has been used', ()
         act(() => { game.actions.setTriggeredEffect(null); game.actions.cancelEffect(); });
     }
 });
+
+it('allows a tribute summon to free and reuse a zone on a full Pawn field', () => {
+    const king = card('pawn_02');
+    setup(s => {
+        s.players[0].hand = [king];
+        s.players[0].pawnZones = Array.from({ length: 5 }, () => placed(card('pawn_01')));
+    });
+
+    act(() => game.actions.handleSummon(king, 'normal', 0));
+    expect(game.state.targetSelectMode).toBe('tribute');
+
+    const tributeId = game.gameState!.players[0].pawnZones[0]!.card.instanceId;
+    act(() => game.actions.setTributeSelection([0]));
+    act(() => game.actions.handleTributeSummon());
+    expect(game.gameState!.players[0].pawnZones[0]).toBeNull();
+
+    act(() => game.actions.handlePlacement(0));
+    expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
+    expect(game.gameState!.players[0].discard.at(-1)?.instanceId).toBe(tributeId);
+});

@@ -9,6 +9,7 @@ import { PileViewModal, DeckViewModal } from './Game/GameModals';
 import { ContextMenu, ContextMenuButton } from './Game/ContextMenu';
 import { GameOverlays } from './Game/GameOverlays';
 import { GameSidebar } from './Game/GameSidebar';
+import { HealthHud } from './Game/HealthHud';
 import { SavedDeck } from '../src/decks';
 
 interface GameViewProps {
@@ -87,6 +88,19 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
       <div className="flex-1 flex relative overflow-hidden">
         {/* Main Play Area */}
         <div className="flex-1 flex flex-col items-center justify-between p-4 relative overflow-hidden">
+          <HealthHud
+            player={opponent}
+            displayedLp={state.displayedLp[oppIdx]}
+            flash={state.lpFlash[oppIdx]}
+            position="opponent"
+          />
+          <HealthHud
+            player={activePlayer}
+            displayedLp={state.displayedLp[gameState.activePlayerIndex]}
+            flash={state.lpFlash[gameState.activePlayerIndex]}
+            position="active"
+          />
+
           {/* Opponent Hand (Semi-Visible) */}
           <div className="absolute top-0 w-full flex justify-center space-x-[-10px] z-20 pointer-events-none">
             {opponent.hand.map((card, i) => (
@@ -132,22 +146,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
               </div>
             </div>
 
-            {/* Central Information Bar: LP and Player Names */}
-            <div className="w-full max-w-4xl h-8 bg-black/60 border-y border-white/10 backdrop-blur-md flex items-center justify-between px-16 my-2 relative z-0">
-              <div className="flex items-center space-x-4">
-                <span className="text-[10px] font-orbitron font-bold text-slate-400 uppercase tracking-widest">{opponent.name}</span>
-                <span className={`text-xl font-orbitron font-black transition-colors duration-300 ${state.lpFlash[oppIdx] === 'damage' ? 'text-red-500' : state.lpFlash[oppIdx] === 'heal' ? 'text-green-500' : 'text-white'}`}>
-                  {Math.floor(state.displayedLp[oppIdx])} LP
-                </span>
-              </div>
-              <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent mx-8"></div>
-              <div className="flex items-center space-x-4">
-                <span className={`text-xl font-orbitron font-black transition-colors duration-300 ${state.lpFlash[gameState.activePlayerIndex] === 'damage' ? 'text-red-500' : state.lpFlash[gameState.activePlayerIndex] === 'heal' ? 'text-green-500' : 'text-white'}`}>
-                  {Math.floor(state.displayedLp[gameState.activePlayerIndex])} LP
-                </span>
-                <span className="text-[10px] font-orbitron font-bold text-slate-400 uppercase tracking-widest">{activePlayer.name}</span>
-              </div>
-            </div>
+            {/* Decorative divider between the two fields */}
+            <div aria-hidden="true" className="h-5 w-full max-w-5xl shrink-0 border-y border-white/10 bg-black/60 shadow-[0_0_18px_rgba(0,0,0,0.65)] backdrop-blur-md" />
 
             {/* Active Player Field View */}
             <div className="flex flex-col items-center space-y-4">
@@ -158,7 +158,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
                     const canChangePosition = !!z && !z.hasChangedPosition && z.summonedTurn !== gameState.turnNumber;
                     const canActivateEffect = !!z && z.position === Position.ATTACK && hasOnActivateEffect(z.card) && checkActivationConditions(gameState, z.card, gameState.activePlayerIndex) && !(z.hasActivatedEffect && z.card.effectText?.includes('Once per turn'));
                     const attackReady = canPawnAttack(i);
-                    const showHandMenu = selected && !z && selectedCard?.type === CardType.PAWN && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
+                    const selectedCardCanTributeSummon = selectedCard?.type === CardType.PAWN && selectedCard.level >= 5;
+                    const canChooseSummonMethod = selectedCard?.type === CardType.PAWN && (!z || selectedCardCanTributeSummon);
+                    const showHandMenu = selected && canChooseSummonMethod && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
                     const showFieldMenu = selected && !!z && !state.targetSelectMode && !selectedCard && (
                       ((gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (canChangePosition || hasOnActivateEffect(z.card))) ||
                       gameState.currentPhase === Phase.BATTLE
@@ -167,7 +169,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
                     isSelected={selected}
                     isTributeSelected={state.tributeSelection.includes(i)}
                     isSelectable={checkIsSelectable(z, 'pawn', false)}
-                    isDropTarget={(selectedCard?.type === CardType.PAWN && z === null) || (state.targetSelectMode === 'place_pawn' && z === null)}
+                    isDropTarget={(selectedCard?.type === CardType.PAWN && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && z === null)}
                     isActivatable={attackReady}
                     contextualActions={showHandMenu ? <ContextMenu title="Choose summon method">
                       <ContextMenuButton label={selectedCard.level >= 5 ? 'Tribute Summon' : 'Normal Summon'} onClick={() => actions.handleSummon(selectedCard, 'normal', i)} disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed)} tone="gold" />
@@ -187,7 +189,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
                         }
                       } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (checkIsSelectable(z, 'pawn', false)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: gameState.activePlayerIndex, type: 'pawn', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
-                      } else if (selectedCard?.type === CardType.PAWN && z === null && !state.targetSelectMode) {
+                      } else if (canChooseSummonMethod && !state.targetSelectMode) {
                         actions.setSelectedFieldSlot({ playerIndex: gameState.activePlayerIndex, type: 'pawn', index: i });
                       } else {
                         actions.setSelectedFieldSlot(z ? { playerIndex: gameState.activePlayerIndex, type: 'pawn', index: i } : null);
@@ -242,7 +244,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks }) => {
           </div>
 
           {/* Active Player Hand Display (Bottom) */}
-          <div className="absolute bottom-0 w-full flex justify-center space-x-[-10px] z-50 pointer-events-none pb-0" ref={actions.setRef(`${gameState.activePlayerIndex}-hand-container`)}>
+          <div className="health-hud-safe-hand absolute bottom-0 w-full flex justify-center space-x-[-10px] z-50 pointer-events-none pb-0" ref={actions.setRef(`${gameState.activePlayerIndex}-hand-container`)}>
             {activePlayer.hand.map((card, i) => {
               const isActivatable = actions.canPlayCard(card);
               return (

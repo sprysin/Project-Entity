@@ -42,6 +42,141 @@ body {
 @keyframes lp-pop { 50% { transform: scale(1.5); text-shadow: 0 0 20px currentColor; } }
 .lp-active { animation: lp-pop .5s ease-out forwards; }
 
+/* Corner life-point displays share the card-back's black, gold, and checkerboard language. */
+.health-hud {
+  --health-hud-cut: 28%;
+  position: absolute;
+  z-index: 55;
+  width: clamp(230px, 24vw, 390px);
+  color: #fff;
+  font-family: Orbitron, sans-serif;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 14px #000c);
+}
+.health-hud--active { bottom: 16px; left: 16px; }
+.health-hud--opponent { top: 16px; right: 16px; display: flex; flex-direction: column; align-items: stretch; }
+.health-hud__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 7px;
+}
+.health-hud--opponent .health-hud__identity { order: 3; justify-content: flex-end; padding: 8px 8px 0; }
+.health-hud--opponent .health-hud__emblem { order: 2; }
+.health-hud__name {
+  overflow: hidden;
+  font-size: clamp(16px, 1.65vw, 28px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 2px 7px #000;
+}
+.health-hud__emblem {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 2px solid #d5a613;
+  background: #181818;
+  box-shadow: 0 0 9px #eab30899, inset 0 0 7px #eab30855;
+  transform: rotate(45deg);
+}
+.health-hud__emblem span {
+  position: absolute;
+  inset: 7px;
+  border: 2px solid #f8fafc;
+  border-radius: 50%;
+  box-shadow: 0 0 4px #fff8;
+}
+.health-hud__rule {
+  height: 4px;
+  margin-right: var(--health-hud-cut);
+  background: linear-gradient(90deg, #8a5d00, #f2bd16 45%, #8a5d00);
+  box-shadow: 0 0 6px #eab30880;
+}
+.health-hud--opponent .health-hud__rule { order: 2; margin: 0 0 0 var(--health-hud-cut); }
+.health-hud__frame {
+  position: relative;
+  height: clamp(66px, 7.8vw, 110px);
+  margin-top: 6px;
+}
+.health-hud--opponent .health-hud__frame {
+  order: 1;
+  margin: 0 0 6px;
+}
+.health-hud__plate {
+  position: relative;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: .3em;
+  overflow: hidden;
+  padding: 5px 25% 5px 18px;
+  background-color: #090909;
+  background-image:
+    linear-gradient(45deg, #191919 25%, transparent 25%, transparent 75%, #191919 75%),
+    linear-gradient(45deg, #191919 25%, transparent 25%, transparent 75%, #191919 75%);
+  background-position: 0 0, 8px 8px;
+  background-size: 16px 16px, 16px 16px;
+  clip-path: polygon(0 0, calc(100% - var(--health-hud-cut)) 0, 100% 100%, 0 100%);
+  box-shadow: inset 0 0 18px #d4af3733;
+}
+.health-hud--opponent .health-hud__plate {
+  justify-content: flex-end;
+  padding: 5px 18px 5px 25%;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, var(--health-hud-cut) 100%);
+}
+.health-hud__outline {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 0 2px #fff4);
+}
+.health-hud__outline path { stroke-width: 2; stroke-linejoin: miter; }
+.health-hud__outline .health-hud__inset { stroke: #d4af3766; stroke-width: 1; }
+.health-hud__lp-label,
+.health-hud__lp-value {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(34px, 4.2vw, 64px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: .035em;
+  text-shadow: 2px 0 #c99700, -1px 0 #c99700, 0 3px 8px #000;
+}
+.health-hud__lp-value { display: inline-block; transition: color .2s ease; }
+.health-hud__lp-value--damage { color: #ef4444; }
+.health-hud__lp-value--heal { color: #22c55e; }
+
+@media (max-width: 900px), (max-height: 700px) {
+  .health-hud { width: 220px; }
+  .health-hud__frame { height: 62px; }
+  .health-hud__lp-label, .health-hud__lp-value { font-size: 32px; }
+  .health-hud__name { font-size: 14px; }
+  .health-hud__identity { gap: 8px; }
+  .health-hud__emblem { width: 22px; height: 22px; flex-basis: 22px; }
+  .health-hud__emblem span { inset: 5px; }
+}
+
+@media (max-width: 1400px) {
+  .health-hud { width: 210px; }
+  .health-hud__frame { height: 60px; }
+  .health-hud__lp-label, .health-hud__lp-value { font-size: 29px; }
+  .health-hud__name { font-size: 13px; }
+  .health-hud__identity { gap: 8px; }
+  .health-hud__emblem { width: 22px; height: 22px; flex-basis: 22px; }
+  .health-hud__emblem span { inset: 5px; }
+  .health-hud-safe-hand { padding-left: 60px; }
+  .health-hud-safe-hand > * { width: 7rem !important; }
+}
+
 @keyframes float-damage { 0% { transform: translate(-50%, -50%) scale(.5); opacity: 0; } 15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 100% { transform: translate(-50%, -200%); opacity: 0; } }
 .floating-text { position: absolute; z-index: 200; font-family: Orbitron, sans-serif; font-weight: 900; white-space: nowrap; pointer-events: none; animation: float-damage 2.5s ease-out forwards; text-shadow: 0 0 10px #000c; }
 @keyframes glow-flash-gold { 50% { border-color: #fbbf24; background-color: #d9770633; box-shadow: 0 0 60px #d97706; } }
