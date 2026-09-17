@@ -43,6 +43,7 @@
 .deck-unsaved { color: #eab308; font-size: 8px; width: 7px; flex-shrink: 0; }
 .deck-counts { display: flex; gap: 22px; padding: 0 24px 19px; font: 11px Orbitron, sans-serif; color: #cbd5e1; border-bottom: 1px solid #ffffff0a; }
 .deck-counts i { margin-right: 5px; }
+.deck-counts .action-card-icon { margin-right: 5px; }
 .deck-content-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 24px 30px; }
 .deck-card-section { margin-bottom: 18px; }
 .deck-type-PAWN { color: #eab308; }

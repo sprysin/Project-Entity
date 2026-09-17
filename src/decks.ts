@@ -24,7 +24,7 @@ export const newDeck = (): SavedDeck => ({ version: 1, id: crypto.randomUUID(), 
 
 /** Expands stable saved-deck entries into shuffled runtime card instances. */
 export function createRuntimeDeck(deck: SavedDeck, playerId: string): Card[] {
-    if (!isDeckPlayable(deck)) throw new Error('A playtest deck must contain 40–60 cards with no more than 3 copies of each card.');
+    if (!isDeckPlayable(deck)) throw new Error('A deck must contain 40–60 cards with no more than 3 copies of each card.');
     const cards = deck.cards.flatMap(entry => {
         const definition = cardRegistry.getCard(entry.cardId);
         if (!definition) throw new Error(`The deck contains an unknown card: ${entry.cardId}`);

@@ -4,10 +4,14 @@ import { CardDefinition } from '../src/cards/CardRegistry';
 import { SavedDeck, downloadDeck, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, deckSize as total, MIN_DECK_SIZE, DECK_STORAGE_KEY } from '../src/decks';
 import { CardType } from '../types';
 import './DeckCreator.css';
+import { ActionCardIcon } from './ActionCardIcon';
 
 const cards = sortedCards();
 const types = [CardType.PAWN, CardType.ACTION, CardType.CONDITION];
-const icons = ['fa-chess-pawn', 'fa-wand-sparkles', 'fa-hourglass-half'];
+const icons = ['fa-chess-pawn', '', 'fa-hourglass-half'];
+const TypeIcon = ({ type, icon, className = '' }: { type: CardType; icon: string; className?: string }) => type === CardType.ACTION
+    ? <ActionCardIcon className={`h-[1.5em] w-[1.5em] ${className}`} />
+    : <i className={`fa-solid ${icon} ${className}`} aria-hidden="true" />;
 const face = (card: CardDefinition, compact = false) => <CardDetail card={{ ...card, instanceId: card.id, ownerId: '' }} compact={compact} />;
 
 function IconButton({ label, icon, onClick, disabled = false, active = false }: { label: string; icon: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
@@ -125,7 +129,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                     <button className="deck-primary" onClick={save} title="Save deck locally"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save</button>
                     <IconButton label="Export deck to JSON" icon="fa-file-export" onClick={exportJson} />
                 </header>
-                <div className="deck-counts"><span>{total(deck)} <span className="text-slate-500">cards</span></span>{types.map((type, i) => <span key={type} title={type} aria-label={`${type} count`}><i className={`fa-solid ${icons[i]} deck-type-${type}`} aria-hidden="true" /> {deck.cards.filter(e => cards.find(c => c.id === e.cardId)?.type === type).reduce((sum, e) => sum + e.quantity, 0)}</span>)}</div>
+                <div className="deck-counts"><span>{total(deck)} <span className="text-slate-500">cards</span></span>{types.map((type, i) => <span key={type} title={type} aria-label={`${type} count`}><TypeIcon type={type} icon={icons[i]} className={`deck-type-${type}`} /> {deck.cards.filter(e => cards.find(c => c.id === e.cardId)?.type === type).reduce((sum, e) => sum + e.quantity, 0)}</span>)}</div>
                 <div className="deck-content-scroll">
                     {!deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
                     <div className="deck-owned-grid">{cards.flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
@@ -143,7 +147,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                     {types.map((type, i) => {
                         const entries = filtered.filter(c => c.type === type);
                         return entries.length > 0 && <section key={type} aria-label={type} className={`deck-card-section deck-type-${type}`}>
-                            <div className="deck-section-rule"><i className={`fa-solid ${icons[i]}`} aria-hidden="true" /><span /></div>
+                            <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
                                 <button className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
                                 <div className="deck-catalog-add"><span /><IconButton label={`Add ${card.name}`} icon="fa-plus" onClick={() => changeQuantity(card, 1)} disabled={!canAddCard(deck, card.id)} /></div>

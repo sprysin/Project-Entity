@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlacedCard, Position, CardType } from '../../types';
 import { CardDetail } from './CardDetail';
 import { useManagedTimeout } from '../../hooks/useManagedTimeout';
+import { ActionCardIcon } from '../ActionCardIcon';
 
 /**
  * Zone Sub-component: A single slot on the field. Handles display of cards in Attack/Defense/Hidden positions.
@@ -54,7 +55,9 @@ export const Zone: React.FC<{
             )}
             {/* Base Zone Content (Empty State) */}
             <div className={`absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${card ? 'opacity-0' : 'opacity-20'}`}>
-                <i className={`${type === 'pawn' ? 'fa-solid fa-chess-pawn text-3xl' : 'fa-solid fa-wand-sparkles text-2xl'} text-white`}></i>
+                {type === 'pawn'
+                    ? <i className="fa-solid fa-chess-pawn text-3xl text-white"></i>
+                    : <ActionCardIcon className="h-8 w-8 text-white" />}
                 <span className="text-[10px] font-orbitron tracking-widest text-white font-black">{type.toUpperCase()}</span>
             </div>
 

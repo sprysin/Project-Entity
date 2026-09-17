@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { CardDetail } from './Game/CardDetail';
 import { CardType, Card } from '../types';
+import { ActionCardIcon } from './ActionCardIcon';
 
 interface CardDatabaseProps {
     onBack: () => void;
@@ -72,7 +73,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                         {actions.length > 0 && (
                             <div className="space-y-4 bg-black/40 p-6 rounded-lg border border-white/5 shadow-2xl">
                                 <h3 className="text-3xl font-orbitron font-bold text-slate-200 border-b border-slate-700/50 pb-3 flex items-center gap-3">
-                                    <i className="fa-solid fa-wand-sparkles text-green-400 text-2xl"></i> Actions
+                                    <ActionCardIcon className="h-8 w-8 text-green-400" /> Actions
                                 </h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                                     {actions.map(card => (

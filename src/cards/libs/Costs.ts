@@ -21,8 +21,7 @@ export const Cost = {
                 }
             };
         }
-        
-        // The tribute handler has already moved the selected pawns to the discard pile.
+
         return;
     },
 
