@@ -1,5 +1,5 @@
 import { cardRegistry, CardDefinition } from './cards/CardRegistry';
-import { Card, CardType } from '../types';
+import { Card, CardType } from './types';
 import './cards/pawns';
 import './cards/actions';
 import './cards/conditions';

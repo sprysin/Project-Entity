@@ -1,4 +1,4 @@
-import { Card, CardContext, EffectTrigger, GameState, PlacedCard } from '../../types';
+import { Card, CardContext, EffectTrigger, GameState, PlacedCard } from '../types';
 
 type LocatedCard = { playerIndex: number; zone: 'pawn' | 'action'; placed: PlacedCard };
 

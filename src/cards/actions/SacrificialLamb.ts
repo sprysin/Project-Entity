@@ -1,7 +1,7 @@
-import { IEffect, CardType } from '../../../types';
+import { IEffect, CardType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, EffectStep } from '../libs/Builder';
-import { Cost } from '../libs/Costs';
+import { buildEffect, EffectStep } from '../engine/Builder';
+import { Cost } from '../engine/Costs';
 
 const resolveTributeAndGainAttack: EffectStep = (state, context) => {
     const player = state.players[context.playerIndex];

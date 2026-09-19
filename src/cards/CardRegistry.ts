@@ -1,4 +1,4 @@
-import { IEffect, Card } from '../../types';
+import { IEffect, Card } from '../types';
 
 export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId'>;
 

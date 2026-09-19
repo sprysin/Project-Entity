@@ -5,7 +5,7 @@ import CardDatabase from './components/CardDatabase';
 import RulesView from './components/RulesView';
 import DeckCreator from './components/DeckCreator';
 import PlaytestSetup from './components/PlaytestSetup';
-import { SavedDeck } from './src/decks';
+import { SavedDeck } from './decks';
 
 // Define the possible screens/views in the application
 type View = 'HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS';

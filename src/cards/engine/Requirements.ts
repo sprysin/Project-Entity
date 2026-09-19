@@ -1,6 +1,6 @@
 import { ConditionStep, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card, PlacedCard, Position } from '../../../types';
+import { Card, PlacedCard, Position } from '../../types';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */

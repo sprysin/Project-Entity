@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { DECK_STORAGE_KEY, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, isDeckPlayable, createRuntimeDeck } from '../src/decks';
-import { CardType } from '../types';
+import { CardType } from '../src/types';
 
 it('round-trips a named deck through JSON and local storage, updating only that deck', () => {
     let value: string | null = null;

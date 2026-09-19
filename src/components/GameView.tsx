@@ -2,15 +2,15 @@ import React from 'react';
 import { CardType, Phase, Position } from '../types';
 import { useGameLogic } from '../hooks/useGameLogic';
 import { checkActivationConditions, hasOnActivateEffect } from '../hooks/cardHelpers';
-import { CardDetail } from './Game/CardDetail';
-import { Pile, DeckPile } from './Game/Pile';
-import { Zone } from './Game/Zone';
-import { PileViewModal, DeckViewModal } from './Game/GameModals';
-import { ContextMenu, ContextMenuButton } from './Game/ContextMenu';
-import { GameOverlays } from './Game/GameOverlays';
-import { GameSidebar } from './Game/GameSidebar';
-import { HealthHud } from './Game/HealthHud';
-import { SavedDeck } from '../src/decks';
+import { CardDetail } from './game/CardDetail';
+import { Pile, DeckPile } from './game/Pile';
+import { Zone } from './game/Zone';
+import { PileViewModal, DeckViewModal } from './game/GameModals';
+import { ContextMenu, ContextMenuButton } from './game/ContextMenu';
+import { GameOverlays } from './game/GameOverlays';
+import { GameSidebar } from './game/GameSidebar';
+import { HealthHud } from './game/HealthHud';
+import { SavedDeck } from '../decks';
 
 interface GameViewProps {
   onQuit: () => void;

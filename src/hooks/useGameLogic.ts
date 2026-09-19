@@ -5,18 +5,18 @@ import {
     TargetSelectType, TributeSelectionRequest
 } from '../types';
 import { createDeck } from '../constants';
-import { cardRegistry } from '../src/cards/CardRegistry';
-import { clonePlayers } from '../src/game/cloneState';
-import { formatEffectLog } from '../src/game/effectLog';
+import { cardRegistry } from '../cards/CardRegistry';
+import { clonePlayers } from '../game/cloneState';
+import { formatEffectLog } from '../game/effectLog';
 import { useAnimations } from './useAnimations';
 import { useCardMotion } from './useCardMotion';
 import { useEffectResolution } from './useEffectResolution';
 import { useCardActions } from './useCardActions';
 import { useGameAnimationEffects } from './useGameAnimationEffects';
-import '../src/cards/pawns';
-import '../src/cards/actions';
-import '../src/cards/conditions';
-import { createRuntimeDeck, SavedDeck } from '../src/decks';
+import '../cards/pawns';
+import '../cards/actions';
+import '../cards/conditions';
+import { createRuntimeDeck, SavedDeck } from '../decks';
 
 export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null]) => {
     // Core Game State

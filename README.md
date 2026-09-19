@@ -26,3 +26,13 @@ Inspired by "no-mana" systems, the game focuses on hand management and tempo rat
    ```bash
    npm run dev
    ```
+
+## Project Layout
+
+- `src/components/` — React views and reusable UI
+- `src/hooks/` — game-state and animation hooks
+- `src/cards/` — card definitions, registry, and effect engine
+- `src/game/` — shared game-state utilities
+- `src/styles/` — global and game-wide styles
+- `tests/` — automated tests
+- `docs/` — contributor documentation

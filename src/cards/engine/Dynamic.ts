@@ -1,4 +1,4 @@
-import { GameState, CardContext } from '../../../types';
+import { GameState, CardContext } from '../../types';
 
 export type Dynamic<T> = T | ((state: GameState, context: CardContext) => T);
 

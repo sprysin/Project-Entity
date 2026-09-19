@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { afterEach, expect, it, vi } from 'vitest';
-import DeckCreator from '../components/DeckCreator';
+import DeckCreator from '../src/components/DeckCreator';
 import { downloadDeck, sortedCards, newDeck, DECK_STORAGE_KEY } from '../src/decks';
 
 vi.mock('../src/decks', async importOriginal => ({ ...await importOriginal<typeof import('../src/decks')>(), downloadDeck: vi.fn() }));

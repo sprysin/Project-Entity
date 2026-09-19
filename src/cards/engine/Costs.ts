@@ -1,6 +1,6 @@
 import { EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card } from '../../../types';
+import { Card } from '../../types';
 
 export const Cost = {
     /** Deducts LP dynamically. */

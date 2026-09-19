@@ -1,5 +1,5 @@
 export default {
-    content: ['./index.html', './App.tsx', './components/**/*.{ts,tsx}'],
+    content: ['./index.html', './src/**/*.{ts,tsx}'],
     safelist: ['bg-slate-900/40', 'bg-purple-900/40'],
     theme: { extend: {} },
     plugins: [],

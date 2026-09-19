@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { cardRegistry } from '../src/cards/CardRegistry';
-import { CardDetail } from './Game/CardDetail';
+import { cardRegistry } from '../cards/CardRegistry';
+import { CardDetail } from './game/CardDetail';
 import { CardType, Card } from '../types';
 import { ActionCardIcon } from './ActionCardIcon';
 

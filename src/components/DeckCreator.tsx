@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CardDetail } from './Game/CardDetail';
-import { CardDefinition } from '../src/cards/CardRegistry';
-import { SavedDeck, downloadDeck, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, deckSize as total, MIN_DECK_SIZE, DECK_STORAGE_KEY } from '../src/decks';
+import { CardDetail } from './game/CardDetail';
+import { CardDefinition } from '../cards/CardRegistry';
+import { SavedDeck, downloadDeck, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, deckSize as total, MIN_DECK_SIZE, DECK_STORAGE_KEY } from '../decks';
 import { CardType } from '../types';
 import './DeckCreator.css';
 import { ActionCardIcon } from './ActionCardIcon';

@@ -1,9 +1,9 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { useGameLogic } from '../hooks/useGameLogic';
+import { useGameLogic } from '../src/hooks/useGameLogic';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card, GameState, Phase, Position } from '../types';
+import { Card, GameState, Phase, Position } from '../src/types';
 import { finishEffect } from '../src/game/finishEffect';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

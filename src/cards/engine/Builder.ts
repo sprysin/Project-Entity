@@ -1,4 +1,4 @@
-import { GameState, CardContext, EffectResult } from '../../../types';
+import { GameState, CardContext, EffectResult } from '../../types';
 import { cloneGameState } from '../../game/cloneState';
 
 export type EffectStepResult = Omit<EffectResult, 'newState' | 'halted'> & { halt?: boolean };

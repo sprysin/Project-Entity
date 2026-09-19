@@ -1,8 +1,8 @@
-import { IEffect, Position, CardType } from '../../../types';
+import { IEffect, Position, CardType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, buildCondition } from '../libs/Builder';
-import { Require, Condition } from '../libs/Requirements';
-import { Effect } from '../libs/Effects';
+import { buildEffect, buildCondition } from '../engine/Builder';
+import { Require, Condition } from '../engine/Requirements';
+import { Effect } from '../engine/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([

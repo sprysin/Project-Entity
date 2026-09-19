@@ -1,5 +1,5 @@
 import { Card } from './types';
-import { cardRegistry } from './src/cards/CardRegistry';
+import { cardRegistry } from './cards/CardRegistry';
 
 export const createDeck = (playerId: string): Card[] => {
   const deck: Card[] = [];

@@ -1,7 +1,7 @@
-import { IEffect, Position, GameState, CardContext, CardType, Attribute, PawnType } from '../../../types';
+import { IEffect, Position, GameState, CardContext, CardType, Attribute, PawnType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, buildCondition } from '../libs/Builder';
-import { Effect } from '../libs/Effects';
+import { buildEffect, buildCondition } from '../engine/Builder';
+import { Effect } from '../engine/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([

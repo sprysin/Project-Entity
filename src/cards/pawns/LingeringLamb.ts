@@ -1,4 +1,4 @@
-import { IEffect, CardType, Attribute, PawnType, Position } from '../../../types';
+import { IEffect, CardType, Attribute, PawnType, Position } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 
 const effect: IEffect = {

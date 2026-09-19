@@ -4,9 +4,9 @@ import {
     EffectTrigger, HandSelectionRequest, TargetSelectMode, TargetSelectPosition,
     TargetSelectType, TributeSelectionRequest
 } from '../types';
-import { cardRegistry } from '../src/cards/CardRegistry';
-import { finishEffect } from '../src/game/finishEffect';
-import { formatEffectLog } from '../src/game/effectLog';
+import { cardRegistry } from '../cards/CardRegistry';
+import { finishEffect } from '../game/finishEffect';
+import { formatEffectLog } from '../game/effectLog';
 
 /**
  * Hook for resolving card effects, including target/discard/hand selection flows.

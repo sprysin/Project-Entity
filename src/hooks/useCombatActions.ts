@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction, useCallback } from 'react';
 import { Card, CardTarget, GameState, Phase, Player, Position, TargetSelectMode } from '../types';
-import { clonePlayers } from '../src/game/cloneState';
-import { checkVictory } from '../src/game/finishEffect';
+import { clonePlayers } from '../game/cloneState';
+import { checkVictory } from '../game/finishEffect';
 
 export const useCombatActions = (
     gameState: GameState | null,

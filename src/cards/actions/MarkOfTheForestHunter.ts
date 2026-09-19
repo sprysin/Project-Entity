@@ -1,8 +1,8 @@
-import { IEffect, CardType, PawnType } from '../../../types';
+import { IEffect, CardType, PawnType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, EffectStep } from '../libs/Builder';
-import { Effect } from '../libs/Effects';
-import { Condition } from '../libs/Requirements';
+import { buildEffect, EffectStep } from '../engine/Builder';
+import { Effect } from '../engine/Effects';
+import { Condition } from '../engine/Requirements';
 
 const payHalfLp: EffectStep = (draftState, context) => {
     const p = draftState.players[context.playerIndex];

@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { expect, it, vi } from 'vitest';
-import PlaytestSetup from '../components/PlaytestSetup';
+import PlaytestSetup from '../src/components/PlaytestSetup';
 import { DECK_STORAGE_KEY, newDeck, sortedCards } from '../src/decks';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

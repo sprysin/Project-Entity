@@ -1,10 +1,10 @@
-import { IEffect, Attribute, CardType } from '../../../types';
+import { IEffect, Attribute, CardType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, buildCondition } from '../libs/Builder';
-import { Require, Condition } from '../libs/Requirements';
-import { Cost } from '../libs/Costs';
-import { Effect } from '../libs/Effects';
-import { Query } from '../libs/Queries';
+import { buildEffect, buildCondition } from '../engine/Builder';
+import { Require, Condition } from '../engine/Requirements';
+import { Cost } from '../engine/Costs';
+import { Effect } from '../engine/Effects';
+import { Query } from '../engine/Queries';
 
 const effect: IEffect = {
     onActivate: buildEffect([

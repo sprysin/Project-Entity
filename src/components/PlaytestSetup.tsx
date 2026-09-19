@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { deckSize, isDeckPlayable, loadDecks, SavedDeck } from '../src/decks';
+import { deckSize, isDeckPlayable, loadDecks, SavedDeck } from '../decks';
 
 interface PlaytestSetupProps {
   onBack: () => void;

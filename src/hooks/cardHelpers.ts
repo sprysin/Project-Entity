@@ -1,5 +1,5 @@
 import { GameState, Card, CardContext } from '../types';
-import { cardRegistry } from '../src/cards/CardRegistry';
+import { cardRegistry } from '../cards/CardRegistry';
 
 /**
  * Checks whether a card's activation conditions are met.

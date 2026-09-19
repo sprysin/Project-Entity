@@ -1,6 +1,6 @@
 import { EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { CardFilter, Position } from '../../../types';
+import { CardFilter, Position } from '../../types';
 
 export const Effect = {
     /** Changes the position of the targeted pawn. */

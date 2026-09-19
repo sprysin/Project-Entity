@@ -1,7 +1,7 @@
-import { IEffect, CardType, Attribute, PawnType } from '../../../types';
+import { IEffect, CardType, Attribute, PawnType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, EffectStep } from '../libs/Builder';
-import { Cost } from '../libs/Costs';
+import { buildEffect, EffectStep } from '../engine/Builder';
+import { Cost } from '../engine/Costs';
 
 const prepareExtraAttacks: EffectStep = (state, context) => {
     const player = state.players[context.playerIndex];

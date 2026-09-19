@@ -1,9 +1,9 @@
 import { useCallback, Dispatch, SetStateAction } from 'react';
 import { GameState, Card, CardType, Phase, Position, Player, CardContext, CardTarget, EffectTrigger, TargetSelectMode } from '../types';
-import { cardRegistry } from '../src/cards/CardRegistry';
-import { clonePlayers } from '../src/game/cloneState';
+import { cardRegistry } from '../cards/CardRegistry';
+import { clonePlayers } from '../game/cloneState';
 import { useCombatActions } from './useCombatActions';
-import { formatSummonLog } from '../src/game/effectLog';
+import { formatSummonLog } from '../game/effectLog';
 
 /**
  * Hook for card action handlers: summon, tribute, action cards, field activation, and combat.

@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { CardDetail } from './Game/CardDetail';
-import { cardRegistry } from '../src/cards/CardRegistry';
+import { CardDetail } from './game/CardDetail';
+import { cardRegistry } from '../cards/CardRegistry';
 import { Attribute, Card, PawnType } from '../types';
-import '../src/cards/pawns';
-import '../src/cards/actions';
-import '../src/cards/conditions';
+import '../cards/pawns';
+import '../cards/actions';
+import '../cards/conditions';
 import './RulesView.css';
 
 type Topic = {

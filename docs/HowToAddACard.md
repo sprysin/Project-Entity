@@ -53,14 +53,14 @@ Use **PascalCase** naming matching the card name (e.g., `ForceFireSparker.ts`).
 ### Starter Template
 
 ```typescript
-import { IEffect, CardType, Attribute, PawnType } from '../../../types';
+import { IEffect, CardType, Attribute, PawnType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect } from '../libs/Builder';
-// Import ONLY the libs you actually need:
-// import { Effect } from '../libs/Effects';
-// import { Cost } from '../libs/Costs';
-// import { Require, Condition } from '../libs/Requirements';
-// import { Query } from '../libs/Queries';
+import { buildEffect } from '../engine/Builder';
+// Import ONLY the engine helpers you actually need:
+// import { Effect } from '../engine/Effects';
+// import { Cost } from '../engine/Costs';
+// import { Require, Condition } from '../engine/Requirements';
+// import { Query } from '../engine/Queries';
 
 const effect: IEffect = {
     // Fill in effect hooks (see Step 3)
@@ -146,7 +146,7 @@ const effect: IEffect = {
 Effects are built by chaining **EffectSteps** in order:
 
 ```typescript
-import { buildEffect, buildCondition } from '../libs/Builder';
+import { buildEffect, buildCondition } from '../engine/Builder';
 
 const effect: IEffect = {
     onActivate: buildEffect([
@@ -226,7 +226,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 
 ## 6. Available Libraries Quick Reference
 
-### Effects (`src/cards/libs/Effects.ts`)
+### Effects (`src/cards/engine/Effects.ts`)
 
 | Function | Description |
 |----------|-------------|
@@ -245,7 +245,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Effect.SetHardOncePerTurn(cardId)` | Mark this card ID as used globally for the turn |
 | `Effect.SearchDeck(filter)` | Open deck UI, player picks a card matching filter, add to hand, shuffle |
 
-### Costs (`src/cards/libs/Costs.ts`)
+### Costs (`src/cards/engine/Costs.ts`)
 
 | Function | Description |
 |----------|-------------|
@@ -254,7 +254,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Cost.DiscardCardFilter(filter?)` | Prompt discard of a hand card matching a filter |
 | `Cost.SelectDiscardRecovery(filter)` | Prompt selection from discard pile |
 
-### Requirements (`src/cards/libs/Requirements.ts`)
+### Requirements (`src/cards/engine/Requirements.ts`)
 
 **EffectStep Requirements** (halt the effect if not met):
 
@@ -276,7 +276,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Condition.SoftOncePerTurn()` | Has this card instance activated this turn? |
 | `Condition.HardOncePerTurn(cardId)` | Has ANY copy of this card activated this turn? |
 
-### Queries (`src/cards/libs/Queries.ts`)
+### Queries (`src/cards/engine/Queries.ts`)
 
 | Function | Description |
 |----------|-------------|

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardType, Attribute } from '../../types';
-import { cardRegistry } from '../../src/cards/CardRegistry';
+import { cardRegistry } from '../../cards/CardRegistry';
 
 const getAttributeColor = (attr?: Attribute) => {
     switch (attr) {

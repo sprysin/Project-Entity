@@ -1,7 +1,7 @@
-import { IEffect, CardType, Attribute, PawnType } from '../../../types';
+import { IEffect, CardType, Attribute, PawnType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect } from '../libs/Builder';
-import { Effect } from '../libs/Effects';
+import { buildEffect } from '../engine/Builder';
+import { Effect } from '../engine/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([

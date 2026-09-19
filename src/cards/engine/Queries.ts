@@ -1,4 +1,4 @@
-import { GameState, CardContext, Attribute, Position } from '../../../types';
+import { GameState, CardContext, Attribute, Position } from '../../types';
 import { Dynamic, resolveDynamic } from './Dynamic';
 
 export const Query = {

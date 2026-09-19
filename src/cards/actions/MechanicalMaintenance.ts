@@ -1,8 +1,8 @@
-import { IEffect, CardType, PawnType, Card, Position } from '../../../types';
+import { IEffect, CardType, PawnType, Card, Position } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect } from '../libs/Builder';
-import { EffectStep } from '../libs/Builder';
-import { Cost } from '../libs/Costs';
+import { buildEffect } from '../engine/Builder';
+import { EffectStep } from '../engine/Builder';
+import { Cost } from '../engine/Costs';
 
 const tributePawns = Cost.TributePawns(2, c => c.pawnType === PawnType.MECHANICAL);
 
