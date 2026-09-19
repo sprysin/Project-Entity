@@ -49,6 +49,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [tributeSelection, setTributeSelection] = useState<number[]>([]);
     const [pendingTributeCard, setPendingTributeCard] = useState<Card | null>(null);
     const [tributeSummonMode, setTributeSummonMode] = useState<'normal' | 'hidden'>('normal');
+    const [pendingTributeSlot, setPendingTributeSlot] = useState<number | null>(null);
 
     // Effect Resolution
     const [triggeredEffect, setTriggeredEffect] = useState<Card | null>(null);
@@ -347,7 +348,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         state: {
             opponentMode, responseOptions,
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition, targetSelectScope,
-            tributeSelection, pendingTributeCard, tributeSummonMode,
+            tributeSelection, pendingTributeCard, tributeSummonMode, pendingTributeSlot,
             pendingPlayCard, playMode,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
@@ -371,9 +372,9 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             nextPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
             handleDiscardSelection, handleHandSelection, handleDeckSelection,
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
-                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
+                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
             handleTributeSummon: () =>
-                cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, { setPendingTributeCard, setTributeSelection, setPendingPlayCard, setPlayMode }),
+                cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, pendingTributeSlot, { setPendingTributeCard, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }),
             handleEffectTribute: () => {
                 if (!gameState || !pendingEffectCard || !effectTributeReq) return;
                 if (tributeSelection.length !== effectTributeReq.count) return;

@@ -187,9 +187,7 @@ it('allows a tribute summon to free and reuse a zone on a full Pawn field', () =
     const tributeId = game.gameState!.players[0].pawnZones[0]!.card.instanceId;
     act(() => game.actions.setTributeSelection([0]));
     act(() => game.actions.handleTributeSummon());
-    expect(game.gameState!.players[0].pawnZones[0]).toBeNull();
-
-    act(() => game.actions.handlePlacement(0));
     expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
     expect(game.gameState!.players[0].discard.at(-1)?.instanceId).toBe(tributeId);
+    expect(game.state.targetSelectMode).toBeNull();
 });

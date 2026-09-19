@@ -153,6 +153,14 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
         const originalAttack = new Map(before.players[player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
         return after.players[player].pawnZones.some(z => z && z.card.atk < (originalAttack.get(z.card.instanceId) ?? z.card.atk));
     };
+    const opponentFieldRemovals = (before: GameState, after: GameState) => {
+        const fieldIds = (snapshot: GameState) => {
+            const opponent = snapshot.players[1 - player];
+            return new Set([...opponent.pawnZones, ...opponent.actionZones].flatMap(z => z ? [z.card.instanceId] : []));
+        };
+        const remaining = fieldIds(after);
+        return [...fieldIds(before)].filter(id => !remaining.has(id)).length;
+    };
     const considerEffect = (base: GameState, card: Card, trigger: EffectTrigger, fromHand = false) => {
         for (const context of effectChoices(base, card, trigger)) {
             const queued = addChainLink(base, context, trigger);
@@ -161,7 +169,10 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             // optional broad targeting must never turn an ATK reduction on the
             // AI's own Pawn just because no opponent target is available.
             if (lowersOwnPawnAttack(base, next)) continue;
-            const score = scoreAfterResponse(next, player);
+            // Reward all forms of opposing field removal equally. It does not
+            // matter whether the effect destroys, voids, returns to hand, or
+            // otherwise moves the card away from the opponent's field.
+            const score = scoreAfterResponse(next, player) + opponentFieldRemovals(base, next) * 45;
             // Summon effects still fire when their benefit is intentionally not
             // represented by the score (for example, gaining LP while healthy).
             // Harmful self-ATK targets were filtered immediately above.
@@ -192,7 +203,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
                             // effect. This lets utility Pawns enter face-up even when
                             // the immediate numeric result (such as LP above 100) is
                             // intentionally de-emphasized by the position score.
-                            score = Math.max(score, evaluatePosition(resolved, player) + 15);
+                            score = Math.max(score, evaluatePosition(resolved, player) + 15 + opponentFieldRemovals(next, resolved) * 45);
                         }
                     }
                 }

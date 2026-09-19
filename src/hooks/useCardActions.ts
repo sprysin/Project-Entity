@@ -34,6 +34,7 @@ export const useCardActions = (
             setPendingTributeCard: (c: Card | null) => void,
             setTributeSummonMode: (m: 'normal' | 'hidden') => void,
             setTributeSelection: (s: number[]) => void,
+            setPendingTributeSlot: (slot: number | null) => void,
             setPendingPlayCard: (c: Card | null) => void,
             setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
             setTriggeredEffect?: (c: Card | null) => void,
@@ -56,6 +57,7 @@ export const useCardActions = (
             tributeState.setPendingTributeCard(card);
             tributeState.setTributeSummonMode(mode === 'hidden' ? 'hidden' : 'normal');
             tributeState.setTributeSelection([]);
+            tributeState.setPendingTributeSlot(autoSlotIndex ?? null);
             setTargetSelectMode('tribute');
             return;
         }
@@ -112,17 +114,24 @@ export const useCardActions = (
         pendingTributeCard: Card | null,
         tributeSelection: number[],
         tributeSummonMode: 'normal' | 'hidden',
+        pendingTributeSlot: number | null,
         tributeState: {
             setPendingTributeCard: (c: Card | null) => void,
             setTributeSelection: (s: number[]) => void,
+            setPendingTributeSlot: (slot: number | null) => void,
             setPendingPlayCard: (c: Card | null) => void,
             setPlayMode: (m: 'normal' | 'hidden' | 'activate' | 'set' | null) => void,
+            setTriggeredEffect?: (c: Card | null) => void,
+            setPendingTriggerType?: (t: 'summon' | 'activate' | 'phase' | null) => void,
         }
     ) => {
         if (!gameState || !pendingTributeCard || isPeekingField) return;
         const activeIndex = gameState.activePlayerIndex;
         const required = pendingTributeCard.level <= 7 ? 1 : 2;
         if (tributeSelection.length !== required) return;
+        if (pendingTributeSlot !== null
+            && gameState.players[activeIndex].pawnZones[pendingTributeSlot] !== null
+            && !tributeSelection.includes(pendingTributeSlot)) return;
 
         // Visual discard effect for tributes
         tributeSelection.forEach(idx => {
@@ -139,16 +148,46 @@ export const useCardActions = (
                 const tribute = p.pawnZones[idx];
                 if (tribute) { p.discard = [...p.discard, tribute.card]; p.pawnZones[idx] = null; }
             });
+            if (pendingTributeSlot !== null) {
+                p.pawnZones[pendingTributeSlot] = {
+                    card: { ...pendingTributeCard },
+                    position: tributeSummonMode === 'hidden' ? Position.HIDDEN : Position.ATTACK,
+                    hasAttacked: false,
+                    hasChangedPosition: false,
+                    summonedTurn: prev.turnNumber,
+                    isSetTurn: tributeSummonMode === 'hidden'
+                };
+                p.hand = p.hand.filter(card => card.instanceId !== pendingTributeCard.instanceId);
+            }
             players[activeIndex] = p;
-            return { ...prev, players: players as [Player, Player] };
+            const log = pendingTributeSlot !== null && tributeSummonMode !== 'hidden'
+                ? [formatSummonLog(pendingTributeCard), ...prev.log].slice(0, 50)
+                : prev.log;
+            return { ...prev, players: players as [Player, Player], log };
         });
 
-        // Transition to Placement Mode
-        tributeState.setPendingPlayCard(pendingTributeCard);
-        tributeState.setPlayMode(tributeSummonMode);
+        if (pendingTributeSlot === null) {
+            // Legacy/programmatic path when no destination was selected up front.
+            tributeState.setPendingPlayCard(pendingTributeCard);
+            tributeState.setPlayMode(tributeSummonMode);
+            setTargetSelectMode('place_pawn');
+        } else {
+            tributeState.setPendingPlayCard(null);
+            tributeState.setPlayMode(null);
+            setTargetSelectMode(null);
+            if (tributeSummonMode !== 'hidden') {
+                const effect = cardRegistry.getEffect(pendingTributeCard.id);
+                if (effect?.onSummon && tributeState.setTriggeredEffect && tributeState.setPendingTriggerType) {
+                    tributeState.setPendingTriggerType('summon');
+                    tributeState.setTriggeredEffect(pendingTributeCard);
+                } else {
+                    resolveEffect(pendingTributeCard, undefined, undefined, undefined, undefined, 'summon');
+                }
+            }
+        }
         tributeState.setPendingTributeCard(null);
         tributeState.setTributeSelection([]);
-        setTargetSelectMode('place_pawn');
+        tributeState.setPendingTributeSlot(null);
         setSelectedHandIndex(null);
 
     }, [gameState, isPeekingField, setGameState, resolveEffect, triggerVisual, setSelectedHandIndex, setTargetSelectMode]);

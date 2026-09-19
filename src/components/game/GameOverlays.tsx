@@ -19,18 +19,39 @@ export const GameOverlays: React.FC<{
             <div key={text.id} className={`floating-text text-6xl ${text.type === 'damage' ? 'text-red-600' : 'text-green-500'}`} style={{ left: `${text.x}%`, top: `${text.y}%` }}>{text.text}</div>
         ))}
 
-        {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && !state.responseFieldMode && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
-            <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/65 p-6" role="dialog" aria-modal="true" aria-label="Response window">
-                <div className="w-full max-w-lg border-2 border-yellow-500 bg-slate-950 p-6 text-slate-100 shadow-2xl">
-                    <h2 className="font-orbitron text-xl text-yellow-400">{gameState.players[gameState.response.priority].name}: Respond?</h2>
-                    <p className="font-orbitron mt-3 font-bold">{gameState.response.reason}</p>
-                    <p className="font-orbitron my-3">{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => actions.setResponseFieldMode('peek')} className="border border-white/20 bg-slate-800 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-slate-200 hover:bg-slate-700">Peek at field</button>
-                        <button onClick={() => actions.setResponseFieldMode('activate')} className="border border-yellow-400 bg-yellow-600 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-yellow-500">Activate</button>
+        {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && state.responseFieldMode !== 'activate' && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
+            <div
+                className={`absolute inset-0 z-[110] overflow-hidden transition-colors duration-300 ${state.responseFieldMode === 'peek' ? 'pointer-events-none bg-transparent' : 'bg-black/25'}`}
+                role="dialog"
+                aria-modal={state.responseFieldMode !== 'peek'}
+                aria-label="Response window"
+                onClick={state.responseFieldMode === 'peek' ? undefined : actions.passResponse}
+            >
+                <div className="response-sheet-enter absolute inset-x-0 bottom-0 flex justify-center px-4">
+                    <div
+                        className={`response-sheet pointer-events-auto w-full max-w-xl ${state.responseFieldMode === 'peek' ? 'response-sheet--collapsed' : ''}`}
+                        onClick={event => event.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            aria-label={state.responseFieldMode === 'peek' ? 'Show response window' : 'Hide response window and peek at field'}
+                            aria-expanded={state.responseFieldMode !== 'peek'}
+                            onClick={() => actions.setResponseFieldMode(state.responseFieldMode === 'peek' ? null : 'peek')}
+                            className="mx-auto flex h-10 w-20 items-center justify-center rounded-t-xl border-x-2 border-t-2 border-yellow-500 bg-slate-950 text-yellow-400 shadow-[0_-8px_20px_rgba(0,0,0,0.35)] transition-colors hover:bg-slate-800 hover:text-yellow-300"
+                        >
+                            <i className={`fa-solid ${state.responseFieldMode === 'peek' ? 'fa-chevron-up' : 'fa-chevron-down'}`} aria-hidden="true" />
+                        </button>
+                        <div className="border-2 border-yellow-500 bg-slate-950 p-5 text-slate-100 shadow-[0_-12px_40px_rgba(0,0,0,0.65)] sm:p-6">
+                            <h2 className="font-orbitron text-xl text-yellow-400">{gameState.players[gameState.response.priority].name}: Respond?</h2>
+                            <p className="mt-3 font-orbitron font-bold">{gameState.response.reason}</p>
+                            <p className="my-3 font-orbitron">{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
+                            {!!gameState.chain?.length && <ol className="mb-4 text-sm text-slate-300">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={actions.passResponse} className="border border-white/20 bg-slate-700 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-slate-100 hover:bg-slate-600">Pass</button>
+                                <button onClick={() => actions.setResponseFieldMode('activate')} className="border border-yellow-400 bg-yellow-600 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-yellow-500">Activate</button>
+                            </div>
+                        </div>
                     </div>
-                    {!!gameState.chain?.length && <ol className="my-4 text-sm text-slate-300">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
-                    <button onClick={actions.passResponse} className="mt-4 w-full border border-white/20 bg-slate-700 p-3 font-orbitron font-bold text-slate-100 hover:bg-slate-600">PASS</button>
                 </div>
             </div>
         )}
@@ -64,10 +85,10 @@ export const GameOverlays: React.FC<{
             <button disabled={actionsDisabled || state.targetSelectMode !== null} onClick={actions.nextPhase} className={`flex flex-col items-center justify-center overflow-hidden bg-yellow-600 px-4 py-2 font-orbitron font-bold uppercase text-white shadow-lg hover:bg-yellow-500 ${actionsDisabled || state.targetSelectMode !== null ? 'cursor-not-allowed opacity-50 grayscale' : ''}`}>
                 <span className="whitespace-nowrap text-xl leading-none tracking-tighter">Next phase</span><span className="font-orbitron text-[10px] font-bold italic tracking-widest opacity-90">({gameState.currentPhase})</span>
             </button>
-            {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && state.responseFieldMode && !state.pendingEffectCard && !state.triggeredEffect && (
+            {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && state.responseFieldMode === 'activate' && !state.pendingEffectCard && !state.triggeredEffect && (
                 <div className="w-44 border border-white/10 bg-black/80 p-2 text-right shadow-lg backdrop-blur-md" role="status" aria-label="Response field controls">
                     <div aria-label="Response field message" className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-500">
-                        {state.responseFieldMode === 'activate' ? 'Select a highlighted card' : 'Viewing field'}
+                        Select a highlighted card
                     </div>
                     <button onClick={() => actions.setResponseFieldMode(null)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase tracking-widest text-slate-200 hover:bg-slate-700">Return</button>
                 </div>
