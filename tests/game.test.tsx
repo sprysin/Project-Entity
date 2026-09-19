@@ -175,8 +175,23 @@ it('combat commits damage and one log without mutating prior state', () => {
     expect(before.players[1].lp).toBe(800);
     expect(game.gameState!.players[1].lp).toBe(780);
     expect(game.gameState!.log).toHaveLength(before.log.length + 1);
+    expect(game.gameState!.log[0]).toBe('"Solstice Sentinel" destroyed "Void Caster" by battle. "Player 2" -20 LP.');
     act(() => game.actions.handleAttack(0, 'direct'));
     expect(game.gameState!.players[1].lp).toBe(780);
+});
+
+it('combat logs the defending Pawn as the destroyer when it wins an attack-position battle', () => {
+    setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('pawn_04')); s.players[1].pawnZones[0] = placed(card('pawn_01', 1)); });
+    act(() => game.actions.handleAttack(0, 0));
+    expect(game.gameState!.players[0].lp).toBe(780);
+    expect(game.gameState!.log[0]).toBe('"Solstice Sentinel" destroyed "Void Caster" by battle. "Player 1" -20 LP.');
+});
+
+it('combat logs direct attacks with the attacking Pawn and damaged player', () => {
+    setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('pawn_04')); });
+    act(() => game.actions.handleAttack(0, 'direct'));
+    expect(game.gameState!.players[1].lp).toBe(700);
+    expect(game.gameState!.log[0]).toBe('"Void Caster" attacked directly. "Player 2" -100 LP.');
 });
 
 it('cleanup never removes a replacement card from the old slot', () => {

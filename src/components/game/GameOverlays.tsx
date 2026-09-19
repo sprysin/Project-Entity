@@ -19,16 +19,18 @@ export const GameOverlays: React.FC<{
             <div key={text.id} className={`floating-text text-6xl ${text.type === 'damage' ? 'text-red-600' : 'text-green-500'}`} style={{ left: `${text.x}%`, top: `${text.y}%` }}>{text.text}</div>
         ))}
 
-        {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
+        {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && !state.responseFieldMode && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
             <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/65 p-6" role="dialog" aria-modal="true" aria-label="Response window">
                 <div className="w-full max-w-lg border-2 border-yellow-500 bg-slate-950 p-6 text-slate-100 shadow-2xl">
                     <h2 className="font-orbitron text-xl text-yellow-400">{gameState.players[gameState.response.priority].name}: Respond?</h2>
-                    <p className="mt-3">{gameState.response.reason}</p>
-                    <p className="my-3 font-bold">{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
-                    <p className="mb-4 text-sm text-slate-400">Choose a card to respond, or pass. The last effect added resolves first.</p>
-                    <div className="max-h-60 space-y-2 overflow-y-auto">{state.responseOptions.map(option => <button key={option.card.instanceId} className="block w-full border border-purple-500 bg-purple-950 p-3 text-left hover:bg-purple-900" onClick={() => actions.respond(option.card.instanceId)}>{option.card.name}<span className="block text-xs text-slate-300">{option.card.effectText}</span></button>)}</div>
+                    <p className="font-orbitron mt-3 font-bold">{gameState.response.reason}</p>
+                    <p className="font-orbitron my-3">{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => actions.setResponseFieldMode('peek')} className="border border-white/20 bg-slate-800 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-slate-200 hover:bg-slate-700">Peek at field</button>
+                        <button onClick={() => actions.setResponseFieldMode('activate')} className="border border-yellow-400 bg-yellow-600 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-yellow-500">Activate</button>
+                    </div>
                     {!!gameState.chain?.length && <ol className="my-4 text-sm text-slate-300">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
-                    <button onClick={actions.passResponse} className="mt-4 w-full bg-yellow-600 p-3 font-orbitron font-bold">PASS</button>
+                    <button onClick={actions.passResponse} className="mt-4 w-full border border-white/20 bg-slate-700 p-3 font-orbitron font-bold text-slate-100 hover:bg-slate-600">PASS</button>
                 </div>
             </div>
         )}
@@ -62,6 +64,14 @@ export const GameOverlays: React.FC<{
             <button disabled={actionsDisabled || state.targetSelectMode !== null} onClick={actions.nextPhase} className={`flex flex-col items-center justify-center overflow-hidden bg-yellow-600 px-4 py-2 font-orbitron font-bold uppercase text-white shadow-lg hover:bg-yellow-500 ${actionsDisabled || state.targetSelectMode !== null ? 'cursor-not-allowed opacity-50 grayscale' : ''}`}>
                 <span className="whitespace-nowrap text-xl leading-none tracking-tighter">Next phase</span><span className="font-orbitron text-[10px] font-bold italic tracking-widest opacity-90">({gameState.currentPhase})</span>
             </button>
+            {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && state.responseFieldMode && !state.pendingEffectCard && !state.triggeredEffect && (
+                <div className="w-44 border border-white/10 bg-black/80 p-2 text-right shadow-lg backdrop-blur-md" role="status" aria-label="Response field controls">
+                    <div aria-label="Response field message" className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-500">
+                        {state.responseFieldMode === 'activate' ? 'Select a highlighted card' : 'Viewing field'}
+                    </div>
+                    <button onClick={() => actions.setResponseFieldMode(null)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase tracking-widest text-slate-200 hover:bg-slate-700">Return</button>
+                </div>
+            )}
             {state.pendingEffectCard && <button onClick={actions.cancelEffect} className="bg-red-900 px-4 py-2 text-white">Cancel effect</button>}
             {state.targetSelectMode === 'effect' && <div className="animate-pulse border-2 border-red-500 bg-red-900 px-4 py-2 text-center font-orbitron text-[10px] font-black uppercase tracking-widest text-white shadow-lg">{state.pendingEffectCard?.name}: Select target</div>}
             {state.targetSelectMode === 'tribute' && (

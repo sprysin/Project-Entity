@@ -3,6 +3,10 @@ import { Card, CardTarget, GameState, Phase, Player, Position, TargetSelectMode 
 import { clonePlayers } from '../game/cloneState';
 import { checkVictory } from '../game/finishEffect';
 
+const quote = (value: string) => `"${value}"`;
+
+const lpLoss = (player: Player, amount: number) => `${quote(player.name)} -${amount} LP.`;
+
 export const useCombatActions = (
     gameState: GameState | null,
     setGameState: Dispatch<SetStateAction<GameState | null>>,
@@ -28,14 +32,16 @@ export const useCombatActions = (
 
     if (targetIndex === 'direct') {
         opponent.lp -= attackingPawn.card.atk;
-        logs.unshift(`DIRECT ATTACK: -${attackingPawn.card.atk} LP.`);
+        logs.push(`${quote(attackingPawn.card.name)} attacked directly. ${lpLoss(opponent, attackingPawn.card.atk)}`);
     } else {
         const defending = opponent.pawnZones[targetIndex];
         if (!defending) return;
         const defendingPawn = { ...defending, position: defending.position === Position.HIDDEN ? Position.DEFENSE : defending.position };
+        const reveal = defending.position === Position.HIDDEN
+            ? `${quote(defendingPawn.card.name)} flipped face up. `
+            : '';
         if (defending.position === Position.HIDDEN) {
             opponent.pawnZones[targetIndex] = defendingPawn;
-            logs.unshift(`${defendingPawn.card.name} was Switched`);
         }
 
         if (defendingPawn.position === Position.ATTACK) {
@@ -46,14 +52,14 @@ export const useCombatActions = (
                 triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
                 opponent.discard.push(defendingPawn.card);
                 opponent.pawnZones[targetIndex] = null;
-                logs.unshift(` ${defendingPawn.card.name} destroyed by ${attackingPawn.card.name} by battle. -${difference} LP.`);
+                logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle. ${lpLoss(opponent, difference)}`);
             } else if (difference < 0) {
                 triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
                 activePlayer.lp += difference;
                 triggerVisual(`${activeIndex}-pawn-${attackerIndex}`, `discard-${activeIndex}`, 'discard', attackingPawn.card);
                 activePlayer.discard.push(attackingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
-                logs.unshift(`${attackingPawn.card.name} destroyed. -${difference} LP.`);
+                logs.push(`${reveal}${quote(defendingPawn.card.name)} destroyed ${quote(attackingPawn.card.name)} by battle. ${lpLoss(activePlayer, -difference)}`);
             } else {
                 triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
                 triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
@@ -63,20 +69,20 @@ export const useCombatActions = (
                 opponent.discard.push(defendingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
                 opponent.pawnZones[targetIndex] = null;
-                logs.unshift(`${defendingPawn.card.name} & ${attackingPawn.card.name} destroyed each other by battle.`);
+                logs.push(`${reveal}${quote(attackingPawn.card.name)} and ${quote(defendingPawn.card.name)} destroyed each other by battle.`);
             }
         } else if (attackingPawn.card.atk > defendingPawn.card.def) {
             triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
             triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
             opponent.discard.push(defendingPawn.card);
             opponent.pawnZones[targetIndex] = null;
-            logs.unshift(`${defendingPawn.card.name} destroyed.`);
+            logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle.`);
         } else if (attackingPawn.card.atk < defendingPawn.card.def) {
             const recoil = defendingPawn.card.def - attackingPawn.card.atk;
             activePlayer.lp -= recoil;
-            logs.unshift(`${attackingPawn.card.name} -${recoil} LP.`);
+            logs.push(`${reveal}${quote(attackingPawn.card.name)} attacked ${quote(defendingPawn.card.name)}. ${lpLoss(activePlayer, recoil)}`);
         } else {
-
+            logs.push(`${reveal}${quote(attackingPawn.card.name)} attacked ${quote(defendingPawn.card.name)}; neither Pawn was destroyed.`);
         }
     }
 

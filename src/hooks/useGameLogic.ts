@@ -44,6 +44,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [pendingEffectCard, setPendingEffectCard] = useState<Card | null>(null);
     const [pendingTriggerType, setPendingTriggerType] = useState<EffectTrigger | null>(null);
     const [isPeekingField, setIsPeekingField] = useState(false);
+    const [responseFieldMode, setResponseFieldMode] = useState<'peek' | 'activate' | null>(null);
 
     // Discard/Hand Selection
     const [discardSelectionReq, setDiscardSelectionReq] = useState<CardSelectionRequest | null>(null);
@@ -298,9 +299,16 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const respond = (instanceId: string) => {
         const activation = responseOptions.find(option => option.card.instanceId === instanceId);
         if (!activation || pendingEffectCard) return;
+        setResponseFieldMode(null);
         resolveEffect(activation.card, undefined, undefined, undefined, undefined, activation.trigger);
     };
-    const passResponse = () => setGameState(prev => prev ? passPriority(prev) : prev);
+    const passResponse = () => {
+        setResponseFieldMode(null);
+        setGameState(prev => prev ? passPriority(prev) : prev);
+    };
+    useEffect(() => {
+        if (!gameState?.response || gameState.response.ready || responseOptions.length === 0) setResponseFieldMode(null);
+    }, [gameState?.response, responseOptions.length]);
     useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!deferredRef.current,
         nextPhase, requestAttack, resolveEffect });
 
@@ -315,7 +323,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition,
             tributeSelection, pendingTributeCard, tributeSummonMode,
             pendingPlayCard, playMode,
-            triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField,
+            triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
             deckSelectionReq, selectedDeckIndex,
             phaseFlash: animations.phaseFlash, turnFlash: animations.turnFlash,
@@ -328,7 +336,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         },
         actions: {
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
-            setTributeSelection, setIsPeekingField,
+            setTributeSelection, setIsPeekingField, setResponseFieldMode,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
             setDeckSelectionReq, setSelectedDeckIndex,
             setTriggeredEffect, setPendingEffectCard,

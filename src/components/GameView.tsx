@@ -32,6 +32,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   const viewIndex = opponentMode === 'ai' ? 0 : selectingPlayer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
   const turnIsMine = viewIndex === gameState.activePlayerIndex;
   const availableFieldEffects = fieldActivations(gameState, viewIndex);
+  const responseActivationAt = (type: 'pawn' | 'action', index: number) =>
+    state.responseOptions.find(option => option.slot.type === type && option.slot.index === index);
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
@@ -162,12 +164,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                   {activePlayer.pawnZones.map((z, i) => {
                     const selected = isSelectedZone('pawn', i);
                     const canChangePosition = !!z && !z.hasAttacked && !z.hasChangedPosition && z.summonedTurn !== gameState.turnNumber;
+                    const responseActivation = responseActivationAt('pawn', i);
                     const canActivateEffect = availableFieldEffects.some(a => a.slot.type === 'pawn' && a.slot.index === i);
                     const attackReady = canPawnAttack(i);
                     const selectedCardCanTributeSummon = selectedCard?.type === CardType.PAWN && selectedCard.level >= 5;
                     const canChooseSummonMethod = selectedCard?.type === CardType.PAWN && (!z || selectedCardCanTributeSummon);
                     const showHandMenu = selected && canChooseSummonMethod && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
-                    const showFieldMenu = selected && !!z && !state.targetSelectMode && !selectedCard && (
+                    const showFieldMenu = !state.responseFieldMode && selected && !!z && !state.targetSelectMode && !selectedCard && (
                       ((gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (canChangePosition || hasOnActivateEffect(z.card))) ||
                       gameState.currentPhase === Phase.BATTLE
                     );
@@ -176,7 +179,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     isTributeSelected={state.tributeSelection.includes(i)}
                     isSelectable={checkIsSelectable(z, 'pawn', false)}
                     isDropTarget={(selectedCard?.type === CardType.PAWN && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && z === null)}
-                    isActivatable={attackReady}
+                    isActivatable={state.responseFieldMode === 'activate' ? !!responseActivation : attackReady}
                     contextualActions={showHandMenu ? <ContextMenu title="Choose summon method">
                       <ContextMenuButton label={selectedCard.level >= 5 ? 'Tribute Summon' : 'Normal Summon'} onClick={() => actions.handleSummon(selectedCard, 'normal', i)} disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed)} tone="gold" />
                       <ContextMenuButton label={selectedCard.level >= 5 ? 'Tribute Set' : 'Set Hidden'} onClick={() => actions.handleSummon(selectedCard, 'hidden', i)} disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.hiddenSummonUsed)} />
@@ -186,7 +189,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       {gameState.currentPhase === Phase.BATTLE && <ContextMenuButton label={attackReady ? 'Attack' : 'Cannot Attack'} onClick={() => actions.setTargetSelectMode('attack')} disabled={actionsDisabled || !attackReady} tone="red" />}
                     </ContextMenu> : null}
                     onClick={() => {
-                      if (state.targetSelectMode === 'place_pawn' && z === null) {
+                      if (state.responseFieldMode === 'activate') {
+                        if (responseActivation) actions.respond(responseActivation.card.instanceId);
+                      } else if (state.targetSelectMode === 'place_pawn' && z === null) {
                         actions.handlePlacement(i);
                       } else if (state.targetSelectMode === 'tribute') {
                         if (z) {
@@ -213,15 +218,16 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                 <div className="flex space-x-6">
                   {activePlayer.actionZones.map((z, i) => {
                     const selected = isSelectedZone('action', i);
+                    const responseActivation = responseActivationAt('action', i);
                     const fieldActivationAvailable = !!z && (z.position === Position.HIDDEN || z.card.type === CardType.CONDITION || (z.card.type === CardType.ACTION && z.card.isLingering));
                     const canActivateFieldCard = availableFieldEffects.some(a => a.slot.type === 'action' && a.slot.index === i);
                     const showHandMenu = selected && !z && !!selectedCard && selectedCard.type !== CardType.PAWN && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
-                    const showFieldMenu = selected && !!z && !selectedCard && !state.targetSelectMode && fieldActivationAvailable;
+                    const showFieldMenu = !state.responseFieldMode && selected && !!z && !selectedCard && !state.targetSelectMode && fieldActivationAvailable;
                     return <Zone key={i} card={z} type="action" domRef={actions.setRef(`${viewIndex}-action-${i}`)}
                     isSelected={selected}
                     isSelectable={checkIsSelectable(z, 'action', false)}
                     isDropTarget={((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null) || (state.targetSelectMode === 'place_action' && z === null)}
-                    isActivatable={canActivateFieldCard}
+                    isActivatable={state.responseFieldMode === 'activate' ? !!responseActivation : canActivateFieldCard}
                     contextualActions={showHandMenu ? <ContextMenu title="Choose card action">
                       {selectedCard.type !== CardType.CONDITION && <ContextMenuButton label="Activate" onClick={() => actions.handleActionFromHand(selectedCard, 'activate', i)} disabled={actionsDisabled || !checkActivationConditions(gameState, selectedCard, viewIndex)} tone="green" />}
                       <ContextMenuButton label="Set Hidden" onClick={() => actions.handleActionFromHand(selectedCard, 'set', i)} disabled={actionsDisabled} />
@@ -229,7 +235,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       <ContextMenuButton label={`Activate ${z!.card.type}`} onClick={() => actions.activateOnField(viewIndex, 'action', i)} disabled={actionsDisabled || !canActivateFieldCard} tone="green" />
                     </ContextMenu> : null}
                     onClick={() => {
-                      if (state.targetSelectMode === 'place_action' && z === null) {
+                      if (state.responseFieldMode === 'activate') {
+                        if (responseActivation) actions.respond(responseActivation.card.instanceId);
+                      } else if (state.targetSelectMode === 'place_action' && z === null) {
                         actions.handlePlacement(i);
                       } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (checkIsSelectable(z, 'action', false)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: viewIndex, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');

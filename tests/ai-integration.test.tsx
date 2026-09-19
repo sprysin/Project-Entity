@@ -61,6 +61,8 @@ it('pauses an AI attack for an eligible human response, displays its count, then
     expect(game.gameState!.players[0].lp).toBe(800);
     const popup = root.root.findByProps({ 'aria-label': 'Response window' });
     expect(popup.findAllByType('p').map(p => p.children.join('')).join(' ')).toContain('1 activatable card');
+    expect(popup.findAllByType('button').map(button => button.children.join(' '))).toEqual(expect.arrayContaining(['Peek at field', 'Activate', 'PASS']));
+    expect(popup.findAllByType('button').some(button => button.children.join(' ').includes('Reinforcement'))).toBe(false);
     expect(game.state.responseOptions).toHaveLength(1);
     for (let i = 0; i < 5; i++) tick();
     expect(game.gameState!.players[0].lp).toBe(800);
@@ -104,6 +106,24 @@ it('never creates a response popup when the human has no activatable cards', () 
     tick();
     expect(root.root.findAllByProps({ 'aria-label': 'Response window' })).toHaveLength(0);
     expect(game.gameState!.players[0].lp).toBe(670);
+});
+
+it('lets the human inspect the field and enter card-selection mode without passing priority', () => {
+    setup(s => {
+        s.currentPhase = Phase.BATTLE;
+        s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
+        s.players[0].actionZones[0] = zone(card('condition_01'), Position.HIDDEN);
+    });
+    tick();
+    const popup = root.root.findByProps({ 'aria-label': 'Response window' });
+    const buttons = popup.findAllByType('button');
+    act(() => buttons.find(button => button.children.join(' ') === 'Peek at field')!.props.onClick());
+    expect(root.root.findAllByProps({ 'aria-label': 'Response window' })).toHaveLength(0);
+    expect(root.root.findByProps({ 'aria-label': 'Response field message' }).children.join('')).toContain('Viewing field');
+    expect(game.gameState!.response?.priority).toBe(0);
+    act(() => game.actions.setResponseFieldMode('activate'));
+    expect(root.root.findByProps({ 'aria-label': 'Response field message' }).children.join('')).toContain('Select a highlighted card');
+    expect(game.state.responseOptions).toHaveLength(1);
 });
 
 it('does not activate the human’s cost-only Condition while the AI waits to leave a phase', () => {
