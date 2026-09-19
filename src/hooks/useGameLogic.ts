@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     GameState, Player, Card, CardType, Phase, Position, CardContext, CardSelectionRequest,
     EffectTrigger, HandSelectionRequest, OpponentMode, TargetSelectMode, TargetSelectPosition,
-    TargetSelectType, TributeSelectionRequest
+    TargetSelectScope, TargetSelectType, TributeSelectionRequest
 } from '../types';
 import { fieldActivations, openResponse, passPriority } from '../game/chains';
 import { useOpponentAI } from './useOpponentAI';
@@ -19,6 +19,16 @@ import '../cards/actions';
 import '../cards/conditions';
 import { createRuntimeDeck, SavedDeck } from '../decks';
 
+export const ACTIVATION_POPUPS_STORAGE_KEY = 'project-entity.activation-popups-enabled';
+
+const loadActivationPopupPreference = () => {
+    try {
+        return typeof localStorage === 'undefined' || localStorage.getItem(ACTIVATION_POPUPS_STORAGE_KEY) !== 'false';
+    } catch {
+        return true;
+    }
+};
+
 export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null], opponentMode: OpponentMode = 'self') => {
     // Core Game State
     const [gameState, setGameState] = useState<GameState | null>(null);
@@ -29,6 +39,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [targetSelectMode, setTargetSelectMode] = useState<TargetSelectMode>(null);
     const [targetSelectType, setTargetSelectType] = useState<TargetSelectType>('pawn');
     const [targetSelectPosition, setTargetSelectPosition] = useState<TargetSelectPosition>('both');
+    const [targetSelectScope, setTargetSelectScope] = useState<TargetSelectScope>('both');
 
     // Card Play (Manual Placement)
     const [pendingPlayCard, setPendingPlayCard] = useState<Card | null>(null);
@@ -62,6 +73,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Layout
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
     const [isDeckViewerOpen, setIsDeckViewerOpen] = useState(false);
+    const [activationPopupsEnabled, setActivationPopupsEnabled] = useState(loadActivationPopupPreference);
+
+    useEffect(() => {
+        try {
+            if (typeof localStorage !== 'undefined') localStorage.setItem(ACTIVATION_POPUPS_STORAGE_KEY, String(activationPopupsEnabled));
+        } catch {
+            // Keep the in-session preference when storage is unavailable.
+        }
+    }, [activationPopupsEnabled]);
 
     // Compose sub-hooks
     const animations = useAnimations();
@@ -70,7 +90,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
         gameState, setGameState, cardMotion.recordMovement,
         {
-            setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
+            setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
             setHandSelectionReq, setSelectedHandSelectionIndex,
             setDeckSelectionReq, setSelectedDeckIndex,
@@ -307,6 +327,12 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         setGameState(prev => prev ? passPriority(prev) : prev);
     };
     useEffect(() => {
+        if (activationPopupsEnabled || !gameState?.response || gameState.response.ready || responseOptions.length === 0) return;
+        if (pendingEffectCard || triggeredEffect || responseFieldMode) return;
+        if (opponentMode === 'ai' && gameState.response.priority === 1) return;
+        setGameState(prev => prev ? passPriority(prev) : prev);
+    }, [activationPopupsEnabled, gameState?.response, opponentMode, pendingEffectCard, responseFieldMode, responseOptions.length, triggeredEffect]);
+    useEffect(() => {
         if (!gameState?.response || gameState.response.ready || responseOptions.length === 0) setResponseFieldMode(null);
     }, [gameState?.response, responseOptions.length]);
     useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!deferredRef.current,
@@ -320,7 +346,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         gameState, setGameState,
         state: {
             opponentMode, responseOptions,
-            selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition,
+            selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition, targetSelectScope,
             tributeSelection, pendingTributeCard, tributeSummonMode,
             pendingPlayCard, playMode,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
@@ -332,15 +358,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             cardMotions: cardMotion.motions, finishMotion: cardMotion.finishMotion,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
-            isRightPanelOpen, isDeckViewerOpen, effectTributeReq,
+            isRightPanelOpen, isDeckViewerOpen, activationPopupsEnabled, effectTributeReq,
         },
         actions: {
-            setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
+            setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
             setTributeSelection, setIsPeekingField, setResponseFieldMode,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
             setDeckSelectionReq, setSelectedDeckIndex,
             setTriggeredEffect, setPendingEffectCard,
-            setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen,
+            setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen, setActivationPopupsEnabled,
             setRef: animations.setRef,
             nextPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
             handleDiscardSelection, handleHandSelection, handleDeckSelection,

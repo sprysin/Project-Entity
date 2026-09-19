@@ -1,8 +1,34 @@
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card } from '../../types';
+import { Card, Position, TargetSelectPosition, TargetSelectScope } from '../../types';
+import { cardRegistry } from '../CardRegistry';
+import { getEffectTarget } from './Targets';
 
 export const Cost = {
+    /** Selects a controlled Pawn and changes its position as an activation cost. */
+    ChangePawnPosition: (
+        newPosition: Position,
+        fromPosition: TargetSelectPosition = 'both',
+        targetIndex = 0,
+        scope: TargetSelectScope = 'active'
+    ): EffectStep => activationCost((draftState, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        if (!target) return {
+            requireTarget: 'pawn',
+            requireTargetPosition: fromPosition,
+            requireTargetScope: scope,
+            requireTargetIndex: targetIndex
+        };
+        const isOpponent = target.playerIndex !== context.playerIndex;
+        const zone = target.type === 'pawn' ? draftState.players[target.playerIndex]?.pawnZones[target.index] : null;
+        if (!zone
+            || scope === 'active' && isOpponent
+            || scope === 'opponent' && !isOpponent
+            || fromPosition === 'faceup' && zone.position === Position.HIDDEN
+            || fromPosition === 'hidden' && zone.position !== Position.HIDDEN) return { halt: true };
+        zone.position = newPosition;
+    }),
+
     /** Deducts LP dynamically. */
     PayLP: (amount: Dynamic<number>): EffectStep => activationCost((draftState, context) => {
         const activePlayer = draftState.players[context.playerIndex];
@@ -48,9 +74,18 @@ export const Cost = {
         const discardedCard = activePlayer.hand[context.handIndex];
 
         if (discardedCard && (!filter || filter(discardedCard))) {
-            // In future, you might evaluate the filter here too if needed, but the UI locks it down.
             activePlayer.hand.splice(context.handIndex, 1);
             activePlayer.discard.push(discardedCard);
+
+            const discardEffect = cardRegistry.getEffect(discardedCard.id)?.onDiscard;
+            if (discardEffect) {
+                const result = discardEffect(draftState, {
+                    card: discardedCard,
+                    playerIndex: context.playerIndex
+                });
+                if (result.halted) return { halt: true };
+                Object.assign(draftState, result.newState);
+            }
             return;
         }
 

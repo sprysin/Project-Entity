@@ -30,7 +30,10 @@ export function observeGame(state: GameState, viewer: number): GameState {
     return view;
 }
 
-const pawnValue = (c: Card) => c.id === 'unknown' ? 65 : 35 + Math.max(c.atk, c.def * .65) * .45;
+// Establishing a board is the AI's primary non-lethal objective. The sizeable
+// base value also means low-ATK utility Pawns are worth summoning for their
+// effects instead of being judged almost entirely by their combat stats.
+const pawnValue = (c: Card) => c.id === 'unknown' ? 120 : 100 + Math.max(c.atk, c.def * .65) * .45;
 
 export function evaluatePosition(state: GameState, player: number): number {
     const own = state.players[player], opp = state.players[1 - player];
@@ -47,10 +50,25 @@ export function evaluatePosition(state: GameState, player: number): number {
     };
     const attackPower = own.pawnZones.reduce((n, z) => n + (z?.position === Position.ATTACK ? z.card.atk * (z.nextBattleAttacks ?? z.attacksRemaining ?? 1) : 0), 0);
     const unblocked = !opp.pawnZones.some(Boolean);
-    return (own.lp - opp.lp) + field(player) - field(1 - player)
+    const strongestVisibleAttack = (index: number) => Math.max(0, ...state.players[index].pawnZones.map(z => z && z.position !== Position.HIDDEN ? z.card.atk : 0));
+    const ownStrongest = strongestVisibleAttack(player), enemyStrongest = strongestVisibleAttack(1 - player);
+    const combatControl = enemyStrongest === 0 ? 0
+        : ownStrongest > enemyStrongest ? 50 + Math.min(100, ownStrongest - enemyStrongest) * .5
+            : ownStrongest < enemyStrongest ? -50 - Math.min(100, enemyStrongest - ownStrongest) * .5
+                : 0;
+    // Above 100 LP, spending LP is a resource rather than a positional loss.
+    // Opposing LP still has a light weight so non-lethal damage remains useful,
+    // while lethal outcomes are handled by the terminal scores above.
+    const ownLPSafety = Math.min(own.lp, 100);
+    const opponentLP = opp.lp * .2;
+    return ownLPSafety - opponentLP + field(player) - field(1 - player)
         + own.hand.reduce((n, c) => n + (c.type === CardType.PAWN ? (c.level <= 4 ? 24 : 12) : 18), 0)
-        - exposed(player) * (own.lp < 250 ? 1.6 : .75)
-        + (state.currentPhase === Phase.MAIN1 || state.currentPhase === Phase.BATTLE ? attackPower * (unblocked ? .65 : .08) : 0)
+        - exposed(player) * (own.lp < 100 ? 1.6 : .1)
+        + combatControl
+        // In Main 1, available attack power represents this turn's pressure. In
+        // Battle it must not become a reason to pass: spending an attack removes
+        // that "available" power even when the attack is plainly beneficial.
+        + (state.currentPhase === Phase.MAIN1 ? attackPower * (unblocked ? .65 : .02) : 0)
         + own.actionZones.filter(Boolean).length * 4;
 }
 
@@ -81,7 +99,7 @@ export function simulateAttack(state: GameState, index: number, target: number |
         const defender = opp.pawnZones[target];
         if (!defender) return state;
         const attackPosition = defender.position === Position.ATTACK;
-        const defense = defender.card.id === 'unknown' ? 120 : attackPosition ? defender.card.atk : defender.card.def;
+        const defense = defender.card.id === 'unknown' ? 100 : attackPosition ? defender.card.atk : defender.card.def;
         const difference = attacker.card.atk - defense;
         if (difference > 0 || difference === 0 && attackPosition) { opp.discard.push(defender.card); opp.pawnZones[target] = null; }
         if (attackPosition) {
@@ -131,11 +149,22 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
     if (!summonEffect && !response && state.currentPhase === Phase.BATTLE) return planBattle(state, player);
     let bestScore = scoreAfterResponse(response ? resolveChain(state) : state, player) + .1;
     let decision: AIDecision = { kind: 'pass' };
+    const lowersOwnPawnAttack = (before: GameState, after: GameState) => {
+        const originalAttack = new Map(before.players[player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
+        return after.players[player].pawnZones.some(z => z && z.card.atk < (originalAttack.get(z.card.instanceId) ?? z.card.atk));
+    };
     const considerEffect = (base: GameState, card: Card, trigger: EffectTrigger, fromHand = false) => {
         for (const context of effectChoices(base, card, trigger)) {
             const queued = addChainLink(base, context, trigger);
             const next = queued.response ? resolveChain(queued) : queued;
+            // A legal target is not necessarily a sensible one. In particular,
+            // optional broad targeting must never turn an ATK reduction on the
+            // AI's own Pawn just because no opponent target is available.
+            if (lowersOwnPawnAttack(base, next)) continue;
             const score = scoreAfterResponse(next, player);
+            // Summon effects still fire when their benefit is intentionally not
+            // represented by the score (for example, gaining LP while healthy).
+            // Harmful self-ATK targets were filtered immediately above.
             if (score > bestScore || summonEffect && decision.kind === 'pass') {
                 bestScore = score;
                 decision = { kind: 'effect', context, trigger, fromHand, deckId: context.deckIndex === undefined ? undefined : own.deck[context.deckIndex]?.instanceId };
@@ -152,15 +181,21 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
             const tributes = combinations(own.pawnZones.flatMap((z, i) => z ? [i] : []), count);
             for (const tribute of tributes) for (const hidden of [false, true]) {
-                // Never expose a weaker new attacker to a known superior opposing Pawn.
-                if (!hidden && card.atk < biggestEnemy) continue;
                 const next = simulateSummon(state, card, hidden, tribute);
                 if (next === state) continue;
                 let score = evaluatePosition(next, player);
                 if (!hidden && cardRegistry.getEffect(card.id)?.onSummon) {
-                    for (const context of effectChoices(next, card, 'summon')) score = Math.max(score, evaluatePosition(resolveChain(addChainLink(next, context, 'summon')), player));
+                    for (const context of effectChoices(next, card, 'summon')) {
+                        const resolved = resolveChain(addChainLink(next, context, 'summon'));
+                        if (!lowersOwnPawnAttack(next, resolved)) {
+                            // Small generic credit for successfully using a summon
+                            // effect. This lets utility Pawns enter face-up even when
+                            // the immediate numeric result (such as LP above 100) is
+                            // intentionally de-emphasized by the position score.
+                            score = Math.max(score, evaluatePosition(resolved, player) + 15);
+                        }
+                    }
                 }
-                if (hidden && card.atk < biggestEnemy) score += 20;
                 if (score > bestScore) { bestScore = score; decision = { kind: 'summon', card, hidden, tributes: tribute }; }
             }
         } else if (own.actionZones.includes(null)) {

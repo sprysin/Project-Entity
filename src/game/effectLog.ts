@@ -34,13 +34,15 @@ export function formatEffectLog(
     const details: string[] = [];
     const beforeField = fieldCards(before);
     const afterField = fieldCards(after);
-    const target = context.target
-        ? (context.target.type === 'pawn'
-            ? before.players[context.target.playerIndex].pawnZones[context.target.index]
-            : before.players[context.target.playerIndex].actionZones[context.target.index])
-        : undefined;
+    const selectedTargets = context.targets ?? (context.target ? [context.target] : []);
+    const targets = selectedTargets.flatMap(target => {
+        const zone = target.type === 'pawn'
+            ? before.players[target.playerIndex].pawnZones[target.index]
+            : before.players[target.playerIndex].actionZones[target.index];
+        return zone ? [zone.card] : [];
+    });
 
-    if (target) details.push(`targets ${quote(target.card.name)}`);
+    if (targets.length) details.push(`targets ${joinNames(targets)}`);
     if (tributes.length) details.push(`tributes ${joinNames(tributes)}`);
 
     const selected = selectedCard(before, context);

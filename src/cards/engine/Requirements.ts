@@ -1,31 +1,41 @@
 import { activationCost, ConditionStep, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card, PlacedCard, Position } from '../../types';
+import { Card, PlacedCard, Position, TargetSelectScope } from '../../types';
+import { getEffectTarget } from './Targets';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
-    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (draftState, context) => {
-        if (!context.target) return { requireTarget: type, requireTargetPosition: set };
-        const target = context.target;
+    Target: (
+        type: 'pawn' | 'action' | 'any' = 'pawn',
+        set: 'hidden' | 'faceup' | 'both' = 'both',
+        scope: TargetSelectScope = 'both',
+        targetIndex = 0
+    ): EffectStep => (draftState, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        if (!target) return { requireTarget: type, requireTargetPosition: set, requireTargetScope: scope, requireTargetIndex: targetIndex };
         if (type !== 'any' && target.type !== type) return { halt: true };
+        const isOpponent = target.playerIndex !== context.playerIndex;
+        if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return { halt: true };
         const zone = draftState.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
         if (!zone || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
     /** Verifies the provided target relies on a specific player scope. */
     TargetIsPlayerScope: (scope: 'active' | 'opponent'): EffectStep => (_draftState, context) => {
-        if (context.target) {
+        const target = getEffectTarget(context);
+        if (target) {
             const expectOpponent = scope === 'opponent';
-            const isOpponent = context.target.playerIndex !== context.playerIndex;
+            const isOpponent = target.playerIndex !== context.playerIndex;
             if (isOpponent !== expectOpponent) return { halt: true };
         }
     },
 
     /** Verifies the provided target matches a position state. */
     TargetMatchesPosition: (position: Position, invert = false): EffectStep => (draftState, context) => {
-        if (context.target) {
-            const p = draftState.players[context.target.playerIndex];
-            const t = context.target.type === 'pawn' ? p.pawnZones[context.target.index] : p.actionZones[context.target.index];
+        const target = getEffectTarget(context);
+        if (target) {
+            const p = draftState.players[target.playerIndex];
+            const t = target.type === 'pawn' ? p.pawnZones[target.index] : p.actionZones[target.index];
             if (!t) return { halt: true };
 
             const matches = t.position === position;

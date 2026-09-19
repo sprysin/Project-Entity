@@ -20,6 +20,8 @@ export const buildEffect = (steps: EffectStep[]) => {
                         newState: draftState,
                         requireTarget: result.requireTarget,
                         requireTargetPosition: result.requireTargetPosition,
+                        requireTargetScope: result.requireTargetScope,
+                        requireTargetIndex: result.requireTargetIndex,
                         requireDiscardSelection: result.requireDiscardSelection,
                         requireHandSelection: result.requireHandSelection,
                         requireDeckSelection: result.requireDeckSelection,

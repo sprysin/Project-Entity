@@ -12,7 +12,7 @@ import { formatSummonLog } from '../game/effectLog';
 export const useCardActions = (
     gameState: GameState | null,
     setGameState: Dispatch<SetStateAction<GameState | null>>,
-    resolveEffect: (card: Card, target?: CardTarget, discardIndex?: number, handIndex?: number, deckIndex?: number, triggerType?: EffectTrigger, tributeIndices?: number[]) => void,
+    resolveEffect: (card: Card, target?: CardTarget, discardIndex?: number, handIndex?: number, deckIndex?: number, triggerType?: EffectTrigger, tributeIndices?: number[], targets?: CardTarget[]) => void,
     triggerVisual: (src: string, tgt: string, type: 'discard' | 'void' | 'retrieve', card?: Card) => void,
     triggerShatter: (zoneKey: string) => void,
     selectedHandIndex: number | null,

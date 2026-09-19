@@ -1,13 +1,56 @@
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { CardFilter, Position } from '../../types';
+import { CardFilter, Position, TargetSelectScope } from '../../types';
+import { getEffectTarget } from './Targets';
 
 export const Effect = {
+    /** Changes every Pawn in a player scope to the requested position. */
+    ChangeAllPawnPositions: (scope: TargetSelectScope, newPosition: Position): EffectStep => (draftState, context) => {
+        draftState.players.forEach((player, playerIndex) => {
+            const isOpponent = playerIndex !== context.playerIndex;
+            if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return;
+            player.pawnZones.forEach(zone => {
+                if (zone) zone.position = newPosition;
+            });
+        });
+    },
+
+    /** Modifies every Pawn in a player scope, optionally restoring its prior stats at a future End Phase. */
+    ModifyAllPawnStats: (
+        scope: TargetSelectScope,
+        atkChange: number,
+        defChange: number,
+        duration: 'permanent' | 'end_of_next_turn' | 'end_of_turn' = 'permanent'
+    ): EffectStep => (draftState, context) => {
+        draftState.players.forEach((player, playerIndex) => {
+            const isOpponent = playerIndex !== context.playerIndex;
+            if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return;
+            player.pawnZones.forEach(zone => {
+                if (!zone) return;
+                const originalAtk = zone.card.atk;
+                const originalDef = zone.card.def;
+                zone.card.atk = Math.max(0, originalAtk + atkChange);
+                zone.card.def = Math.max(0, originalDef + defChange);
+                if (duration === 'permanent') return;
+                const dueTurn = draftState.turnNumber + (duration === 'end_of_next_turn' ? 1 : 0);
+                if (atkChange) draftState.pendingEffects.push({
+                    type: 'RESET_ATK', targetInstanceId: zone.card.instanceId,
+                    value: originalAtk, dueTurn
+                });
+                if (defChange) draftState.pendingEffects.push({
+                    type: 'RESET_DEF', targetInstanceId: zone.card.instanceId,
+                    value: originalDef, dueTurn
+                });
+            });
+        });
+    },
+
     /** Changes the position of the targeted pawn. */
-    ChangeTargetPosition: (newPosition: Position): EffectStep => (draftState, context) => {
-        if (context.target) {
-            const player = draftState.players[context.target.playerIndex];
-            const targetPawn = player.pawnZones[context.target.index];
+    ChangeTargetPosition: (newPosition: Position, targetIndex = 0): EffectStep => (draftState, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        if (target) {
+            const player = draftState.players[target.playerIndex];
+            const targetPawn = player.pawnZones[target.index];
             if (targetPawn && targetPawn.position !== newPosition) {
                 targetPawn.position = newPosition;
             }
@@ -15,10 +58,11 @@ export const Effect = {
     },
 
     /** Modifies the targeted Pawn's stats. */
-    ModifyTargetStats: (atkChange: number, defChange: number): EffectStep => (draftState, context) => {
-        if (context.target) {
-            const p = draftState.players[context.target.playerIndex];
-            const tE = p.pawnZones[context.target.index];
+    ModifyTargetStats: (atkChange: number, defChange: number, targetIndex = 0): EffectStep => (draftState, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        if (target) {
+            const p = draftState.players[target.playerIndex];
+            const tE = p.pawnZones[target.index];
             if (tE) {
                 tE.card.atk = Math.max(0, tE.card.atk + atkChange);
                 tE.card.def = Math.max(0, tE.card.def + defChange);
@@ -77,15 +121,16 @@ export const Effect = {
     },
 
     /** Sends a targeted card to the Void. */
-    BanishTargetToVoid: (): EffectStep => (draftState, context) => {
-        if (context.target) {
-            const p = draftState.players[context.target.playerIndex];
-            const zones = context.target.type === 'pawn' ? p.pawnZones : p.actionZones;
-            const cardInZone = zones[context.target.index];
+    BanishTargetToVoid: (targetIndex = 0): EffectStep => (draftState, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        if (target) {
+            const p = draftState.players[target.playerIndex];
+            const zones = target.type === 'pawn' ? p.pawnZones : p.actionZones;
+            const cardInZone = zones[target.index];
 
             if (cardInZone) {
                 p.void.push(cardInZone.card);
-                zones[context.target.index] = null;
+                zones[target.index] = null;
             }
         }
     },
@@ -148,7 +193,7 @@ export const Effect = {
             if (card && filter(card)) {
                 p.deck.splice(context.deckIndex, 1);
                 p.hand.push(card);
-                
+
                 // Shuffle deck (Fisher-Yates)
                 for (let i = p.deck.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));

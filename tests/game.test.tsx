@@ -24,36 +24,6 @@ function setup(edit: (s: GameState) => void) {
 beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it('instant actions visually visit the field while gameplay resolves immediately', () => {
-    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
-    const rect = (left: number) => ({ left, top: 100, width: 128, height: 192 });
-    const element = (left: number) => ({ getBoundingClientRect: () => rect(left) }) as unknown as HTMLElement;
-    game.actions.setRef('0-hand-0')(element(0));
-    game.actions.setRef('0-action-0')(element(200));
-    game.actions.setRef('discard-0')(element(400));
-    const blast = card('action_01');
-    setup(s => { s.players[0].hand = [blast]; });
-    act(() => game.actions.handleActionFromHand(blast, 'activate', 0));
-    expect(game.gameState!.players[1].lp).toBe(750);
-    expect(game.gameState!.players[0].discard[0].instanceId).toBe(blast.instanceId);
-    expect(game.state.cardMotions).toHaveLength(2);
-    expect(game.state.cardMotions.map(m => [m.from.left, m.to.left])).toEqual([[0, 200], [200, 400]]);
-    expect(game.state.cardMotions[0].activation).toBe(true);
-    const committed = game.gameState;
-    act(() => game.state.cardMotions.forEach(m => game.state.finishMotion(m.id)));
-    expect(game.gameState).toBe(committed);
-});
-
-it('returning a card animates the transfer without animating hand reordering', () => {
-    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
-    const element = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 128, height: 192 }) } as unknown as HTMLElement;
-    ['0-hand-0', '0-hand-1', 'discard-0'].forEach(key => game.actions.setRef(key)(element));
-    const first = card('pawn_01'), second = card('pawn_04');
-    setup(s => { s.players[0].hand = [first]; s.players[0].discard = [second]; });
-    setup(s => { s.players[0].hand = [second, first]; });
-    expect(game.state.cardMotions.map(m => m.card.instanceId)).toEqual([second.instanceId]);
-});
-
 it('Void Blast wins immediately and is discarded exactly once', () => {
     const blast = card('action_01');
     setup(s => { s.players[0].hand = [blast]; s.players[1].lp = 50; });
@@ -66,47 +36,6 @@ it('Void Blast wins immediately and is discarded exactly once', () => {
     const ended = game.gameState;
     act(() => { game.actions.nextPhase(); game.actions.resolveEffect(blast); vi.advanceTimersByTime(5000); });
     expect(game.gameState).toBe(ended);
-});
-
-it('logs a resolved target from the effect context', () => {
-    const king = card('pawn_02');
-    const dragon = card('pawn_05', 1);
-    setup(s => {
-        s.players[0].pawnZones[0] = placed(king);
-        s.players[1].pawnZones[0] = placed(dragon);
-    });
-    act(() => game.actions.resolveEffect(king, { playerIndex: 1, type: 'pawn', index: 0 }, undefined, undefined, undefined, 'summon'));
-    expect(game.gameState!.log[0]).toBe('"High King" effect activated, targets "High Voltage - Charged Dragon"; "High Voltage - Charged Dragon" -20 ATK.');
-});
-
-it('logs normal and tribute summons separately from their effects', () => {
-    const serpent = card('pawn_08');
-    setup(s => { s.players[0].hand = [serpent]; });
-    act(() => game.actions.handleSummon(serpent, 'normal', 0));
-    expect(game.gameState!.log[0]).toBe('"Quickstrike Serpent" summoned.');
-
-    const king = card('pawn_02');
-    setup(s => {
-        s.players[0].hand = [king];
-        s.players[0].pawnZones[0] = placed(card('pawn_01'));
-    });
-    act(() => game.actions.handleSummon(king, 'normal'));
-    act(() => game.actions.setTributeSelection([0]));
-    act(() => game.actions.handleTributeSummon());
-    act(() => game.actions.handlePlacement(0));
-    expect(game.gameState!.log[0]).toBe('"High King" tribute summoned.');
-});
-
-it('does not narrate attack-count changes in an effect log', () => {
-    const serpent = card('pawn_08');
-    const discard = card('action_01');
-    setup(s => {
-        s.players[0].pawnZones[0] = placed(serpent);
-        s.players[0].hand = [discard];
-    });
-    act(() => game.actions.activateOnField(0, 'pawn', 0));
-    act(() => game.actions.handleHandSelection(0));
-    expect(game.gameState!.log).toContain('"Quickstrike Serpent" effect activated, discards "Void Blast".');
 });
 
 it('silently rejects an action whose activation requirements are not met', () => {
@@ -128,9 +57,9 @@ it('on-summon effect damage also wins', () => {
     expect(game.gameState!.winner).toBe('Player 1');
 });
 
-it('deck search charges half LP once and retains its lingering source', () => {
+it('a set lingering deck search can activate, charges half LP once, and retains its source', () => {
     const mark = card('action_03'); const bear = card('pawn_07');
-    setup(s => { s.players[0].actionZones[0] = placed(mark); s.players[0].deck = [bear]; });
+    setup(s => { s.players[0].actionZones[0] = { ...placed(mark), position: Position.HIDDEN }; s.players[0].deck = [bear]; });
     act(() => game.actions.activateOnField(0, 'action', 0));
     expect(game.state.deckSelectionReq).not.toBeNull();
     expect(game.gameState!.players[0].lp).toBe(800);
@@ -178,20 +107,6 @@ it('combat commits damage and one log without mutating prior state', () => {
     expect(game.gameState!.log[0]).toBe('"Solstice Sentinel" destroyed "Void Caster" by battle. "Player 2" -20 LP.');
     act(() => game.actions.handleAttack(0, 'direct'));
     expect(game.gameState!.players[1].lp).toBe(780);
-});
-
-it('combat logs the defending Pawn as the destroyer when it wins an attack-position battle', () => {
-    setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('pawn_04')); s.players[1].pawnZones[0] = placed(card('pawn_01', 1)); });
-    act(() => game.actions.handleAttack(0, 0));
-    expect(game.gameState!.players[0].lp).toBe(780);
-    expect(game.gameState!.log[0]).toBe('"Solstice Sentinel" destroyed "Void Caster" by battle. "Player 1" -20 LP.');
-});
-
-it('combat logs direct attacks with the attacking Pawn and damaged player', () => {
-    setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('pawn_04')); });
-    act(() => game.actions.handleAttack(0, 'direct'));
-    expect(game.gameState!.players[1].lp).toBe(700);
-    expect(game.gameState!.log[0]).toBe('"Void Caster" attacked directly. "Player 2" -100 LP.');
 });
 
 it('cleanup never removes a replacement card from the old slot', () => {

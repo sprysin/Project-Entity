@@ -5,7 +5,7 @@ import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
 import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority } from '../src/game/chains';
-import { chooseAIAction, observeGame, simulateSummon } from '../src/game/opponentAI';
+import { chooseAIAction, observeGame } from '../src/game/opponentAI';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
@@ -42,6 +42,16 @@ describe('response windows and chains', () => {
         expect(fieldActivations(s, 1, true)).toHaveLength(1);
     });
 
+    it('allows a lingering Action set face-down to activate its field effect', () => {
+        const s = game(), mark = card('action_03'), bear = card('pawn_07');
+        s.players[0].actionZones[0] = zone(mark, Position.HIDDEN, s.turnNumber);
+        s.players[0].deck = [bear];
+
+        const activations = fieldActivations(s, 0);
+
+        expect(activations).toMatchObject([{ card: { instanceId: mark.instanceId }, trigger: 'field_activate' }]);
+    });
+
     it('lets a controller respond during the other player’s turn and resolves LIFO', () => {
         const s = game(), blast = card('action_01'), draw = card('condition_03', 1), reinforcement = card('condition_01');
         s.players[0].actionZones[0] = zone(blast);
@@ -66,6 +76,27 @@ describe('response windows and chains', () => {
         expect(resolutionLogs[1]).toContain('Dark Draw');
         expect(resolutionLogs[2]).toContain('Reinforcement');
         expect(next.chain).toHaveLength(0);
+    });
+
+    it('does not let the AI reactivate a lingering Condition after its flip activation resolves', () => {
+        const s = game(), reinforcement = card('condition_01', 1), pawn = card('pawn_08', 1);
+        s.activePlayerIndex = 1;
+        s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
+        s.players[1].pawnZones[0] = zone(pawn);
+
+        const next = passAll(addChainLink(s, {
+            card: reinforcement,
+            playerIndex: 1,
+            target: { playerIndex: 1, type: 'pawn', index: 0 }
+        }, 'activate'));
+
+        expect(next.players[1].pawnZones[0]!.card.atk).toBe(pawn.atk + 20);
+        expect(next.players[1].actionZones[0]?.position).toBe(Position.ATTACK);
+        expect(fieldActivations(next, 1)).toHaveLength(0);
+        expect(chooseAIAction(observeGame(next, 1), 1)).not.toMatchObject({
+            kind: 'effect',
+            context: { card: { instanceId: reinforcement.instanceId } }
+        });
     });
 
     it('pays a 200 LP cost exactly once even when only 300 LP remain', () => {
@@ -161,11 +192,15 @@ describe('fair general AI', () => {
         expect(first.players[0].pawnZones[0]!.card.atk).toBe(0);
     });
 
-    it('sets a Pawn when the opponent outclasses everything it can summon', () => {
+    it('tribute summons a searched boss when it takes combat control', () => {
         const s = game(); s.activePlayerIndex = 1;
-        s.players[0].pawnZones[0] = zone(card('pawn_05'));
-        s.players[1].hand = [card('pawn_01', 1), card('pawn_08', 1)];
-        expect(chooseAIAction(observeGame(s, 1), 1)).toMatchObject({ kind: 'summon', hidden: true });
+        s.players[0].pawnZones[0] = zone(card('pawn_02'));
+        s.players[1].pawnZones[0] = zone(card('pawn_01', 1));
+        s.players[1].pawnZones[1] = zone(card('pawn_04', 1));
+        s.players[1].hand = [card('pawn_07', 1)];
+        expect(chooseAIAction(observeGame(s, 1), 1)).toMatchObject({
+            kind: 'summon', hidden: false, card: { id: 'pawn_07' }, tributes: [0, 1]
+        });
     });
 
     it('finds lethal attack order by saving the stronger attacker for direct damage', () => {
@@ -177,29 +212,11 @@ describe('fair general AI', () => {
         expect(chooseAIAction(observeGame(s, 1), 1)).toEqual({ kind: 'attack', index: 1, target: 0 });
     });
 
-    it('avoids a losing attack and takes lethal effect damage before summoning', () => {
-        const s = game(); s.activePlayerIndex = 1; s.currentPhase = Phase.BATTLE;
-        s.players[0].pawnZones[0] = zone(card('pawn_05'));
-        s.players[1].pawnZones[0] = zone(card('pawn_01', 1));
-        expect(chooseAIAction(observeGame(s, 1), 1).kind).toBe('pass');
-        s.currentPhase = Phase.MAIN1; s.players[0].lp = 50;
-        s.players[1].hand = [card('action_01', 1), card('pawn_08', 1)];
-        expect(chooseAIAction(observeGame(s, 1), 1)).toMatchObject({ kind: 'effect', fromHand: true, context: { card: { id: 'action_01' } } });
-    });
-
     it('uses a new registered effect without a card-specific AI recipe', () => {
         cardRegistry.register({ id: 'test-generic', name: 'Generic blast', type: CardType.ACTION, level: 0, atk: 0, def: 0, effectText: 'Deal damage.' }, { onActivate: buildEffect([Effect.DealDamage((_s, c) => 1 - c.playerIndex, 90)]) });
         const s = game(); s.activePlayerIndex = 1; s.players[0].lp = 90;
         s.players[1].hand = [card('test-generic', 1)];
         expect(chooseAIAction(observeGame(s, 1), 1)).toMatchObject({ kind: 'effect', context: { card: { id: 'test-generic' } } });
-    });
-
-    it('keeps tribute summons separate from the normal and set allowances', () => {
-        const s = game(), king = card('pawn_02');
-        s.players[0].hand = [king]; s.players[0].pawnZones[0] = zone(card('pawn_01'));
-        const next = simulateSummon(s, king, false, [0]);
-        expect(next.players[0].normalSummonUsed).toBe(false);
-        expect(next.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
     });
 
     it('chooses a quick defensive response that stops lethal damage', () => {

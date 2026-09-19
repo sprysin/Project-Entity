@@ -144,12 +144,15 @@ export type EffectTrigger = 'summon' | 'activate' | 'phase' | 'field_activate';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
+export type TargetSelectScope = 'active' | 'opponent' | 'both';
 
 export type EffectResult = {
   newState: GameState;
   halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
+  requireTargetScope?: TargetSelectScope;
+  requireTargetIndex?: number;
   requireDiscardSelection?: CardSelectionRequest;
   requireHandSelection?: HandSelectionRequest;
   requireDeckSelection?: CardSelectionRequest;
@@ -162,6 +165,7 @@ export interface CardContext {
   card: Card;
   playerIndex: number;
   target?: CardTarget;
+  targets?: CardTarget[];
   discardIndex?: number;
   handIndex?: number;
   deckIndex?: number;
@@ -176,6 +180,9 @@ export interface IEffect {
 
   // Triggered when a card is Tributed
   onTribute?(state: GameState, context: CardContext): EffectResult;
+
+  // Triggered when this card is discarded from the hand by a card cost.
+  onDiscard?(state: GameState, context: CardContext): EffectResult;
 
   // Triggered when an Effect is manually activated (Action key, or Pawn Ignition effect)
   onActivate?(state: GameState, context: CardContext): EffectResult;
@@ -194,6 +201,7 @@ export interface ChainLink {
   context: CardContext;
   trigger: EffectTrigger;
   targetId?: string;
+  targetIds?: (string | undefined)[];
   discardId?: string;
   deckId?: string;
 }

@@ -53,7 +53,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
             } else if (action.kind === 'effect') {
                 const c = action.context;
                 const deckIndex = action.deckId ? gameState.players[1].deck.findIndex(card => card.instanceId === action.deckId) : undefined;
-                resolveEffect(c.card, c.target, c.discardIndex, c.handIndex, deckIndex, action.trigger, c.tributeIndices);
+                resolveEffect(c.card, c.target, c.discardIndex, c.handIndex, deckIndex, action.trigger, c.tributeIndices, c.targets);
             }
         }, 650);
         return () => clearTimeout(timer);

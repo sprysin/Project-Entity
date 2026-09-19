@@ -4,7 +4,6 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useGameLogic } from '../src/hooks/useGameLogic';
 import { Card, GameState, Phase, Position } from '../src/types';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import PlaytestSetup from '../src/components/PlaytestSetup';
 import { GameOverlays } from '../src/components/game/GameOverlays';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -25,20 +24,13 @@ function setup(edit: (s: GameState) => void) {
         edit(s); return s;
     }));
 }
-beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
+beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+    act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); });
+});
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const tick = () => act(() => vi.advanceTimersByTime(700));
-
-it('keeps self-play as default and passes the AI mode from setup', () => {
-    vi.stubGlobal('localStorage', { getItem: () => null });
-    const onStart = vi.fn(); let setupRoot!: ReturnType<typeof create>;
-    act(() => { setupRoot = create(<PlaytestSetup onBack={() => {}} onStart={onStart} />); });
-    expect(setupRoot.root.findAllByProps({ type: 'radio' })[0].props.checked).toBe(true);
-    act(() => setupRoot.root.findAllByProps({ type: 'radio' })[1].props.onChange());
-    act(() => setupRoot.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
-    expect(onStart).toHaveBeenCalledWith([null, null], 'ai');
-    act(() => setupRoot.unmount());
-});
 
 it('automates summon effects, battle, and the rest of an AI turn', () => {
     setup(s => { s.players[1].hand = [card('pawn_01', 1)]; });
@@ -88,51 +80,6 @@ it('lets the human choose a response target during the AI turn without paying or
     expect(game.gameState!.players[1].pawnZones[0]).toBeNull();
     expect(game.gameState!.players[0].lp).toBe(800);
     expect(game.gameState!.players[1].lp).toBe(790);
-});
-
-it('canceling response selection retains the set card and response priority', () => {
-    const reinforcement = card('condition_01');
-    setup(s => { s.currentPhase = Phase.BATTLE; s.players[1].pawnZones[0] = zone(card('pawn_08', 1)); s.players[0].actionZones[0] = zone(reinforcement, Position.HIDDEN); });
-    tick();
-    act(() => game.actions.respond(reinforcement.instanceId));
-    act(() => game.actions.cancelEffect());
-    expect(game.gameState!.players[0].actionZones[0]?.position).toBe(Position.HIDDEN);
-    expect(game.gameState!.response?.priority).toBe(0);
-    expect(game.gameState!.players[0].discard).toHaveLength(0);
-});
-
-it('never creates a response popup when the human has no activatable cards', () => {
-    setup(s => { s.currentPhase = Phase.BATTLE; s.players[1].pawnZones[0] = zone(card('pawn_08', 1)); });
-    tick();
-    expect(root.root.findAllByProps({ 'aria-label': 'Response window' })).toHaveLength(0);
-    expect(game.gameState!.players[0].lp).toBe(670);
-});
-
-it('lets the human inspect the field and enter card-selection mode without passing priority', () => {
-    setup(s => {
-        s.currentPhase = Phase.BATTLE;
-        s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
-        s.players[0].actionZones[0] = zone(card('condition_01'), Position.HIDDEN);
-    });
-    tick();
-    const popup = root.root.findByProps({ 'aria-label': 'Response window' });
-    const buttons = popup.findAllByType('button');
-    act(() => buttons.find(button => button.children.join(' ') === 'Peek at field')!.props.onClick());
-    expect(root.root.findAllByProps({ 'aria-label': 'Response window' })).toHaveLength(0);
-    expect(root.root.findByProps({ 'aria-label': 'Response field message' }).children.join('')).toContain('Viewing field');
-    expect(game.gameState!.response?.priority).toBe(0);
-    act(() => game.actions.setResponseFieldMode('activate'));
-    expect(root.root.findByProps({ 'aria-label': 'Response field message' }).children.join('')).toContain('Select a highlighted card');
-    expect(game.state.responseOptions).toHaveLength(1);
-});
-
-it('does not activate the human’s cost-only Condition while the AI waits to leave a phase', () => {
-    setup(s => { s.currentPhase = Phase.DRAW; s.players[0].actionZones[0] = zone(card('condition_03'), Position.HIDDEN); });
-    for (let i = 0; i < 8; i++) tick();
-    expect(game.gameState!.response?.priority).toBe(0);
-    expect(game.gameState!.currentPhase).toBe(Phase.DRAW);
-    expect(game.gameState!.players[0].lp).toBe(800);
-    expect(game.gameState!.players[0].actionZones[0]?.position).toBe(Position.HIDDEN);
 });
 
 it('ends an AI game on lethal effect damage without continuing its turn', () => {

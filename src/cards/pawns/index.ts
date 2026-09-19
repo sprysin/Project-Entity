@@ -7,3 +7,4 @@ import './DualModeBeast';
 import './BigBearBeastKing';
 import './QuickstrikeSerpent';
 import './LingeringLamb';
+import './GlitterGuardBeatle';

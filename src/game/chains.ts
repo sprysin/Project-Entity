@@ -38,14 +38,21 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
         if (depth > 6 || choices.length >= limit || visited++ > 2500) return;
         const result = runEffect(state, context, trigger);
         if (result.halted) return;
-        if (result.requireTarget && !context.target) {
+        const targetIndex = result.requireTargetIndex ?? 0;
+        const selectedTarget = context.targets?.[targetIndex] ?? (targetIndex === 0 ? context.target : undefined);
+        if (result.requireTarget && !selectedTarget) {
             state.players.forEach((player, pi) => (['pawn', 'action'] as const).forEach(type => {
                 if (result.requireTarget !== 'any' && type !== result.requireTarget) return;
+                const isOpponent = pi !== playerIndex;
+                if (result.requireTargetScope === 'active' && isOpponent || result.requireTargetScope === 'opponent' && !isOpponent) return;
                 player[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((zone, index) => {
                     if (!zone) return;
                     if (result.requireTargetPosition === 'hidden' && zone.position !== Position.HIDDEN) return;
                     if (result.requireTargetPosition === 'faceup' && zone.position === Position.HIDDEN) return;
-                    visit({ ...context, target: { playerIndex: pi, type, index } }, depth + 1);
+                    const target = { playerIndex: pi, type, index };
+                    const targets = [...(context.targets ?? [])];
+                    targets[targetIndex] = target;
+                    visit({ ...context, target: targets[0], targets }, depth + 1);
                 });
             }));
         } else if (result.requireHandSelection && context.handIndex === undefined) {
@@ -84,8 +91,16 @@ export function fieldActivations(state: GameState, playerIndex: number, respondi
         const effect = cardRegistry.getEffect(zone.card.id);
         if (type === 'pawn' && (zone.position === Position.HIDDEN || (responding ? effect?.timing !== 'quick' : !main && effect?.timing !== 'quick'))) return [];
         if (zone.card.type === CardType.ACTION && (responding || !main)) return [];
-        if (zone.card.type === CardType.CONDITION && state.turnNumber <= zone.summonedTurn) return [];
-        const trigger: EffectTrigger = type === 'action' && zone.position !== Position.HIDDEN ? 'field_activate' : 'activate';
+        // A Condition's onActivate effect is the one-time flip activation. Lingering
+        // Conditions remain face-up after resolving, but that does not make their
+        // original activation reusable on every subsequent priority window.
+        if (zone.card.type === CardType.CONDITION && (state.turnNumber <= zone.summonedTurn || zone.position !== Position.HIDDEN)) return [];
+        // Lingering Actions use their field effect whether they were played face-up or
+        // set first. Otherwise a set lingering card can never be flipped: it usually
+        // has no onActivate handler, so it gets filtered out below.
+        const trigger: EffectTrigger = zone.card.type === CardType.ACTION && (zone.position !== Position.HIDDEN || zone.card.isLingering)
+            ? 'field_activate'
+            : 'activate';
         if (!(trigger === 'field_activate' ? effect?.onFieldActivate : effect?.onActivate)) return [];
         if (!effectChoices(state, zone.card, trigger, 1).length) return [];
         return [{ card: zone.card, trigger, slot: { playerIndex, type, index } }];
@@ -109,10 +124,14 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
     const tributeCards = context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
     const source = [...p.pawnZones, ...p.actionZones].find(z => z?.card.instanceId === context.card.instanceId);
     if (source && context.card.type !== CardType.PAWN) source.position = Position.ATTACK;
-    const target = context.target;
+    const targets = context.targets ?? (context.target ? [context.target] : []);
+    const target = targets[0];
     const link: ChainLink = {
-        context: { ...context, tributeCards }, trigger,
+        context: { ...context, target, targets, tributeCards }, trigger,
         targetId: target ? state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]?.card.instanceId : undefined,
+        targetIds: targets.map(selected => selected
+            ? state.players[selected.playerIndex][selected.type === 'pawn' ? 'pawnZones' : 'actionZones'][selected.index]?.card.instanceId
+            : undefined),
         discardId: context.discardIndex === undefined ? undefined : state.players[context.playerIndex].discard[context.discardIndex]?.instanceId,
         deckId: context.deckIndex === undefined ? undefined : state.players[context.playerIndex].deck[context.deckIndex]?.instanceId,
     };
@@ -132,11 +151,15 @@ export function resolveChain(state: GameState): GameState {
         const context = { ...link.context, handIndex: undefined, execution: 'resolve' as const };
         const p = next.players[context.playerIndex];
         let invalid = false;
-        if (context.target) {
-            const target = context.target;
-            const index = next.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'].findIndex(z => z?.card.instanceId === link.targetId);
-            if (index < 0) invalid = true;
-            else context.target = { ...target, index };
+        const targets = context.targets ?? (context.target ? [context.target] : []);
+        if (targets.length) {
+            context.targets = targets.map((target, targetIndex) => {
+                const id = link.targetIds?.[targetIndex] ?? (targetIndex === 0 ? link.targetId : undefined);
+                const index = next.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'].findIndex(z => z?.card.instanceId === id);
+                if (index < 0) invalid = true;
+                return { ...target, index };
+            });
+            context.target = context.targets[0];
         }
         if (link.discardId) { context.discardIndex = p.discard.findIndex(c => c.instanceId === link.discardId); invalid ||= context.discardIndex < 0; }
         if (link.deckId) { context.deckIndex = p.deck.findIndex(c => c.instanceId === link.deckId); invalid ||= context.deckIndex < 0; }

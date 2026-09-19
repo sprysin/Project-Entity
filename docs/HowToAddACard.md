@@ -230,8 +230,8 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 
 | Function | Description |
 |----------|-------------|
-| `Effect.ChangeTargetPosition(pos)` | Switch a target between ATK/DEF/HIDDEN |
-| `Effect.ModifyTargetStats(atk, def)` | Add/subtract ATK and/or DEF from target |
+| `Effect.ChangeTargetPosition(pos, targetIndex?)` | Switch a selected target between ATK/DEF/HIDDEN |
+| `Effect.ModifyTargetStats(atk, def, targetIndex?)` | Add/subtract ATK and/or DEF from a selected target |
 | `Effect.ChangeSelfPosition(pos)` | Change the activating pawn's position |
 | `Effect.ModifySelfStats(atk, def)` | Modify the activating pawn's own stats |
 | `Effect.DrawCards(amount)` | Draw cards (amount can be Dynamic) |
@@ -239,6 +239,8 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Effect.RestoreLP(playerIdx, amount)` | Heal LP |
 | `Effect.BanishTargetToVoid()` | Send target to the Void zone |
 | `Effect.RecoverFromDiscardToHand()` | Move selected discard card to hand |
+| `Effect.ChangeAllPawnPositions(scope, position)` | Change every Pawn in a reusable player scope (`active`, `opponent`, or `both`) |
+| `Effect.ModifyAllPawnStats(scope, atk, def, duration?)` | Modify scoped Pawns permanently, through this turn (`end_of_turn`), or through the opponent's turn (`end_of_next_turn`) |
 | `Effect.RegisterPendingEffect(type, instanceId, value)` | Schedule a stat reset |
 | `Effect.RegisterSelfPendingEffect(type, value, durationTurns)` | Schedule self stat reset |
 | `Effect.SetSoftOncePerTurn()` | Mark this card instance's effect as used (resets per copy) |
@@ -252,6 +254,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Cost.PayLP(amount)` | Deduct LP (amount can be Dynamic) |
 | `Cost.TributePawns(count, filter?)` | Prompt sacrifice of field pawns matching an optional filter |
 | `Cost.DiscardCardFilter(filter?)` | Prompt discard of a hand card matching a filter |
+| `Cost.ChangePawnPosition(position, fromPosition?, targetIndex?, scope?)` | Select an applicable Pawn through the shared field-target UI, then change its position as a cost |
 | `Cost.SelectDiscardRecovery(filter)` | Prompt selection from discard pile |
 
 ### Requirements (`src/cards/engine/Requirements.ts`)
@@ -260,7 +263,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 
 | Function | Description |
 |----------|-------------|
-| `Require.Target(type, set)` | Prompt the player to select a target |
+| `Require.Target(type, position?, scope?, targetIndex?)` | Prompt for a flashing applicable target through the shared field UI |
 | `Require.TargetIsPlayerScope(scope)` | Verify target belongs to active/opponent |
 | `Require.TargetMatchesPosition(pos, invert?)` | Verify target position state |
 | `Require.CompareValue(valueFn, op, compareTo)` | Generic numerical check |
@@ -275,6 +278,8 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 | `Condition.ActionMatchesFilter(scope, filter)` | Check action zones for matches |
 | `Condition.SoftOncePerTurn()` | Has this card instance activated this turn? |
 | `Condition.HardOncePerTurn(cardId)` | Has ANY copy of this card activated this turn? |
+
+For effects that select more than one field card, give each shared target step a zero-based target index. For example, `Cost.ChangePawnPosition(Position.HIDDEN, 'faceup', 0, 'active')` followed by `Require.Target('pawn', 'faceup', 'opponent', 1)` asks for two sequential selections using the same flashing-card UI. Pass the same index to target effects such as `Effect.ChangeTargetPosition(Position.HIDDEN, 1)`. Card files should compose these library operations rather than add card-specific selection state, labels, or UI.
 
 ### Queries (`src/cards/engine/Queries.ts`)
 
