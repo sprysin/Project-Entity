@@ -94,7 +94,7 @@ All stats are passed to `cardRegistry.register()` as the first argument.
 | Field | Type | Description |
 |-------|------|-------------|
 | `attribute` | `Attribute` | `FIRE`, `WATER`, `EARTH`, `AIR`, `ELECTRIC`, `NORMAL`, `DARK`, `LIGHT` |
-| `pawnType` | `PawnType` | `WARRIOR`, `MAGICIAN`, `DRAGON`, `MECHANICAL`, `DEMON`, `ANGEL`, `PLANT`, `FISH`, `BEAST`, `ELEMENTAL`, `PRIMAL`, `AVION`, `UNDEAD`, `BUG` |
+| `pawnType` | `PawnType` | `WARRIOR`, `MAGICIAN`, `DRAGON`, `MECHANICAL`, `DEMON`, `ANGEL`, `PLANT`, `AQUATIC`, `BEAST`, `ELEMENTAL`, `PRIMAL`, `AVION`, `UNDEAD`, `BUG` |
 
 ### Optional Fields (Actions & Conditions)
 

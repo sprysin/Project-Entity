@@ -59,6 +59,23 @@
 .rulebook-page-tabs button:hover, .rulebook-page-tabs button[aria-current="page"] { color:var(--gold); border-color:rgba(245,189,72,.4); background:rgba(245,189,72,.07); }
 .rulebook-page { min-height:300px; padding:34px 0; animation:rule-fade .35s ease; }
 @keyframes rule-fade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.rulebook-page-intro { max-width:720px; margin:0 0 25px; color:#c7c7ce; font-size:15px; line-height:1.7; }
+.rulebook-page-intro strong { color:var(--gold); }
+.rulebook-pawn-fields > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.rulebook-pawn-fields article { display:grid; grid-template-columns:32px 1fr; column-gap:11px; padding:16px; border:1px solid var(--line); background:rgba(255,255,255,.025); }
+.rulebook-pawn-fields article > span { grid-row:1 / span 2; color:var(--gold); font-family:Orbitron,sans-serif; font-size:10px; padding-top:3px; }
+.rulebook-pawn-fields h2, .rulebook-attribute-grid h2 { margin:0; color:#f2f0eb; font-family:Orbitron,sans-serif; font-size:12px; letter-spacing:.05em; text-transform:uppercase; }
+.rulebook-pawn-fields article p { margin:7px 0 0; color:#a7a8b0; font-size:13px; line-height:1.55; }
+.rulebook-type-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.rulebook-type-grid div { display:flex; align-items:center; gap:12px; min-height:49px; padding:0 13px; border:1px solid var(--line); background:rgba(255,255,255,.025); color:#e1e1e5; font-family:Orbitron,sans-serif; font-size:10px; letter-spacing:.08em; }
+.rulebook-type-grid span { color:#686a74; font-size:9px; }
+.rulebook-attribute-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.rulebook-attribute-grid article { display:flex; align-items:center; gap:15px; min-height:74px; padding:13px 15px; border:1px solid color-mix(in srgb, var(--attribute-color) 35%, var(--line)); background:color-mix(in srgb, var(--attribute-color) 6%, transparent); }
+.rulebook-attribute-grid article > i, .rulebook-attribute-glyph { display:grid; place-items:center; flex:0 0 42px; height:42px; border-radius:50%; color:#0b0c10; background:var(--attribute-color); box-shadow:0 0 18px color-mix(in srgb, var(--attribute-color) 28%, transparent); font-size:17px; }
+.rulebook-attribute-glyph { font-family:Orbitron,sans-serif; font-size:13px; font-weight:900; }
+.rulebook-attribute-grid h2 { color:var(--attribute-color); }
+.rulebook-attribute-grid p { margin:5px 0 0; color:#9d9ea7; font-size:12px; line-height:1.4; }
+.rulebook-section-kicker { display:flex; align-items:center; gap:10px; margin-bottom:24px; color:var(--gold); font-family:Orbitron,sans-serif; font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; }
 .rulebook-rule-list { list-style:none; padding:0; margin:0; display:grid; gap:19px; }
 .rulebook-rule-list li { display:grid; grid-template-columns:38px 1fr; gap:17px; align-items:start; }
 .rulebook-rule-number { color:var(--gold); font-family:Orbitron,sans-serif; font-size:12px; padding-top:3px; }
@@ -104,4 +121,6 @@
   .rulebook-exit { padding:8px 9px; font-size:10px; }
   .rulebook-cover h1 { font-size:38px; }
   .rulebook-rule-list p { font-size:15px; }
+  .rulebook-pawn-fields > div, .rulebook-attribute-grid { grid-template-columns:1fr; }
+  .rulebook-type-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }

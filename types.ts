@@ -40,7 +40,7 @@ export enum PawnType {
   DEMON = 'DEMON',
   ANGEL = 'ANGEL',
   PLANT = 'PLANT',
-  FISH = 'FISH',
+  AQUATIC = 'AQUATIC',
   BEAST = 'BEAST',
   ELEMENTAL = 'ELEMENTAL',
   PRIMAL = 'PRIMAL',

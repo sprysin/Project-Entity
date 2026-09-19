@@ -25,7 +25,7 @@ cardRegistry.register({
     type: CardType.PAWN,
     level: 4,
     attribute: Attribute.WATER,
-    pawnType: PawnType.FISH,
+    pawnType: PawnType.AQUATIC,
     atk: 130,
     def: 80,
     effectText: 'Discard 1 card; this turn, Quickstrike Serpent can do 2 attacks this battle phase.',

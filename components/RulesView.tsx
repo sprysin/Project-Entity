@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { CardDetail } from './Game/CardDetail';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card } from '../types';
+import { Attribute, Card, PawnType } from '../types';
 import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
@@ -70,7 +70,7 @@ const topics: Topic[] = [
     ], note: 'Tribute Summons and tribute sets use neither your level 1–4 Normal Summon allowance nor your level 1–4 set allowance.'
   },
   {
-    id: 'positions', title: 'Changing position', subtitle: 'Manual changes & Flip Summons', icon: 'fa-arrows-rotate', rules: [
+    id: 'pawn-info', title: 'Pawn Information', subtitle: 'Read every part of a Pawn card', icon: 'fa-address-card', rules: [
       'During either Main Phase, each Pawn may manually change between Attack and Defense Position once per turn.',
       'A Pawn cannot manually change position on the turn it was summoned or set, or after it has attacked that turn.',
       'Manually turning a face-down Pawn face-up is a Flip Summon. It enters Attack Position and uses its manual position change for that turn.',
@@ -136,6 +136,30 @@ const topics: Topic[] = [
   },
 ];
 
+const pawnCardFields = [
+  ['Name', 'The Pawn’s unique name. Card effects may refer to a Pawn by name.'],
+  ['Level', 'Shown as Lv. 1–10. Level determines how many tributes are required to summon or set the Pawn.'],
+  ['Attribute', 'The Pawn’s elemental alignment. Attributes can be referenced by card effects.'],
+  ['Type', 'The Pawn’s creature classification, shown as [Type/Pawn]. Types can be referenced by card effects.'],
+  ['Effect', 'The rules text that explains the Pawn’s abilities, activation requirements, costs and limits.'],
+  ['ATK & DEF', 'ATK is used while attacking or being attacked in Attack Position. DEF is used when attacked in Defense Position.'],
+] as const;
+
+const pawnTypes = Object.values(PawnType);
+
+const attributes: { value: Attribute; icon?: string; glyph?: string; color: string; description: string }[] = [
+  { value: Attribute.FIRE, icon: 'fa-fire', color: '#ef5b4f', description: 'Fire-aligned Pawns.' },
+  { value: Attribute.WATER, icon: 'fa-droplet', color: '#4d9cff', description: 'Water-aligned Pawns.' },
+  { value: Attribute.EARTH, icon: 'fa-mountain', color: '#b7793f', description: 'Earth-aligned Pawns.' },
+  { value: Attribute.AIR, icon: 'fa-wind', color: '#8bdcf5', description: 'Air-aligned Pawns.' },
+  { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: '#f4d44d', description: 'Electric-aligned Pawns.' },
+  { value: Attribute.NORMAL, glyph: 'N', color: '#cbd0d8', description: 'Pawns without an elemental alignment.' },
+  { value: Attribute.DARK, icon: 'fa-moon', color: '#9a6ad8', description: 'Dark-aligned Pawns.' },
+  { value: Attribute.LIGHT, icon: 'fa-sun', color: '#ffe89a', description: 'Light-aligned Pawns.' },
+];
+
+const pawnInfoTabs = ['Pawn card', 'Types', 'Attributes', 'Changing position'];
+
 
 const examples = [
   { id: 'pawn_01', label: 'Pawn', color: '#f5bd48', description: 'Your fighters on the field. Each has a level, ATK, DEF and its own effects.' },
@@ -158,10 +182,11 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const scroller = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const topic = selected === null ? null : topics[selected];
+  const isPawnInfo = topic?.id === 'pawn-info';
   // Long topics have short reading pages; reference tables get their own page.
   const rulePages: string[][] = [];
   if (topic?.rules) for (let i = 0; i < topic.rules.length; i += 4) rulePages.push(topic.rules.slice(i, i + 4));
-  const pageCount = Math.max(1, rulePages.length + (topic?.table ? 1 : 0));
+  const pageCount = isPawnInfo ? pawnInfoTabs.length : Math.max(1, rulePages.length + (topic?.table ? 1 : 0));
   const tablePage = !!topic?.table && page === rulePages.length;
   const resetPosition = () => {
     scroller.current?.scrollTo({ top: 0 });
@@ -218,9 +243,21 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <span className="rulebook-eyebrow"><i className={`fa-solid ${topic.icon}`} aria-hidden="true" /> {topic.subtitle}</span>
                 <h1 ref={heading} tabIndex={-1}>{topic.title}</h1>
               </div>
-              {pageCount > 1 && <nav className="rulebook-page-tabs" aria-label="Chapter pages">{Array.from({ length: pageCount }, (_, index) => <button key={index} aria-current={index === page ? 'page' : undefined} onClick={() => { setPage(index); resetPosition(); }}>{index === rulePages.length && topic.table ? 'Quick reference' : rulePages.length > 1 ? `Rules ${index + 1}` : 'The rules'}</button>)}</nav>}
+              {pageCount > 1 && <nav className="rulebook-page-tabs" aria-label="Chapter pages">{Array.from({ length: pageCount }, (_, index) => <button key={index} aria-current={index === page ? 'page' : undefined} onClick={() => { setPage(index); resetPosition(); }}>{isPawnInfo ? pawnInfoTabs[index] : index === rulePages.length && topic.table ? 'Quick reference' : rulePages.length > 1 ? `Rules ${index + 1}` : 'The rules'}</button>)}</nav>}
               <div key={`${topic.id}-${page}`} className="rulebook-page">
-                {tablePage && topic.table ? <div className="rulebook-table-wrap"><table><caption className="sr-only">{topic.title} reference</caption><thead><tr>{topic.table.headings.map(value => <th key={value} scope="col">{value}</th>)}</tr></thead><tbody>{topic.table.rows.map(row => <tr key={row[0]}>{row.map((value, index) => index === 0 ? <th key={index} scope="row">{value}</th> : <td key={index}>{value}</td>)}</tr>)}</tbody></table></div> :
+                {isPawnInfo && page === 0 ? <section className="rulebook-pawn-fields" aria-label="Information on a Pawn card">
+                  <p className="rulebook-page-intro">Every Pawn card shows the information below. Read these fields together to understand how the Pawn enters play, what effects can interact with it, and how it performs in combat.</p>
+                  <div>{pawnCardFields.map(([label, description], index) => <article key={label}><span>{String(index + 1).padStart(2, '0')}</span><h2>{label}</h2><p>{description}</p></article>)}</div>
+                </section> : isPawnInfo && page === 1 ? <section aria-label="All Pawn types">
+                  <p className="rulebook-page-intro">A Pawn’s Type appears beneath its name as <strong>[Type/Pawn]</strong>. Types do not have inherent abilities of their own, however cards of the same type may have stronger synergies when played together.</p>
+                  <div className="rulebook-type-grid">{pawnTypes.map((type, index) => <div key={type}><span>{String(index + 1).padStart(2, '0')}</span>{type}</div>)}</div>
+                </section> : isPawnInfo && page === 2 ? <section aria-label="All Pawn attributes">
+                  <p className="rulebook-page-intro">The circular icon beside a Pawn’s Type shows its Attribute. Like Types, Attributes are classifications used by card effects.</p>
+                  <div className="rulebook-attribute-grid">{attributes.map(attribute => <article key={attribute.value} style={{ '--attribute-color': attribute.color } as React.CSSProperties}>{attribute.icon ? <i className={`fa-solid ${attribute.icon}`} aria-hidden="true" /> : <span className="rulebook-attribute-glyph" aria-hidden="true">{attribute.glyph}</span>}<div><h2>{attribute.value}</h2><p>{attribute.description}</p></div></article>)}</div>
+                </section> : isPawnInfo && page === 3 ? <section aria-label="Changing position rules">
+                  <div className="rulebook-section-kicker"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> Manual changes & Flip Summons</div>
+                  <ol className="rulebook-rule-list">{topic.rules?.map((rule, index) => <li key={rule}><span className="rulebook-rule-number">{String(index + 1).padStart(2, '0')}</span><p>{rule}</p></li>)}</ol>
+                </section> : tablePage && topic.table ? <div className="rulebook-table-wrap"><table><caption className="sr-only">{topic.title} reference</caption><thead><tr>{topic.table.headings.map(value => <th key={value} scope="col">{value}</th>)}</tr></thead><tbody>{topic.table.rows.map(row => <tr key={row[0]}>{row.map((value, index) => index === 0 ? <th key={index} scope="row">{value}</th> : <td key={index}>{value}</td>)}</tr>)}</tbody></table></div> :
                   <ol className="rulebook-rule-list">{rulePages[page]?.map((rule, index) => <li key={rule}><span className="rulebook-rule-number">{String(page * 4 + index + 1).padStart(2, '0')}</span><p>{rule}</p></li>)}</ol>}
                 {topic.note && page === pageCount - 1 && <div className="rulebook-important"><i className="fa-solid fa-star" aria-hidden="true" /><div><strong>REMEMBER</strong><p>{topic.note}</p></div></div>}
               </div>
