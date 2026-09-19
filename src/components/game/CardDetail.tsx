@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardType, Attribute } from '../../types';
+import { cardTypeLabel } from '../../cards/CardRegistry';
 import { cardRegistry } from '../../cards/CardRegistry';
 
 const getAttributeColor = (attr?: Attribute) => {
@@ -97,7 +98,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
                 ) : (
                     <div className="w-full text-left pl-1">
                         <span className={`${compact ? 'text-[6px]' : 'text-[9px]'} font-orbitron font-bold uppercase tracking-widest block ${card.type === CardType.ACTION ? 'text-green-400' : 'text-pink-400'}`}>
-                            [{card.isLingering ? 'Lingering' : 'Normal'} {card.type === CardType.ACTION ? 'Action' : 'Condition'}]
+                            [{cardTypeLabel(card)}]
                         </span>
                     </div>
                 )}

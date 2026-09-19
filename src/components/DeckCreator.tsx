@@ -1,3 +1,4 @@
+import { matchesCardCatalog } from '../cards/CardRegistry';
 import React, { useEffect, useRef, useState } from 'react';
 import { CardDetail } from './game/CardDetail';
 import { CardDefinition } from '../cards/CardRegistry';
@@ -6,7 +7,6 @@ import { CardType } from '../types';
 import './DeckCreator.css';
 import { ActionCardIcon } from './ActionCardIcon';
 
-const cards = sortedCards();
 const types = [CardType.PAWN, CardType.ACTION, CardType.CONDITION];
 const icons = ['fa-chess-pawn', '', 'fa-hourglass-half'];
 const TypeIcon = ({ type, icon, className = '' }: { type: CardType; icon: string; className?: string }) => type === CardType.ACTION
@@ -19,6 +19,7 @@ function IconButton({ label, icon, onClick, disabled = false, active = false }: 
 }
 
 export default function DeckCreator({ onBack }: { onBack: () => void }) {
+    const cards = sortedCards();
     const [library, setLibrary] = useState<SavedDeck[]>([]);
     const [deck, setDeck] = useState<SavedDeck | null>(null);
     const [selected, setSelected] = useState<CardDefinition | null>(cards[0] ?? null);
@@ -92,7 +93,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             open({ ...imported, id: crypto.randomUUID() }); setDirty(true);
         } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not open this file.'); }
     };
-    const filtered = cards.filter(c => `${c.name} ${c.effectText} ${c.type} ${c.attribute ?? ''} ${c.pawnType ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()));
+    const filtered = cards.filter(c => matchesCardCatalog(c, search));
     const quantity = (card: CardDefinition) => deck?.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
 
     return <div className="deck-workspace retro-hash">

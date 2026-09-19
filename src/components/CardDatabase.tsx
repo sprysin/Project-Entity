@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { cardRegistry } from '../cards/CardRegistry';
+import { matchesCardCatalog, cardSubtype } from '../cards/CardRegistry';
+import React, { useState } from 'react';
+import { sortedCards } from '../decks';
 import { CardDetail } from './game/CardDetail';
 import { CardType, Card } from '../types';
 import { ActionCardIcon } from './ActionCardIcon';
@@ -12,12 +13,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
-    const filteredCards = useMemo(() => {
-        return cardRegistry.getAllCards().filter(card =>
-            card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            card.effectText.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [searchQuery]);
+    const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery));
 
     const pawns = filteredCards.filter(c => c.type === CardType.PAWN);
     const actions = filteredCards.filter(c => c.type === CardType.ACTION);
@@ -121,6 +117,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                             </div>
                             <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TAG:</span> <span className="text-white">{selectedCard.id.toUpperCase()}</span></div>
                             <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">CLASS:</span> <span className="text-white">{selectedCard.type}</span></div>
+                            {selectedCard.type !== CardType.PAWN && <div className="text-xs text-slate-400 font-mono flex justify-between"><span>SUBTYPE:</span><span className="text-white">{cardSubtype(selectedCard)}</span></div>}
                             {selectedCard.type === CardType.PAWN && (
                                 <>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">LEVEL:</span> <span className="text-white">{selectedCard.level}</span></div>

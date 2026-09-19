@@ -1,10 +1,76 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Player } from '../../types';
 import { checkActivationConditions } from '../../hooks/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, WinnerModal } from './GameModals';
 
 type GameLogic = ReturnType<typeof useGameLogic>;
+
+const HOLD_TO_END_MS = 650;
+
+const PhaseAdvanceButton: React.FC<{
+    disabled: boolean;
+    phase: GameState['currentPhase'];
+    nextPhase: () => void;
+    skipToEndPhase: () => void;
+}> = ({ disabled, phase, nextPhase, skipToEndPhase }) => {
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const held = useRef(false);
+    const [holding, setHolding] = useState(false);
+    const cancelHold = () => {
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
+        setHolding(false);
+    };
+    const startHold = () => {
+        if (disabled || timer.current || held.current) return;
+        held.current = false;
+        setHolding(true);
+        timer.current = setTimeout(() => {
+            timer.current = null;
+            held.current = true;
+            setHolding(false);
+            skipToEndPhase();
+        }, HOLD_TO_END_MS);
+    };
+    useEffect(() => () => {
+        if (timer.current) clearTimeout(timer.current);
+    }, []);
+
+    return (
+        <button
+            disabled={disabled}
+            onPointerDown={event => {
+                if (disabled || event.button !== 0) return;
+                startHold();
+            }}
+            onPointerUp={cancelHold}
+            onPointerCancel={cancelHold}
+            onPointerLeave={cancelHold}
+            onKeyDown={event => {
+                if (event.key === ' ') startHold();
+            }}
+            onKeyUp={event => {
+                if (event.key === ' ') cancelHold();
+            }}
+            onBlur={cancelHold}
+            onClick={event => {
+                if (held.current) {
+                    held.current = false;
+                    event.preventDefault();
+                    return;
+                }
+                nextPhase();
+            }}
+            className={`relative flex flex-col items-center justify-center overflow-hidden bg-yellow-600 px-4 py-2 font-orbitron font-bold uppercase text-white shadow-lg hover:bg-yellow-500 ${disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''}`}
+            aria-label="Next phase. Hold to skip to End Phase."
+        >
+            {holding && <span className="absolute inset-x-0 bottom-0 h-1 origin-left animate-[hold-fill_650ms_linear_forwards] bg-white" />}
+            <span className="whitespace-nowrap text-xl leading-none tracking-tighter">Next phase</span>
+            <span className="font-orbitron text-[10px] font-bold italic tracking-widest opacity-90">({phase})</span>
+        </button>
+    );
+};
 
 export const GameOverlays: React.FC<{
     gameState: GameState;
@@ -82,9 +148,7 @@ export const GameOverlays: React.FC<{
                 <div className="flex items-center justify-end space-x-2"><span className="font-orbitron text-[10px] uppercase tracking-widest text-slate-400">Turn</span><span className="font-orbitron text-xl font-bold leading-none text-white">{gameState.turnNumber}</span></div>
                 <div className="mt-1 font-orbitron text-[10px] font-bold uppercase tracking-widest text-yellow-500">{gameState.players[gameState.activePlayerIndex].name}'s turn</div>
             </div>
-            <button disabled={actionsDisabled || state.targetSelectMode !== null} onClick={actions.nextPhase} className={`flex flex-col items-center justify-center overflow-hidden bg-yellow-600 px-4 py-2 font-orbitron font-bold uppercase text-white shadow-lg hover:bg-yellow-500 ${actionsDisabled || state.targetSelectMode !== null ? 'cursor-not-allowed opacity-50 grayscale' : ''}`}>
-                <span className="whitespace-nowrap text-xl leading-none tracking-tighter">Next phase</span><span className="font-orbitron text-[10px] font-bold italic tracking-widest opacity-90">({gameState.currentPhase})</span>
-            </button>
+            <PhaseAdvanceButton disabled={actionsDisabled || state.targetSelectMode !== null} phase={gameState.currentPhase} nextPhase={actions.nextPhase} skipToEndPhase={actions.skipToEndPhase} />
             {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && state.responseFieldMode === 'activate' && !state.pendingEffectCard && !state.triggeredEffect && (
                 <div className="w-44 border border-white/10 bg-black/80 p-2 text-right shadow-lg backdrop-blur-md" role="status" aria-label="Response field controls">
                     <div aria-label="Response field message" className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-500">

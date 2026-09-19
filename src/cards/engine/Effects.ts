@@ -4,6 +4,16 @@ import { CardFilter, Position, TargetSelectScope } from '../../types';
 import { getEffectTarget } from './Targets';
 
 export const Effect = {
+    /** Attach to a field card by identity; supports Pawn, Action and Condition targets. */
+    AttachToTarget: (targetIndex = 0): EffectStep => (state, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        const source = state.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
+        const destination = target && state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
+        if (!context.card.isAttached || !destination || source === destination) return { halt: true };
+        // AI previews legal hand plays before a field slot is chosen.
+        if (!source) return context.execution !== 'resolve' && state.players[context.playerIndex].hand.some(c => c.instanceId === context.card.instanceId) ? undefined : { halt: true };
+        source.attachedToInstanceId = destination.card.instanceId;
+    },
     /** Changes every Pawn in a player scope to the requested position. */
     ChangeAllPawnPositions: (scope: TargetSelectScope, newPosition: Position): EffectStep => (draftState, context) => {
         draftState.players.forEach((player, playerIndex) => {

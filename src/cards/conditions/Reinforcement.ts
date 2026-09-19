@@ -8,6 +8,7 @@ const effect: IEffect = {
     onActivate: buildEffect([
         Require.Target('pawn'),
         Require.TargetMatchesPosition(Position.HIDDEN, true),
+        Effect.AttachToTarget(),
         Effect.ModifyTargetStats(20, 0)
     ]),
     canActivate: buildCondition([
@@ -19,9 +20,9 @@ cardRegistry.register({
     id: 'condition_01',
     name: 'Reinforcement',
     type: CardType.CONDITION,
-    isLingering: true,
+    isAttached: true,
     level: 0,
     atk: 0,
     def: 0,
-    effectText: 'Target Pawn gains +20 ATK.',
+    effectText: 'Target 1 Pawn on the field; it gains +20 ATK.',
 }, effect);

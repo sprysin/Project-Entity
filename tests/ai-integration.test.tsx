@@ -1,3 +1,4 @@
+import './fixtures/attachedCondition';
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -46,7 +47,7 @@ it('pauses an AI attack for an eligible human response, displays its count, then
     setup(s => {
         s.currentPhase = Phase.BATTLE;
         s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
-        s.players[0].actionZones[0] = zone(card('condition_01'), Position.HIDDEN);
+        s.players[0].actionZones[0] = zone(card('test_attached_condition'), Position.HIDDEN);
     });
     tick();
     expect(game.gameState!.response?.priority).toBe(0);
@@ -71,7 +72,7 @@ it('pauses an AI attack for an eligible human response, displays its count, then
 });
 
 it('lets the human choose a response target during the AI turn without paying or resolving early', () => {
-    const reinforcement = card('condition_01');
+    const reinforcement = card('test_attached_condition');
     setup(s => {
         s.currentPhase = Phase.BATTLE;
         s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
@@ -96,4 +97,19 @@ it('ends an AI game on lethal effect damage without continuing its turn', () => 
     const state = game.gameState;
     for (let i = 0; i < 4; i++) tick();
     expect(game.gameState).toBe(state);
+});
+
+it('holds the Next Phase button to skip to End without also advancing on release', () => {
+    setup(s => { s.activePlayerIndex = 0; s.currentPhase = Phase.MAIN1; });
+    const button = root.root.findByProps({ 'aria-label': 'Next phase. Hold to skip to End Phase.' });
+    act(() => {
+        button.props.onPointerDown({ button: 0 });
+        vi.advanceTimersByTime(650);
+    });
+    expect(game.gameState!.currentPhase).toBe(Phase.END);
+    act(() => {
+        button.props.onPointerUp();
+        button.props.onClick({ preventDefault: vi.fn() });
+    });
+    expect(game.gameState!.currentPhase).toBe(Phase.END);
 });

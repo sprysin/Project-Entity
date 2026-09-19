@@ -1,3 +1,4 @@
+import './fixtures/attachedCondition';
 import { describe, expect, it } from 'vitest';
 import '../src/cards/pawns';
 import '../src/cards/actions';
@@ -28,7 +29,7 @@ describe('response windows and chains', () => {
         const s = game();
         s.players[1].pawnZones[0] = zone(card('pawn_05', 1));
         s.players[1].hand = [card('action_01', 1)];
-        s.players[1].actionZones[0] = zone(card('condition_01', 1), Position.HIDDEN, s.turnNumber);
+        s.players[1].actionZones[0] = zone(card('test_attached_condition', 1), Position.HIDDEN, s.turnNumber);
         expect(fieldActivations(s, 1, true)).toHaveLength(0);
         expect(openResponse(s, { kind: 'phase' }, 'Leave Main').response?.ready).toBe(true);
     });
@@ -53,7 +54,7 @@ describe('response windows and chains', () => {
     });
 
     it('lets a controller respond during the other player’s turn and resolves LIFO', () => {
-        const s = game(), blast = card('action_01'), draw = card('condition_03', 1), reinforcement = card('condition_01');
+        const s = game(), blast = card('action_01'), draw = card('condition_03', 1), reinforcement = card('test_attached_condition');
         s.players[0].actionZones[0] = zone(blast);
         s.players[0].actionZones[1] = zone(reinforcement, Position.HIDDEN);
         s.players[1].actionZones[0] = zone(draw, Position.HIDDEN);
@@ -78,8 +79,8 @@ describe('response windows and chains', () => {
         expect(next.chain).toHaveLength(0);
     });
 
-    it('does not let the AI reactivate a lingering Condition after its flip activation resolves', () => {
-        const s = game(), reinforcement = card('condition_01', 1), pawn = card('pawn_08', 1);
+    it('does not let the AI reactivate an Attach Condition after its flip activation resolves', () => {
+        const s = game(), reinforcement = card('test_attached_condition', 1), pawn = card('pawn_08', 1);
         s.activePlayerIndex = 1;
         s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
         s.players[1].pawnZones[0] = zone(pawn);
@@ -123,7 +124,7 @@ describe('response windows and chains', () => {
         cardRegistry.register({ id: 'test-quick', name: 'Quick Pawn', type: CardType.PAWN, level: 1, atk: 10, def: 20, effectText: 'Quick: discard 1; gain 20 LP.' }, {
             timing: 'quick', onActivate: buildEffect([Cost.DiscardCardFilter(), Effect.RestoreLP((_s, c) => c.playerIndex, 20)])
         });
-        const s = game(), quick = card('test-quick', 1), reply = card('condition_01');
+        const s = game(), quick = card('test-quick', 1), reply = card('test_attached_condition');
         s.players[1].pawnZones[0] = zone(quick);
         s.players[1].hand = [card('action_01', 1)];
         s.players[0].actionZones[0] = zone(reply, Position.HIDDEN);
@@ -140,7 +141,7 @@ describe('response windows and chains', () => {
         const s = game(), king = card('pawn_02'), target = card('pawn_05', 1);
         s.players[0].pawnZones[0] = zone(king);
         s.players[1].pawnZones[0] = zone(target);
-        s.players[1].actionZones[0] = zone(card('condition_01', 1), Position.HIDDEN);
+        s.players[1].actionZones[0] = zone(card('test_attached_condition', 1), Position.HIDDEN);
         let next = addChainLink(s, { card: king, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'summon');
         const replacement = card('pawn_08', 1);
         next.players[1].pawnZones[0] = zone(replacement);
@@ -150,7 +151,7 @@ describe('response windows and chains', () => {
     });
 
     it('a set card flipped in response no longer satisfies an earlier hidden-only target', () => {
-        const s = game(), call = card('condition_02'), reinforcement = card('condition_01', 1);
+        const s = game(), call = card('condition_02'), reinforcement = card('test_attached_condition', 1);
         s.players[0].actionZones[0] = zone(call, Position.HIDDEN);
         s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
         s.players[1].pawnZones[0] = zone(card('pawn_08', 1));

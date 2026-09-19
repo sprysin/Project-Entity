@@ -1,9 +1,11 @@
 import { Card, CardType, GameState } from '../types';
+import { destroyOrphanedAttachments } from './attachments';
 
 /** Complete an activation atomically; locate the source by identity, never by an old slot. */
 export function finishEffect(state: GameState, card: Card, log?: string): GameState {
     const next: GameState = structuredClone(state);
-    if (card.type !== CardType.PAWN && !card.isLingering) {
+    const attached = next.players.some(p => p.actionZones.some(z => z?.card.instanceId === card.instanceId && z.attachedToInstanceId));
+    if (card.type !== CardType.PAWN && !card.isLingering && !(card.isAttached && attached)) {
         for (const player of next.players) {
             const index = player.actionZones.findIndex(z => z?.card.instanceId === card.instanceId);
             if (index !== -1) {
@@ -17,6 +19,7 @@ export function finishEffect(state: GameState, card: Card, log?: string): GameSt
 }
 
 export function checkVictory(state: GameState): GameState {
+    destroyOrphanedAttachments(state);
     if (state.winner) return state;
     const active = state.activePlayerIndex;
     const opponent = (active + 1) % 2;

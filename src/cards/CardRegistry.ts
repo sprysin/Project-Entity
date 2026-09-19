@@ -1,4 +1,4 @@
-import { IEffect, Card } from '../types';
+import { IEffect, Card, CardType } from '../types';
 
 export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId'>;
 
@@ -56,3 +56,20 @@ class CardRegistry {
 }
 
 export const cardRegistry = CardRegistry.getInstance();
+
+
+
+type Metadata = Pick<Card, 'type' | 'isAttached' | 'isLingering' | 'name' | 'effectText' | 'attribute' | 'pawnType'>;
+type CardSubtype = 'Normal' | 'Lingering' | 'Attach';
+
+export function cardSubtype(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering'>): CardSubtype | null {
+    return card.type === CardType.PAWN ? null : card.isAttached ? 'Attach' : card.isLingering ? 'Lingering' : 'Normal';
+}
+
+export function cardTypeLabel(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering'>): string {
+    return card.type === CardType.PAWN ? 'Pawn' : `${cardSubtype(card)} ${card.type === CardType.ACTION ? 'Action' : 'Condition'}`;
+}
+
+export function matchesCardCatalog(card: Metadata, query: string): boolean {
+    return `${card.name} ${card.effectText} ${cardTypeLabel(card)} ${card.attribute ?? ''} ${card.pawnType ?? ''}`.toLowerCase().includes(query.trim().toLowerCase());
+}

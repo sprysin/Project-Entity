@@ -19,7 +19,7 @@ const topics: Topic[] = [
     id: 'basics', title: 'The essentials', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
       'Start with 800 Life Points (LP). Reduce your opponent’s LP to 0 or below to win, through combat or card effects.',
       'A deck contains 40–60 cards, with no more than 3 copies of any one card.',
-      'The three card types are Pawns, Actions and Conditions. Actions and Conditions can also be Lingering cards.',
+      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes.',
     ]
   },
   {
@@ -112,6 +112,7 @@ const topics: Topic[] = [
         ['Activation timing', 'Your own Main 1 or Main 2 only.', 'Any phase of either player’s turn, once eligible.'],
         ['After resolution', 'Normal Actions go to the Discard Pile.', 'Normal Conditions go to the Discard Pile.'],
         ['Lingering subtype', 'Stays face-up in its zone.', 'Stays face-up in its zone.'],
+        ['Attach subtype', 'Stays face-up attached to a field card. Hover to see its target.', 'Stays face-up attached to a field card. Hover to see its target.'],
       ]
     }, rules: [
       'Use an empty Action/Condition zone to play or set a card.',
@@ -126,6 +127,14 @@ const topics: Topic[] = [
       'Remaining face-up does not automatically repeat the original activation effect.',
       'Manual effects follow the card type’s timing: Actions in your own Main Phases; Conditions in any phase of either turn. Apply any further restrictions on the card.',
       'Effects maintained by a Lingering card normally end when it leaves the field. Explicit card text may provide exceptions.',
+    ]
+  },
+  {
+    id: 'attach', title: 'Attach cards', subtitle: 'Link an effect to a card on the field', icon: 'fa-link', rules: [
+      'Attach Actions and Attach Conditions stay face-up in their Action/Condition zone after successfully attaching to a field card.',
+      'The card text specifies eligible targets: usually a Pawn, but some cards can attach to an Action or Condition.',
+      "When an Attach card's target leaves the field, destroy the Attach card.",
+      'Attaching does not repeat the original activation. If the chosen target becomes invalid before resolution, the attachment fails and the source is discarded.',
     ]
   },
   {
@@ -174,7 +183,7 @@ const pawnInfoTabs = ['Pawn card', 'Types', 'Attributes', 'Changing position'];
 const examples = [
   { id: 'pawn_01', label: 'Pawn', color: '#f5bd48', description: 'Your fighters on the field. Each has a level, ATK, DEF and its own effects.' },
   { id: 'action_01', label: 'Action', color: '#48e0ad', description: 'Play during your Main Phases. Normal Actions go to the Discard Pile after resolving.' },
-  { id: 'condition_01', label: 'Condition', color: '#f181ce', description: 'Set first. From the next turn onward, activate during either player’s turn when eligible.' },
+  { id: 'condition_03', label: 'Condition', color: '#f181ce', description: 'Set first. From the next turn onward, activate during either player’s turn when eligible.' },
 ];
 
 function ExampleCard({ index, decorative = false }: { index: number; decorative?: boolean }) {
@@ -204,7 +213,7 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
   const open = (index: number) => {
     setSelected(index); setPage(0);
-    setExample(topics[index].id === 'lingering' ? 2 : topics[index].id === 'actions' ? 1 : 0);
+    setExample(topics[index].id === 'actions' ? 1 : 0);
     resetPosition();
   };
   const turnPage = (direction: number) => {
@@ -282,7 +291,6 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <div className="rulebook-example-tabs" role="group" aria-label="Choose a card type">{examples.map((item, index) => <button key={item.id} aria-pressed={example === index} onClick={() => setExample(index)} style={{ '--example-color': item.color } as React.CSSProperties}>{item.label}</button>)}</div>
               <div key={example} className="rulebook-example-stage" style={{ '--example-color': examples[example].color } as React.CSSProperties}><ExampleCard index={example} /></div>
               <p>{examples[example].description}</p>
-              {example === 2 && <small>Reinforcement is a Lingering Condition, so it stays face-up after activation.</small>}
             </aside>
           </div>
           <nav className="rulebook-chapter-dots" aria-label="Jump to chapter">{topics.map((item, index) => <button key={item.id} aria-label={item.title} aria-current={selected === index ? 'page' : undefined} title={item.title} onClick={() => open(index)}>{String(index + 1).padStart(2, '0')}</button>)}</nav>

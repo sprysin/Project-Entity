@@ -1,6 +1,7 @@
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
+import { destroyOrphanedAttachments } from './attachments';
 
 export type AIDecision =
     | { kind: 'summon'; card: Card; hidden: boolean; tributes: number[] }
@@ -85,7 +86,7 @@ export function simulateSummon(state: GameState, card: Card, hidden: boolean, tr
     p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
     if (!required) { if (hidden) p.hiddenSummonUsed = true; else p.normalSummonUsed = true; }
     next.log = [hidden ? `${p.name} set a Pawn.` : `"${card.name}" ${required ? 'tribute summoned' : 'summoned'}.`, ...next.log].slice(0, 50);
-    return next;
+    return destroyOrphanedAttachments(next);
 }
 
 export function simulateAttack(state: GameState, index: number, target: number | 'direct'): GameState {
@@ -107,7 +108,7 @@ export function simulateAttack(state: GameState, index: number, target: number |
             else { p.lp += difference; p.discard.push(attacker.card); p.pawnZones[index] = null; }
         } else if (difference < 0) p.lp += difference;
     }
-    return next;
+    return destroyOrphanedAttachments(next);
 }
 
 function attackChoices(state: GameState): Extract<AIDecision, { kind: 'attack' }>[] {

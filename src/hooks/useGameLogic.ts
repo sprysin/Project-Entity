@@ -29,6 +29,95 @@ const loadActivationPopupPreference = () => {
     }
 };
 
+/** Applies one complete phase transition, including phase-entry maintenance. */
+const advancePhaseState = (prev: GameState): GameState => {
+    let nextPhase = prev.currentPhase;
+    let activeIndex = prev.activePlayerIndex;
+    let turnNumber = prev.turnNumber;
+
+    if (prev.turnNumber === 1 && prev.currentPhase === Phase.MAIN1) {
+        nextPhase = Phase.END;
+    } else {
+        switch (prev.currentPhase) {
+            case Phase.DRAW: nextPhase = Phase.STANDBY; break;
+            case Phase.STANDBY: nextPhase = Phase.MAIN1; break;
+            case Phase.MAIN1: nextPhase = Phase.BATTLE; break;
+            case Phase.BATTLE: nextPhase = Phase.MAIN2; break;
+            case Phase.MAIN2: nextPhase = Phase.END; break;
+            case Phase.END:
+                nextPhase = Phase.DRAW;
+                activeIndex = (activeIndex + 1) % 2;
+                turnNumber += 1;
+                break;
+        }
+    }
+
+    let currentPendingEffects = prev.pendingEffects || [];
+    let updatedPlayers = [...prev.players];
+    let updatedLog = prev.log;
+
+    if (nextPhase === Phase.BATTLE) {
+        updatedPlayers = updatedPlayers.map(p => ({
+            ...p,
+            pawnZones: p.pawnZones.map(z => z ? {
+                ...z,
+                attacksRemaining: z.nextBattleAttacks ?? 1,
+                nextBattleAttacks: undefined,
+            } : null)
+        })) as [Player, Player];
+    }
+
+    if (nextPhase === Phase.STANDBY) {
+        let phaseState: GameState = { ...prev, players: updatedPlayers as [Player, Player], currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber };
+        const standbyPlayer = phaseState.players[activeIndex];
+        for (const card of [...standbyPlayer.discard]) {
+            if (!card.tributedByAction) continue;
+            const phaseEffect = cardRegistry.getEffect(card.id)?.onPhaseChange;
+            if (!phaseEffect) continue;
+            const context = { card, playerIndex: activeIndex };
+            const result = phaseEffect(phaseState, context);
+            if (result?.newState && !result.halted) {
+                const log = formatEffectLog(phaseState, result.newState, card, context, 'phase');
+                phaseState = { ...result.newState, log: [log, ...phaseState.log].slice(0, 50) };
+            }
+        }
+        updatedPlayers = phaseState.players;
+        updatedLog = phaseState.log;
+    }
+
+    if (nextPhase === Phase.END) {
+        const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
+        const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
+        updatedPlayers = updatedPlayers.map(p => ({
+            ...p,
+            activatedHardOncePerTurns: [],
+            pawnZones: p.pawnZones.map(z => {
+                if (!z) return null;
+                let newZ = { ...z };
+                if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
+                const atkEffect = effectsToResolve.find(e => e.type === 'RESET_ATK' && e.targetInstanceId === z.card.instanceId);
+                if (atkEffect) newZ = { ...newZ, card: { ...newZ.card, atk: atkEffect.value } };
+                const defEffect = effectsToResolve.find(e => e.type === 'RESET_DEF' && e.targetInstanceId === z.card.instanceId);
+                if (defEffect) newZ = { ...newZ, card: { ...newZ.card, def: defEffect.value } };
+                return newZ;
+            }),
+            actionZones: p.actionZones.map(z => {
+                if (!z) return null;
+                const newZ = { ...z };
+                if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
+                return newZ;
+            })
+        })) as [Player, Player];
+        currentPendingEffects = remainingEffects;
+    }
+
+    if (nextPhase === Phase.DRAW && turnNumber !== prev.turnNumber) {
+        updatedLog = [`Turn ${turnNumber}`, ...updatedLog].slice(0, 50);
+    }
+
+    return { ...prev, currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber, players: updatedPlayers as [Player, Player], pendingEffects: currentPendingEffects, log: updatedLog };
+};
+
 export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null], opponentMode: OpponentMode = 'self') => {
     // Core Game State
     const [gameState, setGameState] = useState<GameState | null>(null);
@@ -154,109 +243,17 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     /** Advances the game to the next phase. */
     const advancePhase = useCallback(() => {
         if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
+        setGameState(prev => !prev || prev.winner ? prev : advancePhaseState(prev));
+    }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
+
+    /** Advances through every remaining phase while preserving each phase's maintenance. */
+    const advanceToEndPhase = useCallback(() => {
+        if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
         setGameState(prev => {
-            if (!prev || prev.winner) return prev;
-            let nextPhase = prev.currentPhase;
-            let activeIndex = prev.activePlayerIndex;
-            let turnNumber = prev.turnNumber;
-
-            if (prev.turnNumber === 1 && prev.currentPhase === Phase.MAIN1) {
-                nextPhase = Phase.END;
-            } else {
-                switch (prev.currentPhase) {
-                    case Phase.DRAW: nextPhase = Phase.STANDBY; break;
-                    case Phase.STANDBY: nextPhase = Phase.MAIN1; break;
-                    case Phase.MAIN1: nextPhase = Phase.BATTLE; break;
-                    case Phase.BATTLE: nextPhase = Phase.MAIN2; break;
-                    case Phase.MAIN2: nextPhase = Phase.END; break;
-                    case Phase.END:
-                        nextPhase = Phase.DRAW;
-                        activeIndex = (activeIndex + 1) % 2;
-                        turnNumber += 1;
-                        break;
-                }
-            }
-
-            // Handle End Phase pending effects (e.g. ATK resets)
-            let currentPendingEffects = prev.pendingEffects || [];
-            let updatedPlayers = [...prev.players];
-            let updatedLog = prev.log;
-
-            if (nextPhase === Phase.BATTLE) {
-                updatedPlayers = updatedPlayers.map(p => ({
-                    ...p,
-                    pawnZones: p.pawnZones.map(z => z ? {
-                        ...z,
-                        attacksRemaining: z.nextBattleAttacks ?? 1,
-                        nextBattleAttacks: undefined,
-                    } : null)
-                })) as [Player, Player];
-            }
-
-            if (nextPhase === Phase.STANDBY) {
-                let phaseState = { ...prev, players: updatedPlayers as [Player, Player], currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber };
-                const standbyPlayer = phaseState.players[activeIndex];
-                for (const card of [...standbyPlayer.discard]) {
-                    if (!card.tributedByAction) continue;
-                    const phaseEffect = cardRegistry.getEffect(card.id)?.onPhaseChange;
-                    if (!phaseEffect) continue;
-                    const context = { card, playerIndex: activeIndex };
-                    const result = phaseEffect(phaseState, context);
-                    if (result?.newState && !result.halted) {
-                        const log = formatEffectLog(phaseState, result.newState, card, context, 'phase');
-                        phaseState = { ...result.newState, log: [log, ...phaseState.log].slice(0, 50) };
-                    }
-                }
-                updatedPlayers = phaseState.players;
-                updatedLog = phaseState.log;
-            }
-
-            if (nextPhase === Phase.END) {
-                const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
-                const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
-                if (effectsToResolve.length > 0) {
-                    updatedPlayers = updatedPlayers.map(p => ({
-                        ...p,
-                        activatedHardOncePerTurns: [],
-                        pawnZones: p.pawnZones.map(z => {
-                            if (!z) return null;
-                            let newZ = { ...z };
-                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
-                            const atkEffect = effectsToResolve.find(e => e.type === 'RESET_ATK' && e.targetInstanceId === z.card.instanceId);
-                            if (atkEffect) newZ = { ...newZ, card: { ...newZ.card, atk: atkEffect.value } };
-                            const defEffect = effectsToResolve.find(e => e.type === 'RESET_DEF' && e.targetInstanceId === z.card.instanceId);
-                            if (defEffect) newZ = { ...newZ, card: { ...newZ.card, def: defEffect.value } };
-                            return newZ;
-                        }),
-                        actionZones: p.actionZones.map(z => {
-                            if (!z) return null;
-                            let newZ = { ...z };
-                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
-                            return newZ;
-                        })
-                    })) as [Player, Player];
-                    currentPendingEffects = remainingEffects;
-                } else {
-                    updatedPlayers = updatedPlayers.map(p => ({
-                        ...p,
-                        activatedHardOncePerTurns: [],
-                        pawnZones: p.pawnZones.map(z => {
-                            if (!z) return null;
-                            let newZ = { ...z };
-                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
-                            return newZ;
-                        }),
-                        actionZones: p.actionZones.map(z => {
-                            if (!z) return null;
-                            let newZ = { ...z };
-                            if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
-                            return newZ;
-                        })
-                    })) as [Player, Player];
-                }
-            }
-
-            return { ...prev, currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber, players: updatedPlayers as [Player, Player], pendingEffects: currentPendingEffects, log: updatedLog };
+            if (!prev || prev.winner || prev.currentPhase === Phase.END) return prev;
+            let next = prev;
+            for (let guard = 0; guard < 6 && next.currentPhase !== Phase.END && !next.winner; guard += 1) next = advancePhaseState(next);
+            return next;
         });
     }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
 
@@ -275,7 +272,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         setGameState({
             players: [mkPlayer('player1', 'Player 1', p1Deck), mkPlayer('player2', opponentMode === 'ai' ? 'AI' : 'Player 2', p2Deck)],
             activePlayerIndex: 0, currentPhase: Phase.DRAW, turnNumber: 1,
-            log: [`Duel initialized. Player 1: ${initialDecks[0]?.name ?? 'Random test deck'}; Player 2: ${initialDecks[1]?.name ?? 'Random test deck'}.`],
+            log: [`Turn 1`, `Duel initialized. Player 1: ${initialDecks[0]?.name ?? 'Random test deck'}; Player 2: ${initialDecks[1]?.name ?? 'Random test deck'}.`],
             winner: null, pendingEffects: []
         });
     }, []);
@@ -286,9 +283,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
         setGameState(prev => prev ? openResponse(prev, { kind: 'phase' }, `Leave ${prev.currentPhase}`) : prev);
     }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
+    const skipToEndPhase = useCallback(() => {
+        if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
+        setGameState(prev => prev && prev.currentPhase !== Phase.END ? openResponse(prev, { kind: 'end' }, `Skip from ${prev.currentPhase} to END`) : prev);
+    }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
     const phaseRequestRef = useRef(nextPhase);
     phaseRequestRef.current = nextPhase;
     const stablePhaseRequest = useCallback(() => phaseRequestRef.current(), []);
+    const endPhaseRef = useRef(advanceToEndPhase);
+    endPhaseRef.current = advanceToEndPhase;
     const requestAttack = (attackerIndex: number, targetIndex: number | 'direct') => {
         if (!gameState || pendingEffectCard || triggeredEffect || gameState.response) return;
         const attacker = gameState.players[gameState.activePlayerIndex].pawnZones[attackerIndex];
@@ -310,6 +313,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         deferredRef.current = undefined;
         if (gameState.winner) return;
         if (action.kind === 'phase') phaseRef.current();
+        else if (action.kind === 'end') endPhaseRef.current();
         else {
             const attacker = gameState.players[gameState.activePlayerIndex].pawnZones.findIndex(z => z?.card.instanceId === action.attackerId);
             const target = action.targetId === 'direct' ? 'direct' : gameState.players[1 - gameState.activePlayerIndex].pawnZones.findIndex(z => z?.card.instanceId === action.targetId);
@@ -369,7 +373,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setTriggeredEffect, setPendingEffectCard,
             setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen, setActivationPopupsEnabled,
             setRef: animations.setRef,
-            nextPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
+            nextPhase, skipToEndPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
             handleDiscardSelection, handleHandSelection, handleDeckSelection,
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
                 cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),

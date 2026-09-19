@@ -60,6 +60,8 @@ export interface Card {
   attribute?: Attribute;
   pawnType?: PawnType;
   isLingering?: boolean;
+  /** Attach subtype for Actions/Conditions; mutually exclusive with isLingering. */
+  isAttached?: boolean;
   atk: number;
   def: number;
   effectText: string;
@@ -68,6 +70,7 @@ export interface Card {
 }
 
 export interface PlacedCard {
+  attachedToInstanceId?: string;
   card: Card;
   position: Position;
   hasAttacked: boolean;
@@ -105,7 +108,7 @@ export interface PendingEffect {
 export interface GameState {
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
   chain?: ChainLink[];
-  deferredAction?: { kind: 'phase' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };
+  deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };
   players: [Player, Player];
   activePlayerIndex: number;
   currentPhase: Phase;

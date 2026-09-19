@@ -100,6 +100,7 @@ All stats are passed to `cardRegistry.register()` as the first argument.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `isAttached` | `boolean` | Declares the Attach subtype; use `Effect.AttachToTarget()` to keep the source on the field linked to a target after successful resolution |
 | `isLingering` | `boolean` | If `true`, the card stays on the field after activation instead of going to discard |
 
 ### Summoning Rules by Level
@@ -120,7 +121,7 @@ The `IEffect` interface has **5 possible hooks**. Use only the ones your card ne
 const effect: IEffect = {
     onSummon?:        // When a Pawn is Normal Summoned or Set
     onActivate?:      // When played from hand (Actions, Conditions, Pawn ignition)
-    onFieldActivate?: // When a Lingering Action/Condition is activated while ALREADY face-up on the field
+    onFieldActivate?: // When a Lingering Action is activated while ALREADY face-up on the field
     onPhaseChange?:   // Triggered during phase transitions (e.g. End Phase maintenance)
     canActivate?:     // Static check — return false to block activation entirely
 };
@@ -133,8 +134,9 @@ const effect: IEffect = {
 | Pawn enters the field | `onSummon` |
 | Pawn has an ignition effect (player presses ACTIVATE) | `onActivate` |
 | Normal Action played from hand (use and discard) | `onActivate` |
+| Attach Action played from hand or flipped from set; Attach Condition flipped from set | `onActivate` with `Effect.AttachToTarget()` |
 | Condition flipped face-up | `onActivate` |
-| Lingering Action/Condition activated while sitting face-up | `onFieldActivate` |
+| Lingering Action activated while sitting face-up | `onFieldActivate` |
 | End-of-turn cleanup or stat resets | `onPhaseChange` |
 | Card has activation restrictions | `canActivate` |
 
@@ -232,6 +234,7 @@ import './MyNewPawn';  // Just a side-effect import — triggers registration
 |----------|-------------|
 | `Effect.ChangeTargetPosition(pos, targetIndex?)` | Switch a selected target between ATK/DEF/HIDDEN |
 | `Effect.ModifyTargetStats(atk, def, targetIndex?)` | Add/subtract ATK and/or DEF from a selected target |
+| `Effect.AttachToTarget(targetIndex?)` | Link an Attach Action/Condition to the selected field card by instance ID; place after target requirements |
 | `Effect.ChangeSelfPosition(pos)` | Change the activating pawn's position |
 | `Effect.ModifySelfStats(atk, def)` | Modify the activating pawn's own stats |
 | `Effect.DrawCards(amount)` | Draw cards (amount can be Dynamic) |
@@ -359,18 +362,19 @@ const effect: IEffect = {
 cardRegistry.register({ id: 'pawn_03', name: 'Force Fire Sparker', type: CardType.PAWN, level: 2, attribute: Attribute.FIRE, pawnType: PawnType.DEMON, atk: 30, def: 150, effectText: '...' }, effect);
 ```
 
-### Lingering Condition (Targets a Pawn)
+### Attach Condition (Targets a Pawn)
 ```typescript
 // src/cards/conditions/Reinforcement.ts
 const effect: IEffect = {
     onActivate: buildEffect([
         Require.Target('pawn'),
         Require.TargetMatchesPosition(Position.HIDDEN, true),
+        Effect.AttachToTarget(),
         Effect.ModifyTargetStats(20, 0)
     ]),
     canActivate: buildCondition([Condition.PawnMatchesFilter('both', (z) => z.position !== Position.HIDDEN)])
 };
-cardRegistry.register({ id: 'condition_01', name: 'Reinforcement', type: CardType.CONDITION, isLingering: true, level: 0, atk: 0, def: 0, effectText: '...' }, effect);
+cardRegistry.register({ id: 'condition_01', name: 'Reinforcement', type: CardType.CONDITION, isAttached: true, level: 0, atk: 0, def: 0, effectText: '...' }, effect);
 ```
 
 ### Lingering Action (Manual Field Activation + Deck Search)
@@ -409,3 +413,13 @@ const effect: IEffect = {
 };
 cardRegistry.register({ id: 'action_04', name: 'Mechanical Maintenance', type: CardType.ACTION, level: 0, atk: 0, def: 0, effectText: '...' }, effect);
 ```
+
+
+### Attach Actions and Attach Conditions
+Set `isAttached: true` on an Action or Condition and use `Effect.AttachToTarget()` after target requirements in its `onActivate` builder. Use `Require.Target('pawn')`, `Require.Target('action')` (Actions and Conditions), or `Require.Target('any')` to restrict eligible cards. `AttachToTarget(index)` also supports an indexed target.
+
+Successful attachments stay face-up and store the target instance ID on the placed card. Hovering the source shows yellow outlines, a connecting line, and hollow beads traveling to its target. Missing targets are not visualized, and failed activations are discarded. Attach cards keep their base Action or Condition timing. Reinforcement retains its existing permanent +20 ATK effect; attachment tracking does not itself reverse stat changes or discard a source when its target leaves the field.
+
+Use only one subtype flag: neither flag means Normal, `isLingering: true` means Lingering, and `isAttached: true` means Attach. Pawns do not use these subtypes. The internal `isAttached` and `attachedToInstanceId` names describe attachment state; the displayed subtype is **Attach**. Use `cardSubtype`, `cardTypeLabel`, and `matchesCardCatalog` from `src/cards/CardRegistry.ts` for labels and catalog search rather than duplicating subtype logic. Both the deck editor and database support subtype searches such as “Attach Action” or “Attach Condition”.
+
+Reinforcement retains the stable ID `condition_01` and remains a Condition, so existing saved decks need no migration.

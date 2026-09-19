@@ -30,6 +30,7 @@ body {
 .phase-slide { animation: phase-slide-left .7s cubic-bezier(.65, 0, .35, 1) forwards; }
 @keyframes phase-slide-left { 0% { transform: translateX(100%); opacity: 0; } 20%, 80% { opacity: 1; } 40%, 60% { transform: translateX(0); } 100% { transform: translateX(-100%); opacity: 0; } }
 .turn-slide { animation: turn-slide-in 1.5s cubic-bezier(.22, 1, .36, 1) forwards; }
+@keyframes hold-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes turn-slide-in { 0% { transform: scale(.8); opacity: 0; letter-spacing: 1em; } 20%, 80% { transform: scale(1); opacity: 1; letter-spacing: .2em; } 100% { transform: scale(1.2); opacity: 0; letter-spacing: 0; } }
 .response-sheet-enter { animation: response-sheet-enter .35s cubic-bezier(.22, 1, .36, 1) both; }
 .response-sheet { transform: translateY(0); transition: transform .35s cubic-bezier(.22, 1, .36, 1); }
@@ -196,4 +197,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .retro-hash, .retro-hash-light, .glow-activatable, .zone-drop-target, .animate-spin-slow, .response-sheet-enter { animation: none; }
   .response-sheet { transition: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .attachment-bead { display: none; }
 }

@@ -5,6 +5,7 @@ import { checkActivationConditions, hasOnActivateEffect } from '../hooks/cardHel
 import { CardDetail } from './game/CardDetail';
 import { Pile, DeckPile } from './game/Pile';
 import { Zone } from './game/Zone';
+import { AttachmentOverlay } from './game/AttachmentOverlay';
 import { PileViewModal, DeckViewModal } from './game/GameModals';
 import { ContextMenu, ContextMenuButton } from './game/ContextMenu';
 import { GameOverlays } from './game/GameOverlays';
@@ -87,6 +88,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   return (
     <div className={`flex-1 flex flex-col relative overflow-hidden font-roboto select-none transition-colors duration-1000 ${isLightTheme ? 'bg-slate-200 text-slate-900 retro-hash-light' : 'bg-[#050505] text-slate-100 retro-hash'}`}>
       {/* HUD: Exit Control */}
+      <AttachmentOverlay />
       <div className="absolute top-4 left-4 z-40 flex flex-col space-y-2">
         <button onClick={onQuit} className="px-4 py-2 bg-slate-900/80 border border-white/10 hover:bg-red-950/80 text-slate-400 font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest">
           <i className="fa-solid fa-power-off mr-2"></i> EXIT GAME

@@ -13,6 +13,7 @@ Inspired by "no-mana" systems, the game focuses on hand management and tempo rat
 - **No-Mana System**: The game eschews traditional mana curves for a system based on card advantage and strategic timing.
 - **Draw to 5**: Players refill their hand to 5 cards at the start of their turn.
 - **Tribute Summoning**: Powerful Pawns cannot be summoned for free; they require the sacrifice of other Pawns to summon. Basically acting like a resource system.
+- **Card subtypes**: Actions and Conditions can be Normal, Lingering or Attach. Attach Actions and Attach Conditions link to a field card; hover over an activated Attach card to see yellow outlines and beads moving toward its target. Reinforcement is the first Attach Condition. Both the deck editor and card database support subtype search.
 - **The Void**: Distinct from the standard Discard Pile, the Void is a zone for permanent removal.
 
 **Prerequisites:**  Node.js

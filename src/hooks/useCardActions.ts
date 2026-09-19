@@ -5,6 +5,7 @@ import { clonePlayers } from '../game/cloneState';
 import { useCombatActions } from './useCombatActions';
 import { fieldActivations } from '../game/chains';
 import { formatSummonLog } from '../game/effectLog';
+import { destroyOrphanedAttachments } from '../game/attachments';
 
 /**
  * Hook for card action handlers: summon, tribute, action cards, field activation, and combat.
@@ -163,7 +164,7 @@ export const useCardActions = (
             const log = pendingTributeSlot !== null && tributeSummonMode !== 'hidden'
                 ? [formatSummonLog(pendingTributeCard), ...prev.log].slice(0, 50)
                 : prev.log;
-            return { ...prev, players: players as [Player, Player], log };
+            return destroyOrphanedAttachments({ ...prev, players: players as [Player, Player], log });
         });
 
         if (pendingTributeSlot === null) {

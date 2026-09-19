@@ -1,3 +1,8 @@
+import CardDatabase from '../src/components/CardDatabase';
+import DeckCreator from '../src/components/DeckCreator';
+import { CardDetail } from '../src/components/game/CardDetail';
+import { GameSidebar } from '../src/components/game/GameSidebar';
+import './fixtures/attachedCondition';
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -50,7 +55,7 @@ it('silently rejects an action whose activation requirements are not met', () =>
 
 it('on-summon effect damage also wins', () => {
     const sparker = card('pawn_03');
-    setup(s => { s.players[0].pawnZones[0] = placed(sparker); s.players[1].lp = 10; s.players[1].actionZones[0] = { ...placed(card('condition_01', 1)), position: Position.HIDDEN }; });
+    setup(s => { s.players[0].pawnZones[0] = placed(sparker); s.players[1].lp = 10; s.players[1].actionZones[0] = { ...placed(card('test_attached_condition', 1)), position: Position.HIDDEN }; });
     act(() => game.actions.resolveEffect(sparker, undefined, undefined, undefined, undefined, 'summon'));
     expect(game.gameState!.response?.priority).toBe(1);
     act(() => game.actions.passResponse());
@@ -160,6 +165,42 @@ it('automated drawing refills to five and advances exactly one turn under Strict
     expect(game.gameState!.turnNumber).toBe(2);
 });
 
+it('skips the remaining phases to End while applying End Phase maintenance', () => {
+    const sentinel = card('pawn_01');
+    setup(s => {
+        s.currentPhase = Phase.MAIN1;
+        sentinel.atk += 100;
+        s.players[0].pawnZones[0] = placed(sentinel);
+        s.pendingEffects = [{ type: 'RESET_ATK', targetInstanceId: sentinel.instanceId, value: sentinel.atk - 100, dueTurn: s.turnNumber }];
+    });
+    act(() => game.actions.skipToEndPhase());
+    expect(game.gameState!.currentPhase).toBe(Phase.END);
+    expect(game.gameState!.players[0].pawnZones[0]!.card.atk).toBe(sentinel.atk - 100);
+    expect(game.gameState!.pendingEffects).toHaveLength(0);
+});
+
+it('adds a numbered turn divider to the system log between turns', () => {
+    setup(s => { s.currentPhase = Phase.END; s.log = ['Last action', 'Turn 2']; });
+    act(() => game.actions.nextPhase());
+    expect(game.gameState!.currentPhase).toBe(Phase.DRAW);
+    expect(game.gameState!.turnNumber).toBe(3);
+    expect(game.gameState!.log).toEqual(['Turn 3', 'Last action', 'Turn 2']);
+});
+
+it('opens a card preview from a linked card name in the system log', () => {
+    const state = { ...game.gameState!, log: ['"Void Blast" activated.', 'Turn 2'] };
+    let sidebar: ReturnType<typeof create>;
+    act(() => {
+        sidebar = create(<GameSidebar gameState={state} selectedCard={null} selectedFieldSlot={null} isOpen={true} setIsOpen={() => {}} />);
+    });
+    const link = sidebar!.root.findAllByType('button').find(button => button.children.join('') === '"Void Blast"');
+    expect(link).toBeDefined();
+    expect(sidebar!.root.findByProps({ role: 'separator' }).props['aria-label']).toBe('Turn 2');
+    act(() => link!.props.onClick());
+    expect(sidebar!.root.findByType(CardDetail).props.card.id).toBe('action_01');
+    act(() => sidebar!.unmount());
+});
+
 it('allows successive tribute summons after the normal summon has been used', () => {
     const first = card('pawn_02'); const second = card('pawn_02');
     setup(s => { s.players[0].normalSummonUsed = true; s.players[0].hand = [first, second]; s.players[0].pawnZones[0] = placed(card('pawn_01')); });
@@ -190,4 +231,24 @@ it('allows a tribute summon to free and reuse a zone on a full Pawn field', () =
     expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
     expect(game.gameState!.players[0].discard.at(-1)?.instanceId).toBe(tributeId);
     expect(game.state.targetSelectMode).toBeNull();
+});
+
+
+it('shows Reinforcement in the database and deck editor, including exact-name search', () => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.stubGlobal('localStorage', { getItem: () => null });
+    let catalog: ReturnType<typeof create>;
+    act(() => { catalog = create(<CardDatabase onBack={() => {}} />); });
+    const visible = () => catalog.root.findAllByType(CardDetail).some(face => face.props.card.id === 'condition_01' && face.props.card.isAttached);
+    expect(visible()).toBe(true);
+    act(() => catalog.root.findByType('input').props.onChange({ target: { value: 'Reinforcement' } }));
+    expect(visible()).toBe(true);
+    act(() => catalog.unmount());
+    act(() => { catalog = create(<DeckCreator onBack={() => {}} />); });
+    act(() => catalog.root.findAllByType('button').find(button => button.children.includes(' New deck'))!.props.onClick());
+    expect(visible()).toBe(true);
+    act(() => catalog.root.findByProps({ 'aria-label': 'Search cards' }).props.onChange({ target: { value: 'Reinforcement' } }));
+    expect(catalog.root.findAllByProps({ 'aria-label': 'Add Reinforcement' }).length).toBeGreaterThan(0);
+    expect(visible()).toBe(true);
+    act(() => catalog.unmount());
 });
