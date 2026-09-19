@@ -5,7 +5,7 @@ import { Effect } from '../engine/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Effect.DealDamage((state) => (state.activePlayerIndex + 1) % 2, 50)
+        Effect.DealDamage((_state, context) => (context.playerIndex + 1) % 2, 50)
     ])
 };
 

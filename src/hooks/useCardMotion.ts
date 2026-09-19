@@ -5,7 +5,7 @@ type Location = { key: string; card: Card; hidden: boolean; rotation: number; re
 export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean };
 
 /** Observe committed zone changes only. Animation never delays or mutates game state. */
-export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>) {
+export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number) {
     const previous = useRef<Map<string, Location>>(new Map());
     const waypoints = useRef(new Map<string, DOMRect>());
     const activated = useRef(new Set<string>());
@@ -31,7 +31,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             next.set(card.instanceId, { card, key, hidden, rotation, rect: el?.getBoundingClientRect() });
         };
         game.players.forEach((p, pi) => {
-            p.hand.forEach((c, i) => add(c, `${pi}-hand-${i}`, pi !== game.activePlayerIndex));
+            p.hand.forEach((c, i) => add(c, `${pi}-hand-${i}`, pi !== (viewerIndex ?? game.activePlayerIndex)));
             p.deck.forEach(c => add(c, `deck-${pi}`, true));
             p.discard.forEach(c => add(c, `discard-${pi}`));
             p.void.forEach(c => add(c, `void-${pi}`));
@@ -75,7 +75,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         activated.current.clear();
         if (!batch.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         setMotions(current => [...current, ...batch]);
-    }, [game, refs]);
+    }, [game, refs, viewerIndex]);
     return {
         motions,
         // Preserve temporary field stops that React batches away during instant effects.

@@ -1,18 +1,22 @@
-import { ConditionStep, EffectStep } from './Builder';
+import { activationCost, ConditionStep, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, PlacedCard, Position } from '../../types';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
-    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (_draftState, context) => {
+    Target: (type: 'pawn' | 'action' | 'any' = 'pawn', set: 'hidden' | 'faceup' | 'both' = 'both'): EffectStep => (draftState, context) => {
         if (!context.target) return { requireTarget: type, requireTargetPosition: set };
+        const target = context.target;
+        if (type !== 'any' && target.type !== type) return { halt: true };
+        const zone = draftState.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
+        if (!zone || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
     /** Verifies the provided target relies on a specific player scope. */
-    TargetIsPlayerScope: (scope: 'active' | 'opponent'): EffectStep => (draftState, context) => {
+    TargetIsPlayerScope: (scope: 'active' | 'opponent'): EffectStep => (_draftState, context) => {
         if (context.target) {
             const expectOpponent = scope === 'opponent';
-            const isOpponent = context.target.playerIndex !== draftState.activePlayerIndex;
+            const isOpponent = context.target.playerIndex !== context.playerIndex;
             if (isOpponent !== expectOpponent) return { halt: true };
         }
     },
@@ -32,7 +36,7 @@ export const Require = {
     },
 
     /** Generically checks if a numerical evaluation matches the required threshold, halting if it fails. */
-    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): EffectStep => (draftState, context) => {
+    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): EffectStep => activationCost((draftState, context) => {
         const val1 = resolveDynamic(valueFn, draftState, context);
         const val2 = resolveDynamic(compareTo, draftState, context);
 
@@ -44,7 +48,7 @@ export const Require = {
         else pass = val1 === val2;
 
         if (!pass) return { halt: true };
-    }
+    })
 };
 
 export const Condition = {
@@ -60,8 +64,8 @@ export const Condition = {
     },
 
     /** Checks if a specific attribute exists on any valid Pawn on the provided player scope field. */
-    PawnMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, _context) => {
-        const activeIdx = state.activePlayerIndex;
+    PawnMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, context) => {
+        const activeIdx = context.playerIndex;
         const oppIdx = (activeIdx + 1) % 2;
 
         return state.players.some((player, idx) => {
@@ -72,14 +76,14 @@ export const Condition = {
     },
 
     /** Verifies a specific item exists in a specific player's discard. */
-    DiscardMatchesFilter: (scope: 'active' | 'opponent', filter: (card: Card) => boolean): ConditionStep => (state, _context) => {
-        const pIdx = scope === 'active' ? state.activePlayerIndex : (state.activePlayerIndex + 1) % 2;
+    DiscardMatchesFilter: (scope: 'active' | 'opponent', filter: (card: Card) => boolean): ConditionStep => (state, context) => {
+        const pIdx = scope === 'active' ? context.playerIndex : (context.playerIndex + 1) % 2;
         return state.players[pIdx].discard.some(filter);
     },
 
     /** Checks if a specific Action/Condition is on the board. */
-    ActionMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, _context) => {
-        const activeIdx = state.activePlayerIndex;
+    ActionMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, context) => {
+        const activeIdx = context.playerIndex;
         const oppIdx = (activeIdx + 1) % 2;
 
         return state.players.some((player, idx) => {

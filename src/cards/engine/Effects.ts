@@ -1,4 +1,4 @@
-import { EffectStep } from './Builder';
+import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { CardFilter, Position } from '../../types';
 
@@ -98,7 +98,7 @@ export const Effect = {
             if (card) {
                 p.discard.splice(context.discardIndex, 1);
                 p.hand.push(card);
-            }
+            } else return { halt: true };
         }
     },
 
@@ -123,18 +123,18 @@ export const Effect = {
     },
 
     /** Marks the card instance as having used its effect this turn. */
-    SetSoftOncePerTurn: (): EffectStep => (draftState, context) => {
+    SetSoftOncePerTurn: (): EffectStep => activationCost((draftState, context) => {
         const p = draftState.players[context.playerIndex];
         const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z && z.card.instanceId === context.card.instanceId);
         if (selfZone) selfZone.hasActivatedEffect = true;
-    },
+    }),
 
     /** Marks the card ID as having used its effect globally for the rest of the turn. */
-    SetHardOncePerTurn: (cardId: string): EffectStep => (draftState, context) => {
+    SetHardOncePerTurn: (cardId: string): EffectStep => activationCost((draftState, context) => {
         const p = draftState.players[context.playerIndex];
         if (!p.activatedHardOncePerTurns) p.activatedHardOncePerTurns = [];
         if (!p.activatedHardOncePerTurns.includes(cardId)) p.activatedHardOncePerTurns.push(cardId);
-    },
+    }),
 
     // --- DECK SEARCHING ---
 
@@ -145,7 +145,7 @@ export const Effect = {
         } else {
             const p = draftState.players[context.playerIndex];
             const card = p.deck[context.deckIndex];
-            if (card) {
+            if (card && filter(card)) {
                 p.deck.splice(context.deckIndex, 1);
                 p.hand.push(card);
                 
@@ -154,7 +154,7 @@ export const Effect = {
                     const j = Math.floor(Math.random() * (i + 1));
                     [p.deck[i], p.deck[j]] = [p.deck[j], p.deck[i]];
                 }
-            }
+            } else return { halt: true };
         }
     }
 };

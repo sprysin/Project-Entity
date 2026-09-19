@@ -91,7 +91,7 @@ interface HandSelectionModalProps {
 
 export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, setHandSelectionReq, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel="Confirm discard" theme="red" />;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel="Confirm discard" theme="red" filter={selectionReq.filter} />;
 };
 
 export const DiscardSelectionModal: React.FC<{

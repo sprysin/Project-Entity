@@ -16,9 +16,9 @@ export const Query = {
     },
 
     /** Counts the total number of Set (Hidden) Actions and Conditions on a specific player's field. */
-    CountSetActions: (playerScope: 'active' | 'opponent' | 'both') => (state: GameState, _context: CardContext): number => {
+    CountSetActions: (playerScope: 'active' | 'opponent' | 'both') => (state: GameState, context: CardContext): number => {
         let count = 0;
-        const activeIdx = state.activePlayerIndex;
+        const activeIdx = context.playerIndex;
         const oppIdx = (activeIdx + 1) % 2;
 
         state.players.forEach((player, idx) => {
@@ -33,13 +33,13 @@ export const Query = {
     },
 
     /** Retrieves the Context Target Player Index */
-    TargetPlayerIndex: () => (state: GameState, context: CardContext): number => {
-        return context.target?.playerIndex ?? state.activePlayerIndex;
+    TargetPlayerIndex: () => (_state: GameState, context: CardContext): number => {
+        return context.target?.playerIndex ?? context.playerIndex;
     },
 
     /** Retrieves the active player's opponent index */
-    ActiveOpponent: () => (state: GameState, _context: CardContext): number => {
-        return (state.activePlayerIndex + 1) % 2;
+    ActiveOpponent: () => (_state: GameState, context: CardContext): number => {
+        return (context.playerIndex + 1) % 2;
     },
 
     /** Retrieves the Context Target Zone Index */

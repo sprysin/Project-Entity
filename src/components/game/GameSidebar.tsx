@@ -3,6 +3,7 @@ import { Card, CardTarget, GameState, Position } from '../../types';
 import { CardDetail } from './CardDetail';
 
 interface GameSidebarProps {
+    viewerIndex?: number;
     gameState: GameState;
     selectedCard: Card | null;
     selectedFieldSlot: CardTarget | null;
@@ -10,7 +11,7 @@ interface GameSidebarProps {
     setIsOpen: (open: boolean) => void;
 }
 
-export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, selectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
+export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, selectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
     const selectedZone = selectedFieldSlot
         ? gameState.players[selectedFieldSlot.playerIndex][selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][selectedFieldSlot.index]
         : null;
@@ -26,7 +27,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, selectedCar
                         <div className="flex-none p-6 pb-2">
                             {selectedZone && selectedFieldSlot ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={selectedZone.card} isSet={selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== gameState.activePlayerIndex} />
+                                    <CardDetail card={selectedZone.card} isSet={selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex} />
                                 </div>
                             ) : selectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">

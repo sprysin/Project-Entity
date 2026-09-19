@@ -1,6 +1,6 @@
 import { IEffect, CardType, PawnType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
-import { buildEffect, EffectStep } from '../engine/Builder';
+import { buildEffect, EffectStep, activationCost } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 import { Condition } from '../engine/Requirements';
 
@@ -12,7 +12,7 @@ const payHalfLp: EffectStep = (draftState, context) => {
 
 const effect: IEffect = {
     onFieldActivate: buildEffect([
-        payHalfLp,
+        activationCost(payHalfLp),
         Effect.SetSoftOncePerTurn(),
         Effect.SearchDeck((c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
     ]),

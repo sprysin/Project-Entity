@@ -5,6 +5,7 @@ import CardDatabase from './components/CardDatabase';
 import RulesView from './components/RulesView';
 import DeckCreator from './components/DeckCreator';
 import PlaytestSetup from './components/PlaytestSetup';
+import { OpponentMode } from './types';
 import { SavedDeck } from './decks';
 
 // Define the possible screens/views in the application
@@ -15,6 +16,7 @@ type View = 'HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS';
  * Handles high-level navigation between the Hub, the Game session, and the Card Gallery.
  */
 const App: React.FC = () => {
+  const [opponentMode, setOpponentMode] = useState<OpponentMode>('self');
   const [currentView, setCurrentView] = useState<View>('HUB');
   const [playtestDecks, setPlaytestDecks] = useState<[SavedDeck | null, SavedDeck | null]>([null, null]);
 
@@ -33,13 +35,13 @@ const App: React.FC = () => {
       {currentView === 'PLAYTEST_SETUP' && (
         <PlaytestSetup
           onBack={() => setCurrentView('HUB')}
-          onStart={decks => { setPlaytestDecks(decks); setCurrentView('GAME'); }}
+          onStart={(decks, mode = 'self') => { setOpponentMode(mode); setPlaytestDecks(decks); setCurrentView('GAME'); }}
         />
       )}
 
       {/* Active Battle / Game View */}
       {currentView === 'GAME' && (
-        <GameView onQuit={() => setCurrentView('HUB')} initialDecks={playtestDecks} />
+        <GameView onQuit={() => setCurrentView('HUB')} initialDecks={playtestDecks} opponentMode={opponentMode} />
       )}
 
       {/* Card Database / Gallery View */}

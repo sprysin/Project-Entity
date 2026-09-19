@@ -6,7 +6,7 @@ import {
 } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { finishEffect } from '../game/finishEffect';
-import { formatEffectLog } from '../game/effectLog';
+import { addChainLink } from '../game/chains';
 
 /**
  * Hook for resolving card effects, including target/discard/hand selection flows.
@@ -28,6 +28,7 @@ export const useEffectResolution = (
         setSelectedHandSelectionIndex: (idx: number | null) => void,
         pendingEffectCard: Card | null,
         discardSelectionReq: CardSelectionRequest | null,
+        handSelectionReq: HandSelectionRequest | null,
         setPendingTriggerType: (t: EffectTrigger | null) => void,
         pendingTriggerType: EffectTrigger | null,
         setDeckSelectionReq: (req: CardSelectionRequest | null) => void,
@@ -82,13 +83,6 @@ export const useEffectResolution = (
             tributeIndices: actualTributeIndices,
             tributeCards
         };
-
-        if (card.id === 'condition_02' && actualTarget) {
-            if (gameState?.players[actualTarget.playerIndex].actionZones[actualTarget.index]) {
-                const targetCard = gameState.players[actualTarget.playerIndex].actionZones[actualTarget.index]!.card;
-                triggerVisual(`${actualTarget.playerIndex}-action-${actualTarget.index}`, `void-${actualTarget.playerIndex}`, 'void', targetCard);
-            }
-        }
 
         // Peek at the effect result to check if we need a selection mode
         const effect = cardRegistry.getEffect(card.id);
@@ -156,17 +150,7 @@ export const useEffectResolution = (
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
             const executionContext: CardContext = { card, playerIndex: activeIndex, target: actualTarget, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, tributeIndices: actualTributeIndices };
-            let result: EffectResult | undefined;
-            if (effect) {
-                if (actualTriggerType === 'summon' && effect.onSummon) result = effect.onSummon(prev, executionContext);
-                else if (actualTriggerType === 'activate' && effect.onActivate) result = effect.onActivate(prev, executionContext);
-                else if (actualTriggerType === 'field_activate' && effect.onFieldActivate) result = effect.onFieldActivate(prev, executionContext);
-            }
-            if (result?.halted) return prev;
-            if (!result) return finishEffect(prev, card);
-            const next = result?.newState ?? prev;
-            const log = formatEffectLog(prev, next, card, executionContext, actualTriggerType, tributeCards);
-            return finishEffect(next, card, log);
+            return addChainLink(prev, executionContext, actualTriggerType);
         });
 
         // Cleanup selection modes
@@ -205,9 +189,9 @@ export const useEffectResolution = (
         if (!selectionState.discardSelectionReq && !selectionState.pendingEffectCard) return;
         if (!gameState || !selectionState.pendingEffectCard) return;
 
-        const pIdx = gameState.activePlayerIndex;
+        const pIdx = gameState.players.findIndex(p => p.id === selectionState.pendingEffectCard!.ownerId);
         const card = gameState.players[pIdx].hand[index];
-        if (!card) return;
+        if (!card || (selectionState.handSelectionReq?.filter && !selectionState.handSelectionReq.filter(card))) return;
 
         setHandSelectionReq(null);
         setSelectedHandSelectionIndex(null);
@@ -241,7 +225,7 @@ export const useEffectResolution = (
 
     const cancelEffect = () => {
         const card = selectionState.pendingEffectCard;
-        if (card) setGameState(prev => prev ? finishEffect(prev, card) : prev);
+        if (card) setGameState(prev => prev && !prev.response ? finishEffect(prev, card) : prev);
         pendingContext.current = {};
         setTriggeredEffect(null);
         setPendingEffectCard(null);

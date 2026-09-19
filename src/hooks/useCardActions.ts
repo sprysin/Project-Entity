@@ -3,6 +3,7 @@ import { GameState, Card, CardType, Phase, Position, Player, CardContext, CardTa
 import { cardRegistry } from '../cards/CardRegistry';
 import { clonePlayers } from '../game/cloneState';
 import { useCombatActions } from './useCombatActions';
+import { fieldActivations } from '../game/chains';
 import { formatSummonLog } from '../game/effectLog';
 
 /**
@@ -78,8 +79,8 @@ export const useCardActions = (
                 };
                 p.hand = p.hand.filter((h: Card) => h.instanceId !== card.instanceId);
 
-                if (mode === 'normal') p.normalSummonUsed = true;
-                if (mode === 'hidden') p.hiddenSummonUsed = true;
+                if (mode === 'normal' && card.level <= 4) p.normalSummonUsed = true;
+                if (mode === 'hidden' && card.level <= 4) p.hiddenSummonUsed = true;
 
                 players[pIdx] = p;
                 const log = mode === 'hidden' ? prev.log : [formatSummonLog(card), ...prev.log].slice(0, 50);
@@ -245,11 +246,11 @@ export const useCardActions = (
                     if (pendingPlayCard.level <= 4) p.normalSummonUsed = true;
                     // If level >= 5, it counts as a tribute summon which might track separately or as normal.
                     // For now, let's treat it as using the normal summon slot.
-                    else p.normalSummonUsed = true;
+
                 }
                 if (playMode === 'hidden') {
                     if (pendingPlayCard.level <= 4) p.hiddenSummonUsed = true;
-                    else p.hiddenSummonUsed = true;
+
                 }
 
                 players[pIdx] = p;
@@ -305,50 +306,10 @@ export const useCardActions = (
     /** Activates a card already on the field (flipping or triggering). */
     const activateOnField = useCallback((playerIndex: number, type: 'pawn' | 'action', index: number) => {
         if (!gameState || gameState.winner || isPeekingField) return;
-        const p = gameState.players[playerIndex];
-        const zone = type === 'pawn' ? p.pawnZones : p.actionZones;
-        const placed = zone[index];
-        if (!placed) return;
+        const activation = fieldActivations(gameState, playerIndex).find(a => a.slot.type === type && a.slot.index === index);
+        if (!activation) return;
+        resolveEffect(activation.card, undefined, undefined, undefined, undefined, activation.trigger);
 
-        if (gameState.currentPhase === Phase.BATTLE && placed.card.type === CardType.ACTION) {
-            if (!placed.card.isLingering) {
-                return;
-            } else if (placed.position === Position.HIDDEN) {
-                return;
-            }
-        }
-
-        const context: CardContext = { card: placed.card, playerIndex };
-        const effect = cardRegistry.getEffect(placed.card.id);
-        if (effect?.canActivate && !effect.canActivate(gameState, context)) {
-            return;
-        }
-        if (placed.card.type === CardType.CONDITION && gameState.turnNumber <= placed.summonedTurn) return;
-
-        if (placed.position === Position.HIDDEN) {
-            setGameState(prev => {
-                if (!prev) return null;
-                const players = clonePlayers(prev.players);
-                const ply = players[playerIndex];
-                const zn = type === 'pawn' ? ply.pawnZones : ply.actionZones;
-                zn[index] = { ...zn[index]!, position: Position.ATTACK };
-                players[playerIndex] = ply;
-                return { ...prev, players: players as [Player, Player] };
-            });
-        }
-
-        const trigger = (type === 'action' && placed.position !== Position.HIDDEN) ? 'field_activate' : 'activate';
-        resolveEffect(placed.card, undefined, undefined, undefined, undefined, trigger);
-
-        setGameState(prev => {
-            if (!prev) return null;
-            const players = clonePlayers(prev.players);
-            const ply = players[playerIndex];
-            const zn = type === 'pawn' ? ply.pawnZones : ply.actionZones;
-            if (zn[index]) zn[index].hasActivatedEffect = true;
-            players[playerIndex] = ply;
-            return { ...prev, players: players as [Player, Player] };
-        });
         setSelectedFieldSlot(null);
     }, [gameState, isPeekingField, setGameState, resolveEffect, triggerVisual, setSelectedFieldSlot]);
 

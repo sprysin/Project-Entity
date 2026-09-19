@@ -13,12 +13,26 @@ export const GameOverlays: React.FC<{
     actions: GameLogic['actions'];
     actionsDisabled: boolean;
     onQuit: () => void;
-}> = ({ gameState, activePlayer, state, actions, actionsDisabled, onQuit }) => (
+}> = ({ gameState, state, actions, actionsDisabled, onQuit }) => (
     <>
         {state.floatingTexts.map(text => (
             <div key={text.id} className={`floating-text text-6xl ${text.type === 'damage' ? 'text-red-600' : 'text-green-500'}`} style={{ left: `${text.x}%`, top: `${text.y}%` }}>{text.text}</div>
         ))}
 
+        {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
+            <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/65 p-6" role="dialog" aria-modal="true" aria-label="Response window">
+                <div className="w-full max-w-lg border-2 border-yellow-500 bg-slate-950 p-6 text-slate-100 shadow-2xl">
+                    <h2 className="font-orbitron text-xl text-yellow-400">{gameState.players[gameState.response.priority].name}: Respond?</h2>
+                    <p className="mt-3">{gameState.response.reason}</p>
+                    <p className="my-3 font-bold">{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
+                    <p className="mb-4 text-sm text-slate-400">Choose a card to respond, or pass. The last effect added resolves first.</p>
+                    <div className="max-h-60 space-y-2 overflow-y-auto">{state.responseOptions.map(option => <button key={option.card.instanceId} className="block w-full border border-purple-500 bg-purple-950 p-3 text-left hover:bg-purple-900" onClick={() => actions.respond(option.card.instanceId)}>{option.card.name}<span className="block text-xs text-slate-300">{option.card.effectText}</span></button>)}</div>
+                    {!!gameState.chain?.length && <ol className="my-4 text-sm text-slate-300">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
+                    <button onClick={actions.passResponse} className="mt-4 w-full bg-yellow-600 p-3 font-orbitron font-bold">PASS</button>
+                </div>
+            </div>
+        )}
+        {state.opponentMode === 'ai' && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         <WinnerModal winner={gameState.winner} onQuit={onQuit} />
         <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} setHandSelectionReq={actions.cancelEffect} handleHandSelection={actions.handleHandSelection} />
         <DiscardSelectionModal selectionReq={state.discardSelectionReq} gameState={gameState} selectedDiscardIndex={state.selectedDiscardIndex} setSelectedDiscardIndex={actions.setSelectedDiscardIndex} setDiscardSelectionReq={actions.cancelEffect} handleDiscardSelection={actions.handleDiscardSelection} />
@@ -43,7 +57,7 @@ export const GameOverlays: React.FC<{
         <div className="absolute right-4 top-1/2 z-30 flex -translate-y-1/2 flex-col items-end space-y-2">
             <div className="rounded-sm border border-white/10 bg-black/80 px-4 py-2 text-right shadow-lg backdrop-blur-md">
                 <div className="flex items-center justify-end space-x-2"><span className="font-orbitron text-[10px] uppercase tracking-widest text-slate-400">Turn</span><span className="font-orbitron text-xl font-bold leading-none text-white">{gameState.turnNumber}</span></div>
-                <div className="mt-1 font-orbitron text-[10px] font-bold uppercase tracking-widest text-yellow-500">{activePlayer.name}'s turn</div>
+                <div className="mt-1 font-orbitron text-[10px] font-bold uppercase tracking-widest text-yellow-500">{gameState.players[gameState.activePlayerIndex].name}'s turn</div>
             </div>
             <button disabled={actionsDisabled || state.targetSelectMode !== null} onClick={actions.nextPhase} className={`flex flex-col items-center justify-center overflow-hidden bg-yellow-600 px-4 py-2 font-orbitron font-bold uppercase text-white shadow-lg hover:bg-yellow-500 ${actionsDisabled || state.targetSelectMode !== null ? 'cursor-not-allowed opacity-50 grayscale' : ''}`}>
                 <span className="whitespace-nowrap text-xl leading-none tracking-tighter">Next phase</span><span className="font-orbitron text-[10px] font-bold italic tracking-widest opacity-90">({gameState.currentPhase})</span>

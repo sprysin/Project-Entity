@@ -8,7 +8,7 @@ const resolveTributeAndGainAttack: EffectStep = (state, context) => {
     const tributeIndex = context.tributeIndices?.[0];
     const fieldTribute = tributeIndex === undefined ? undefined : player.pawnZones[tributeIndex]?.card;
     const discardTribute = player.discard[player.discard.length - 1];
-    const tributed = fieldTribute ?? discardTribute;
+    const tributed = context.tributeCards?.[0] ?? fieldTribute ?? discardTribute;
     if (!tributed || tributed.type !== CardType.PAWN || tributed.level > 3) return;
 
     if (fieldTribute && tributeIndex !== undefined) {

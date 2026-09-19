@@ -9,7 +9,7 @@ const effect: IEffect = {
     onActivate: buildEffect([
         Cost.SelectDiscardRecovery((c) => c.type === CardType.PAWN && c.level <= 3),
         Effect.RecoverFromDiscardToHand(),
-        Effect.RestoreLP((state) => state.activePlayerIndex, 20)
+        Effect.RestoreLP((_state, context) => context.playerIndex, 20)
     ]),
     canActivate: buildCondition([
         Condition.PawnMatchesFilter('opponent', () => true),

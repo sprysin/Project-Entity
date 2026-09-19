@@ -106,7 +106,7 @@ it('does not narrate attack-count changes in an effect log', () => {
     });
     act(() => game.actions.activateOnField(0, 'pawn', 0));
     act(() => game.actions.handleHandSelection(0));
-    expect(game.gameState!.log[0]).toBe('"Quickstrike Serpent" effect activated, discards "Void Blast".');
+    expect(game.gameState!.log).toContain('"Quickstrike Serpent" effect activated, discards "Void Blast".');
 });
 
 it('silently rejects an action whose activation requirements are not met', () => {
@@ -123,6 +123,8 @@ it('on-summon effect damage also wins', () => {
     const sparker = card('pawn_03');
     setup(s => { s.players[0].pawnZones[0] = placed(sparker); s.players[1].lp = 10; s.players[1].actionZones[0] = { ...placed(card('condition_01', 1)), position: Position.HIDDEN }; });
     act(() => game.actions.resolveEffect(sparker, undefined, undefined, undefined, undefined, 'summon'));
+    expect(game.gameState!.response?.priority).toBe(1);
+    act(() => game.actions.passResponse());
     expect(game.gameState!.winner).toBe('Player 1');
 });
 
@@ -199,13 +201,13 @@ it('discard then target charges one card and applies the selected effect', () =>
     expect(game.gameState!.players[1].pawnZones[0]?.position).toBe(Position.DEFENSE);
 });
 
-it('effect tributes are paid once and the source survives until recovery selection', () => {
+it('effect tributes are paid once after all activation selections are complete', () => {
     const maintenance = card('action_04'); const recovered = card('pawn_01');
     setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('pawn_01')); s.players[0].pawnZones[1] = placed(card('pawn_04')); });
     act(() => game.actions.handleActionFromHand(maintenance, 'activate', 0));
     act(() => game.actions.setTributeSelection([0, 1]));
     act(() => game.actions.handleEffectTribute());
-    expect(game.gameState!.players[0].pawnZones.filter(Boolean)).toHaveLength(0);
+    expect(game.gameState!.players[0].pawnZones.filter(Boolean)).toHaveLength(2);
     expect(game.state.discardSelectionReq).not.toBeNull();
     act(() => vi.advanceTimersByTime(10000));
     expect(game.gameState!.players[0].actionZones[0]?.card.instanceId).toBe(maintenance.instanceId);

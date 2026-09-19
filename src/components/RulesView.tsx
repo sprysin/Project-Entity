@@ -47,6 +47,16 @@ const topics: Topic[] = [
     }, note: 'First turn: go directly from Main 1 to End. Skip both Battle and Main 2.'
   },
   {
+    id: 'chains', title: 'Responses & chains', subtitle: 'Take turns responding. Resolve in reverse order.', icon: 'fa-link', rules: [
+      'Before an attack, phase change or effect resolves, the other player gets a response opportunity. A window appears only if that player has an eligible card, and shows the number of activatable cards.',
+      'Eligible responses are Conditions set on an earlier turn and face-up Pawns with an explicitly designated quick effect. Ordinary Pawn effects and Actions cannot join a chain as responses.',
+      'Choose a response card or Pass. After a card is added, the other player may respond. A player with no eligible cards passes automatically. Two consecutive passes resolve the chain.',
+      'Choose targets and costs before adding the effect. Costs are paid once, when the effect is added, and are not refunded if its target becomes invalid.',
+      'Resolve the last effect added first, then work backward. A target that leaves the field is not replaced by another card in the same zone. Removing an effect’s source does not itself negate that effect.',
+      'Once the chain finishes, the pending attack or phase change continues if still legal. No new links are added while a chain is resolving.',
+    ]
+  },
+  {
     id: 'field', title: 'The field', subtitle: 'A place for every card', icon: 'fa-border-all', rules: [
       'Each player has 5 Pawn zones and 5 shared Action/Condition zones. Each zone holds one card.',
       'Pawns can be in face-up Attack, face-up Defense or face-down Defense Position.',

@@ -103,6 +103,9 @@ export interface PendingEffect {
 }
 
 export interface GameState {
+  response?: { priority: number; passes: number; reason: string; ready?: boolean };
+  chain?: ChainLink[];
+  deferredAction?: { kind: 'phase' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };
   players: [Player, Player];
   activePlayerIndex: number;
   currentPhase: Phase;
@@ -127,6 +130,7 @@ export interface CardSelectionRequest {
 }
 
 export interface HandSelectionRequest {
+  filter?: CardFilter;
   playerIndex: number;
   title?: string;
 }
@@ -153,6 +157,8 @@ export type EffectResult = {
 };
 
 export interface CardContext {
+  execution?: 'costs' | 'resolve';
+  tributeCards?: Card[];
   card: Card;
   playerIndex: number;
   target?: CardTarget;
@@ -163,6 +169,8 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Only explicitly quick Pawn effects may respond outside normal ignition timing. */
+  timing?: 'main' | 'quick';
   // Triggered when an Pawn is Normal Summoned or Set
   onSummon?(state: GameState, context: CardContext): EffectResult;
 
@@ -181,3 +189,13 @@ export interface IEffect {
   // Static check if effect can be activated
   canActivate?(state: GameState, context: CardContext): boolean;
 }
+
+export interface ChainLink {
+  context: CardContext;
+  trigger: EffectTrigger;
+  targetId?: string;
+  discardId?: string;
+  deckId?: string;
+}
+
+export type OpponentMode = 'self' | 'ai';

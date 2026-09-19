@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    GameState, Player, Card, CardType, Phase, CardContext, CardSelectionRequest,
-    EffectTrigger, HandSelectionRequest, TargetSelectMode, TargetSelectPosition,
+    GameState, Player, Card, CardType, Phase, Position, CardContext, CardSelectionRequest,
+    EffectTrigger, HandSelectionRequest, OpponentMode, TargetSelectMode, TargetSelectPosition,
     TargetSelectType, TributeSelectionRequest
 } from '../types';
+import { fieldActivations, openResponse, passPriority } from '../game/chains';
+import { useOpponentAI } from './useOpponentAI';
 import { createDeck } from '../constants';
 import { cardRegistry } from '../cards/CardRegistry';
-import { clonePlayers } from '../game/cloneState';
 import { formatEffectLog } from '../game/effectLog';
 import { useAnimations } from './useAnimations';
 import { useCardMotion } from './useCardMotion';
@@ -18,7 +19,7 @@ import '../cards/actions';
 import '../cards/conditions';
 import { createRuntimeDeck, SavedDeck } from '../decks';
 
-export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null]) => {
+export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null], opponentMode: OpponentMode = 'self') => {
     // Core Game State
     const [gameState, setGameState] = useState<GameState | null>(null);
 
@@ -63,7 +64,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
 
     // Compose sub-hooks
     const animations = useAnimations();
-    const cardMotion = useCardMotion(gameState, animations.zoneRefs);
+    const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined);
 
     const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
         gameState, setGameState, cardMotion.recordMovement,
@@ -72,7 +73,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
             setHandSelectionReq, setSelectedHandSelectionIndex,
             setDeckSelectionReq, setSelectedDeckIndex,
-            pendingEffectCard, discardSelectionReq, deckSelectionReq,
+            pendingEffectCard, discardSelectionReq, deckSelectionReq, handSelectionReq,
             setPendingTriggerType, pendingTriggerType,
             setEffectTributeReq,
             showEffect: (card, target) => {
@@ -108,7 +109,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         gameState, setGameState, stableResolveEffect,
         cardMotion.recordMovement, animations.triggerShatter,
         selectedHandIndex, setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode,
-        isPeekingField || pendingEffectCard !== null || triggeredEffect !== null, targetSelectMode
+        isPeekingField || pendingEffectCard !== null || triggeredEffect !== null || !!gameState?.response, targetSelectMode
     );
 
     /** Checks if a card in hand is playable. */
@@ -129,7 +130,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     }, [gameState]);
 
     /** Advances the game to the next phase. */
-    const nextPhase = useCallback(() => {
+    const advancePhase = useCallback(() => {
         if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
@@ -250,19 +251,67 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         });
         animations.lastLp.current = [800, 800];
         setGameState({
-            players: [mkPlayer('player1', 'Player 1', p1Deck), mkPlayer('player2', 'Player 2', p2Deck)],
+            players: [mkPlayer('player1', 'Player 1', p1Deck), mkPlayer('player2', opponentMode === 'ai' ? 'AI' : 'Player 2', p2Deck)],
             activePlayerIndex: 0, currentPhase: Phase.DRAW, turnNumber: 1,
             log: [`Duel initialized. Player 1: ${initialDecks[0]?.name ?? 'Random test deck'}; Player 2: ${initialDecks[1]?.name ?? 'Random test deck'}.`],
             winner: null, pendingEffects: []
         });
     }, []);
 
-    useGameAnimationEffects(gameState, setGameState, animations, nextPhase);
+    const phaseRef = useRef(advancePhase);
+    phaseRef.current = advancePhase;
+    const nextPhase = useCallback(() => {
+        if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
+        setGameState(prev => prev ? openResponse(prev, { kind: 'phase' }, `Leave ${prev.currentPhase}`) : prev);
+    }, [pendingEffectCard, triggeredEffect, targetSelectMode]);
+    const phaseRequestRef = useRef(nextPhase);
+    phaseRequestRef.current = nextPhase;
+    const stablePhaseRequest = useCallback(() => phaseRequestRef.current(), []);
+    const requestAttack = (attackerIndex: number, targetIndex: number | 'direct') => {
+        if (!gameState || pendingEffectCard || triggeredEffect || gameState.response) return;
+        const attacker = gameState.players[gameState.activePlayerIndex].pawnZones[attackerIndex];
+        const target = targetIndex === 'direct' ? 'direct' : gameState.players[1 - gameState.activePlayerIndex].pawnZones[targetIndex]?.card.instanceId;
+        if (!attacker || !target || gameState.winner || gameState.currentPhase !== Phase.BATTLE || gameState.turnNumber === 1 || attacker.position !== Position.ATTACK || (attacker.attacksRemaining !== undefined ? attacker.attacksRemaining <= 0 : attacker.hasAttacked)) return;
+        if (targetIndex === 'direct' && gameState.players[1 - gameState.activePlayerIndex].pawnZones.some(Boolean)) return;
+        setSelectedFieldSlot(null); setTargetSelectMode(null);
+        setGameState(prev => prev ? openResponse(prev, { kind: 'attack', attackerId: attacker.card.instanceId, targetId: target }, `${attacker.card.name} declares an attack`) : prev);
+    };
+    const deferredRef = useRef<GameState['deferredAction']>(undefined);
+    useEffect(() => {
+        if (gameState?.response?.ready) {
+            deferredRef.current = gameState.deferredAction;
+            setGameState(prev => prev ? { ...prev, response: undefined, deferredAction: undefined } : prev);
+            return;
+        }
+        if (!gameState || gameState.response || !deferredRef.current) return;
+        const action = deferredRef.current;
+        deferredRef.current = undefined;
+        if (gameState.winner) return;
+        if (action.kind === 'phase') phaseRef.current();
+        else {
+            const attacker = gameState.players[gameState.activePlayerIndex].pawnZones.findIndex(z => z?.card.instanceId === action.attackerId);
+            const target = action.targetId === 'direct' ? 'direct' : gameState.players[1 - gameState.activePlayerIndex].pawnZones.findIndex(z => z?.card.instanceId === action.targetId);
+            if (attacker >= 0 && (target === 'direct' || target >= 0)) cardActions.handleAttack(attacker, target);
+        }
+    }, [gameState]);
+    const responseOptions = gameState?.response && !gameState.response.ready ? fieldActivations(gameState, gameState.response.priority, true) : [];
+    const respond = (instanceId: string) => {
+        const activation = responseOptions.find(option => option.card.instanceId === instanceId);
+        if (!activation || pendingEffectCard) return;
+        resolveEffect(activation.card, undefined, undefined, undefined, undefined, activation.trigger);
+    };
+    const passResponse = () => setGameState(prev => prev ? passPriority(prev) : prev);
+    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!deferredRef.current,
+        nextPhase, requestAttack, resolveEffect });
+
+    useGameAnimationEffects(gameState, setGameState, animations, stablePhaseRequest);
+
 
     // === RETURN ===
     return {
         gameState, setGameState,
         state: {
+            opponentMode, responseOptions,
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition,
             tributeSelection, pendingTributeCard, tributeSummonMode,
             pendingPlayCard, playMode,
@@ -285,7 +334,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setTriggeredEffect, setPendingEffectCard,
             setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen,
             setRef: animations.setRef,
-            nextPhase, canPlayCard, resolveEffect, cancelEffect,
+            nextPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
             handleDiscardSelection, handleHandSelection, handleDeckSelection,
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
                 cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
@@ -294,29 +343,13 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             handleEffectTribute: () => {
                 if (!gameState || !pendingEffectCard || !effectTributeReq) return;
                 if (tributeSelection.length !== effectTributeReq.count) return;
-                const activeIndex = gameState.activePlayerIndex;
+                const activeIndex = effectTributeReq.playerIndex;
                 const copiedSelection = [...tributeSelection];
                 
                 if (new Set(copiedSelection).size !== effectTributeReq.count || copiedSelection.some(idx => {
                     const zone = gameState.players[activeIndex].pawnZones[idx];
                     return !zone || (effectTributeReq.filter && !effectTributeReq.filter(zone.card));
                 })) return;
-                copiedSelection.forEach(idx => cardMotion.recordMovement(`${activeIndex}-pawn-${idx}`, `discard-${activeIndex}`, 'discard', gameState.players[activeIndex].pawnZones[idx]!.card));
-                setGameState(prev => {
-                    if (!prev) return null;
-                    const players = clonePlayers(prev.players);
-                    const p = players[activeIndex];
-                    copiedSelection.forEach(idx => {
-                        const tribute = p.pawnZones[idx];
-                        if (tribute) { 
-                            p.discard = [...p.discard, { ...tribute.card, tributedByAction: pendingEffectCard.type === CardType.ACTION }];
-                            p.pawnZones[idx] = null; 
-                        }
-                    });
-                    players[activeIndex] = p;
-                    return { ...prev, players: players as [Player, Player] };
-                });
-                
                 setTargetSelectMode(null);
                 setEffectTributeReq(null);
                 setTributeSelection([]);
@@ -330,7 +363,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                     setTriggeredEffect, setPendingTriggerType
                 }),
             activateOnField: cardActions.activateOnField,
-            handleAttack: cardActions.handleAttack,
+            handleAttack: requestAttack,
         }
     };
 };
