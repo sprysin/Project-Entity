@@ -25,6 +25,8 @@ export const useCombatActions = (
     if (targetIndex === 'direct' && gameState.players[opponentIndex].pawnZones.some(Boolean)) return;
 
     const logs: string[] = [];
+    let damageSource = attacker.card;
+    let damagePlayerIndex = activeIndex;
     const players = clonePlayers(gameState.players);
     const activePlayer = players[activeIndex];
     const opponent = players[opponentIndex];
@@ -55,6 +57,8 @@ export const useCombatActions = (
                 logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle. ${lpLoss(opponent, difference)}`);
             } else if (difference < 0) {
                 triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
+                damageSource = defendingPawn.card;
+                damagePlayerIndex = opponentIndex;
                 activePlayer.lp += difference;
                 triggerVisual(`${activeIndex}-pawn-${attackerIndex}`, `discard-${activeIndex}`, 'discard', attackingPawn.card);
                 activePlayer.discard.push(attackingPawn.card);
@@ -79,6 +83,8 @@ export const useCombatActions = (
             logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle.`);
         } else if (attackingPawn.card.atk < defendingPawn.card.def) {
             const recoil = defendingPawn.card.def - attackingPawn.card.atk;
+            damageSource = defendingPawn.card;
+            damagePlayerIndex = opponentIndex;
             activePlayer.lp -= recoil;
             logs.push(`${reveal}${quote(attackingPawn.card.name)} attacked ${quote(defendingPawn.card.name)}. ${lpLoss(activePlayer, recoil)}`);
         } else {
@@ -97,7 +103,12 @@ export const useCombatActions = (
     }
     players[activeIndex] = activePlayer;
     players[opponentIndex] = opponent;
-    setGameState(checkVictory({ ...gameState, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) }));
+    const damagedIndex = 1 - damagePlayerIndex;
+    const amount = gameState.players[damagedIndex].lp - players[damagedIndex].lp;
+    const damageEvents = amount > 0 ? [...(gameState.damageEvents ?? []), {
+        card: { ...damageSource }, playerIndex: damagePlayerIndex, amount, kind: 'battle' as const
+    }] : gameState.damageEvents;
+    setGameState(checkVictory({ ...gameState, damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) }));
     setTargetSelectMode(null);
     setSelectedFieldSlot(null);
 }, [gameState, isInteractionBlocked, setGameState, triggerVisual, triggerShatter, setTargetSelectMode, setSelectedFieldSlot]);

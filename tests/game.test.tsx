@@ -29,6 +29,7 @@ it('Void Blast wins immediately and is discarded exactly once', () => {
     setup(s => { s.players[0].hand = [blast]; s.players[1].lp = 50; });
     act(() => game.actions.handleActionFromHand(blast, 'activate', 0));
     expect(game.gameState!.winner).toBe('Player 1');
+    expect(game.gameState!.damageEvents).toEqual([{ card: blast, playerIndex: 0, amount: 50, kind: 'effect' }]);
     expect(game.gameState!.players[1].lp).toBe(0);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
     expect(game.gameState!.players[0].discard.map(c => c.instanceId)).toEqual([blast.instanceId]);

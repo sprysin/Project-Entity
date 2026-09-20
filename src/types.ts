@@ -113,6 +113,7 @@ export interface GameState {
   activePlayerIndex: number;
   currentPhase: Phase;
   turnNumber: number;
+  damageEvents?: { card: Card; playerIndex: number; amount: number; kind: 'battle' | 'effect' }[];
   log: string[];
   winner: string | null;
   pendingEffects: PendingEffect[];

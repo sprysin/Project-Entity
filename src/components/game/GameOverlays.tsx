@@ -122,7 +122,7 @@ export const GameOverlays: React.FC<{
             </div>
         )}
         {state.opponentMode === 'ai' && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
-        <WinnerModal winner={gameState.winner} onQuit={onQuit} />
+        {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
         <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} setHandSelectionReq={actions.cancelEffect} handleHandSelection={actions.handleHandSelection} />
         <DiscardSelectionModal selectionReq={state.discardSelectionReq} gameState={gameState} selectedDiscardIndex={state.selectedDiscardIndex} setSelectedDiscardIndex={actions.setSelectedDiscardIndex} setDiscardSelectionReq={actions.cancelEffect} handleDiscardSelection={actions.handleDiscardSelection} />
         <DeckSelectionModal selectionReq={state.deckSelectionReq} gameState={gameState} selectedDeckIndex={state.selectedDeckIndex} setSelectedDeckIndex={actions.setSelectedDeckIndex} setDeckSelectionReq={actions.cancelEffect} handleDeckSelection={actions.handleDeckSelection} />

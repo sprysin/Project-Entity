@@ -117,6 +117,12 @@ export const Effect = {
 
         if (resolvedAmount <= 0) return;
 
+        if (resolvedPlayerIndex !== context.playerIndex) {
+            draftState.damageEvents = [...(draftState.damageEvents ?? []), {
+                card: { ...context.card }, playerIndex: context.playerIndex,
+                amount: resolvedAmount, kind: 'effect'
+            }];
+        }
         draftState.players[resolvedPlayerIndex].lp -= resolvedAmount;
     },
 

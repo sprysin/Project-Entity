@@ -81,6 +81,7 @@ const advancePhaseState = (prev: GameState): GameState => {
                 phaseState = { ...result.newState, log: [log, ...phaseState.log].slice(0, 50) };
             }
         }
+        prev = { ...prev, damageEvents: phaseState.damageEvents };
         updatedPlayers = phaseState.players;
         updatedLog = phaseState.log;
     }

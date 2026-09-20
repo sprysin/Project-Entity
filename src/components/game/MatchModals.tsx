@@ -1,14 +1,42 @@
 import React from 'react';
 import { Card, GameState } from '../../types';
+import { getDuelMvp } from '../../game/mvp';
+import { CardDetail } from './CardDetail';
 
-export const WinnerModal: React.FC<{ winner: string | null; onQuit: () => void }> = ({ winner, onQuit }) => {
-    if (!winner) return null;
+export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; onQuit: () => void }> = ({ gameState, isDefeat, onQuit }) => {
+    const mvp = getDuelMvp(gameState);
+    const button = React.useRef<HTMLButtonElement>(null);
+    const [revealed, setRevealed] = React.useState(false);
+    React.useEffect(() => {
+        const previous = document.activeElement as HTMLElement | null;
+        button.current?.focus();
+        const timer = setTimeout(() => setRevealed(true), 1000);
+        return () => { clearTimeout(timer); previous?.focus(); };
+    }, []);
     return (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/90 text-white animate-in fade-in zoom-in">
-            <h2 className="mb-2 font-orbitron text-7xl font-black uppercase tracking-tighter text-yellow-500 drop-shadow-[0_0_50px_rgba(234,179,8,0.5)]">Battle Concluded</h2>
-            <div className="mb-12 h-1 w-96 bg-yellow-600/50" />
-            <p className="mb-16 font-orbitron text-4xl font-bold uppercase tracking-widest text-white">{winner} is Victorious</p>
-            <button onClick={onQuit} className="border-b-8 border-yellow-800 bg-yellow-600 px-16 py-6 font-orbitron text-xl font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-yellow-500 active:translate-y-2 active:border-b-0">Return to Hub</button>
+        <div className={`duel-result ${isDefeat ? 'duel-result--defeat' : ''}`} role="dialog" aria-modal="true" aria-labelledby="duel-result-title" onKeyDown={event => { if (event.key === 'Tab') { event.preventDefault(); button.current?.focus(); } }}>
+            <div className="duel-result-vfx" aria-hidden="true">
+                <div className="duel-result-ring" /><div className="duel-result-sweep" />
+                {Array.from({ length: 18 }, (_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}
+            </div>
+            <section className="duel-result-content">
+                <p className="duel-result-eyebrow">Duel complete · Turn {gameState.turnNumber}</p>
+                <h2 id="duel-result-title">{isDefeat ? 'Defeat' : 'Victory'}</h2>
+                <p className="duel-result-winner">{gameState.winner} is victorious</p>
+                {mvp ? <>
+                    <p className="duel-result-label">-MVP-</p>
+                    <div className="duel-mvp-stage">
+                        <div className={`duel-mvp-card ${revealed ? 'is-revealed' : ''}`}>
+                            <div className="duel-mvp-face duel-mvp-back card-back" aria-hidden="true" />
+                            <div className="duel-mvp-face duel-mvp-front" aria-hidden={!revealed}><CardDetail card={mvp.card} className="w-full h-full" /></div>
+                        </div>
+                    </div>
+                    <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
+                        {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
+                    </div>
+                </> : <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
+                <button ref={button} onClick={onQuit} className="duel-result-button">Continue</button>
+            </section>
         </div>
     );
 };
