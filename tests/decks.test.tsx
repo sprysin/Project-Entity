@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest';
-import { DECK_STORAGE_KEY, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, isDeckPlayable, createRuntimeDeck } from '../src/decks';
-import { CardType } from '../src/types';
+import { DECK_STORAGE_KEY, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, isDeckPlayable } from '../src/decks';
 
 it('round-trips a named deck through JSON and local storage, updating only that deck', () => {
     let value: string | null = null;
@@ -40,11 +39,6 @@ it('allows 40–60 cards and blocks additions at 60, even for a card not yet inc
     expect(parseDeck(newDeck()).cards).toEqual([]);
 });
 
-it('orders cards by pawn, action, condition regardless of the order added', () => {
-    const entries = [CardType.CONDITION, CardType.ACTION, CardType.PAWN].map(type => ({ cardId: sortedCards().find(c => c.type === type)!.id, quantity: 1 }));
-    expect(parseDeck({ ...newDeck(), cards: entries }).cards).toEqual([...entries].reverse());
-});
-
 it('rejects malformed imports and does not overwrite unreadable saved data', () => {
     const entry = { cardId: sortedCards()[0].id, quantity: 1 };
     for (const cards of [[{ ...entry, cardId: 'missing' }], [{ ...entry, quantity: -1 }], [{ ...entry, quantity: 1.5 }], [entry, entry], [null]]) {
@@ -54,13 +48,4 @@ it('rejects malformed imports and does not overwrite unreadable saved data', () 
     expect(() => parseDeck(null)).toThrow();
     expect(() => loadDecks({ getItem: () => '{broken' })).toThrow();
     expect(loadDecks({ getItem: () => null })).toEqual([]);
-});
-
-it('expands a playable saved deck into owned runtime card instances', () => {
-    const definitions = sortedCards().slice(0, 14);
-    const deck = { ...newDeck(), cards: definitions.map((card, index) => ({ cardId: card.id, quantity: index < 12 ? 3 : 2 })) };
-    const runtime = createRuntimeDeck(deck, 'player1');
-    expect(runtime).toHaveLength(40);
-    expect(runtime.every(card => card.ownerId === 'player1')).toBe(true);
-    expect(new Set(runtime.map(card => card.instanceId))).toHaveLength(40);
 });

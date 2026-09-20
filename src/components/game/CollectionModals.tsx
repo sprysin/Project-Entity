@@ -36,9 +36,9 @@ export const PileViewModal: React.FC<{
                 </div>
                 <button aria-label="Close pile" onClick={close} className="rounded px-3 py-2 hover:bg-white/10">✕</button>
             </div>
-            <div className="flex-1 space-y-5 overflow-y-auto p-5">
-                {cards.length === 0 && <p className="py-8 text-center text-sm text-slate-400">This pile is empty.</p>}
-                {[...cards].reverse().map(card => <CardDetail key={card.instanceId} card={card} />)}
+            <div className="grid flex-1 auto-rows-max grid-cols-2 content-start gap-x-3 gap-y-4 overflow-y-auto p-5">
+                {cards.length === 0 && <p className="col-span-2 py-8 text-center text-sm text-slate-400">This pile is empty.</p>}
+                {[...cards].reverse().map(card => <CardDetail key={card.instanceId} card={card} compact />)}
             </div>
         </aside>
     );

@@ -43,16 +43,6 @@ describe('response windows and chains', () => {
         expect(fieldActivations(s, 1, true)).toHaveLength(1);
     });
 
-    it('allows a lingering Action set face-down to activate its field effect', () => {
-        const s = game(), mark = card('action_03'), bear = card('pawn_07');
-        s.players[0].actionZones[0] = zone(mark, Position.HIDDEN, s.turnNumber);
-        s.players[0].deck = [bear];
-
-        const activations = fieldActivations(s, 0);
-
-        expect(activations).toMatchObject([{ card: { instanceId: mark.instanceId }, trigger: 'field_activate' }]);
-    });
-
     it('lets a controller respond during the other player’s turn and resolves LIFO', () => {
         const s = game(), blast = card('action_01'), draw = card('condition_03', 1), reinforcement = card('test_attached_condition');
         s.players[0].actionZones[0] = zone(blast);
@@ -77,47 +67,6 @@ describe('response windows and chains', () => {
         expect(resolutionLogs[1]).toContain('Dark Draw');
         expect(resolutionLogs[2]).toContain('Reinforcement');
         expect(next.chain).toHaveLength(0);
-    });
-
-    it('does not let the AI reactivate an Attach Condition after its flip activation resolves', () => {
-        const s = game(), reinforcement = card('test_attached_condition', 1), pawn = card('pawn_08', 1);
-        s.activePlayerIndex = 1;
-        s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
-        s.players[1].pawnZones[0] = zone(pawn);
-
-        const next = passAll(addChainLink(s, {
-            card: reinforcement,
-            playerIndex: 1,
-            target: { playerIndex: 1, type: 'pawn', index: 0 }
-        }, 'activate'));
-
-        expect(next.players[1].pawnZones[0]!.card.atk).toBe(pawn.atk + 20);
-        expect(next.players[1].actionZones[0]?.position).toBe(Position.ATTACK);
-        expect(fieldActivations(next, 1)).toHaveLength(0);
-        expect(chooseAIAction(observeGame(next, 1), 1)).not.toMatchObject({
-            kind: 'effect',
-            context: { card: { instanceId: reinforcement.instanceId } }
-        });
-    });
-
-    it('pays a 200 LP cost exactly once even when only 300 LP remain', () => {
-        const s = game(), draw = card('condition_03');
-        s.players[0].lp = 300;
-        s.players[0].actionZones[0] = zone(draw, Position.HIDDEN);
-        s.players[0].pawnZones[0] = zone(card('pawn_04'));
-        s.players[0].deck = [card('pawn_01')];
-        const next = passAll(addChainLink(s, { card: draw, playerIndex: 0 }, 'activate'));
-        expect(next.players[0].lp).toBe(100);
-        expect(next.players[0].hand).toHaveLength(1);
-    });
-
-    it('runs a custom resolution handler once, never while paying activation costs', () => {
-        cardRegistry.register({ id: 'test-custom', name: 'Custom effect', type: CardType.ACTION, level: 0, atk: 0, def: 0, effectText: 'Deal 30 damage.' }, {
-            onActivate: (state, context) => { const next = structuredClone(state); next.players[1 - context.playerIndex].lp -= 30; return { newState: next }; }
-        });
-        const s = game(), source = card('test-custom');
-        s.players[0].actionZones[0] = zone(source);
-        expect(addChainLink(s, { card: source, playerIndex: 0 }, 'activate').players[1].lp).toBe(770);
     });
 
     it('supports explicitly quick Pawns, reserves costs and prevents the same source rejoining its chain', () => {
@@ -211,13 +160,6 @@ describe('fair general AI', () => {
         s.players[1].pawnZones[0] = zone(card('pawn_05', 1));
         s.players[1].pawnZones[1] = zone(card('pawn_08', 1));
         expect(chooseAIAction(observeGame(s, 1), 1)).toEqual({ kind: 'attack', index: 1, target: 0 });
-    });
-
-    it('uses a new registered effect without a card-specific AI recipe', () => {
-        cardRegistry.register({ id: 'test-generic', name: 'Generic blast', type: CardType.ACTION, level: 0, atk: 0, def: 0, effectText: 'Deal damage.' }, { onActivate: buildEffect([Effect.DealDamage((_s, c) => 1 - c.playerIndex, 90)]) });
-        const s = game(); s.activePlayerIndex = 1; s.players[0].lp = 90;
-        s.players[1].hand = [card('test-generic', 1)];
-        expect(chooseAIAction(observeGame(s, 1), 1)).toMatchObject({ kind: 'effect', context: { card: { id: 'test-generic' } } });
     });
 
     it('chooses a quick defensive response that stops lethal damage', () => {

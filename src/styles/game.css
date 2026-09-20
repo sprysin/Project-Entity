@@ -199,5 +199,5 @@ body {
   .response-sheet { transition: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .attachment-bead { display: none; }
+  .attachment-bead, .attack-arrow { display: none; }
 }

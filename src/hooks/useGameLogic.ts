@@ -304,7 +304,19 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const deferredRef = useRef<GameState['deferredAction']>(undefined);
     useEffect(() => {
         if (gameState?.response?.ready) {
-            deferredRef.current = gameState.deferredAction;
+            const action = gameState.deferredAction;
+            if (action?.kind === 'attack') {
+                const timeout = setTimeout(() => {
+                    deferredRef.current = action;
+                    setGameState(prev => prev?.response?.ready && prev.deferredAction?.kind === 'attack'
+                        && prev.deferredAction.attackerId === action.attackerId
+                        && prev.deferredAction.targetId === action.targetId
+                        ? { ...prev, response: undefined, deferredAction: undefined }
+                        : prev);
+                }, 1500);
+                return () => clearTimeout(timeout);
+            }
+            deferredRef.current = action;
             setGameState(prev => prev ? { ...prev, response: undefined, deferredAction: undefined } : prev);
             return;
         }

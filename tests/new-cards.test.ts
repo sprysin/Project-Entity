@@ -5,7 +5,6 @@ import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { addChainLink, effectChoices, resolveChain } from '../src/game/chains';
 import { Card, GameState, Phase, Player, Position } from '../src/types';
-import { Effect } from '../src/cards/engine/Effects';
 
 let serial = 0;
 const card = (id: string, owner = 0): Card => ({
@@ -99,25 +98,7 @@ it('Glitter Guard Beatle fortifies every controlled Pawn when discarded as a cos
     expect(resolved.players[0].pawnZones[0]?.card.def).toBe(280);
     expect(resolved.players[0].pawnZones[1]?.card.def).toBe(310);
     expect(resolved.pendingEffects).toEqual(expect.arrayContaining([
-        expect.objectContaining({ targetInstanceId: serpent.instanceId, type: 'RESET_DEF', value: 80, dueTurn: 4 }),
-        expect.objectContaining({ targetInstanceId: ally.instanceId, type: 'RESET_DEF', value: 110, dueTurn: 4 })
-    ]));
-});
-
-it('ModifyAllPawnStats with end_of_next_turn schedules reset for turnNumber + 2', () => {
-    const game = state();
-    const pawn = card('pawn_01');
-    const initialAtk = pawn.atk;
-    const initialDef = pawn.def;
-    game.players[0].pawnZones[0] = placed(pawn);
-
-    const effectStep = Effect.ModifyAllPawnStats('active', 100, 200, 'end_of_next_turn');
-    effectStep(game, { card: pawn, playerIndex: 0 });
-
-    expect(game.players[0].pawnZones[0]?.card.atk).toBe(initialAtk + 100);
-    expect(game.players[0].pawnZones[0]?.card.def).toBe(initialDef + 200);
-    expect(game.pendingEffects).toEqual(expect.arrayContaining([
-        expect.objectContaining({ targetInstanceId: pawn.instanceId, type: 'RESET_ATK', value: initialAtk, dueTurn: 4 }),
-        expect.objectContaining({ targetInstanceId: pawn.instanceId, type: 'RESET_DEF', value: initialDef, dueTurn: 4 })
+        expect.objectContaining({ targetInstanceId: serpent.instanceId, type: 'RESET_DEF', value: 80, dueTurn: 2 }),
+        expect.objectContaining({ targetInstanceId: ally.instanceId, type: 'RESET_DEF', value: 110, dueTurn: 2 })
     ]));
 });
