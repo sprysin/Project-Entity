@@ -264,14 +264,17 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     useEffect(() => {
         const p1Deck = initialDecks[0] ? createRuntimeDeck(initialDecks[0], 'player1') : createDeck('player1');
         const p2Deck = initialDecks[1] ? createRuntimeDeck(initialDecks[1], 'player2') : createDeck('player2');
-        const mkPlayer = (id: string, name: string, deck: Card[]): Player => ({
-            id, name, lp: 800, deck: deck.slice(5), initialDeck: [...deck], hand: deck.slice(0, 5), discard: [], void: [],
+        const mkPlayer = (id: string, name: string, deck: Card[], deckName?: string): Player => ({
+            id, name, deckName, lp: 800, deck: deck.slice(5), initialDeck: [...deck], hand: deck.slice(0, 5), discard: [], void: [],
             pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null),
             normalSummonUsed: false, hiddenSummonUsed: false, activatedHardOncePerTurns: [],
         });
         animations.lastLp.current = [800, 800];
         setGameState({
-            players: [mkPlayer('player1', 'Player 1', p1Deck), mkPlayer('player2', opponentMode === 'ai' ? 'AI' : 'Player 2', p2Deck)],
+            players: [
+                mkPlayer('player1', 'Player 1', p1Deck, initialDecks[0]?.name ?? 'Random test deck'),
+                mkPlayer('player2', opponentMode === 'ai' ? 'AI' : 'Player 2', p2Deck, initialDecks[1]?.name ?? 'Random test deck')
+            ],
             activePlayerIndex: 0, currentPhase: Phase.DRAW, turnNumber: 1,
             log: [`Turn 1`, `Duel initialized. Player 1: ${initialDecks[0]?.name ?? 'Random test deck'}; Player 2: ${initialDecks[1]?.name ?? 'Random test deck'}.`],
             winner: null, pendingEffects: []

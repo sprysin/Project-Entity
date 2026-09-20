@@ -343,6 +343,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
         onClose={() => actions.setIsDeckViewerOpen(false)}
         deck={activePlayer.initialDeck}
         playerName={activePlayer.name}
+        deckName={activePlayer.deckName ?? (viewIndex === 0 ? initialDecks?.[0]?.name : initialDecks?.[1]?.name) ?? 'Random test deck'}
       />
     </div>
   );

@@ -11,6 +11,30 @@ body {
 .card-condition { border: 3px solid #db2777; background: linear-gradient(145deg, #2a0a1b, #1a0510); }
 .card-inner-border { position: absolute; inset: 4px; border: 1px solid #ffffff1a; pointer-events: none; }
 .card-title-box { border: 1px solid #ffffff4d; background: #000c; box-shadow: inset 0 0 10px #ffffff1a; }
+.card-artwork {
+  position: relative;
+  z-index: 10;
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  container-type: inline-size;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #ffffff26;
+  background: #0006;
+  box-shadow: inset 0 0 14px #0008;
+}
+.card-artwork-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28cqw;
+  line-height: 1;
+  color: #cbd5e1;
+  opacity: .22;
+}
+.card-artwork-symbol .action-card-icon { width: 1.2em; height: 1.2em; }
 .glow-gold { box-shadow: 0 0 20px #fbbf2466, inset 0 0 10px #fbbf2433; }
 .glow-green { box-shadow: 0 0 20px #34d39966, inset 0 0 10px #34d39933; }
 .glow-pink { box-shadow: 0 0 20px #f472b666, inset 0 0 10px #f472b633; }
@@ -238,3 +262,8 @@ body {
 @keyframes result-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @keyframes result-spark { 0% { opacity: 0; transform: translateY(0) rotate(45deg); } 20% { opacity: .7; } 100% { opacity: 0; transform: translateY(-85vh) rotate(220deg); } }
 @media (prefers-reduced-motion: reduce) { .duel-result, .duel-result-content h2 { animation: none; } .duel-result-vfx { display: none; } .duel-mvp-card, .duel-mvp-stats { transition: none; } }
+
+/* The slot may vary by view; the printed face never reflows with its size. */
+.card-scale-slot { position: relative; aspect-ratio: 2 / 3; padding: 0; border: 0; min-width: 0; }
+.card-scale-face { position: absolute; left: 50%; top: 50%; width: 240px; height: 360px; transform-origin: center; }
+.card-effect-content { overflow-wrap: anywhere; white-space: pre-wrap; }

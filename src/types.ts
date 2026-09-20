@@ -85,6 +85,7 @@ export interface PlacedCard {
 export interface Player {
   id: string;
   name: string;
+  deckName?: string;
   lp: number;
   deck: Card[];
   initialDeck: Card[];

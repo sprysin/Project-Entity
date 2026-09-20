@@ -46,30 +46,102 @@ export const PileViewModal: React.FC<{
 
 const typeOrder: Record<CardType, number> = { [CardType.PAWN]: 1, [CardType.ACTION]: 2, [CardType.CONDITION]: 3 };
 
-export const DeckViewModal: React.FC<{ isOpen: boolean; onClose: () => void; deck: Card[]; playerName: string }> = ({ isOpen, onClose, deck, playerName }) => {
+export const DeckViewModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    deck: Card[];
+    playerName: string;
+    deckName?: string;
+}> = ({ isOpen, onClose, deck, playerName, deckName }) => {
+    const sortedDeck = React.useMemo(() => {
+        return [...deck].sort((a, b) => typeOrder[a.type] - typeOrder[b.type] || a.name.localeCompare(b.name));
+    }, [deck]);
+
     const [selectedCard, setSelectedCard] = React.useState<Card | null>(null);
+
+    React.useEffect(() => {
+        if (isOpen && sortedDeck.length > 0) {
+            setSelectedCard(prev => {
+                if (prev && sortedDeck.some(c => c.instanceId === prev.instanceId || c.id === prev.id)) {
+                    return prev;
+                }
+                return sortedDeck[0];
+            });
+        }
+    }, [isOpen, sortedDeck]);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
-    const sortedDeck = [...deck].sort((a, b) => typeOrder[a.type] - typeOrder[b.type] || a.name.localeCompare(b.name));
     return (
-        <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-black/60 p-8 text-white animate-in fade-in">
-            <div className="relative flex flex-col rounded-xl border-2 border-slate-600 bg-black p-8">
-                <button aria-label="Close deck" onClick={onClose} className="absolute -right-4 -top-4 flex h-12 w-12 items-center justify-center border-2 border-red-500 bg-red-900 font-orbitron text-xl font-black text-white shadow-[0_0_15px_rgba(220,38,38,0.8)] transition-all hover:bg-red-700"><i className="fa-solid fa-xmark" /></button>
-                <div className="flex w-full items-stretch justify-center space-x-8 lg:space-x-12">
-                    <div className="flex h-[32rem] w-80 items-center justify-center rounded-lg border-2 border-slate-800 bg-black/30 p-4 shadow-inner">
-                        {selectedCard ? <CardDetail card={selectedCard} /> : <div className="flex h-full w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-800 text-center font-orbitron text-sm uppercase tracking-widest text-slate-500 opacity-50">Select a card to view</div>}
+        <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-black/70 p-6 backdrop-blur-md text-white animate-in fade-in duration-200">
+            <div className="relative flex max-h-[92vh] max-w-7xl w-full flex-col rounded-xl border-2 border-slate-700 bg-slate-950 p-6 shadow-2xl">
+                <button
+                    aria-label="Close deck"
+                    onClick={onClose}
+                    className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-red-500 bg-red-900/90 font-orbitron text-lg font-black text-white shadow-[0_0_15px_rgba(220,38,38,0.8)] transition-all hover:scale-110 hover:bg-red-700 z-10"
+                >
+                    <i className="fa-solid fa-xmark" />
+                </button>
+                <div className="flex w-full items-stretch justify-center space-x-6 lg:space-x-8 min-h-0 flex-1">
+                    {/* Left Card Preview / Viewer */}
+                    <div className="flex flex-col items-center justify-center w-72 lg:w-80 shrink-0 rounded-lg border-2 border-slate-800 bg-black/40 p-4 shadow-inner">
+                        {selectedCard ? (
+                            <div className="w-full h-full max-h-[460px] flex items-center justify-center">
+                                <CardDetail card={selectedCard} className="w-full h-full" />
+                            </div>
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-800 text-center font-orbitron text-xs uppercase tracking-widest text-slate-500 opacity-50 p-4">
+                                Select a card to view
+                            </div>
+                        )}
                     </div>
-                    <div className="flex w-[50vw] flex-col">
-                        <div className="mb-4">
-                            <h2 className="font-orbitron text-3xl font-black uppercase tracking-[0.2em] text-yellow-500 drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">{playerName} — Starting Deck</h2>
-                            <p className="mt-1 font-orbitron text-xs tracking-widest text-slate-400">Number of cards: {deck.length}</p>
+
+                    {/* Right side: Deck Name header + Gallery of Cards */}
+                    <div className="flex flex-1 flex-col min-w-0">
+                        <div className="mb-3 flex items-baseline justify-between border-b border-white/10 pb-3">
+                            <div>
+                                <h2 className="font-orbitron text-2xl lg:text-3xl font-black uppercase tracking-[0.15em] text-yellow-500 drop-shadow-[0_0_15px_rgba(255,215,0,0.4)]">
+                                    {deckName || 'Current Deck'}
+                                </h2>
+                                <p className="mt-1 font-orbitron text-xs tracking-widest text-slate-400">
+                                    {playerName} · Starting Deck ({deck.length} Cards)
+                                </p>
+                            </div>
+                            {selectedCard && (
+                                <div className="text-right hidden sm:block">
+                                    <div className="font-orbitron text-sm font-bold text-slate-200">{selectedCard.name}</div>
+                                    <div className="text-xs text-slate-400 font-mono">[{selectedCard.type}]</div>
+                                </div>
+                            )}
                         </div>
-                        <div className="grid h-[65vh] grid-cols-10 content-start gap-2 overflow-y-auto overflow-x-hidden rounded-lg border-2 border-slate-800 bg-black/40 p-4 shadow-inner">
-                            {sortedDeck.map(card => (
-                                <button key={card.instanceId} onClick={() => setSelectedCard(card)} className={`flex aspect-[2/3] cursor-pointer items-center justify-center overflow-hidden border-2 p-0.5 transition-colors ${selectedCard?.instanceId === card.instanceId ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]' : 'border-slate-800 hover:border-slate-600'}`}>
-                                    <CardDetail card={card} compact className="pointer-events-none h-full w-full" />
-                                </button>
-                            ))}
+
+                        <div className="grid max-h-[60vh] flex-1 grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 content-start gap-2 overflow-y-auto overflow-x-hidden rounded-lg border-2 border-slate-800 bg-black/40 p-4 shadow-inner">
+                            {sortedDeck.map(card => {
+                                const isSelected = selectedCard?.instanceId === card.instanceId;
+                                return (
+                                    <button
+                                        type="button"
+                                        key={card.instanceId}
+                                        onClick={() => setSelectedCard(card)}
+                                        className={`group relative flex aspect-[2/3] cursor-pointer items-center justify-center overflow-hidden rounded border-2 p-0.5 transition-all duration-200 hover:scale-105 hover:z-10 ${
+                                            isSelected
+                                                ? 'border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.8)] ring-2 ring-yellow-400/50 scale-105 z-10'
+                                                : 'border-slate-800 hover:border-slate-500'
+                                        }`}
+                                    >
+                                        <CardDetail card={card} compact className="pointer-events-none h-full w-full" />
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

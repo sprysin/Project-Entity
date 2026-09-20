@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { CardDetail } from './game/CardDetail';
+import { NormalAttributeIcon } from './NormalAttributeIcon';
 import { cardRegistry } from '../cards/CardRegistry';
 import { Attribute, Card, PawnType } from '../types';
 import '../cards/pawns';
@@ -172,7 +173,7 @@ const attributes: { value: Attribute; icon?: string; glyph?: string; color: stri
   { value: Attribute.EARTH, icon: 'fa-mountain', color: '#b7793f', description: 'Earth-aligned Pawns.' },
   { value: Attribute.AIR, icon: 'fa-wind', color: '#8bdcf5', description: 'Air-aligned Pawns.' },
   { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: '#f4d44d', description: 'Electric-aligned Pawns.' },
-  { value: Attribute.NORMAL, glyph: 'N', color: '#cbd0d8', description: 'Pawns without an elemental alignment.' },
+  { value: Attribute.NORMAL, glyph: <NormalAttributeIcon />, color: '#cbd0d8', description: 'Pawns without an elemental alignment.' },
   { value: Attribute.DARK, icon: 'fa-moon', color: '#9a6ad8', description: 'Dark-aligned Pawns.' },
   { value: Attribute.LIGHT, icon: 'fa-sun', color: '#ffe89a', description: 'Light-aligned Pawns.' },
 ];
