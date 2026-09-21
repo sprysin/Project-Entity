@@ -165,7 +165,7 @@ const pawnCardFields = [
   ['Level', 'Shown as Lv. 1–10. Level determines how many tributes are required to summon or set the Pawn.'],
   ['Attribute', 'The Pawn’s elemental alignment. Attributes can be referenced by card effects.'],
   ['Type', 'The Pawn’s creature classification, shown as [Type/Pawn]. Types can be referenced by card effects.'],
-  ['Effect', 'The rules text that explains the Pawn’s abilities, activation requirements, costs and limits.'],
+  ['Effect', 'The text that explains the Pawn’s abilities, activation requirements, costs and limits.'],
   ['ATK & DEF', 'ATK is used while attacking or being attacked in Attack Position. DEF is used when attacked in Defense Position.'],
 ] as const;
 

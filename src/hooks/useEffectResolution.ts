@@ -1,12 +1,10 @@
 import { useCallback, Dispatch, SetStateAction, useRef } from 'react';
 import {
-    GameState, Card, CardContext, EffectResult, CardSelectionRequest, CardTarget,
+    GameState, Card, CardContext, CardSelectionRequest, CardTarget,
     EffectTrigger, HandSelectionRequest, TargetSelectMode, TargetSelectPosition,
     TargetSelectType, TargetSelectScope, TributeSelectionRequest
 } from '../types';
-import { cardRegistry } from '../cards/CardRegistry';
-import { finishEffect } from '../game/finishEffect';
-import { addChainLink } from '../game/chains';
+import { applyCommand, previewEffect } from '../game/engine';
 
 /**
  * Hook for resolving card effects, including target/discard/hand selection flows.
@@ -90,15 +88,8 @@ export const useEffectResolution = (
         };
 
         // Peek at the effect result to check if we need a selection mode
-        const effect = cardRegistry.getEffect(card.id);
-        let peekResult: EffectResult | undefined;
         const contextForPeek: CardContext = { card, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, tributeIndices: actualTributeIndices };
-
-        if (effect && gameState) {
-            if (actualTriggerType === 'summon' && effect.onSummon) peekResult = effect.onSummon(gameState, contextForPeek);
-            else if (actualTriggerType === 'activate' && effect.onActivate) peekResult = effect.onActivate(gameState, contextForPeek);
-            else if (actualTriggerType === 'field_activate' && effect.onFieldActivate) peekResult = effect.onFieldActivate(gameState, contextForPeek);
-        }
+        const peekResult = previewEffect(gameState, contextForPeek, actualTriggerType);
 
         // Enter selection mode if needed — return early without touching game state
         const requiredTargetIndex = peekResult?.requireTargetIndex ?? 0;
@@ -162,7 +153,7 @@ export const useEffectResolution = (
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
             const executionContext: CardContext = { card, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, tributeIndices: actualTributeIndices };
-            return addChainLink(prev, executionContext, actualTriggerType);
+            return applyCommand(prev, activeIndex, { type: 'activate', context: executionContext, trigger: actualTriggerType }).state;
         });
 
         // Cleanup selection modes
@@ -238,7 +229,7 @@ export const useEffectResolution = (
 
     const cancelEffect = () => {
         const card = selectionState.pendingEffectCard;
-        if (card) setGameState(prev => prev && !prev.response ? finishEffect(prev, card) : prev);
+        if (card) setGameState(prev => prev && !prev.response ? applyCommand(prev, prev.players.findIndex(p => p.id === card.ownerId), { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
         pendingContext.current = {};
         setTriggeredEffect(null);
         setPendingEffectCard(null);

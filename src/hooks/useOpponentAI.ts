@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
-import { Card, GameState, Phase, Position } from '../types';
+import { Card, GameState, Phase } from '../types';
 import { chooseAIAction, observeGame, simulateSummon } from '../game/opponentAI';
-import { addChainLink, passPriority } from '../game/chains';
+import { applyCommand } from '../game/engine';
 import { cardRegistry } from '../cards/CardRegistry';
 import type { useEffectResolution } from './useEffectResolution';
 
@@ -23,7 +23,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
             const action = chooseAIAction(observeGame(gameState, 1), 1, summon);
             if (moves.current.count++ > 70 && !gameState.response) { nextPhase(); return; }
             if (action.kind === 'pass') {
-                if (gameState.response) setGameState(prev => prev ? passPriority(prev) : prev);
+                if (gameState.response) setGameState(prev => prev ? applyCommand(prev, 1, { type: 'pass' }).state : prev);
                 else if (summon) setGameState(prev => prev ? { ...prev } : prev);
                 else nextPhase();
             } else if (action.kind === 'attack') requestAttack(action.index, action.target);
@@ -31,24 +31,15 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
                 if (!action.hidden && cardRegistry.getEffect(action.card.id)?.onSummon) pendingSummon.current = action.card;
                 setGameState(prev => prev ? simulateSummon(prev, action.card, action.hidden, action.tributes) : prev);
             } else if (action.kind === 'position') {
-                setGameState(prev => {
-                    if (!prev) return prev;
-                    const next = structuredClone(prev), zone = next.players[1].pawnZones[action.index];
-                    if (zone) { zone.position = zone.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK; zone.hasChangedPosition = true; }
-                    return next;
-                });
+                setGameState(prev => prev ? applyCommand(prev, 1, { type: 'position', index: action.index }).state : prev);
             } else if (action.kind === 'set' || action.kind === 'effect' && action.fromHand) {
                 setGameState(prev => {
                     if (!prev) return prev;
-                    const next = structuredClone(prev), p = next.players[1];
                     const card = action.kind === 'set' ? action.card : action.context.card;
-                    const slot = p.actionZones.indexOf(null);
-                    if (slot < 0 || !p.hand.some(c => c.instanceId === card.instanceId)) return prev;
-                    p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
-                    p.actionZones[slot] = { card, position: action.kind === 'set' ? Position.HIDDEN : Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: next.turnNumber, isSetTurn: action.kind === 'set' };
-                    if (action.kind === 'set') return next;
-                    const context = { ...action.context, deckIndex: action.deckId ? p.deck.findIndex(c => c.instanceId === action.deckId) : undefined };
-                    return addChainLink(next, context, action.trigger);
+                    const next = applyCommand(prev, 1, { type: 'play', cardId: card.instanceId, set: action.kind === 'set', slot: prev.players[1].actionZones.indexOf(null) }).state;
+                    if (next === prev || action.kind === 'set') return next;
+                    const context = { ...action.context, deckIndex: action.deckId ? next.players[1].deck.findIndex(c => c.instanceId === action.deckId) : undefined };
+                    return applyCommand(next, 1, { type: 'activate', context, trigger: action.trigger }).state;
                 });
             } else if (action.kind === 'effect') {
                 const c = action.context;

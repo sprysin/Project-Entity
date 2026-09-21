@@ -107,6 +107,7 @@ export interface PendingEffect {
 }
 
 export interface GameState {
+  drawProgress?: { turn: number; remaining: number };
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
   chain?: ChainLink[];
   deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };

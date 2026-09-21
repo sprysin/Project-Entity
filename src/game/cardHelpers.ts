@@ -3,7 +3,7 @@ import { cardRegistry } from '../cards/CardRegistry';
 
 /**
  * Checks whether a card's activation conditions are met.
- * Replacement for the old cardEffects.checkActivationConditions.
+ * Shared by UI adapters without depending on React.
  */
 export const checkActivationConditions = (gameState: GameState, card: Card, playerIndex: number): boolean => {
     const effect = cardRegistry.getEffect(card.id);

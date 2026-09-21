@@ -1,7 +1,7 @@
 import React from 'react';
 import { CardType, Phase, Position, OpponentMode } from '../types';
 import { useGameLogic } from '../hooks/useGameLogic';
-import { checkActivationConditions, hasOnActivateEffect } from '../hooks/cardHelpers';
+import { checkActivationConditions, hasOnActivateEffect } from '../game/cardHelpers';
 import { CardDetail } from './game/CardDetail';
 import { Pile, DeckPile } from './game/Pile';
 import { Zone } from './game/Zone';
@@ -14,6 +14,7 @@ import { GameSidebar } from './game/GameSidebar';
 import { HealthHud } from './game/HealthHud';
 import { SavedDeck } from '../decks';
 import { fieldActivations } from '../game/chains';
+import { canAttack, canChangePosition as canChangePawnPosition } from '../game/engine';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -26,7 +27,7 @@ interface GameViewProps {
  * The core battle interface. Manages game state, turn logic, animations, and user interactions.
  */
 const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode = 'self' as OpponentMode }) => {
-  const { gameState, setGameState, state, actions } = useGameLogic(initialDecks, opponentMode);
+  const { gameState, state, actions } = useGameLogic(initialDecks, opponentMode);
 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 
@@ -48,26 +49,10 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
     state.selectedFieldSlot.type === type &&
     state.selectedFieldSlot.index === index;
 
-  const canPawnAttack = (index: number) => {
-    const pawn = activePlayer.pawnZones[index];
-    return turnIsMine && gameState.currentPhase === Phase.BATTLE && gameState.turnNumber > 1 && !!pawn &&
-      pawn.position === Position.ATTACK &&
-      (pawn.attacksRemaining !== undefined ? pawn.attacksRemaining > 0 : !pawn.hasAttacked);
-  };
+  const canPawnAttack = (index: number) => canAttack(gameState, viewIndex, index);
 
   const changePawnPosition = (index: number) => {
-    setGameState(prev => {
-      if (!prev || actionsDisabled || ![Phase.MAIN1, Phase.MAIN2].includes(prev.currentPhase)) return prev;
-      const original = prev.players[prev.activePlayerIndex];
-      const pawnZones = original.pawnZones.map(zone => zone ? { ...zone } : null);
-      const zone = pawnZones[index];
-      if (!zone || zone.hasAttacked || zone.hasChangedPosition || zone.summonedTurn === prev.turnNumber) return prev;
-      zone.position = zone.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK;
-      zone.hasChangedPosition = true;
-      const players = [...prev.players];
-      players[prev.activePlayerIndex] = { ...original, pawnZones };
-      return { ...prev, players: players as typeof prev.players };
-    });
+    if (!actionsDisabled) actions.changePosition(index);
     actions.setSelectedFieldSlot(null);
   };
 
@@ -183,7 +168,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                 <div className="flex space-x-6">
                   {activePlayer.pawnZones.map((z, i) => {
                     const selected = isSelectedZone('pawn', i);
-                    const canChangePosition = !!z && !z.hasAttacked && !z.hasChangedPosition && z.summonedTurn !== gameState.turnNumber;
+                    const canChangePosition = canChangePawnPosition(gameState, viewIndex, i);
                     const responseActivation = responseActivationAt('pawn', i);
                     const canActivateEffect = availableFieldEffects.some(a => a.slot.type === 'pawn' && a.slot.index === i);
                     const attackReady = canPawnAttack(i);
@@ -198,7 +183,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     isSelected={selected}
                     isTributeSelected={state.tributeSelection.includes(i)}
                     isSelectable={checkIsSelectable(z, 'pawn', viewIndex)}
-                    isDropTarget={(selectedCard?.type === CardType.PAWN && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && z === null)}
+                    isDropTarget={(selectedCard?.type === CardType.PAWN && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i))}
                     isActivatable={state.responseFieldMode === 'activate' ? !!responseActivation : attackReady}
                     contextualActions={showHandMenu ? <ContextMenu title="Choose summon method">
                       <ContextMenuButton label={selectedCard.level >= 5 ? 'Tribute Summon' : 'Normal Summon'} onClick={() => actions.handleSummon(selectedCard, 'normal', i)} disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed)} tone="gold" />
@@ -211,7 +196,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     onClick={() => {
                       if (state.responseFieldMode === 'activate') {
                         if (responseActivation) actions.respond(responseActivation.card.instanceId);
-                      } else if (state.targetSelectMode === 'place_pawn' && z === null) {
+                      } else if (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i)) {
                         actions.handlePlacement(i);
                       } else if (state.targetSelectMode === 'tribute') {
                         if (z) {

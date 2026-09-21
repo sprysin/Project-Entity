@@ -6,7 +6,7 @@ import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { addSimultaneousTriggers, SimultaneousTrigger } from '../src/game/chains';
-import { advancePhaseState } from '../src/hooks/useGameLogic';
+import { advancePhaseState } from '../src/game/phases';
 
 function state(): GameState {
     const player = (index: number): Player => ({

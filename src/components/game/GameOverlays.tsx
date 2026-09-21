@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Player } from '../../types';
-import { checkActivationConditions } from '../../hooks/cardHelpers';
+import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, WinnerModal } from './GameModals';
 
 type GameLogic = ReturnType<typeof useGameLogic>;

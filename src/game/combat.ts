@@ -1,28 +1,19 @@
-import { Dispatch, SetStateAction, useCallback } from 'react';
-import { Card, CardTarget, GameState, Phase, Player, Position, TargetSelectMode } from '../types';
-import { clonePlayers } from '../game/cloneState';
-import { checkVictory } from '../game/finishEffect';
+import { GameState, Phase, Player, Position } from '../types';
+import { clonePlayers } from './cloneState';
+import { checkVictory } from './finishEffect';
 
 const quote = (value: string) => `"${value}"`;
-
 const lpLoss = (player: Player, amount: number) => `${quote(player.name)} -${amount} LP.`;
 
-export const useCombatActions = (
-    gameState: GameState | null,
-    setGameState: Dispatch<SetStateAction<GameState | null>>,
-    isInteractionBlocked: boolean,
-    triggerVisual: (source: string, target: string, type: 'discard' | 'void' | 'retrieve', card?: Card) => void,
-    triggerShatter: (zoneKey: string) => void,
-    setTargetSelectMode: (mode: TargetSelectMode) => void,
-    setSelectedFieldSlot: (slot: CardTarget | null) => void
-) => useCallback((attackerIndex: number, targetIndex: number | 'direct') => {
-    if (!gameState || gameState.winner || gameState.currentPhase !== Phase.BATTLE || gameState.turnNumber === 1 || isInteractionBlocked) return;
+/** Resolve already-authorized combat. No timers, DOM access, or animation callbacks. */
+export function resolveCombat(gameState: GameState, attackerIndex: number, targetIndex: number | 'direct'): GameState {
+    if (!gameState || gameState.winner || gameState.currentPhase !== Phase.BATTLE || gameState.turnNumber === 1) return gameState;
     const activeIndex = gameState.activePlayerIndex;
     const opponentIndex = (activeIndex + 1) % 2;
     const attacker = gameState.players[activeIndex].pawnZones[attackerIndex];
-    if (!attacker || attacker.position !== Position.ATTACK) return;
-    if (attacker.attacksRemaining !== undefined ? attacker.attacksRemaining <= 0 : attacker.hasAttacked) return;
-    if (targetIndex === 'direct' && gameState.players[opponentIndex].pawnZones.some(Boolean)) return;
+    if (!attacker || attacker.position !== Position.ATTACK) return gameState;
+    if (attacker.attacksRemaining !== undefined ? attacker.attacksRemaining <= 0 : attacker.hasAttacked) return gameState;
+    if (targetIndex === 'direct' && gameState.players[opponentIndex].pawnZones.some(Boolean)) return gameState;
 
     const logs: string[] = [];
     let damageSource = attacker.card;
@@ -37,7 +28,7 @@ export const useCombatActions = (
         logs.push(`${quote(attackingPawn.card.name)} attacked directly. ${lpLoss(opponent, attackingPawn.card.atk)}`);
     } else {
         const defending = opponent.pawnZones[targetIndex];
-        if (!defending) return;
+        if (!defending) return gameState;
         const defendingPawn = { ...defending, position: defending.position === Position.HIDDEN ? Position.DEFENSE : defending.position };
         const reveal = defending.position === Position.HIDDEN
             ? `${quote(defendingPawn.card.name)} flipped face up. `
@@ -49,26 +40,18 @@ export const useCombatActions = (
         if (defendingPawn.position === Position.ATTACK) {
             const difference = attackingPawn.card.atk - defendingPawn.card.atk;
             if (difference > 0) {
-                triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
                 opponent.lp -= difference;
-                triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
                 opponent.discard.push(defendingPawn.card);
                 opponent.pawnZones[targetIndex] = null;
                 logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle. ${lpLoss(opponent, difference)}`);
             } else if (difference < 0) {
-                triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
                 damageSource = defendingPawn.card;
                 damagePlayerIndex = opponentIndex;
                 activePlayer.lp += difference;
-                triggerVisual(`${activeIndex}-pawn-${attackerIndex}`, `discard-${activeIndex}`, 'discard', attackingPawn.card);
                 activePlayer.discard.push(attackingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
                 logs.push(`${reveal}${quote(defendingPawn.card.name)} destroyed ${quote(attackingPawn.card.name)} by battle. ${lpLoss(activePlayer, -difference)}`);
             } else {
-                triggerShatter(`${activeIndex}-pawn-${attackerIndex}`);
-                triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
-                triggerVisual(`${activeIndex}-pawn-${attackerIndex}`, `discard-${activeIndex}`, 'discard', attackingPawn.card);
-                triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
                 activePlayer.discard.push(attackingPawn.card);
                 opponent.discard.push(defendingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
@@ -76,8 +59,6 @@ export const useCombatActions = (
                 logs.push(`${reveal}${quote(attackingPawn.card.name)} and ${quote(defendingPawn.card.name)} destroyed each other by battle.`);
             }
         } else if (attackingPawn.card.atk > defendingPawn.card.def) {
-            triggerShatter(`${opponentIndex}-pawn-${targetIndex}`);
-            triggerVisual(`${opponentIndex}-pawn-${targetIndex}`, `discard-${opponentIndex}`, 'discard', defendingPawn.card);
             opponent.discard.push(defendingPawn.card);
             opponent.pawnZones[targetIndex] = null;
             logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle.`);
@@ -108,7 +89,7 @@ export const useCombatActions = (
     const damageEvents = amount > 0 ? [...(gameState.damageEvents ?? []), {
         card: { ...damageSource }, playerIndex: damagePlayerIndex, amount, kind: 'battle' as const
     }] : gameState.damageEvents;
-    setGameState(checkVictory({ ...gameState, damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) }));
-    setTargetSelectMode(null);
-    setSelectedFieldSlot(null);
-}, [gameState, isInteractionBlocked, setGameState, triggerVisual, triggerShatter, setTargetSelectMode, setSelectedFieldSlot]);
+    return checkVictory({ ...gameState, damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) });
+
+}
+

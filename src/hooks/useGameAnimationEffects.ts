@@ -1,8 +1,9 @@
 import { Dispatch, SetStateAction, useEffect } from 'react';
-import { GameState, Phase, Player } from '../types';
+import { GameState, Phase } from '../types';
 import type { useAnimations } from './useAnimations';
 import { useManagedTimeout } from './useManagedTimeout';
-import { drawCards } from '../game/draw';
+import { applySystemCommand } from '../game/engine';
+import { pendingDrawCount } from '../game/phases';
 
 type AnimationController = ReturnType<typeof useAnimations>;
 
@@ -76,26 +77,18 @@ export const useGameAnimationEffects = (
         const timers: ReturnType<typeof setTimeout>[] = [];
         const later = (callback: () => void, delay: number) => timers.push(setTimeout(callback, delay));
         const phase = gameState.currentPhase;
-        const active = gameState.activePlayerIndex;
         const turn = gameState.turnNumber;
 
         if (phase === Phase.DRAW) {
             animations.setTurnFlash('TURN CHANGE');
             later(() => animations.setTurnFlash(null), 1500);
             later(() => animations.setPhaseFlash(Phase.DRAW), 1200);
-            setGameState(previous => {
-                if (!previous || previous.winner) return previous;
-                const players = [...previous.players] as [Player, Player];
-                const player = players[active];
-                players[active] = { ...player, normalSummonUsed: false, hiddenSummonUsed: false, pawnZones: player.pawnZones.map(zone => zone ? { ...zone, hasAttacked: false, hasChangedPosition: false } : null) };
-                return { ...previous, players };
-            });
-            const player = gameState.players[active];
-            const count = turn === 1 ? 0 : Math.max(1, 5 - player.hand.length);
+            const count = pendingDrawCount(gameState);
+            if (!count) setGameState(previous => previous ? applySystemCommand(previous, { type: 'draw' }).state : previous);
             for (let index = 0; index < count; index++) {
                 later(() => setGameState(previous => {
                     if (!previous || previous.winner || previous.turnNumber !== turn || previous.currentPhase !== Phase.DRAW) return previous;
-                    return drawCards(previous, active, 1);
+                    return applySystemCommand(previous, { type: 'draw' }).state;
                 }), (index + 1) * 300);
             }
             later(nextPhase, Math.max(1700, count * 300 + 500));

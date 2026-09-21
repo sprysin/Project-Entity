@@ -1,7 +1,8 @@
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
-import { destroyOrphanedAttachments } from './attachments';
+import { applyCommand } from './engine';
+import { resolveCombat } from './combat';
 
 export type AIDecision =
     | { kind: 'summon'; card: Card; hidden: boolean; tributes: number[] }
@@ -76,41 +77,23 @@ export function evaluatePosition(state: GameState, player: number): number {
 }
 
 export function simulateSummon(state: GameState, card: Card, hidden: boolean, tributes: number[]): GameState {
-    const next = structuredClone(state), p = next.players[next.activePlayerIndex];
-    if (![Phase.MAIN1, Phase.MAIN2].includes(next.currentPhase) || !p.hand.some(c => c.instanceId === card.instanceId)) return state;
-    const required = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
-    if (card.type !== CardType.PAWN || tributes.length !== required || new Set(tributes).size !== required || tributes.some(i => !p.pawnZones[i])) return state;
-    if (!required && (hidden ? p.hiddenSummonUsed : p.normalSummonUsed)) return state;
-    if (!p.pawnZones.includes(null) && !tributes.length) return state;
-    tributes.forEach(i => { p.discard.push(p.pawnZones[i]!.card); p.pawnZones[i] = null; });
-    const slot = p.pawnZones.indexOf(null);
-    p.pawnZones[slot] = { card, position: hidden ? Position.HIDDEN : Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: next.turnNumber, isSetTurn: hidden };
-    p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
-    if (!required) { if (hidden) p.hiddenSummonUsed = true; else p.normalSummonUsed = true; }
-    next.log = [hidden ? `${p.name} set a Pawn.` : `"${card.name}" ${required ? 'tribute summoned' : 'summoned'}.`, ...next.log].slice(0, 50);
-    return destroyOrphanedAttachments(next);
+    const player = state.players[state.activePlayerIndex];
+    const slot = player.pawnZones.findIndex((zone, index) => !zone || tributes.includes(index));
+    return applyCommand(state, state.activePlayerIndex, { type: 'summon', cardId: card.instanceId, hidden, tributes, slot }).state;
 }
 
+/** Unknown defenders use the planner's estimate; combat rules are shared with real matches. */
 export function simulateAttack(state: GameState, index: number, target: number | 'direct'): GameState {
-    const next = structuredClone(state), p = next.players[next.activePlayerIndex], opp = next.players[1 - next.activePlayerIndex];
-    const attacker = p.pawnZones[index];
-    if (!attacker) return state;
-    attacker.attacksRemaining = (attacker.attacksRemaining ?? 1) - 1;
-    attacker.hasAttacked = attacker.attacksRemaining <= 0;
-    if (target === 'direct') opp.lp -= attacker.card.atk;
-    else {
-        const defender = opp.pawnZones[target];
-        if (!defender) return state;
-        const attackPosition = defender.position === Position.ATTACK;
-        const defense = defender.card.id === 'unknown' ? 100 : attackPosition ? defender.card.atk : defender.card.def;
-        const difference = attacker.card.atk - defense;
-        if (difference > 0 || difference === 0 && attackPosition) { opp.discard.push(defender.card); opp.pawnZones[target] = null; }
-        if (attackPosition) {
-            if (difference > 0) opp.lp -= difference;
-            else { p.lp += difference; p.discard.push(attacker.card); p.pawnZones[index] = null; }
-        } else if (difference < 0) p.lp += difference;
+    const estimate = structuredClone(state);
+    estimate.response = undefined;
+    estimate.deferredAction = undefined;
+    estimate.chain = [];
+    estimate.currentPhase = Phase.BATTLE;
+    if (target !== 'direct') {
+        const defender = estimate.players[1 - estimate.activePlayerIndex].pawnZones[target];
+        if (defender?.card.id === 'unknown') defender.card = { ...defender.card, atk: 100, def: 100 };
     }
-    return destroyOrphanedAttachments(next);
+    return resolveCombat(estimate, index, target);
 }
 
 function attackChoices(state: GameState): Extract<AIDecision, { kind: 'attack' }>[] {
@@ -214,9 +197,8 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             }
         } else if (own.actionZones.includes(null)) {
             if (card.type === CardType.ACTION) {
-                const base = structuredClone(state), p = base.players[player];
-                p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
-                p.actionZones[p.actionZones.indexOf(null)] = { card, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+                const base = applyCommand(state, player, { type: 'play', cardId: card.instanceId, set: false, slot: own.actionZones.indexOf(null) }).state;
+                if (base === state) return;
                 considerEffect(base, card, 'activate', true);
                 // Lingering actions with separate field effects may first need to enter play.
                 if (card.isLingering && !cardRegistry.getEffect(card.id)?.onActivate && bestScore < evaluatePosition(state, player) + 2) {
@@ -231,8 +213,9 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
     });
     own.pawnZones.forEach((z, index) => {
         if (!z || z.hasChangedPosition || z.hasAttacked || z.summonedTurn === state.turnNumber) return;
-        const next = structuredClone(state), zone = next.players[player].pawnZones[index]!;
-        zone.position = z.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK;
+        const next = applyCommand(state, player, { type: 'position', index }).state;
+        if (next === state) return;
+        const zone = next.players[player].pawnZones[index]!;
         if (zone.position === Position.ATTACK && zone.card.atk < biggestEnemy) return;
         const score = evaluatePosition(next, player);
         if (score > bestScore) { bestScore = score; decision = { kind: 'position', index }; }

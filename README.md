@@ -33,7 +33,9 @@ Inspired by "no-mana" systems, the game focuses on hand management and tempo rat
 - `src/components/` — React views and reusable UI
 - `src/hooks/` — game-state and animation hooks
 - `src/cards/` — card definitions, registry, and effect engine
-- `src/game/` — shared game-state utilities
+- `src/game/` — React-independent rules engine, commands, AI, and game-state utilities
 - `src/styles/` — global and game-wide styles
 - `tests/` — automated tests
 - `docs/` — contributor documentation
+
+See [Rules engine and React adapters](docs/rules-engine.md) for the command API and headless match execution.
