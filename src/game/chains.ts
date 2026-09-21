@@ -22,7 +22,7 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
 }
 
 export function needsChoice(result: EffectResult) {
-    return !!(result.requireTarget || result.requireHandSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireEffectTribute);
+    return !!(result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireEffectTribute);
 }
 
 export function combinations(values: number[], count: number): number[][] {
@@ -64,6 +64,9 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             state.players[req.playerIndex].hand.forEach((c, handIndex) => {
                 if (!req.filter || req.filter(c)) visit({ ...context, handIndex }, depth + 1);
             });
+        } else if (result.requirePeekSelection && context.peekIndex === undefined) {
+            const req = result.requirePeekSelection;
+            state.players[req.playerIndex].hand.forEach((_c, peekIndex) => visit({ ...context, peekIndex }, depth + 1));
         } else if (result.requireEffectTribute && !context.tributeIndices) {
             const req = result.requireEffectTribute;
             const indices = state.players[req.playerIndex].pawnZones.flatMap((z, i) => z && (!req.filter || req.filter(z.card)) ? [i] : []);
@@ -142,9 +145,15 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
             : undefined),
         discardId: context.discardIndex === undefined ? undefined : state.players[context.playerIndex].discard[context.discardIndex]?.instanceId,
         deckId: context.deckIndex === undefined ? undefined : state.players[context.playerIndex].deck[context.deckIndex]?.instanceId,
+        peekCardId: context.peekIndex === undefined ? undefined : state.players[1 - context.playerIndex].hand[context.peekIndex]?.instanceId,
     };
     next.chain = [...(state.chain ?? []), link];
-    if (context.handIndex !== undefined || tributeCards.length || next.players[context.playerIndex].lp !== state.players[context.playerIndex].lp) {
+    const sourceWasOnField = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
+        .some(zone => zone?.card.instanceId === context.card.instanceId);
+    const sourceRemainsOnField = [...next.players[context.playerIndex].pawnZones, ...next.players[context.playerIndex].actionZones]
+        .some(zone => zone?.card.instanceId === context.card.instanceId);
+    if (context.handIndex !== undefined || tributeCards.length || next.players[context.playerIndex].lp !== state.players[context.playerIndex].lp
+        || sourceWasOnField && !sourceRemainsOnField) {
         next.log = [formatEffectLog(state, next, context.card, context, trigger, tributeCards), ...next.log].slice(0, 50);
     }
     next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated` };
@@ -195,6 +204,10 @@ export function resolveChain(state: GameState): GameState {
         }
         if (link.discardId) { context.discardIndex = p.discard.findIndex(c => c.instanceId === link.discardId); invalid ||= context.discardIndex < 0; }
         if (link.deckId) { context.deckIndex = p.deck.findIndex(c => c.instanceId === link.deckId); invalid ||= context.deckIndex < 0; }
+        if (link.peekCardId) {
+            context.peekIndex = next.players[1 - context.playerIndex].hand.findIndex(c => c.instanceId === link.peekCardId);
+            invalid ||= context.peekIndex < 0;
+        }
         const before = next;
         const result = invalid ? undefined : runEffect(next, context, link.trigger);
         const fizzled = !result || result.halted || needsChoice(result);

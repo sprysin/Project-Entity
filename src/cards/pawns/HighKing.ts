@@ -21,5 +21,5 @@ cardRegistry.register({
     pawnType: PawnType.WARRIOR,
     atk: 170,
     def: 50,
-    effectText: 'ON SUMMON: Target 1 face-up monster on the field; it loses 20 ATK.',
+    effectText: 'ON SUMMON: Target 1 face-up Pawn on the field; it loses 20 ATK.',
 }, effect);

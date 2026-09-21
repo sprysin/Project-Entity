@@ -1,12 +1,12 @@
 # Project Entity
 
-**Project Entity** is a tactical non-mana card game.
+**Project Entity** is a digital trading card game.
 
 ## Game Overview
 
-Project Entity is a card game where you summon **Pawns** with a range of effects while trying to reduce your opponent's Life Points to 0. You command the field not only through your Pawns but also through **Action** and **Condition** cards.
+Project Entity is a card game where you summon **Pawns** with a range of effects while trying to reduce your opponent's Life Points to 0. You fight on the field not only through your Pawns but also through **Action** and **Condition** cards.
 
-Inspired by "no-mana" systems, the game focuses on hand management and tempo rather than a slow-building resource pool. Players must balance the raw power of **High-Level Pawns** which require **Tributes** to summon with the reactive utility of fast-paced Actions and face down Condition cards.
+Inspired by "no-mana" systems, the game focuses on hand management and tempo rather than a slow-building resource pool. Players must balance the raw power of **High-Level Pawns** with the utility of fast-paced Actions and face down Condition cards.
 
 ## Key Mechanics
 

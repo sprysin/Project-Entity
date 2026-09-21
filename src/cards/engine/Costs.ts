@@ -5,6 +5,15 @@ import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
 
 export const Cost = {
+    /** Destroys the activating Pawn as an activation cost. */
+    DestroySelf: (): EffectStep => activationCost((draftState, context) => {
+        const player = draftState.players[context.playerIndex];
+        const index = player.pawnZones.findIndex(zone => zone?.card.instanceId === context.card.instanceId);
+        if (index < 0) return { halt: true };
+        player.discard.push(player.pawnZones[index]!.card);
+        player.pawnZones[index] = null;
+    }),
+
     /** Selects a controlled Pawn and changes its position as an activation cost. */
     ChangePawnPosition: (
         newPosition: Position,

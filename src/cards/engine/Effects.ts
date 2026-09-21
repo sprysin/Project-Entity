@@ -5,6 +5,27 @@ import { getEffectTarget } from './Targets';
 import { drawCards } from '../../game/draw';
 
 export const Effect = {
+    /** Has the opponent choose one card in their hand to reveal privately to this effect's controller. */
+    PeekOpponentHand: (): EffectStep => (draftState, context) => {
+        const ownerPlayerIndex = 1 - context.playerIndex;
+        if (context.peekIndex === undefined) {
+            return {
+                requirePeekSelection: {
+                    playerIndex: ownerPlayerIndex,
+                    viewerPlayerIndex: context.playerIndex
+                }
+            };
+        }
+        const card = draftState.players[ownerPlayerIndex].hand[context.peekIndex];
+        if (!card) return { halt: true };
+        draftState.peekEvents = [...(draftState.peekEvents ?? []), {
+            id: `${context.card.instanceId}:${card.instanceId}:${draftState.turnNumber}`,
+            card: { ...card },
+            ownerPlayerIndex,
+            viewerPlayerIndex: context.playerIndex
+        }];
+    },
+
     /** Attach to a field card by identity; supports Pawn, Action and Condition targets. */
     AttachToTarget: (targetIndex = 0): EffectStep => (state, context) => {
         const target = getEffectTarget(context, targetIndex);

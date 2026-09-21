@@ -13,7 +13,8 @@ const effect: IEffect = {
         Effect.DrawCards(Query.CountPawnAttribute(Attribute.DARK))
     ]),
     canActivate: buildCondition([
-        Condition.CompareValue((s, c) => s.players[c.playerIndex].lp, '>', 200)
+        Condition.CompareValue((s, c) => s.players[c.playerIndex].lp, '>', 200),
+        Condition.CompareValue(Query.CountPawnAttribute(Attribute.DARK), '>', 0)
     ])
 };
 
@@ -25,5 +26,5 @@ cardRegistry.register({
     level: 0,
     atk: 0,
     def: 0,
-    effectText: 'Pay 200 life points, draw 1 card for every face up DARK monster on the field.',
+    effectText: 'Pay 200 life points, draw 1 card for every face up DARK Pawn on the field.',
 }, effect);

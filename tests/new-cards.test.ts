@@ -79,3 +79,42 @@ it('Call from the Depths flips one face-up Pawn on each field face-down', () => 
     expect(resolved.players[1].pawnZones[0]?.position).toBe(Position.HIDDEN);
     expect(resolved.players[0].discard.some(value => value.instanceId === call.instanceId)).toBe(true);
 });
+
+it('Glass Witch destroys itself and privately reveals the opponent-selected hand card', () => {
+    const game = state();
+    const witch = card('pawn_11');
+    const shown = card('action_01', 1);
+    const hidden = card('pawn_05', 1);
+    game.players[0].pawnZones[0] = placed(witch);
+    game.players[1].hand = [hidden, shown];
+
+    const choices = effectChoices(game, witch, 'activate');
+    expect(choices.map(choice => choice.peekIndex)).toEqual([0, 1]);
+
+    const resolved = addChainLink(game, choices[1], 'activate');
+    expect(resolved.players[0].pawnZones[0]).toBeNull();
+    expect(resolved.players[0].discard.map(value => value.instanceId)).toContain(witch.instanceId);
+    expect(resolved.players[1].hand).toHaveLength(2);
+    expect(resolved.peekEvents?.[0]).toMatchObject({
+        card: { instanceId: shown.instanceId, name: shown.name },
+        ownerPlayerIndex: 1,
+        viewerPlayerIndex: 0
+    });
+    expect(resolved.log.some(entry => entry.includes('reveals "Void Blast"'))).toBe(true);
+    expect(resolved.log.some(entry => entry.includes('destroys "Glass Witch"'))).toBe(true);
+    expect(resolved.players[0].activatedHardOncePerTurns).toContain('pawn_11');
+});
+
+it('Glass Witch is usable in either Main Phase, but not outside a Main Phase or twice per turn', () => {
+    const game = state();
+    const witch = card('pawn_11', 1);
+    game.players[1].pawnZones[0] = placed(witch);
+    game.players[0].hand = [card('pawn_01')];
+
+    expect(effectChoices(game, witch, 'activate')).toHaveLength(1);
+    game.currentPhase = Phase.BATTLE;
+    expect(effectChoices(game, witch, 'activate')).toHaveLength(0);
+    game.currentPhase = Phase.MAIN2;
+    game.players[1].activatedHardOncePerTurns.push('pawn_11');
+    expect(effectChoices(game, witch, 'activate')).toHaveLength(0);
+});

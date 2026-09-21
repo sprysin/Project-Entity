@@ -16,10 +16,12 @@ export const Zone: React.FC<{
     isTributeSelected?: boolean;
     isDropTarget?: boolean;
     isActivatable?: boolean;
+    isVisuallyHidden?: boolean;
     contextualActions?: React.ReactNode;
     domRef?: (el: HTMLElement | null) => void;
-}> = ({ card, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, contextualActions, domRef }) => {
+}> = ({ card, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, isVisuallyHidden, contextualActions, domRef }) => {
     const schedule = useManagedTimeout();
+    const visibleCard = isVisuallyHidden ? null : card;
     // Track previous stats to trigger pop animations
     const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
     const [popStats, setPopStats] = useState<{ atk: boolean, def: boolean }>({ atk: false, def: false });
@@ -54,7 +56,7 @@ export const Zone: React.FC<{
                 </div>
             )}
             {/* Base Zone Content (Empty State) */}
-            <div className={`absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${card ? 'opacity-0' : 'opacity-20'}`}>
+            <div className={`absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${visibleCard ? 'opacity-0' : 'opacity-20'}`}>
                 {type === 'pawn'
                     ? <i className="fa-solid fa-chess-pawn text-3xl text-white"></i>
                     : <ActionCardIcon className="h-8 w-8 text-white" />}
@@ -62,16 +64,16 @@ export const Zone: React.FC<{
             </div>
 
             {/* Floating Card Content */}
-            {card && (
-                <div key={card.card.instanceId} data-card-face className="absolute inset-0">
-                <div data-field-card-id={card.card.instanceId} data-attached-to={card.position !== Position.HIDDEN ? card.attachedToInstanceId : undefined} className={`absolute inset-0 w-full h-full transition-all duration-700 z-20 ${card.position === Position.HIDDEN ? 'card-back' : ''} ${(card.position === Position.DEFENSE || (card.position === Position.HIDDEN && card.card.type === CardType.PAWN)) ? 'rotate-90' : ''}`}>
-                    {card.position === Position.HIDDEN ? (
+            {visibleCard && (
+                <div key={visibleCard.card.instanceId} data-card-face className="absolute inset-0">
+                <div data-field-card-id={visibleCard.card.instanceId} data-attached-to={visibleCard.position !== Position.HIDDEN ? visibleCard.attachedToInstanceId : undefined} className={`absolute inset-0 w-full h-full transition-all duration-700 z-20 ${visibleCard.position === Position.HIDDEN ? 'card-back' : ''} ${(visibleCard.position === Position.DEFENSE || (visibleCard.position === Position.HIDDEN && visibleCard.card.type === CardType.PAWN)) ? 'rotate-90' : ''}`}>
+                    {visibleCard.position === Position.HIDDEN ? (
                         <div className="w-full h-full flex items-center justify-center opacity-40">
                             <i className="fa-solid fa-lock text-2xl text-slate-800"></i>
                         </div>
                     ) : (
                         <CardDetail
-                            card={card.card}
+                            card={visibleCard.card}
                             highlightAtk={popStats.atk}
                             highlightDef={popStats.def}
                             className="w-full h-full"

@@ -112,14 +112,34 @@ function scoreAfterResponse(state: GameState, player: number): number {
     return evaluatePosition(simulateAttack(state, index, target), player);
 }
 
+/**
+ * Value an equal-ATK trade when superior numbers turn it into a breakthrough.
+ * The bonus scales with the direct damage the surviving attackers can threaten,
+ * so the AI still declines an unsupported or low-pressure trade.
+ */
+function breakthroughTradeBonus(state: GameState, action: Extract<AIDecision, { kind: 'attack' }>): number {
+    if (action.target === 'direct') return 0;
+    const own = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
+    const attacker = own.pawnZones[action.index], defender = opp.pawnZones[action.target];
+    if (!attacker || !defender || defender.position !== Position.ATTACK || attacker.card.atk !== defender.card.atk) return 0;
+    const ownCount = own.pawnZones.filter(Boolean).length, opposingCount = opp.pawnZones.filter(Boolean).length;
+    if (opposingCount !== 1 || ownCount <= opposingCount) return 0;
+    const followUpPower = own.pawnZones.reduce((total, zone, index) => total + (
+        index !== action.index && zone?.position === Position.ATTACK
+        && (zone.attacksRemaining ?? (zone.hasAttacked ? 0 : 1)) > 0 ? zone.card.atk : 0
+    ), 0);
+    return followUpPower * .25;
+}
+
 /** Bounded battle search preserves strong attackers for direct damage and recognizes lethal sequences. */
 function planBattle(state: GameState, player: number): AIDecision {
     let best = evaluatePosition(state, player), decision: AIDecision = { kind: 'pass' };
-    let beam: { state: GameState; first?: AIDecision; score: number }[] = [{ state, score: best }];
+    let beam: { state: GameState; first?: AIDecision; score: number; tacticalBonus: number }[] = [{ state, score: best, tacticalBonus: 0 }];
     for (let depth = 0; depth < 10 && beam.length; depth++) {
         const candidates = beam.flatMap(node => attackChoices(node.state).map(action => {
             const next = simulateAttack(node.state, action.index, action.target);
-            return { state: next, first: node.first ?? action, score: evaluatePosition(next, player) - depth * .01 };
+            const tacticalBonus = node.tacticalBonus + breakthroughTradeBonus(node.state, action);
+            return { state: next, first: node.first ?? action, score: evaluatePosition(next, player) + tacticalBonus - depth * .01, tacticalBonus };
         }));
         candidates.sort((a, b) => b.score - a.score);
         if (candidates[0]?.score > best) { best = candidates[0].score; decision = candidates[0].first; }
@@ -147,6 +167,8 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
         const remaining = fieldIds(after);
         return [...fieldIds(before)].filter(id => !remaining.has(id)).length;
     };
+    const opponentLPDamage = (before: GameState, after: GameState) =>
+        Math.max(0, before.players[1 - player].lp - after.players[1 - player].lp);
     const considerEffect = (base: GameState, card: Card, trigger: EffectTrigger, fromHand = false) => {
         for (const context of effectChoices(base, card, trigger)) {
             const queued = addChainLink(base, context, trigger);
@@ -158,7 +180,12 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             // Reward all forms of opposing field removal equally. It does not
             // matter whether the effect destroys, voids, returns to hand, or
             // otherwise moves the card away from the opponent's field.
-            const score = scoreAfterResponse(next, player) + opponentFieldRemovals(base, next) * 45;
+            const score = scoreAfterResponse(next, player)
+                + opponentFieldRemovals(base, next) * 45
+                // Position evaluation deliberately gives non-lethal LP a light
+                // weight. Add effect-specific pressure so burn cards are still
+                // worth converting from hand instead of being held forever.
+                + opponentLPDamage(base, next) * .2;
             // Summon effects still fire when their benefit is intentionally not
             // represented by the score (for example, gaining LP while healthy).
             // Harmful self-ATK targets were filtered immediately above.

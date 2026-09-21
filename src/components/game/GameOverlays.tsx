@@ -2,11 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Player } from '../../types';
 import { checkActivationConditions } from '../../game/cardHelpers';
-import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, WinnerModal } from './GameModals';
+import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
 
 type GameLogic = ReturnType<typeof useGameLogic>;
 
 const HOLD_TO_END_MS = 650;
+
+const PeekAutoDismiss: React.FC<{ eventId: string; dismiss: (id: string) => void }> = ({ eventId, dismiss }) => {
+    const dismissRef = useRef(dismiss);
+    dismissRef.current = dismiss;
+    useEffect(() => {
+        const timer = setTimeout(() => dismissRef.current(eventId), 3100);
+        return () => clearTimeout(timer);
+    }, [eventId]);
+    return null;
+};
 
 const PhaseAdvanceButton: React.FC<{
     disabled: boolean;
@@ -78,8 +88,9 @@ export const GameOverlays: React.FC<{
     state: GameLogic['state'];
     actions: GameLogic['actions'];
     actionsDisabled: boolean;
+    viewerIndex: number;
     onQuit: () => void;
-}> = ({ gameState, state, actions, actionsDisabled, onQuit }) => (
+}> = ({ gameState, state, actions, actionsDisabled, viewerIndex, onQuit }) => (
     <>
         {state.floatingTexts.map(text => (
             <div key={text.id} className={`floating-text text-6xl ${text.type === 'damage' ? 'text-red-600' : 'text-green-500'}`} style={{ left: `${text.x}%`, top: `${text.y}%` }}>{text.text}</div>
@@ -124,6 +135,8 @@ export const GameOverlays: React.FC<{
         {state.opponentMode === 'ai' && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
         <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} setHandSelectionReq={actions.cancelEffect} handleHandSelection={actions.handleHandSelection} />
+        <PeekSelectionModal selectionReq={state.peekSelectionReq} gameState={gameState} selectedPeekIndex={state.selectedPeekIndex} setSelectedPeekIndex={actions.setSelectedPeekIndex} cancelEffect={actions.cancelEffect} handlePeekSelection={actions.handlePeekSelection} />
+        {gameState.peekEvents?.filter(event => event.viewerPlayerIndex === viewerIndex).slice(0, 1).map(event => <PeekAutoDismiss key={event.id} eventId={event.id} dismiss={actions.dismissPeek} />)}
         <DiscardSelectionModal selectionReq={state.discardSelectionReq} gameState={gameState} selectedDiscardIndex={state.selectedDiscardIndex} setSelectedDiscardIndex={actions.setSelectedDiscardIndex} setDiscardSelectionReq={actions.cancelEffect} handleDiscardSelection={actions.handleDiscardSelection} />
         <DeckSelectionModal selectionReq={state.deckSelectionReq} gameState={gameState} selectedDeckIndex={state.selectedDeckIndex} setSelectedDeckIndex={actions.setSelectedDeckIndex} setDeckSelectionReq={actions.cancelEffect} handleDeckSelection={actions.handleDeckSelection} />
         <EffectModal triggeredEffect={state.triggeredEffect} gameState={gameState} isPeekingField={state.isPeekingField} resolveEffect={card => actions.resolveEffect(card, undefined, undefined, undefined, undefined, state.pendingTriggerType || 'activate')} checkActivationConditions={checkActivationConditions} setIsPeekingField={actions.setIsPeekingField} setTriggeredEffect={actions.setTriggeredEffect} setPendingEffectCard={actions.setPendingEffectCard} />

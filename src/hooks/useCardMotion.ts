@@ -5,7 +5,7 @@ type Location = { key: string; card: Card; hidden: boolean; rotation: number; re
 export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean };
 
 /** Observe committed zone changes only. Animation never delays or mutates game state. */
-export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number) {
+export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number, suppressedCardIds: string[] = []) {
     const previous = useRef<Map<string, Location>>(new Map());
     const waypoints = useRef(new Map<string, DOMRect>());
     const activated = useRef(new Set<string>());
@@ -43,6 +43,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         const batch: CardMotion[] = [];
         next.forEach((dest, id) => {
             const src = previous.current.get(id);
+            if (suppressedCardIds.includes(id)) return;
             // A hand index changing is reflow, not a zone transfer.
             if (!src || src.key === dest.key || src.key.replace(/-hand-\d+$/, '-hand') === dest.key.replace(/-hand-\d+$/, '-hand')) return;
             if (!src.rect || !dest.rect) return;
@@ -75,7 +76,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         activated.current.clear();
         if (!batch.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         setMotions(current => [...current, ...batch]);
-    }, [game, refs, viewerIndex]);
+    }, [game, refs, viewerIndex, suppressedCardIds]);
     return {
         motions,
         // Preserve temporary field stops that React batches away during instant effects.

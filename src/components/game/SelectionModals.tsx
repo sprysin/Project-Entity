@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardSelectionRequest, GameState, HandSelectionRequest } from '../../types';
+import { Card, CardSelectionRequest, GameState, HandSelectionRequest, PeekSelectionRequest } from '../../types';
 import { CardDetail } from './CardDetail';
 
 type SelectionTheme = 'red' | 'yellow' | 'indigo';
@@ -33,11 +33,12 @@ interface CardSelectionModalProps {
     confirmLabel: string;
     theme: SelectionTheme;
     filter?: (card: Card) => boolean;
+    cancellable?: boolean;
 }
 
 const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
     title, cards, selectedIndex, onSelect, onCancel, onConfirm,
-    emptyLabel, confirmLabel, theme, filter
+    emptyLabel, confirmLabel, theme, filter, cancellable = true
 }) => {
     const colors = themes[theme];
     const choices = cards
@@ -49,7 +50,7 @@ const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
             <div className={`flex max-h-[80vh] w-full max-w-5xl flex-col rounded-lg border-2 bg-slate-900 p-8 ${colors.frame}`}>
                 <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
                     <h2 className={`font-orbitron text-2xl font-black uppercase tracking-widest ${colors.heading}`}>{title}</h2>
-                    <button onClick={onCancel} className="border border-red-500/50 bg-red-900/40 px-6 py-2 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-red-800">Cancel</button>
+                    {cancellable && <button onClick={onCancel} className="border border-red-500/50 bg-red-900/40 px-6 py-2 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-red-800">Cancel</button>}
                 </div>
                 <div className="mb-6 grid flex-1 grid-cols-2 gap-6 overflow-y-auto p-2 md:grid-cols-4 lg:grid-cols-5">
                     {choices.map(({ card, index, valid }) => (
@@ -92,6 +93,14 @@ interface HandSelectionModalProps {
 export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, setHandSelectionReq, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
     return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel="Confirm discard" theme="red" filter={selectionReq.filter} />;
+};
+
+export const PeekSelectionModal: React.FC<{
+    selectionReq: PeekSelectionRequest | null; gameState: GameState | null; selectedPeekIndex: number | null;
+    setSelectedPeekIndex: (index: number | null) => void; cancelEffect: () => void; handlePeekSelection: (index: number) => void;
+}> = ({ selectionReq, gameState, selectedPeekIndex, setSelectedPeekIndex, cancelEffect, handlePeekSelection }) => {
+    if (!selectionReq || !gameState) return null;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card to show'} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedPeekIndex} onSelect={setSelectedPeekIndex} onCancel={cancelEffect} onConfirm={handlePeekSelection} emptyLabel="No cards in hand" confirmLabel="Show this card" theme="indigo" cancellable={false} />;
 };
 
 export const DiscardSelectionModal: React.FC<{

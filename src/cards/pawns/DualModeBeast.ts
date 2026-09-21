@@ -28,5 +28,5 @@ cardRegistry.register({
     pawnType: PawnType.BEAST,
     atk: 240,
     def: 170,
-    effectText: 'Discard 1 card; Target 1 attack position monster on your opponents field, switch it to defense position.',
+    effectText: 'Discard 1 card; Target 1 attack position Pawn on your opponents field, switch it to defense position.',
 }, effect);

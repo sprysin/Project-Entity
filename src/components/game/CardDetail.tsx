@@ -32,7 +32,7 @@ const AttributeSymbol = ({ attribute }: { attribute?: Attribute }) => {
     return icon ? <i className={`fa-solid ${icon}`} /> : <NormalAttributeIcon />;
 };
 
-// Every face is laid out at 240 × 360, then uniformly scaled to its slot.
+// Every face is laid out at 240 Ã— 360, then uniformly scaled to its slot.
 const ScaledCard: React.FC<React.PropsWithChildren<{
     className: string;
     onClick?: () => void;
@@ -123,13 +123,9 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
     // Handle hidden state for opponent's Set cards (Sidebar view)
     if (isSet) return (
         <ScaledCard className={className} onClick={onClick} domRef={domRef}>
-        <div className={`p-8 rounded-sm bg-slate-100 border-4 border-slate-400 flex flex-col items-center space-y-8 shadow-inner w-full h-full`}>
-            <div className="w-24 h-24 rounded-sm border-2 border-slate-300 flex items-center justify-center bg-white/50 rotate-45 shadow-lg">
-                <i className="fa-solid fa-eye-slash text-5xl opacity-40 -rotate-45 text-slate-600"></i>
-            </div>
-            <div className="text-center space-y-2">
-                <h3 className="text-3xl font-orbitron font-black text-slate-600 uppercase tracking-widest">MASKED DATA</h3>
-                <p className="font-bold text-xs text-slate-500 uppercase tracking-[0.3em]">Signature Hidden</p>
+        <div className="hidden-card-face card-back" aria-label="Hidden card">
+            <div className="hidden-card-icon" aria-hidden="true">
+                <i className="fa-solid fa-eye-slash" />
             </div>
         </div>
         </ScaledCard>

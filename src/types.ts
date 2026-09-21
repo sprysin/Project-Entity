@@ -116,6 +116,8 @@ export interface GameState {
   currentPhase: Phase;
   turnNumber: number;
   damageEvents?: { card: Card; playerIndex: number; amount: number; kind: 'battle' | 'effect' }[];
+  /** Pending private reveals. The viewer dismisses each event after inspecting it. */
+  peekEvents?: PeekEvent[];
   log: string[];
   winner: string | null;
   /** Draw remains terminal through winner; this flag distinguishes it from a player name. */
@@ -144,6 +146,21 @@ export interface HandSelectionRequest {
   title?: string;
 }
 
+export interface PeekSelectionRequest {
+  /** The player whose hand supplies the card and who makes the selection. */
+  playerIndex: number;
+  /** The only player allowed to see the selected card. */
+  viewerPlayerIndex: number;
+  title?: string;
+}
+
+export interface PeekEvent {
+  id: string;
+  card: Card;
+  ownerPlayerIndex: number;
+  viewerPlayerIndex: number;
+}
+
 export interface TributeSelectionRequest extends HandSelectionRequest {
   count: number;
   filter?: CardFilter;
@@ -164,6 +181,7 @@ export type EffectResult = {
   requireTargetIndex?: number;
   requireDiscardSelection?: CardSelectionRequest;
   requireHandSelection?: HandSelectionRequest;
+  requirePeekSelection?: PeekSelectionRequest;
   requireDeckSelection?: CardSelectionRequest;
   requireEffectTribute?: TributeSelectionRequest;
 };
@@ -177,6 +195,7 @@ export interface CardContext {
   targets?: CardTarget[];
   discardIndex?: number;
   handIndex?: number;
+  peekIndex?: number;
   deckIndex?: number;
   tributeIndices?: number[];
 }
@@ -213,6 +232,7 @@ export interface ChainLink {
   targetIds?: (string | undefined)[];
   discardId?: string;
   deckId?: string;
+  peekCardId?: string;
 }
 
 export type OpponentMode = 'self' | 'ai';

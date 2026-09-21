@@ -53,6 +53,11 @@ export function formatEffectLog(
         details.push(`adds ${quote(selected.name)} to hand`);
     }
 
+    const previousPeeks = new Set((before.peekEvents ?? []).map(event => event.id));
+    (after.peekEvents ?? []).filter(event => !previousPeeks.has(event.id)).forEach(event => {
+        details.push(`reveals ${quote(event.card.name)} from ${quote(before.players[event.ownerPlayerIndex].name)}'s hand`);
+    });
+
     before.players.forEach((player, playerIndex) => {
         const delta = after.players[playerIndex].lp - player.lp;
         if (delta) details.push(`${quote(player.name)} ${delta > 0 ? '+' : ''}${delta} LP`);
@@ -63,6 +68,7 @@ export function formatEffectLog(
         if (!changed) {
             const wasBanished = after.players[located.playerIndex].void.some(c => c.instanceId === instanceId);
             if (wasBanished) details.push(`sends ${quote(located.placed.card.name)} to the Void`);
+            else if (after.players[located.playerIndex].discard.some(c => c.instanceId === instanceId)) details.push(`destroys ${quote(located.placed.card.name)}`);
             continue;
         }
         const atkDelta = changed.placed.card.atk - located.placed.card.atk;

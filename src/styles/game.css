@@ -66,6 +66,14 @@ body {
 .card-back { position: relative; border: 3px solid #d4af37; background-color: #0f0f0f; background-image: linear-gradient(45deg, #1a1a1a 25%, transparent 25%, transparent 75%, #1a1a1a 75%), linear-gradient(45deg, #1a1a1a 25%, transparent 25%, transparent 75%, #1a1a1a 75%); background-position: 0 0, 10px 10px; background-size: 20px 20px; box-shadow: inset 0 0 15px #d4af3733, 0 4px 6px #000c; }
 .card-back::after { content: ''; position: absolute; inset: 4px; border: 1px solid #d4af3780; pointer-events: none; }
 .card-back::before { content: ''; position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; border: 2px solid #d4af37; transform: translate(-50%, -50%) rotate(45deg); background: #000; box-shadow: 0 0 10px #d4af37; }
+.hidden-card-face { width: 100%; height: 100%; overflow: hidden; }
+.hidden-card-face::before { width: 92px; height: 92px; border-color: #d4af37aa; box-shadow: 0 0 24px #d4af3744, inset 0 0 16px #d4af3722; }
+.hidden-card-face::after { inset: 9px; border-color: #d4af3766; }
+.hidden-card-icon { position: absolute; left: 50%; top: 50%; z-index: 2; display: grid; width: 88px; height: 88px; place-items: center; color: #d4af37; font-size: 42px; transform: translate(-50%, -50%); filter: drop-shadow(0 0 8px #d4af3766); }
+.game-deck-button { display: grid; grid-template-columns: 18px 1fr 10px; align-items: center; gap: 10px; min-width: 150px; padding: 9px 12px; border: 1px solid #d4af3788; background: linear-gradient(90deg, #171407e8, #080a0ee8); color: #e7c751; font: 700 10px Orbitron, sans-serif; letter-spacing: .16em; text-align: left; backdrop-filter: blur(12px); transition: border-color .16s, background .16s, color .16s; }
+.game-deck-button > i:last-child { font-size: 8px; color: #a17f16; }
+.game-deck-button:hover { border-color: #facc15; background: #292410ee; color: #fff3bd; }
+.game-deck-button:focus-visible { outline: 2px solid #facc15; outline-offset: 3px; }
 .animate-spin-slow { animation: spin 8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes lp-pop { 50% { transform: scale(1.5); text-shadow: 0 0 20px currentColor; } }
@@ -313,7 +321,63 @@ body {
 @keyframes result-spark { 0% { opacity: 0; transform: translateY(0) rotate(45deg); } 20% { opacity: .7; } 100% { opacity: 0; transform: translateY(-85vh) rotate(220deg); } }
 @media (prefers-reduced-motion: reduce) { .duel-result, .duel-result-content h2 { animation: none; } .duel-result-vfx { display: none; } .duel-mvp-card, .duel-mvp-stats { transition: none; } }
 
+/* Glass Witch turns the selected card over exactly where it sits in the opponent's hand. */
+.opponent-hand-slot { perspective: 850px; }
+.opponent-hand-card { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+.opponent-hand-card.is-revealing { z-index: 30; animation: opponent-hand-peek 3.1s cubic-bezier(.35,.05,.25,1) both; }
+.opponent-hand-face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; }
+.opponent-hand-front { transform: rotateY(180deg); box-shadow: 0 0 24px #67e8f988, 0 12px 25px #000c; }
+@keyframes opponent-hand-peek {
+  0% { transform: rotateY(0); }
+  18%, 82% { transform: translateY(65%) rotateY(180deg); }
+  100% { transform: rotateY(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opponent-hand-card.is-revealing { animation-timing-function: steps(1, end); }
+}
+
 /* The slot may vary by view; the printed face never reflows with its size. */
 .card-scale-slot { position: relative; aspect-ratio: 2 / 3; padding: 0; border: 0; min-width: 0; }
 .card-scale-face { position: absolute; left: 50%; top: 50%; width: 240px; height: 360px; transform-origin: center; }
 .card-effect-content { overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* Deck archive: angular, restrained, and built from the duel HUD's black/gold language. */
+.deck-view-overlay { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 24px; color: #f8fafc; background: #020305dc; backdrop-filter: blur(8px); }
+.deck-view-panel { position: relative; display: flex; width: min(1180px, 100%); max-height: min(880px, 92vh); flex-direction: column; overflow: hidden; border: 1px solid #d4af3799; background: #080a0e; box-shadow: 0 26px 80px #000, 0 0 36px #d4af3714; }
+.deck-view-panel::before { content: ''; position: absolute; inset: 5px; z-index: 3; border: 1px solid #d4af372e; pointer-events: none; }
+.deck-view-header { position: relative; z-index: 4; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto 50px; min-height: 82px; align-items: stretch; border-bottom: 1px solid #d4af3755; background: linear-gradient(90deg, #191607 0, #0c0e13 35%, #080a0e 100%); }
+.deck-view-mark { display: grid; place-items: center; margin: 15px 0 15px 16px; border: 1px solid #d4af3788; color: #d4af37; font-size: 17px; transform: rotate(45deg); }
+.deck-view-mark i { transform: rotate(-45deg); }
+.deck-view-heading { min-width: 0; padding: 14px 20px; }
+.deck-view-heading h2 { overflow: hidden; margin: 4px 0 2px; color: #f1f5f9; font: 700 clamp(15px, 2vw, 22px) Orbitron, sans-serif; letter-spacing: .055em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.deck-view-heading p { color: #64748b; font: 10px Orbitron, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.deck-view-heading p b { margin: 0 8px; color: #d4af37; }
+.deck-view-count { display: flex; min-width: 90px; flex-direction: column; align-items: flex-end; justify-content: center; padding: 0 20px; border-left: 1px solid #ffffff0c; }
+.deck-view-count strong { color: #d4af37; font: 700 23px Orbitron, sans-serif; line-height: 1; }
+.deck-view-count span { margin-top: 5px; color: #64748b; font: 7px Orbitron, sans-serif; letter-spacing: .26em; text-transform: uppercase; }
+.deck-view-close { display: grid; place-items: center; border: 0; border-left: 1px solid #d4af3755; background: #100f0a; color: #8f825a; font-size: 16px; transition: background .16s, color .16s; }
+.deck-view-close:hover { background: #2a230d; color: #facc15; }
+.deck-view-close:focus-visible { z-index: 1; outline: 2px solid #facc15; outline-offset: -5px; }
+.deck-view-body { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(230px, 300px) minmax(0, 1fr); min-height: 0; flex: 1; }
+.deck-view-preview { display: flex; min-height: 0; align-items: center; justify-content: center; padding: 28px; border-right: 1px solid #ffffff12; background: radial-gradient(ellipse at 50% 42%, #d4af3711, transparent 66%); }
+.deck-view-preview-card { width: min(100%, 260px); max-height: 100%; aspect-ratio: 2 / 3; filter: drop-shadow(0 15px 24px #000); }
+.deck-view-empty { display: grid; width: 100%; aspect-ratio: 2 / 3; place-items: center; border: 1px dashed #334155; color: #334155; font-size: 38px; }
+.deck-view-collection { display: flex; min-width: 0; min-height: 0; flex-direction: column; padding: 20px 22px; background-image: linear-gradient(45deg, #111318 25%, transparent 25%, transparent 75%, #111318 75%), linear-gradient(45deg, #111318 25%, transparent 25%, transparent 75%, #111318 75%); background-position: 0 0, 8px 8px; background-size: 16px 16px; }
+.deck-view-grid { display: grid; grid-template-columns: repeat(7, minmax(68px, 1fr)); align-content: start; gap: 13px 10px; min-height: 0; padding: 3px 8px 12px 3px; overflow-x: hidden; overflow-y: auto; }
+.deck-view-card { position: relative; aspect-ratio: 2 / 3; padding: 0; border: 1px solid #334155; background: #060709; box-shadow: 0 5px 13px #0009; transition: border-color .15s, filter .15s, transform .15s; }
+.deck-view-card:hover { z-index: 2; border-color: #9e842f; filter: brightness(1.12); transform: translateY(-2px); }
+.deck-view-card.is-selected { border-color: #facc15; box-shadow: 0 0 0 1px #facc15, 0 0 18px #d4af3744; }
+.deck-view-card:focus-visible { outline: 2px solid #f8fafc; outline-offset: 2px; }
+@media (max-width: 900px) {
+  .deck-view-overlay { padding: 12px; }
+  .deck-view-body { grid-template-columns: 210px minmax(0, 1fr); }
+  .deck-view-preview { padding: 18px; }
+  .deck-view-grid { grid-template-columns: repeat(4, minmax(62px, 1fr)); }
+}
+@media (max-width: 620px) {
+  .deck-view-header { grid-template-columns: 48px minmax(0, 1fr) 44px; }
+  .deck-view-count { display: none; }
+  .deck-view-body { display: block; overflow-y: auto; }
+  .deck-view-preview { display: none; }
+  .deck-view-collection { min-height: 100%; }
+}

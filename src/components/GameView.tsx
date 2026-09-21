@@ -32,7 +32,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 
   const selectingPlayer = state.pendingEffectCard ? gameState.players.findIndex(p => p.id === state.pendingEffectCard!.ownerId) : undefined;
-  const viewIndex = opponentMode === 'ai' ? 0 : selectingPlayer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
+  const privatePeek = gameState.peekEvents?.[0];
+  const viewIndex = opponentMode === 'ai' ? 0 : state.peekSelectionReq?.playerIndex ?? privatePeek?.viewerPlayerIndex ?? selectingPlayer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
   const turnIsMine = viewIndex === gameState.activePlayerIndex;
   const availableFieldEffects = fieldActivations(gameState, viewIndex);
   const responseActivationAt = (type: 'pawn' | 'action', index: number) =>
@@ -40,9 +41,10 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
+  const revealedOpponentCardId = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex && event.ownerPlayerIndex === oppIdx)?.card.instanceId;
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
-  const actionsDisabled = !turnIsMine || !!gameState.response || !!gameState.winner || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null;
+  const actionsDisabled = !turnIsMine || !!gameState.response || !!gameState.winner || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!gameState.peekEvents?.some(event => event.viewerPlayerIndex === viewIndex);
 
   const isSelectedZone = (type: 'pawn' | 'action', index: number) =>
     state.selectedFieldSlot?.playerIndex === viewIndex &&
@@ -83,8 +85,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
         <button onClick={onQuit} className="px-4 py-2 bg-slate-900/80 border border-white/10 hover:bg-red-950/80 text-slate-400 font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest">
           <i className="fa-solid fa-power-off mr-2"></i> EXIT GAME
         </button>
-        <button onClick={() => actions.setIsDeckViewerOpen(true)} className="px-4 py-2 bg-slate-900/80 border border-yellow-500/50 hover:bg-yellow-900/80 text-yellow-400 font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest">
-          <i className="fa-solid fa-layer-group mr-2"></i> VIEW DECK
+        <button onClick={() => actions.setIsDeckViewerOpen(true)} className="game-deck-button">
+          <i className="fa-solid fa-layer-group" aria-hidden="true"></i><span>DECK LIST</span><i className="fa-solid fa-chevron-right" aria-hidden="true"></i>
         </button>
         <button
           type="button"
@@ -117,7 +119,12 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
           {/* Opponent Hand (Semi-Visible) */}
           <div data-player-hand-target={opponent.id} className="absolute top-0 w-full flex justify-center space-x-[-10px] z-20 pointer-events-none">
             {opponent.hand.map((card, i) => (
-              <div ref={actions.setRef(`${oppIdx}-hand-${i}`)} key={card.instanceId} className="w-28 aspect-[2/3] card-back rounded shadow-2xl border-2 border-slate-300 transform -translate-y-[60%] hover:translate-y-[-10%] transition-transform duration-300 cursor-pointer pointer-events-auto"></div>
+              <div ref={actions.setRef(`${oppIdx}-hand-${i}`)} key={card.instanceId} className="opponent-hand-slot w-28 aspect-[2/3] transform -translate-y-[60%] hover:translate-y-[-10%] transition-transform duration-300 cursor-pointer pointer-events-auto">
+                <div className={`opponent-hand-card ${revealedOpponentCardId === card.instanceId ? 'is-revealing' : ''}`}>
+                  <div className="opponent-hand-face opponent-hand-back card-back rounded shadow-2xl border-2 border-slate-300" />
+                  <div className="opponent-hand-face opponent-hand-front rounded shadow-2xl"><CardDetail card={card} compact className="h-full w-full" /></div>
+                </div>
+              </div>
             ))}
           </div>
 
@@ -137,7 +144,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
               </div>
               <div className="flex space-x-6 items-center">
                 <div className="flex space-x-6">
-                  {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
+                  {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
                     if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
                       const hasMonsters = opponent.pawnZones.some(mz => mz !== null);
                       if (hasMonsters) {
@@ -180,6 +187,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       gameState.currentPhase === Phase.BATTLE
                     );
                     return <Zone key={i} card={z} type="pawn" domRef={actions.setRef(`${viewIndex}-pawn-${i}`)}
+                    isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)}
                     isSelected={selected}
                     isTributeSelected={state.tributeSelection.includes(i)}
                     isSelectable={checkIsSelectable(z, 'pawn', viewIndex)}
@@ -336,7 +344,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
             </div>
           ))}
 
-          <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} onQuit={onQuit} />
+          <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} viewerIndex={viewIndex} onQuit={onQuit} />
         </div>
 
         <GameSidebar viewerIndex={viewIndex} gameState={gameState} selectedCard={selectedCard} selectedFieldSlot={state.selectedFieldSlot} isOpen={state.isRightPanelOpen} setIsOpen={actions.setIsRightPanelOpen} />

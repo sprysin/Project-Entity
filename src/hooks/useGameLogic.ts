@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     GameState, Card, Phase, CardSelectionRequest,
     EffectTrigger, HandSelectionRequest, OpponentMode, TargetSelectMode, TargetSelectPosition,
-    TargetSelectScope, TargetSelectType, TributeSelectionRequest
+    TargetSelectScope, TargetSelectType, TributeSelectionRequest, PeekSelectionRequest
 } from '../types';
 import { fieldActivations } from '../game/chains';
 import { applyCommand, applySystemCommand, canPlayCard as engineCanPlayCard, createGame } from '../game/engine';
@@ -17,6 +17,7 @@ import '../cards/pawns';
 import '../cards/actions';
 import '../cards/conditions';
 import { createRuntimeDeck, SavedDeck } from '../decks';
+import { useManagedTimeout } from './useManagedTimeout';
 
 export const ACTIVATION_POPUPS_STORAGE_KEY = 'project-entity.activation-popups-enabled';
 
@@ -56,12 +57,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [pendingTriggerType, setPendingTriggerType] = useState<EffectTrigger | null>(null);
     const [isPeekingField, setIsPeekingField] = useState(false);
     const [responseFieldMode, setResponseFieldMode] = useState<'peek' | 'activate' | null>(null);
+    const [visuallyDestroyedCardIds, setVisuallyDestroyedCardIds] = useState<string[]>([]);
 
     // Discard/Hand Selection
     const [discardSelectionReq, setDiscardSelectionReq] = useState<CardSelectionRequest | null>(null);
     const [selectedDiscardIndex, setSelectedDiscardIndex] = useState<number | null>(null);
     const [handSelectionReq, setHandSelectionReq] = useState<HandSelectionRequest | null>(null);
     const [selectedHandSelectionIndex, setSelectedHandSelectionIndex] = useState<number | null>(null);
+    const [peekSelectionReq, setPeekSelectionReq] = useState<PeekSelectionRequest | null>(null);
+    const [selectedPeekIndex, setSelectedPeekIndex] = useState<number | null>(null);
     const [deckSelectionReq, setDeckSelectionReq] = useState<CardSelectionRequest | null>(null);
     const [selectedDeckIndex, setSelectedDeckIndex] = useState<number | null>(null);
     const [effectTributeReq, setEffectTributeReq] = useState<TributeSelectionRequest | null>(null);
@@ -85,14 +89,27 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
 
     // Compose sub-hooks
     const animations = useAnimations();
-    const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined);
+    const schedule = useManagedTimeout();
+    const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined, visuallyDestroyedCardIds);
 
-    const { resolveEffect, handleDiscardSelection, handleHandSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
+    const { resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
         gameState, setGameState, cardMotion.recordMovement,
         {
             setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
             setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
             setHandSelectionReq, setSelectedHandSelectionIndex,
+            setPeekSelectionReq, setSelectedPeekIndex, peekSelectionReq,
+            autoSelectPeekForPlayer: opponentMode === 'ai' ? 1 : undefined,
+            preparePeekSelection: (card, continueSelection) => {
+                const playerIndex = gameState?.players.findIndex(player => player.id === card.ownerId) ?? -1;
+                const zoneIndex = playerIndex >= 0 ? gameState?.players[playerIndex].pawnZones.findIndex(zone => zone?.card.instanceId === card.instanceId) ?? -1 : -1;
+                if (playerIndex >= 0 && zoneIndex >= 0) {
+                    animations.triggerShatter(`${playerIndex}-pawn-${zoneIndex}`);
+                    setVisuallyDestroyedCardIds(current => current.includes(card.instanceId) ? current : [...current, card.instanceId]);
+                }
+                schedule(continueSelection, 1300);
+            },
+            clearPreparedPeek: card => schedule(() => setVisuallyDestroyedCardIds(current => current.filter(id => id !== card.instanceId)), 100),
             setDeckSelectionReq, setSelectedDeckIndex,
             pendingEffectCard, discardSelectionReq, deckSelectionReq, handSelectionReq,
             setPendingTriggerType, pendingTriggerType,
@@ -199,8 +216,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     useEffect(() => {
         if (!gameState?.response || gameState.response.ready || responseOptions.length === 0) setResponseFieldMode(null);
     }, [gameState?.response, responseOptions.length]);
-    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect,
+    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!gameState?.peekEvents?.some(event => event.viewerPlayerIndex === 0),
         nextPhase, requestAttack, resolveEffect });
+
+    // AI-only reveals are private information for the AI, so they never open a
+    // face-up modal on the human player's screen.
+    useEffect(() => {
+        if (opponentMode !== 'ai' || !gameState?.peekEvents?.some(event => event.viewerPlayerIndex === 1)) return;
+        setGameState(prev => prev ? { ...prev, peekEvents: (prev.peekEvents ?? []).filter(event => event.viewerPlayerIndex !== 1) } : prev);
+    }, [gameState?.peekEvents, opponentMode]);
 
     useGameAnimationEffects(gameState, setGameState, animations, stablePhaseRequest);
 
@@ -214,7 +238,9 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             tributeSelection, pendingTributeCard, tributeSummonMode, pendingTributeSlot,
             pendingPlayCard, playMode,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
+            visuallyDestroyedCardIds,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
+            peekSelectionReq, selectedPeekIndex,
             deckSelectionReq, selectedDeckIndex,
             phaseFlash: animations.phaseFlash, turnFlash: animations.turnFlash,
             displayedLp: animations.displayedLp, lpScale: animations.lpScale, lpFlash: animations.lpFlash,
@@ -228,12 +254,14 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
             setTributeSelection, setIsPeekingField, setResponseFieldMode,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
+            setPeekSelectionReq, setSelectedPeekIndex,
             setDeckSelectionReq, setSelectedDeckIndex,
             setTriggeredEffect, setPendingEffectCard,
             setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen, setActivationPopupsEnabled,
             setRef: animations.setRef,
             nextPhase, skipToEndPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
-            handleDiscardSelection, handleHandSelection, handleDeckSelection,
+            handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection,
+            dismissPeek: (id: string) => setGameState(prev => prev ? { ...prev, peekEvents: (prev.peekEvents ?? []).filter(event => event.id !== id) } : prev),
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
                 cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
             handleTributeSummon: () =>
