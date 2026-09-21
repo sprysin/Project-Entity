@@ -2,6 +2,7 @@ import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { CardFilter, Position, TargetSelectScope } from '../../types';
 import { getEffectTarget } from './Targets';
+import { drawCards } from '../../game/draw';
 
 export const Effect = {
     /** Attach to a field card by identity; supports Pawn, Action and Condition targets. */
@@ -104,9 +105,7 @@ export const Effect = {
         const resolvedAmount = resolveDynamic(amount, draftState, context);
         if (resolvedAmount <= 0) return;
 
-        const activePlayer = draftState.players[context.playerIndex];
-        const drawnCards = activePlayer.deck.splice(0, resolvedAmount);
-        activePlayer.hand.push(...drawnCards);
+        Object.assign(draftState, drawCards(draftState, context.playerIndex, resolvedAmount));
 
     },
 

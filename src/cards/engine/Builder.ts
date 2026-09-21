@@ -11,6 +11,7 @@ export const buildEffect = (steps: EffectStep[]) => {
         context = { ...context };
         const draftState = cloneGameState(state);
         for (const step of steps) {
+            if (draftState.winner) break;
             if (context.execution === 'costs' && !step.activationCost) continue;
             if (context.execution === 'resolve' && step.activationCost) continue;
             const result = step(draftState, context);

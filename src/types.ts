@@ -117,6 +117,9 @@ export interface GameState {
   damageEvents?: { card: Card; playerIndex: number; amount: number; kind: 'battle' | 'effect' }[];
   log: string[];
   winner: string | null;
+  /** Draw remains terminal through winner; this flag distinguishes it from a player name. */
+  isDraw?: boolean;
+  resultReason?: 'lp' | 'empty_deck';
   pendingEffects: PendingEffect[];
 }
 
@@ -145,7 +148,7 @@ export interface TributeSelectionRequest extends HandSelectionRequest {
   filter?: CardFilter;
 }
 
-export type EffectTrigger = 'summon' | 'activate' | 'phase' | 'field_activate';
+export type EffectTrigger = 'summon' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';

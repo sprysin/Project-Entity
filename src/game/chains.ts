@@ -11,7 +11,11 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
         if (source) source.position = Position.ATTACK;
     }
     const effect = cardRegistry.getEffect(context.card.id);
-    const fn = trigger === 'summon' ? effect?.onSummon : trigger === 'field_activate' ? effect?.onFieldActivate : effect?.onActivate;
+    const fn = trigger === 'summon' ? effect?.onSummon
+        : trigger === 'phase' ? effect?.onPhaseChange
+        : trigger === 'discard' ? effect?.onDiscard
+        : trigger === 'tribute' ? effect?.onTribute
+        : trigger === 'field_activate' ? effect?.onFieldActivate : effect?.onActivate;
     // Legacy/custom handlers are resolution-only; the builder explicitly exposes cost staging.
     if (context.execution === 'costs' && fn && !('staged' in fn)) return { newState: state };
     return fn?.(state, context) ?? { newState: state };
@@ -109,10 +113,14 @@ export function fieldActivations(state: GameState, playerIndex: number, respondi
 
 /** Pay costs and reserve usage at announcement. All other effects wait for resolution. */
 export function addChainLink(state: GameState, context: CardContext, trigger: EffectTrigger): GameState {
+    return appendChainLink(state, context, trigger, false);
+}
+
+function appendChainLink(state: GameState, context: CardContext, trigger: EffectTrigger, buildingTriggers: boolean): GameState {
     if (state.winner || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
     if (trigger === 'summon' && !cardRegistry.getEffect(context.card.id)?.onSummon) return state;
-    if (state.response && state.response.priority !== context.playerIndex) return state;
-    if (state.response && !fieldActivations(state, context.playerIndex, true).some(a => a.card.instanceId === context.card.instanceId && a.trigger === trigger)) return state;
+    if (!buildingTriggers && state.response && state.response.priority !== context.playerIndex) return state;
+    if (!buildingTriggers && state.response && !fieldActivations(state, context.playerIndex, true).some(a => a.card.instanceId === context.card.instanceId && a.trigger === trigger)) return state;
     const effect = cardRegistry.getEffect(context.card.id);
     if (effect?.canActivate && !effect.canActivate(state, context)) return state;
     const peek = runEffect(state, context, trigger);
@@ -141,6 +149,30 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
     }
     next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated` };
     next = checkVictory(next);
+    return buildingTriggers ? next : autoPass(next);
+}
+
+export interface SimultaneousTrigger {
+    context: CardContext;
+    trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute'>;
+    mandatory: boolean;
+    /** Optional effects are included only after their controller accepts them. */
+    accepted?: boolean;
+}
+
+/** Submit one event's eligible triggers with completed choices. Never resolve between groups. */
+export function addSimultaneousTriggers(state: GameState, triggers: SimultaneousTrigger[]): GameState {
+    if (state.winner || state.chain?.length || state.response) return state;
+    const rank = (entry: SimultaneousTrigger) => (entry.mandatory ? 0 : 2)
+        + (entry.context.playerIndex === state.activePlayerIndex ? 0 : 1);
+    // Stable ordering preserves the caller's ordering within each group.
+    const ordered = triggers.filter(entry => entry.mandatory || entry.accepted)
+        .sort((a, b) => rank(a) - rank(b));
+    let next = state;
+    for (const entry of ordered) {
+        next = appendChainLink(next, entry.context, entry.trigger, true);
+        if (next.winner) break;
+    }
     return autoPass(next);
 }
 

@@ -13,6 +13,12 @@ The setup screen defaults to self-play. AI mode assigns Player 2's selected save
 
 ## Adding cards
 
+For future simultaneous triggers, collect the eligible effects from a single event and submit them together to `addSimultaneousTriggers`. Each entry specifies its controller, trigger, completed target/cost choices, and `mandatory`; optional entries require `accepted: true`. The helper builds one chain in turn-player mandatory, opponent mandatory, turn-player optional, opponent optional order before opening responses or resolving anything. Within a group it preserves caller order; a future choice UI can supply controller-selected ordering. Do not call the ordinary single-activation helper once per simultaneous trigger, or resolve one group before collecting the others. This is the batch integration point for future cards; it does not discover new trigger conditions automatically or change existing single-trigger card behavior.
+
+Discard means hand to Discard Pile. Tribute, destroy, and send remain distinct operations; entering the Discard Pile does not automatically invoke `onDiscard`.
+
+Required draws use `drawCards` for both Draw Phase and effects. An attempted draw from an empty deck immediately ends the duel, including when only part of a multi-card draw can be completed. Drawing the last available card is safe. Simultaneous nonpositive LP is a draw. Temporary stat resets run when leaving the due turn's End Phase, after responses, rather than on entry.
+
 Use `buildEffect` with `Cost` helpers for costs and `Effect` helpers for resolution. Custom activation costs must be wrapped with `activationCost`. The builder previews choices without committing state, pays tagged costs at announcement, and skips those costs during resolution. Custom handlers outside the builder are resolution-only.
 
 Use `context.playerIndex` for the controller, not `state.activePlayerIndex`, which is the turn player. Quick Pawns opt in through `IEffect.timing`. Card-specific requirements still belong in `canActivate` and effect steps, and apply to both humans and the AI.

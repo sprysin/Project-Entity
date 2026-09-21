@@ -2,6 +2,7 @@ import { GameState } from '../types';
 
 /** Rank individual card instances. Equal totals favor the first card to deal damage. */
 export function getDuelMvp(state: GameState) {
+    if (state.isDraw) return null;
     const winnerIndex = state.players.findIndex(p => p.name === state.winner);
     const scores = new Map<string, { card: NonNullable<GameState['damageEvents']>[number]['card']; battle: number; effect: number; total: number }>();
     for (const event of state.damageEvents ?? []) {

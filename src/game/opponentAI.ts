@@ -37,6 +37,8 @@ export function observeGame(state: GameState, viewer: number): GameState {
 const pawnValue = (c: Card) => c.id === 'unknown' ? 120 : 100 + Math.max(c.atk, c.def * .65) * .45;
 
 export function evaluatePosition(state: GameState, player: number): number {
+    if (state.isDraw || state.players.every(p => p.lp <= 0)) return 0;
+    if (state.winner) return state.winner === state.players[player].name ? 1000000 : -1000000;
     const own = state.players[player], opp = state.players[1 - player];
     if (own.lp <= 0) return -1000000;
     if (opp.lp <= 0) return 1000000;

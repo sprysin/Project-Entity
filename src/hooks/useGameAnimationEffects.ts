@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useEffect } from 'react';
 import { GameState, Phase, Player } from '../types';
 import type { useAnimations } from './useAnimations';
 import { useManagedTimeout } from './useManagedTimeout';
+import { drawCards } from '../game/draw';
 
 type AnimationController = ReturnType<typeof useAnimations>;
 
@@ -90,15 +91,11 @@ export const useGameAnimationEffects = (
                 return { ...previous, players };
             });
             const player = gameState.players[active];
-            const count = turn === 1 ? 0 : Math.min(player.deck.length, Math.max(1, 5 - player.hand.length));
+            const count = turn === 1 ? 0 : Math.max(1, 5 - player.hand.length);
             for (let index = 0; index < count; index++) {
                 later(() => setGameState(previous => {
                     if (!previous || previous.winner || previous.turnNumber !== turn || previous.currentPhase !== Phase.DRAW) return previous;
-                    const currentPlayer = previous.players[active];
-                    if (!currentPlayer.deck.length) return previous;
-                    const players = [...previous.players] as [Player, Player];
-                    players[active] = { ...currentPlayer, hand: [...currentPlayer.hand, currentPlayer.deck[0]], deck: currentPlayer.deck.slice(1) };
-                    return { ...previous, players };
+                    return drawCards(previous, active, 1);
                 }), (index + 1) * 300);
             }
             later(nextPhase, Math.max(1700, count * 300 + 500));

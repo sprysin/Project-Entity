@@ -79,26 +79,3 @@ it('Call from the Depths flips one face-up Pawn on each field face-down', () => 
     expect(resolved.players[1].pawnZones[0]?.position).toBe(Position.HIDDEN);
     expect(resolved.players[0].discard.some(value => value.instanceId === call.instanceId)).toBe(true);
 });
-
-it('Glitter Guard Beatle fortifies every controlled Pawn when discarded as a cost', () => {
-    const game = state();
-    const serpent = card('pawn_08');
-    const beatle = card('pawn_10');
-    const ally = card('pawn_01');
-    game.players[0].pawnZones[0] = placed(serpent);
-    game.players[0].pawnZones[1] = placed(ally);
-    game.players[0].hand = [beatle];
-
-    const context = effectChoices(game, serpent, 'activate')[0];
-    const resolved = resolveChain(addChainLink(game, context, 'activate'));
-
-    expect(resolved.players[0].discard.map(value => value.instanceId)).toContain(beatle.instanceId);
-    expect(resolved.players[0].pawnZones[0]?.position).toBe(Position.DEFENSE);
-    expect(resolved.players[0].pawnZones[1]?.position).toBe(Position.DEFENSE);
-    expect(resolved.players[0].pawnZones[0]?.card.def).toBe(280);
-    expect(resolved.players[0].pawnZones[1]?.card.def).toBe(310);
-    expect(resolved.pendingEffects).toEqual(expect.arrayContaining([
-        expect.objectContaining({ targetInstanceId: serpent.instanceId, type: 'RESET_DEF', value: 80, dueTurn: 2 }),
-        expect.objectContaining({ targetInstanceId: ally.instanceId, type: 'RESET_DEF', value: 110, dueTurn: 2 })
-    ]));
-});

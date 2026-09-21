@@ -21,9 +21,12 @@ export function finishEffect(state: GameState, card: Card, log?: string): GameSt
 export function checkVictory(state: GameState): GameState {
     destroyOrphanedAttachments(state);
     if (state.winner) return state;
+    if (state.players.every(player => player.lp <= 0)) {
+        return { ...state, winner: 'Draw', isDraw: true, resultReason: 'lp' };
+    }
     const active = state.activePlayerIndex;
     const opponent = (active + 1) % 2;
     const winner = state.players[opponent].lp <= 0 ? state.players[active].name
         : state.players[active].lp <= 0 ? state.players[opponent].name : null;
-    return winner ? { ...state, winner } : state;
+    return winner ? { ...state, winner, resultReason: 'lp' } : state;
 }

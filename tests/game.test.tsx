@@ -24,6 +24,17 @@ function setup(edit: (s: GameState) => void) {
 beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it('ends the duel on the first missing Draw Phase card and cancels further phase advancement', () => {
+    setup(s => { s.currentPhase = Phase.DRAW; s.players[0].deck = [card('pawn_01')]; });
+    act(() => vi.advanceTimersByTime(300));
+    expect(game.gameState!.winner).toBeNull();
+    act(() => vi.advanceTimersByTime(300));
+    expect(game.gameState!.winner).toBe('Player 2');
+    expect(game.gameState!.players[0].hand).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(5000));
+    expect(game.gameState!.currentPhase).toBe(Phase.DRAW);
+});
+
 it('Void Blast wins immediately and is discarded exactly once', () => {
     const blast = card('action_01');
     setup(s => { s.players[0].hand = [blast]; s.players[1].lp = 50; });

@@ -30,7 +30,7 @@ const loadActivationPopupPreference = () => {
 };
 
 /** Applies one complete phase transition, including phase-entry maintenance. */
-const advancePhaseState = (prev: GameState): GameState => {
+export const advancePhaseState = (prev: GameState): GameState => {
     let nextPhase = prev.currentPhase;
     let activeIndex = prev.activePlayerIndex;
     let turnNumber = prev.turnNumber;
@@ -86,7 +86,8 @@ const advancePhaseState = (prev: GameState): GameState => {
         updatedLog = phaseState.log;
     }
 
-    if (nextPhase === Phase.END) {
+    // Expire only after End Phase responses finish, immediately before the next turn.
+    if (prev.currentPhase === Phase.END) {
         const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
         const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
         updatedPlayers = updatedPlayers.map(p => ({

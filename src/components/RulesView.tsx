@@ -25,7 +25,11 @@ const topics: Topic[] = [
   },
   {
     id: 'drawing', title: 'Setup & drawing', subtitle: 'Start with five. Keep your hand moving.', icon: 'fa-layer-group',
-    rules: ['Each player shuffles their deck and draws 5 cards as their opening hand.'],
+    rules: [
+      'Each player shuffles their deck and draws 5 cards as their opening hand.',
+      'If you must draw a card from an empty deck, you lose immediately. This applies to the Draw Phase and card effects. Drawing your last card does not itself cause a loss.',
+      'If both players reach 0 LP or below at the same time, the duel is a draw.',
+    ],
     table: {
       headings: ['Draw Phase', 'What to draw'], rows: [
         ['First turn of the game', 'The starting player skips drawing.'],
@@ -49,6 +53,7 @@ const topics: Topic[] = [
   },
   {
     id: 'chains', title: 'Responses & chains', subtitle: 'Take turns responding. Resolve in reverse order.', icon: 'fa-link', rules: [
+      'Simultaneous triggered effects form one chain in this order: turn player mandatory effects, opponent mandatory effects, turn player optional effects, opponent optional effects. Optional effects are included only if activated. Build the entire chain before resolving it in reverse order.',
       'Before an attack, phase change or effect resolves, the other player gets a response opportunity. A window appears only if that player has an eligible card, and shows the number of activatable cards.',
       'Eligible responses are Conditions set on an earlier turn and face-up Pawns with an explicitly designated quick effect. Ordinary Pawn effects and Actions cannot join a chain as responses.',
       'Choose a response card or Pass. After a card is added, the other player may respond. A player with no eligible cards passes automatically. Two consecutive passes resolve the chain.',
@@ -140,10 +145,9 @@ const topics: Topic[] = [
   },
   {
     id: 'effects', title: 'Pawn effects & costs', subtitle: 'Check the text before activating', icon: 'fa-wand-magic-sparkles', rules: [
+      'Discard always means moving a card from the hand to the Discard Pile. Tribute, destroy and send are distinct actions; a card entering the Discard Pile does not by itself count as being discarded. Apply only triggers for the action specified.',
       'Use a Pawn’s effect only when its stated trigger or activation requirements are met.',
-      '“On Normal Summon” includes face-up Tribute Summons. It does not trigger when the Pawn is set, Flip Summoned or Special Summoned.',
-      'Manually activated Pawn effects are used during your own Main Phases unless the card specifies another timing.',
-      'Face-up Pawns may activate effects in Attack or Defense Position unless their text requires a particular position. Face-down Pawns cannot manually activate effects unless explicitly allowed.',
+      'Face-down Pawns cannot manually activate effects unless explicitly allowed.',
       'Meet all activation requirements and be able to pay the full cost before activating. Pay that cost once per activation, even if resolution involves several selections.',
       'You may pay an LP cost that reduces your LP to exactly 0.',
       'Without a stated usage limit, a manual effect may be used repeatedly whenever its timing, requirements and costs allow.',

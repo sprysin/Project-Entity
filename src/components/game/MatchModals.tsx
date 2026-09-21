@@ -4,7 +4,8 @@ import { getDuelMvp } from '../../game/mvp';
 import { CardDetail } from './CardDetail';
 
 export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; onQuit: () => void }> = ({ gameState, isDefeat, onQuit }) => {
-    const mvp = getDuelMvp(gameState);
+    const mvp = gameState.isDraw ? null : getDuelMvp(gameState);
+    isDefeat = !gameState.isDraw && isDefeat;
     const button = React.useRef<HTMLButtonElement>(null);
     const [revealed, setRevealed] = React.useState(false);
     React.useEffect(() => {
@@ -21,8 +22,9 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
             </div>
             <section className="duel-result-content">
                 <p className="duel-result-eyebrow">Duel complete · Turn {gameState.turnNumber}</p>
-                <h2 id="duel-result-title">{isDefeat ? 'Defeat' : 'Victory'}</h2>
-                <p className="duel-result-winner">{gameState.winner} is victorious</p>
+                <h2 id="duel-result-title">{gameState.isDraw ? 'Draw' : isDefeat ? 'Defeat' : 'Victory'}</h2>
+                <p className="duel-result-winner">{gameState.isDraw ? 'Both players reached 0 LP at the same time.' : `${gameState.winner} is victorious`}</p>
+                {gameState.resultReason === 'empty_deck' && <p>A required draw could not be completed: the deck was empty.</p>}
                 {mvp ? <>
                     <p className="duel-result-label">-MVP-</p>
                     <div className="duel-mvp-stage">
@@ -34,7 +36,7 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
                     <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
                         {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
                     </div>
-                </> : <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
+                </> : !gameState.isDraw && <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
                 <button ref={button} onClick={onQuit} className="duel-result-button">Continue</button>
             </section>
         </div>

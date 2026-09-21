@@ -317,9 +317,36 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
           ))}
 
           {state.shatterEffects.map(se => (
-            <div key={se.id} className="shatter-container" style={{ left: `${se.x}%`, top: `${se.y}%` }}>
+            <div key={se.id} className="shatter-container" style={{
+              left: se.left,
+              top: se.top,
+              width: se.width,
+              height: se.height,
+              '--card-width': `${se.width}px`,
+              '--card-height': `${se.height}px`,
+            } as React.CSSProperties}>
+              <div className="shatter-impact" aria-hidden="true" />
               {se.shards.map((s, idx) => (
-                <div key={idx} className="shard" style={{ '--tx': s.tx, '--ty': s.ty, '--rot': s.rot } as React.CSSProperties}></div>
+                <div key={idx} className="shard" style={{
+                  left: s.x,
+                  top: s.y,
+                  width: s.width,
+                  height: s.height,
+                  clipPath: s.clipPath,
+                  '--shard-x': `${s.x}px`,
+                  '--shard-y': `${s.y}px`,
+                  '--tx': s.tx,
+                  '--ty': s.ty,
+                  '--rot': s.rot,
+                  '--delay': s.delay,
+                } as React.CSSProperties}>
+                  <div className="shatter-card-copy">
+                    <div
+                      className={`shatter-card-source ${se.rotated ? 'shatter-card-source--rotated' : ''} ${se.faceDown ? 'card-back' : ''}`}
+                      dangerouslySetInnerHTML={{ __html: se.cardMarkup }}
+                    />
+                  </div>
+                </div>
               ))}
             </div>
           ))}
