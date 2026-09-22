@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, GameState } from '../../types';
 import { getDuelMvp } from '../../game/mvp';
 import { CardDetail } from './CardDetail';
+import { DuelPrompt } from './DuelPrompt';
 
 export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; onQuit: () => void }> = ({ gameState, isDefeat, onQuit }) => {
     const mvp = gameState.isDraw ? null : getDuelMvp(gameState);
@@ -55,6 +56,17 @@ interface EffectModalProps {
 }
 
 export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameState, isPeekingField, resolveEffect, checkActivationConditions, setIsPeekingField, setTriggeredEffect, setPendingEffectCard }) => {
+    React.useEffect(() => {
+        if (!triggeredEffect || !isPeekingField) return;
+        const returnToPrompt = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            setIsPeekingField(false);
+        };
+        window.addEventListener('keydown', returnToPrompt);
+        return () => window.removeEventListener('keydown', returnToPrompt);
+    }, [isPeekingField, setIsPeekingField, triggeredEffect]);
+
     if (!triggeredEffect || !gameState) return null;
     const canActivate = checkActivationConditions(gameState, triggeredEffect, gameState.activePlayerIndex);
     const decline = () => {
@@ -63,19 +75,16 @@ export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameS
         setIsPeekingField(false);
     };
 
-    return (
-        <div className={`fixed inset-0 z-[70] flex flex-col items-center justify-center transition-opacity duration-300 ${isPeekingField ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
-            <div className="flex flex-col items-center space-y-4 border-2 border-yellow-600 bg-slate-900 p-6 shadow-[0_0_40px_rgba(234,179,8,0.5)]">
-                <h3 className="font-orbitron text-2xl font-black uppercase tracking-tighter text-yellow-500">{triggeredEffect.name}</h3>
-                <p className="max-w-sm text-center font-mono text-sm font-bold text-white/90">{triggeredEffect.effectText}</p>
-                <div className="flex w-full flex-col space-y-3">
-                    <button onClick={() => resolveEffect(triggeredEffect)} disabled={!canActivate} className={`border-b-4 px-8 py-3 font-orbitron font-black uppercase tracking-widest text-white ${canActivate ? 'border-yellow-800 bg-yellow-600 hover:bg-yellow-500' : 'cursor-not-allowed border-gray-800 bg-gray-600 opacity-50'}`}>Activate ability</button>
-                    <div className="flex w-full space-x-3">
-                        <button onClick={() => setIsPeekingField(true)} className="flex-1 border border-white/10 bg-slate-800 py-2 font-orbitron text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-slate-700">Peek field</button>
-                        <button onClick={decline} className="flex-1 border border-red-500/30 bg-red-900/40 py-2 font-orbitron text-[10px] font-bold uppercase tracking-widest text-red-400 hover:bg-red-900/60">Decline</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+    return <DuelPrompt
+        ariaLabel="Summon effect prompt"
+        title={<>Activate the effect of <strong>“{triggeredEffect.name}”</strong> on the field?</>}
+        peeking={isPeekingField}
+        setPeeking={setIsPeekingField}
+        actions={[
+            { label: 'Decline', onClick: decline, variant: 'secondary' },
+            { label: 'Activate', onClick: () => resolveEffect(triggeredEffect), variant: 'primary', disabled: !canActivate },
+        ]}
+    >
+        <p className="duel-prompt__effect-text">{triggeredEffect.effectText}</p>
+    </DuelPrompt>;
 };

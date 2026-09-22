@@ -3,6 +3,7 @@ import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Player } from '../../types';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
+import { DuelPrompt } from './DuelPrompt';
 
 type GameLogic = ReturnType<typeof useGameLogic>;
 
@@ -97,40 +98,21 @@ export const GameOverlays: React.FC<{
         ))}
 
         {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && state.responseFieldMode !== 'activate' && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
-            <div
-                className={`absolute inset-0 z-[110] overflow-hidden transition-colors duration-300 ${state.responseFieldMode === 'peek' ? 'pointer-events-none bg-transparent' : 'bg-black/25'}`}
-                role="dialog"
-                aria-modal={state.responseFieldMode !== 'peek'}
-                aria-label="Response window"
-                onClick={state.responseFieldMode === 'peek' ? undefined : actions.passResponse}
+            <DuelPrompt
+                ariaLabel="Response window"
+                title={<span className="duel-prompt__response-title">{gameState.players[gameState.response.priority].name}: Respond?</span>}
+                peeking={state.responseFieldMode === 'peek'}
+                setPeeking={peeking => actions.setResponseFieldMode(peeking ? 'peek' : null)}
+                onBackdropClick={actions.passResponse}
+                actions={[
+                    { label: 'Decline', onClick: actions.passResponse, variant: 'secondary' },
+                    { label: 'Activate', onClick: () => actions.setResponseFieldMode('activate'), variant: 'primary' },
+                ]}
             >
-                <div className="response-sheet-enter absolute inset-x-0 bottom-0 flex justify-center px-4">
-                    <div
-                        className={`response-sheet pointer-events-auto w-full max-w-xl ${state.responseFieldMode === 'peek' ? 'response-sheet--collapsed' : ''}`}
-                        onClick={event => event.stopPropagation()}
-                    >
-                        <button
-                            type="button"
-                            aria-label={state.responseFieldMode === 'peek' ? 'Show response window' : 'Hide response window and peek at field'}
-                            aria-expanded={state.responseFieldMode !== 'peek'}
-                            onClick={() => actions.setResponseFieldMode(state.responseFieldMode === 'peek' ? null : 'peek')}
-                            className="mx-auto flex h-10 w-20 items-center justify-center rounded-t-xl border-x-2 border-t-2 border-yellow-500 bg-slate-950 text-yellow-400 shadow-[0_-8px_20px_rgba(0,0,0,0.35)] transition-colors hover:bg-slate-800 hover:text-yellow-300"
-                        >
-                            <i className={`fa-solid ${state.responseFieldMode === 'peek' ? 'fa-chevron-up' : 'fa-chevron-down'}`} aria-hidden="true" />
-                        </button>
-                        <div className="border-2 border-yellow-500 bg-slate-950 p-5 text-slate-100 shadow-[0_-12px_40px_rgba(0,0,0,0.65)] sm:p-6">
-                            <h2 className="font-orbitron text-xl text-yellow-400">{gameState.players[gameState.response.priority].name}: Respond?</h2>
-                            <p className="mt-3 font-orbitron font-bold">{gameState.response.reason}</p>
-                            <p className="my-3 font-orbitron">{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
-                            {!!gameState.chain?.length && <ol className="mb-4 text-sm text-slate-300">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
-                            <div className="grid grid-cols-2 gap-3">
-                                <button onClick={actions.passResponse} className="border border-white/20 bg-slate-700 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-slate-100 hover:bg-slate-600">Pass</button>
-                                <button onClick={() => actions.setResponseFieldMode('activate')} className="border border-yellow-400 bg-yellow-600 p-3 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-yellow-500">Activate</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <p className="duel-prompt__reason">{gameState.response.reason}</p>
+                <p>{state.responseOptions.length} activatable {state.responseOptions.length === 1 ? 'card' : 'cards'}</p>
+                {!!gameState.chain?.length && <ol className="duel-prompt__chain">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
+            </DuelPrompt>
         )}
         {state.opponentMode === 'ai' && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
