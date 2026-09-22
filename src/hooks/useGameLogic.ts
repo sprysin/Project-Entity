@@ -18,7 +18,7 @@ import '../cards/actions';
 import '../cards/conditions';
 import { createRuntimeDeck, SavedDeck } from '../decks';
 import { useManagedTimeout } from './useManagedTimeout';
-import { getActivationPopups, saveActivationPopups } from '../desktop/storage';
+import { getActivationPopups, getSettings, saveActivationPopups } from '../desktop/storage';
 import { showMessage } from '../desktop/files';
 
 export const ACTIVATION_POPUPS_STORAGE_KEY = 'project-entity.activation-popups-enabled';
@@ -75,6 +75,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Pile viewing
     const [viewingDiscardIdx, setViewingDiscardIdx] = useState<number | null>(null);
     const [viewingVoidIdx, setViewingVoidIdx] = useState<number | null>(null);
+    const [inspectedPileCard, setInspectedPileCard] = useState<Card | null>(null);
 
     // Layout
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
@@ -96,6 +97,10 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         setSelectedHandIndex(null);
         setSelectedFieldSlot(null);
     }, [gameState?.activePlayerIndex, gameState?.currentPhase, gameState?.turnNumber]);
+
+    useEffect(() => {
+        if (selectedHandIndex !== null || selectedFieldSlot !== null) setInspectedPileCard(null);
+    }, [selectedHandIndex, selectedFieldSlot]);
 
     // Compose sub-hooks
     const animations = useAnimations();
@@ -170,7 +175,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         const p2Deck = initialDecks[1] ? createRuntimeDeck(initialDecks[1], 'player2') : createDeck('player2');
         animations.lastLp.current = [800, 800];
         setGameState(createGame([
-            { id: 'player1', name: 'Player 1', deck: p1Deck, deckName: initialDecks[0]?.name ?? 'Random test deck' },
+            { id: 'player1', name: getSettings().username, deck: p1Deck, deckName: initialDecks[0]?.name ?? 'Random test deck' },
             { id: 'player2', name: opponentMode === 'ai' ? 'AI' : 'Player 2', deck: p2Deck, deckName: initialDecks[1]?.name ?? 'Random test deck' }
         ]));
     }, []);
@@ -254,7 +259,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             deckSelectionReq, selectedDeckIndex,
             phaseFlash: animations.phaseFlash, turnFlash: animations.turnFlash,
             displayedLp: animations.displayedLp, lpScale: animations.lpScale, lpFlash: animations.lpFlash,
-            viewingDiscardIdx, viewingVoidIdx,
+            viewingDiscardIdx, viewingVoidIdx, inspectedPileCard,
             cardMotions: cardMotion.motions, finishMotion: cardMotion.finishMotion,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
@@ -268,6 +273,14 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setDeckSelectionReq, setSelectedDeckIndex,
             setTriggeredEffect, setPendingEffectCard,
             setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen, setActivationPopupsEnabled,
+            inspectPileCard: (card: Card) => {
+                setSelectedHandIndex(null);
+                setSelectedFieldSlot(null);
+                setInspectedPileCard(card);
+                setViewingDiscardIdx(null);
+                setViewingVoidIdx(null);
+                setIsRightPanelOpen(true);
+            },
             setRef: animations.setRef,
             nextPhase, skipToEndPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
             handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection,

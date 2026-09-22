@@ -29,7 +29,7 @@ export const Pile: React.FC<{
     onClick?: () => void;
     domRef?: (el: HTMLElement | null) => void;
 }> = ({ count, topCard, label, color, icon, isFlashing, onClick, domRef }) => (
-    <button type="button" data-pile-trigger aria-label={`${label}: ${count} cards. Open pile`} className="flex flex-col items-center group cursor-pointer" onClick={onClick}>
+    <button type="button" data-sound="select-small" data-pile-trigger aria-label={`${label}: ${count} cards. Open pile`} className="flex flex-col items-center group cursor-pointer" onClick={onClick}>
         <div ref={domRef} className={`relative w-32 aspect-[2/3] ${color === 'slate' ? 'bg-slate-900/40' : 'bg-purple-900/40'} border border-white/10 rounded flex flex-col items-center justify-center shadow-xl transition-all group-hover:scale-105 text-white font-orbitron ${isFlashing ? (color === 'slate' ? 'flash-gold' : 'flash-purple') : ''}`}>
             {topCard && <div className="absolute inset-0"><CardDetail card={topCard} compact className="w-full h-full" /></div>}
             {topCard && <div aria-hidden="true" className={`absolute inset-0 pointer-events-none ${color === 'slate' ? 'bg-slate-500/35' : 'bg-purple-600/35'}`} />}

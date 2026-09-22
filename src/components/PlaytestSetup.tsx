@@ -1,7 +1,8 @@
+import BackToHubButton from './BackToHubButton';
 import { OpponentMode } from '../types';
 import React, { useEffect, useState } from 'react';
 import { deckSize, isDeckPlayable, SavedDeck } from '../decks';
-import { getSavedDecks } from '../desktop/storage';
+import { getSavedDecks, getSettings } from '../desktop/storage';
 
 interface PlaytestSetupProps {
   onBack: () => void;
@@ -41,9 +42,7 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
           <h1 className="mt-3 font-orbitron text-4xl font-black text-yellow-500">CHOOSE YOUR DECKS</h1>
           <p className="mt-3 text-sm text-slate-400">Use a deck from your library or generate a random test deck.</p>
         </div>
-        <button aria-label="Back to main menu" onClick={onBack} className="border border-slate-700 bg-slate-900 px-4 py-3 font-orbitron text-xs font-bold text-slate-300 hover:border-yellow-500 hover:text-yellow-400">
-          <i className="fa-solid fa-arrow-left mr-2" aria-hidden="true" /> BACK
-        </button>
+        <BackToHubButton onClick={onBack} />
       </header>
 
       <fieldset className="mb-8 border border-slate-700 bg-slate-900/80 p-5 backdrop-blur-sm shadow-md">
@@ -52,6 +51,7 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label
+            data-sound="toggle"
             aria-pressed={opponentMode === 'self'}
             className={`group relative flex cursor-pointer items-center justify-between border p-4 text-left transition-all duration-200 ${opponentMode === 'self'
               ? 'border-yellow-500 bg-yellow-950/30 text-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.15)]'
@@ -79,6 +79,7 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
           </label>
 
           <label
+            data-sound="toggle"
             aria-pressed={opponentMode === 'ai'}
             className={`group relative flex cursor-pointer items-center justify-between border p-4 text-left transition-all duration-200 ${opponentMode === 'ai'
               ? 'border-yellow-500 bg-yellow-950/30 text-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.15)]'
@@ -112,9 +113,10 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
 
       <div className="grid gap-8 lg:grid-cols-2">
         {[0, 1].map(playerIndex => <section key={playerIndex} aria-labelledby={`player-${playerIndex + 1}-deck-heading`}>
-          <h2 id={`player-${playerIndex + 1}-deck-heading`} className="mb-4 font-orbitron text-lg font-bold text-slate-100">{opponentMode === 'ai' && playerIndex === 1 ? 'AI' : `PLAYER ${playerIndex + 1}`} DECK</h2>
+          <h2 id={`player-${playerIndex + 1}-deck-heading`} className="mb-4 break-words font-orbitron text-lg font-bold text-slate-100">{playerIndex === 0 ? getSettings().username : opponentMode === 'ai' ? 'AI' : 'PLAYER 2'} DECK</h2>
           <div className="space-y-3">
             <button
+              data-sound="select"
               aria-pressed={selectedIds[playerIndex] === RANDOM_DECK}
               onClick={() => choose(playerIndex, RANDOM_DECK)}
               className={`flex w-full items-center gap-4 border p-4 text-left transition-colors ${selectedIds[playerIndex] === RANDOM_DECK ? 'border-yellow-500 bg-yellow-950/30' : 'border-slate-700 bg-slate-900/80 hover:border-slate-500'}`}
@@ -128,6 +130,7 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
               const playable = isDeckPlayable(deck);
               const selected = selectedIds[playerIndex] === deck.id;
               return <button
+                data-sound="select"
                 key={deck.id}
                 disabled={!playable}
                 aria-pressed={selected}
@@ -147,7 +150,7 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
       </div>
 
       <div className="mt-10 flex justify-end border-t border-slate-800 pt-7">
-        <button aria-label="Begin playtest" onClick={start} className="bg-yellow-600 px-8 py-4 font-orbitron text-sm font-black text-white shadow-[0_0_20px_rgba(202,138,4,0.3)] hover:bg-yellow-500">
+        <button data-sound="select" aria-label="Begin playtest" onClick={start} className="bg-yellow-600 px-8 py-4 font-orbitron text-sm font-black text-white shadow-[0_0_20px_rgba(202,138,4,0.3)] hover:bg-yellow-500">
           BEGIN PLAYTEST <i className="fa-solid fa-arrow-right ml-2" aria-hidden="true" />
         </button>
       </div>

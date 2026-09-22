@@ -1,3 +1,4 @@
+import BackToHubButton from './BackToHubButton';
 import { matchesCardCatalog } from '../cards/CardRegistry';
 import React, { useEffect, useState } from 'react';
 import { CardDetail } from './game/CardDetail';
@@ -17,8 +18,8 @@ const TypeIcon = ({ type, icon, className = '' }: { type: CardType; icon: string
     : <i className={`fa-solid ${icon} ${className}`} aria-hidden="true" />;
 const face = (card: CardDefinition, compact = false) => <CardDetail card={{ ...card, instanceId: card.id, ownerId: '' }} compact={compact} />;
 
-function IconButton({ label, icon, onClick, disabled = false, active = false }: { label: string; icon: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
-    return <button type="button" className={`deck-icon-button${active ? ' is-active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} onClick={onClick} disabled={disabled}><i aria-hidden="true" className={`fa-solid ${icon}`} /></button>;
+function IconButton({ label, icon, onClick, disabled = false, active = false, sound }: { label: string; icon: string; onClick: () => void; disabled?: boolean; active?: boolean; sound?: 'select-small' | 'toggle' | 'cancellation' }) {
+    return <button data-sound={sound} type="button" className={`deck-icon-button${active ? ' is-active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} onClick={onClick} disabled={disabled}><i aria-hidden="true" className={`fa-solid ${icon}`} /></button>;
 }
 
 export default function DeckCreator({ onBack }: { onBack: () => void }) {
@@ -105,42 +106,42 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         {!deck ? <main className="deck-library">
             <header className="deck-library-header">
                 <div><span className="deck-eyebrow">PROJECT PAWN</span><h1>YOUR DECKS</h1></div>
-                <IconButton label="Back to main menu" icon="fa-arrow-left" onClick={onBack} />
+                <BackToHubButton onClick={onBack} />
             </header>
             <div className="deck-library-actions">
-                <button className="deck-primary" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-plus" aria-hidden="true" /> New deck</button>
-                <button className="deck-secondary" onClick={importFile}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
-                <IconButton label={deleteMode ? 'Cancel deleting' : 'Delete a deck'} icon={deleteMode ? 'fa-xmark' : 'fa-trash-can'} active={deleteMode} disabled={!library.length} onClick={() => { setDeleteMode(value => !value); setNotice(deleteMode ? '' : 'Select a deck to delete'); }} />
+                <button data-sound="select" className="deck-primary" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-plus" aria-hidden="true" /> New deck</button>
+                <button data-sound="select-small" className="deck-secondary" onClick={importFile}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
+                <IconButton sound={deleteMode ? 'cancellation' : undefined} label={deleteMode ? 'Cancel deleting' : 'Delete a deck'} icon={deleteMode ? 'fa-xmark' : 'fa-trash-can'} active={deleteMode} disabled={!library.length} onClick={() => { setDeleteMode(value => !value); setNotice(deleteMode ? '' : 'Select a deck to delete'); }} />
             </div>
             <div className="deck-library-grid">
                 {library.map(item => <div key={item.id} className={`deck-library-tile${deleteMode ? ' is-delete-mode' : ''}`}>
-                    <button className="deck-library-open" aria-label={`${deleteMode ? 'Delete' : 'Open'} ${item.name}`} onClick={() => deleteMode ? deleteDeck(item) : open(item)}>
+                    <button data-sound={deleteMode ? undefined : 'select-small'} className="deck-library-open" aria-label={`${deleteMode ? 'Delete' : 'Open'} ${item.name}`} onClick={() => deleteMode ? deleteDeck(item) : open(item)}>
                     <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ transform: `translateX(${(i - 1) * 45}px) rotate(${(i - 1) * 9}deg)` }}>{face(cards.find(c => c.id === entry.cardId)!, true)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
                     <div className="deck-tile-caption"><strong>{item.name}</strong><span>{total(item)} cards <i className={`fa-solid ${deleteMode ? 'fa-trash-can' : 'fa-arrow-right'}`} aria-hidden="true" /></span></div>
                     </button>
                 </div>)}
-                {!library.length && <button className="deck-empty-library" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Build your first deck</span><i className="fa-solid fa-plus" aria-hidden="true" /></button>}
+                {!library.length && <button data-sound="select" className="deck-empty-library" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Build your first deck</span><i className="fa-solid fa-plus" aria-hidden="true" /></button>}
             </div>
         </main> : <div className="deck-editor">
             <aside className="deck-preview" aria-label="Card viewer">
-                <div className="deck-preview-nav"><IconButton label="Back to decks" icon="fa-arrow-left" onClick={leave} /><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
+                <div className="deck-preview-nav"><IconButton sound="cancellation" label="Back to decks" icon="fa-arrow-left" onClick={leave} /><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
                 {selected && <div className="deck-preview-face">{face(selected)}</div>}
-                {selected && <div className="deck-preview-controls"><IconButton label={`Remove ${selected.name}`} icon="fa-minus" onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)} /><IconButton label={`Add ${selected.name}`} icon="fa-plus" onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id)} /></div>}
+                {selected && <div className="deck-preview-controls"><IconButton sound="toggle" label={`Remove ${selected.name}`} icon="fa-minus" onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)} /><IconButton sound="toggle" label={`Add ${selected.name}`} icon="fa-plus" onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id)} /></div>}
             </aside>
             <main className="deck-center" aria-label="Deck contents">
                 <header className="deck-center-header">
                     <input aria-label="Deck name" maxLength={80} value={deck.name} onChange={e => { setDeck({ ...deck, name: e.target.value }); setDirty(true); setNotice(''); }} placeholder="Deck name" />
                     <span className="deck-unsaved" title={dirty ? 'Unsaved changes' : 'Saved'} aria-label={dirty ? 'Unsaved changes' : 'Saved'}>{dirty ? '●' : ''}</span>
-                    <button className="deck-primary" onClick={save} title="Save deck locally"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save</button>
-                    <IconButton label="Export deck to JSON" icon="fa-file-export" onClick={exportJson} />
+                    <button data-sound="select" className="deck-primary" onClick={save} title="Save deck locally"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save</button>
+                    <IconButton sound="select-small" label="Export deck to JSON" icon="fa-file-export" onClick={exportJson} />
                 </header>
                 <div className="deck-counts"><span>{total(deck)} <span className="text-slate-500">cards</span></span>{types.map((type, i) => <span key={type} title={type} aria-label={`${type} count`}><TypeIcon type={type} icon={icons[i]} className={`deck-type-${type}`} /> {deck.cards.filter(e => cards.find(c => c.id === e.cardId)?.type === type).reduce((sum, e) => sum + e.quantity, 0)}</span>)}</div>
                 <div className="deck-content-scroll">
                     {!deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
                     <div className="deck-owned-grid">{cards.flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
                         <div key={`${card.id}-${copy}`} className="deck-owned-card">
-                            <button className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
-                            <div className="deck-quantity"><IconButton label={`Remove ${card.name}, copy ${copy + 1}`} icon="fa-minus" onClick={() => changeQuantity(card, -1)} /></div>
+                            <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
+                            <div className="deck-quantity"><IconButton sound="toggle" label={`Remove ${card.name}, copy ${copy + 1}`} icon="fa-minus" onClick={() => changeQuantity(card, -1)} /></div>
                         </div>
                     ))}</div>
                 </div>
@@ -154,14 +155,14 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                         return entries.length > 0 && <section key={type} aria-label={type} className={`deck-card-section deck-type-${type}`}>
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
-                                <button className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
-                                <div className="deck-catalog-add"><span /><IconButton label={`Add ${card.name}`} icon="fa-plus" onClick={() => changeQuantity(card, 1)} disabled={!canAddCard(deck, card.id)} /></div>
+                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
+                                <div className="deck-catalog-add"><span /><IconButton sound="toggle" label={`Add ${card.name}`} icon="fa-plus" onClick={() => changeQuantity(card, 1)} disabled={!canAddCard(deck, card.id)} /></div>
                             </div>)}</div>
                         </section>;
                     })}
                 </div>
             </aside>
         </div>}
-        {notice && <div className="deck-notice" role="status">{notice}<IconButton label="Dismiss notification" icon="fa-xmark" onClick={() => setNotice('')} /></div>}
+        {notice && <div className="deck-notice" role="status">{notice}<IconButton sound="cancellation" label="Dismiss notification" icon="fa-xmark" onClick={() => setNotice('')} /></div>}
     </div>;
 }

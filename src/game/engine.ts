@@ -36,7 +36,7 @@ export function createGame(players: [
     });
     return { players: [makePlayer(players[0]), makePlayer(players[1])], activePlayerIndex: 0,
         currentPhase: Phase.DRAW, turnNumber: 1, winner: null, pendingEffects: [],
-        log: ['Turn 1', `Duel initialized. Player 1: ${players[0].deckName ?? 'Random test deck'}; Player 2: ${players[1].deckName ?? 'Random test deck'}.`] };
+        log: ['Turn 1', `Duel initialized. ${players[0].name}: ${players[0].deckName ?? 'Random test deck'}; ${players[1].name}: ${players[1].deckName ?? 'Random test deck'}.`] };
 }
 
 const isMain = (state: GameState, actor: number) => !state.winner && !state.response

@@ -16,7 +16,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn(), message: vi.fn() }));
 
-import { flushSaves, getActivationPopups, getSavedDecks, initializeStorage, migrateSave, saveActivationPopups, saveDeckLibrary } from '../src/desktop/storage';
+import { flushSaves, getActivationPopups, getSettings, saveSettings, getSavedDecks, initializeStorage, migrateSave, saveActivationPopups, saveDeckLibrary } from '../src/desktop/storage';
 import { newDeck } from '../src/decks';
 import { exportDeck, importDeck } from '../src/desktop/files';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -31,10 +31,11 @@ beforeEach(async () => {
 
 it('persists decks and settings together across a restart, even with concurrent writes', async () => {
   const deck = newDeck();
-  await Promise.all([saveDeckLibrary([deck]), saveActivationPopups(false)]);
+  await Promise.all([saveDeckLibrary([deck]), saveActivationPopups(false), saveSettings({ username: '  Drake  ', volume: 35 })]);
   await initializeStorage();
   expect(getSavedDecks()).toEqual([deck]);
   expect(getActivationPopups()).toBe(false);
+  expect(getSettings()).toEqual({ activationPopupsEnabled: false, username: 'Drake', volume: 35 });
   expect(disk.files.has('save.json.tmp')).toBe(false);
 });
 
@@ -54,7 +55,11 @@ it('keeps the previous save and cached state when replacement fails, then suppor
 
 it('migrates legacy arrays and rejects future versions and duplicate IDs', () => {
   const deck = newDeck();
-  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupsEnabled: true } });
+  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupsEnabled: true, username: 'Player 1', volume: 80 } });
+  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false } }).settings).toEqual({ activationPopupsEnabled: false, username: 'Player 1', volume: 80 });
+  for (const settings of [{ username: ' ' }, { username: 'x'.repeat(25) }, { volume: -1 }, { volume: 101 }]) {
+    expect(() => migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: true, ...settings } })).toThrow('Invalid settings');
+  }
   expect(() => migrateSave({ version: 2 })).toThrow('Unsupported');
   expect(() => migrateSave([deck, deck])).toThrow('Duplicate');
 });

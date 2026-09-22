@@ -1,3 +1,4 @@
+import BackToHubButton from './BackToHubButton';
 import React, { useRef, useState } from 'react';
 import { CardDetail } from './game/CardDetail';
 import { NormalAttributeIcon } from './NormalAttributeIcon';
@@ -232,10 +233,10 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     <div ref={scroller} className="rulebook">
       <div className="rulebook-shell">
         <header className="rulebook-topbar">
-          <button onClick={() => { setSelected(null); setPage(0); resetPosition(); }} className="rulebook-brand" aria-label="Rulebook home">
+          <button data-sound="select-small" onClick={() => { setSelected(null); setPage(0); resetPosition(); }} className="rulebook-brand" aria-label="Rulebook home">
             <i className="fa-solid fa-chess-knight" aria-hidden="true" /><span>PROJECT ENTITY<small>THE RULEBOOK</small></span>
           </button>
-          <button onClick={onBack} className="rulebook-exit"><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back to Hub</button>
+          <BackToHubButton onClick={onBack} />
         </header>
 
         {topic === null ? <>
@@ -244,7 +245,7 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <span className="rulebook-eyebrow">LEARN THE GAME</span>
               <h1 ref={heading} tabIndex={-1}>PROJECT<br /><em>ENTITY</em></h1>
               <p>Covers all the major rules and mechanics of standard play.<br />These are subject to change as the game receives balance updates.</p>
-              <button className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+              <button data-sound="select-small" className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
             </div>
             <div className="rulebook-card-fan" aria-label="Example Pawn, Action and Condition cards">
               {[0, 1, 2].map(index => <div key={index} className={`rulebook-fan-item rulebook-fan-${index}`}><ExampleCard index={index} decorative /><span style={{ color: examples[index].color }}>{examples[index].label}</span></div>)}
@@ -252,7 +253,7 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </section>
           <div className="rulebook-chapter-label"><span>CHOOSE YOUR CHAPTER</span><span>01 — {String(topics.length).padStart(2, '0')}</span></div>
           <nav className="rulebook-chapters" aria-label="Rulebook chapters">
-            {topics.map((item, index) => <button key={item.id} onClick={() => open(index)} className={`rulebook-chapter chapter-tone-${index % 3}`}>
+            {topics.map((item, index) => <button data-sound="select-small" key={item.id} onClick={() => open(index)} className={`rulebook-chapter chapter-tone-${index % 3}`}>
               <span className="rulebook-chapter-number">{String(index + 1).padStart(2, '0')}</span>
               <i className={`fa-solid ${item.icon} rulebook-chapter-icon`} aria-hidden="true" />
               <span className="rulebook-chapter-copy"><strong>{item.title}</strong><small>{item.subtitle}</small></span>
@@ -260,14 +261,14 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </button>)}
           </nav>
         </> : <>
-          <div className="rulebook-breadcrumb"><button onClick={() => { setSelected(null); resetPosition(); }}><i className="fa-solid fa-grip" aria-hidden="true" /> All chapters</button><span>/</span><span>CHAPTER {String(selected! + 1).padStart(2, '0')}</span></div>
+          <div className="rulebook-breadcrumb"><button data-sound="select-small" onClick={() => { setSelected(null); resetPosition(); }}><i className="fa-solid fa-grip" aria-hidden="true" /> All chapters</button><span>/</span><span>CHAPTER {String(selected! + 1).padStart(2, '0')}</span></div>
           <div className="rulebook-reading-grid">
             <main className="rulebook-reading">
               <div className="rulebook-topic-heading">
                 <span className="rulebook-eyebrow"><i className={`fa-solid ${topic.icon}`} aria-hidden="true" /> {topic.subtitle}</span>
                 <h1 ref={heading} tabIndex={-1}>{topic.title}</h1>
               </div>
-              {pageCount > 1 && <nav className="rulebook-page-tabs" aria-label="Chapter pages">{Array.from({ length: pageCount }, (_, index) => <button key={index} aria-current={index === page ? 'page' : undefined} onClick={() => { setPage(index); resetPosition(); }}>{isPawnInfo ? pawnInfoTabs[index] : index === rulePages.length && topic.table ? 'Quick reference' : rulePages.length > 1 ? `Rules ${index + 1}` : 'The rules'}</button>)}</nav>}
+              {pageCount > 1 && <nav className="rulebook-page-tabs" aria-label="Chapter pages">{Array.from({ length: pageCount }, (_, index) => <button data-sound="select-small" key={index} aria-current={index === page ? 'page' : undefined} onClick={() => { setPage(index); resetPosition(); }}>{isPawnInfo ? pawnInfoTabs[index] : index === rulePages.length && topic.table ? 'Quick reference' : rulePages.length > 1 ? `Rules ${index + 1}` : 'The rules'}</button>)}</nav>}
               <div key={`${topic.id}-${page}`} className="rulebook-page">
                 {isPawnInfo && page === 0 ? <section className="rulebook-pawn-fields" aria-label="Information on a Pawn card">
                   <p className="rulebook-page-intro">Every Pawn card shows the information below. Read these fields together to understand how the Pawn enters play, what effects can interact with it, and how it performs in combat.</p>
@@ -286,19 +287,19 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 {topic.note && page === pageCount - 1 && <div className="rulebook-important"><i className="fa-solid fa-star" aria-hidden="true" /><div><strong>REMEMBER</strong><p>{topic.note}</p></div></div>}
               </div>
               <footer className="rulebook-pagination">
-                <button disabled={selected === 0 && page === 0} onClick={() => turnPage(-1)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Previous</button>
+                <button data-sound="select-small" disabled={selected === 0 && page === 0} onClick={() => turnPage(-1)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Previous</button>
                 <span>{page + 1} / {pageCount}</span>
-                {selected === topics.length - 1 && page === pageCount - 1 ? <button onClick={() => { setSelected(null); resetPosition(); }}>All chapters <i className="fa-solid fa-grip" aria-hidden="true" /></button> : <button onClick={() => turnPage(1)}>{page < pageCount - 1 ? 'Next page' : 'Next chapter'} <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
+                {selected === topics.length - 1 && page === pageCount - 1 ? <button data-sound="select-small" onClick={() => { setSelected(null); resetPosition(); }}>All chapters <i className="fa-solid fa-grip" aria-hidden="true" /></button> : <button data-sound="select-small" onClick={() => turnPage(1)}>{page < pageCount - 1 ? 'Next page' : 'Next chapter'} <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
               </footer>
             </main>
             <aside className="rulebook-example" aria-label="Card examples">
               <span className="rulebook-eyebrow">Card Examples</span>
-              <div className="rulebook-example-tabs" role="group" aria-label="Choose a card type">{examples.map((item, index) => <button key={item.id} aria-pressed={example === index} onClick={() => setExample(index)} style={{ '--example-color': item.color } as React.CSSProperties}>{item.label}</button>)}</div>
+              <div className="rulebook-example-tabs" role="group" aria-label="Choose a card type">{examples.map((item, index) => <button data-sound="select-small" key={item.id} aria-pressed={example === index} onClick={() => setExample(index)} style={{ '--example-color': item.color } as React.CSSProperties}>{item.label}</button>)}</div>
               <div key={example} className="rulebook-example-stage" style={{ '--example-color': examples[example].color } as React.CSSProperties}><ExampleCard index={example} /></div>
               <p>{examples[example].description}</p>
             </aside>
           </div>
-          <nav className="rulebook-chapter-dots" aria-label="Jump to chapter">{topics.map((item, index) => <button key={item.id} aria-label={item.title} aria-current={selected === index ? 'page' : undefined} title={item.title} onClick={() => open(index)}>{String(index + 1).padStart(2, '0')}</button>)}</nav>
+          <nav className="rulebook-chapter-dots" aria-label="Jump to chapter">{topics.map((item, index) => <button data-sound="select-small" key={item.id} aria-label={item.title} aria-current={selected === index ? 'page' : undefined} title={item.title} onClick={() => open(index)}>{String(index + 1).padStart(2, '0')}</button>)}</nav>
         </>}
       </div>
     </div>

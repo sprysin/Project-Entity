@@ -6,17 +6,20 @@ import CardDatabase from './components/CardDatabase';
 import RulesView from './components/RulesView';
 import DeckCreator from './components/DeckCreator';
 import PlaytestSetup from './components/PlaytestSetup';
+import Settings from './components/Settings';
 import { OpponentMode } from './types';
 import { SavedDeck } from './decks';
+import { useUiSounds } from './hooks/useUiSounds';
 
 // Define the possible screens/views in the application
-type View = 'HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS';
+type View = 'HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS';
 
 /**
  * Main App Component
  * Handles high-level navigation between the Hub, the Game session, and the Card Gallery.
  */
 const App: React.FC = () => {
+  useUiSounds();
   const [opponentMode, setOpponentMode] = useState<OpponentMode>('self');
   const [currentView, setCurrentView] = useState<View>('HUB');
   const [playtestDecks, setPlaytestDecks] = useState<[SavedDeck | null, SavedDeck | null]>([null, null]);
@@ -34,6 +37,7 @@ const App: React.FC = () => {
           onViewCards={() => setCurrentView('CARDS')}
           onRules={() => setCurrentView('RULES')}
           onCreateDeck={() => setCurrentView('DECKS')}
+          onSettings={() => setCurrentView('SETTINGS')}
         />
       )}
 
@@ -56,6 +60,7 @@ const App: React.FC = () => {
 
       {/* Rules View */}
       {currentView === 'DECKS' && <DeckCreator onBack={() => setCurrentView('HUB')} />}
+      {currentView === 'SETTINGS' && <Settings onBack={() => setCurrentView('HUB')} />}
       {currentView === 'RULES' && (
         <RulesView onBack={() => setCurrentView('HUB')} />
       )}

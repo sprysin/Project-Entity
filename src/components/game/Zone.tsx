@@ -3,6 +3,7 @@ import { PlacedCard, Position, CardType } from '../../types';
 import { CardDetail } from './CardDetail';
 import { useManagedTimeout } from '../../hooks/useManagedTimeout';
 import { ActionCardIcon } from '../ActionCardIcon';
+import { playSound } from '../../audio';
 
 /**
  * Zone Sub-component: A single slot on the field. Handles display of cards in Attack/Defense/Hidden positions.
@@ -24,15 +25,25 @@ export const Zone: React.FC<{
     const visibleCard = isVisuallyHidden ? null : card;
     // Track previous stats to trigger pop animations
     const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
+    const prevPlacement = useRef<{ id: string, position: Position } | null>(null);
     const [popStats, setPopStats] = useState<{ atk: boolean, def: boolean }>({ atk: false, def: false });
 
     useEffect(() => {
         if (!card) {
             prevStats.current = null;
+            prevPlacement.current = null;
             return;
         }
 
+        if (card.position === Position.HIDDEN
+            && (prevPlacement.current?.id !== card.card.instanceId || prevPlacement.current.position !== Position.HIDDEN)) {
+            playSound('hide-card');
+        }
+
         if (prevStats.current && prevStats.current.id === card.card.instanceId) {
+            if (card.card.atk > prevStats.current.atk || card.card.def > prevStats.current.def) {
+                playSound('gain-stat');
+            }
             if (card.card.atk !== prevStats.current.atk) {
                 setPopStats(prev => ({ ...prev, atk: true }));
                 schedule(() => setPopStats(prev => ({ ...prev, atk: false })), 800);
@@ -43,6 +54,7 @@ export const Zone: React.FC<{
             }
         }
         prevStats.current = { id: card.card.instanceId, atk: card.card.atk, def: card.card.def };
+        prevPlacement.current = { id: card.card.instanceId, position: card.position };
     }, [card, schedule]);
 
     return (

@@ -50,11 +50,12 @@ const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
             <div className={`flex max-h-[80vh] w-full max-w-5xl flex-col rounded-lg border-2 bg-slate-900 p-8 ${colors.frame}`}>
                 <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
                     <h2 className={`font-orbitron text-2xl font-black uppercase tracking-widest ${colors.heading}`}>{title}</h2>
-                    {cancellable && <button onClick={onCancel} className="border border-red-500/50 bg-red-900/40 px-6 py-2 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-red-800">Cancel</button>}
+                    {cancellable && <button data-sound="cancellation" onClick={onCancel} className="border border-red-500/50 bg-red-900/40 px-6 py-2 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-red-800">Cancel</button>}
                 </div>
                 <div className="mb-6 grid flex-1 grid-cols-2 gap-6 overflow-y-auto p-2 md:grid-cols-4 lg:grid-cols-5">
                     {choices.map(({ card, index, valid }) => (
                         <button
+                            data-sound="select-small"
                             key={card.instanceId}
                             type="button"
                             disabled={!valid}
@@ -69,6 +70,7 @@ const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
                 </div>
                 <div className="flex justify-end border-t border-white/10 pt-4">
                     <button
+                        data-sound="select"
                         disabled={selectedIndex === null}
                         onClick={() => selectedIndex !== null && onConfirm(selectedIndex)}
                         className={`px-12 py-4 font-orbitron text-xl font-black uppercase tracking-widest text-white transition-all ${selectedIndex === null ? 'cursor-not-allowed bg-slate-800 text-slate-500' : colors.confirm}`}

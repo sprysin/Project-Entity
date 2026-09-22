@@ -15,6 +15,7 @@ import { HealthHud } from './game/HealthHud';
 import { SavedDeck } from '../decks';
 import { fieldActivations } from '../game/chains';
 import { canAttack, canChangePosition as canChangePawnPosition } from '../game/engine';
+import { QuitDuelDialog } from './game/MatchModals';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -28,6 +29,7 @@ interface GameViewProps {
  */
 const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode = 'self' as OpponentMode }) => {
   const { gameState, state, actions } = useGameLogic(initialDecks, opponentMode);
+  const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 
@@ -81,24 +83,36 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
         attack={gameState.deferredAction?.kind === 'attack' ? gameState.deferredAction : undefined}
         defendingPlayerId={gameState.players[1 - gameState.activePlayerIndex].id}
       />
-      <div className="absolute top-4 left-4 z-40 flex flex-col space-y-2">
-        <button onClick={onQuit} className="px-4 py-2 bg-slate-900/80 border border-white/10 hover:bg-red-950/80 text-slate-400 font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest">
-          <i className="fa-solid fa-power-off mr-2"></i> EXIT GAME
+      <div className="game-corner-controls absolute left-4 top-4 z-40">
+        <button data-sound="select-small" type="button" onClick={() => setIsQuitConfirmationOpen(true)} className="game-corner-button game-corner-button--primary">
+          <span className="game-corner-button__icon" aria-hidden="true"><i className="fa-solid fa-power-off" /></span>
+          <span>QUIT DUEL</span>
         </button>
-        <button onClick={() => actions.setIsDeckViewerOpen(true)} className="game-deck-button">
-          <i className="fa-solid fa-layer-group" aria-hidden="true"></i><span>DECK LIST</span><i className="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        <button data-sound="select-small" type="button" onClick={() => actions.setIsDeckViewerOpen(true)} className="game-corner-button game-corner-button--secondary">
+          <span className="game-corner-button__icon" aria-hidden="true"><i className="fa-solid fa-layer-group" /></span>
+          <span>DECK LIST</span>
+          <i className="fa-solid fa-chevron-right game-corner-button__detail" aria-hidden="true" />
         </button>
         <button
+          data-sound="toggle"
           type="button"
           aria-label="Toggle activation pop-ups"
           aria-pressed={state.activationPopupsEnabled}
           onClick={() => actions.setActivationPopupsEnabled(!state.activationPopupsEnabled)}
-          className={`px-4 py-2 border font-orbitron font-bold backdrop-blur-md text-xs uppercase tracking-widest transition-colors ${state.activationPopupsEnabled ? 'bg-yellow-900/70 border-yellow-500/50 text-yellow-300 hover:bg-yellow-800/80' : 'bg-slate-900/80 border-white/10 text-slate-400 hover:bg-slate-800/90'}`}
+          className={`game-corner-button game-corner-button--secondary ${state.activationPopupsEnabled ? 'is-active' : ''}`}
         >
-          <i className={`fa-solid ${state.activationPopupsEnabled ? 'fa-bell' : 'fa-bell-slash'} mr-2`}></i>
-          POP-UPS {state.activationPopupsEnabled ? 'ON' : 'OFF'}
+          <span className="game-corner-button__icon" aria-hidden="true"><i className={`fa-solid ${state.activationPopupsEnabled ? 'fa-bell' : 'fa-bell-slash'}`} /></span>
+          <span>POP-UPS {state.activationPopupsEnabled ? 'ON' : 'OFF'}</span>
+          <span className="game-corner-button__status" aria-hidden="true" />
         </button>
       </div>
+
+      {isQuitConfirmationOpen && (
+        <QuitDuelDialog
+          onCancel={() => setIsQuitConfirmationOpen(false)}
+          onConfirm={onQuit}
+        />
+      )}
 
       <div className="flex-1 flex relative overflow-hidden">
         {/* Main Play Area */}
@@ -347,7 +361,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
           <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} viewerIndex={viewIndex} onQuit={onQuit} />
         </div>
 
-        <GameSidebar viewerIndex={viewIndex} gameState={gameState} selectedCard={selectedCard} selectedFieldSlot={state.selectedFieldSlot} isOpen={state.isRightPanelOpen} setIsOpen={actions.setIsRightPanelOpen} />
+        <GameSidebar viewerIndex={viewIndex} gameState={gameState} selectedCard={selectedCard} inspectedCard={state.inspectedPileCard} selectedFieldSlot={state.selectedFieldSlot} isOpen={state.isRightPanelOpen} setIsOpen={actions.setIsRightPanelOpen} />
       </div>
 
       <PileViewModal
@@ -356,6 +370,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
         gameState={gameState}
         setViewingDiscardIdx={actions.setViewingDiscardIdx}
         setViewingVoidIdx={actions.setViewingVoidIdx}
+        onSelectCard={actions.inspectPileCard}
       />
 
       <DeckViewModal

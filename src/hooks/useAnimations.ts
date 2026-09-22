@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useManagedTimeout } from './useManagedTimeout';
+import { playSound } from '../audio';
 
 type ShatterShard = {
     x: number;
@@ -69,6 +70,8 @@ export const useAnimations = () => {
         if (!visibleCard) return;
         const rect = visibleCard.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
+
+        playSound('card-destruction');
 
         const rotated = visibleCard.classList.contains('rotate-90');
         // Swap the grid with the card so portrait and defense-position cards

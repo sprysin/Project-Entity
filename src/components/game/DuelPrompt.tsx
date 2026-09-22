@@ -49,6 +49,7 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
                 <div className="duel-prompt__actions">
                     {actions.map(action => (
                         <button
+                            data-sound={action.variant === 'primary' ? 'select' : 'cancellation'}
                             key={action.label}
                             type="button"
                             disabled={action.disabled}

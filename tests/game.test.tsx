@@ -17,7 +17,10 @@ function setup(edit: (s: GameState) => void) {
     act(() => game.setGameState(prev => {
         const s = structuredClone(prev!);
         s.turnNumber = 2; s.currentPhase = Phase.MAIN1;
-        for (const p of s.players) { p.hand = []; p.deck = []; p.discard = []; p.pawnZones.fill(null); p.actionZones.fill(null); }
+        for (const p of s.players) {
+            p.hand = []; p.deck = []; p.discard = []; p.pawnZones.fill(null); p.actionZones.fill(null);
+            p.normalSummonUsed = false; p.hiddenSummonUsed = false; p.activatedHardOncePerTurns = [];
+        }
         edit(s); return s;
     }));
 }
@@ -50,7 +53,7 @@ it('Void Blast wins immediately and is discarded exactly once', () => {
     expect(game.gameState).toBe(ended);
 });
 
-it('silently rejects an action whose activation requirements are not met', () => {
+it('silently rejects unavailable effects instead of prompting for them', () => {
     const recovery = card('action_02');
     setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('pawn_04')]; });
     const previousLog = game.gameState!.log;
@@ -58,6 +61,16 @@ it('silently rejects an action whose activation requirements are not met', () =>
     expect(game.gameState!.log).toBe(previousLog);
     expect(game.gameState!.players[0].hand[0].instanceId).toBe(recovery.instanceId);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
+
+    const caster = card('pawn_04');
+    setup(s => { s.players[0].hand = [caster]; });
+    act(() => game.actions.handleSummon(caster, 'normal', 0));
+    expect(game.state.triggeredEffect).toBeNull();
+
+    const eligibleCaster = card('pawn_04');
+    setup(s => { s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('action_01')]; });
+    act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
+    expect(game.state.triggeredEffect?.instanceId).toBe(eligibleCaster.instanceId);
 });
 
 it('holds a declared attack for 1.5 seconds before committing combat', () => {
@@ -182,6 +195,16 @@ it('clears selected-card placement highlights when the phase changes', () => {
 
     expect(game.state.selectedHandIndex).toBeNull();
     expect(game.state.selectedFieldSlot).toBeNull();
+
+    const discarded = card('action_01');
+    act(() => {
+        game.actions.setViewingDiscardIdx(0);
+        game.actions.setIsRightPanelOpen(false);
+        game.actions.inspectPileCard(discarded);
+    });
+    expect(game.state.viewingDiscardIdx).toBeNull();
+    expect(game.state.inspectedPileCard?.instanceId).toBe(discarded.instanceId);
+    expect(game.state.isRightPanelOpen).toBe(true);
 });
 
 

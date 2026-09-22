@@ -7,18 +7,19 @@ interface GameSidebarProps {
     viewerIndex?: number;
     gameState: GameState;
     selectedCard: Card | null;
+    inspectedCard?: Card | null;
     selectedFieldSlot: CardTarget | null;
     isOpen: boolean;
     setIsOpen: (open: boolean) => void;
 }
 
-export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, selectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
+export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, selectedCard, inspectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
     const [logCard, setLogCard] = useState<Card | null>(null);
     const cardsByName = useMemo(() => new Map(cardRegistry.getAllCards().map(card => [card.name, card])), []);
     const selectedZone = selectedFieldSlot
         ? gameState.players[selectedFieldSlot.playerIndex][selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][selectedFieldSlot.index]
         : null;
-    useEffect(() => setLogCard(null), [selectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
+    useEffect(() => setLogCard(null), [selectedCard?.instanceId, inspectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
 
     const renderLogEntry = (entry: string) => {
         const parts = entry.split(/("[^"]+")/g);
@@ -26,7 +27,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
             const name = part.startsWith('"') && part.endsWith('"') ? part.slice(1, -1) : '';
             const definition = cardsByName.get(name);
             if (!definition) return <React.Fragment key={index}>{part}</React.Fragment>;
-            return <button key={index} type="button" className="font-bold text-yellow-400 underline decoration-yellow-500/50 underline-offset-2 hover:text-yellow-200" onClick={() => setLogCard({ ...definition, instanceId: `log-${definition.id}`, ownerId: 'log-preview' })}>{part}</button>;
+            return <button data-sound="select-small" key={index} type="button" className="font-bold text-yellow-400 underline decoration-yellow-500/50 underline-offset-2 hover:text-yellow-200" onClick={() => setLogCard({ ...definition, instanceId: `log-${definition.id}`, ownerId: 'log-preview' })}>{part}</button>;
         });
     };
 
@@ -42,7 +43,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                             {logCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
                                     <CardDetail card={logCard} />
-                                    <button type="button" onClick={() => setLogCard(null)} className="w-full font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-yellow-400">Close log preview</button>
+                                    <button data-sound="cancellation" type="button" onClick={() => setLogCard(null)} className="w-full font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-yellow-400">Close log preview</button>
                                 </div>
                             ) : selectedZone && selectedFieldSlot ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
@@ -52,6 +53,10 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
                                     <CardDetail card={selectedCard} />
                                     <p className="text-center font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500">Select an open zone to choose how to play this card.</p>
+                                </div>
+                            ) : inspectedCard ? (
+                                <div className="space-y-6 animate-in slide-in-from-right-4">
+                                    <CardDetail card={inspectedCard} />
                                 </div>
                             ) : (
                                 <div className="flex h-64 flex-col items-center justify-center space-y-6 opacity-30 grayscale">

@@ -1,9 +1,10 @@
-import { Dispatch, SetStateAction, useEffect } from 'react';
+import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import { GameState, Phase } from '../types';
 import type { useAnimations } from './useAnimations';
 import { useManagedTimeout } from './useManagedTimeout';
 import { applySystemCommand } from '../game/engine';
 import { pendingDrawCount } from '../game/phases';
+import { playSound } from '../audio';
 
 type AnimationController = ReturnType<typeof useAnimations>;
 
@@ -15,6 +16,7 @@ export const useGameAnimationEffects = (
     nextPhase: () => void
 ) => {
     const schedule = useManagedTimeout();
+    const previousTurn = useRef<number | null>(null);
 
     useEffect(() => {
         if (!gameState) return;
@@ -25,6 +27,7 @@ export const useGameAnimationEffects = (
             }
             animations.prevDiscardLengths.current[index] = player.discard.length;
             if (player.void.length > animations.prevVoidLengths.current[index]) {
+                playSound('to-the-void');
                 animations.setVoidFlash(previous => { const next = [...previous] as [boolean, boolean]; next[index] = true; return next; });
                 schedule(() => animations.setVoidFlash(previous => { const next = [...previous] as [boolean, boolean]; next[index] = false; return next; }), 800);
             }
@@ -38,6 +41,7 @@ export const useGameAnimationEffects = (
             const previousLp = animations.lastLp.current[index];
             if (player.lp !== previousLp) {
                 const difference = player.lp - previousLp;
+                if (difference > 0) playSound('lp-gain');
                 const id = crypto.randomUUID();
                 animations.setFloatingTexts(previous => [...previous, { id, text: difference > 0 ? `+${difference}` : `${difference}`, type: difference > 0 ? 'heal' : 'damage', x: 50, y: 50 }]);
                 schedule(() => animations.setFloatingTexts(previous => previous.filter(text => text.id !== id)), 2500);
@@ -73,10 +77,18 @@ export const useGameAnimationEffects = (
     }, [gameState?.players[0]?.lp, gameState?.players[1]?.lp, schedule]);
 
     useEffect(() => {
-        if (!gameState || gameState.winner) return;
+        if (!gameState) {
+            previousTurn.current = null;
+            return;
+        }
+
+        const phase = gameState.currentPhase;
+        if (previousTurn.current !== null && previousTurn.current !== gameState.turnNumber) playSound('turn-change');
+        previousTurn.current = gameState.turnNumber;
+
+        if (gameState.winner) return;
         const timers: ReturnType<typeof setTimeout>[] = [];
         const later = (callback: () => void, delay: number) => timers.push(setTimeout(callback, delay));
-        const phase = gameState.currentPhase;
         const turn = gameState.turnNumber;
 
         if (phase === Phase.DRAW) {

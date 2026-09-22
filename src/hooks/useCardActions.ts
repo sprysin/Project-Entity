@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction, useRef } from 'react';
 import { Card, CardTarget, EffectTrigger, GameState, TargetSelectMode } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { fieldActivations } from '../game/chains';
+import { effectChoices, fieldActivations } from '../game/chains';
 import { applyCommand, GameCommand } from '../game/engine';
 
 type PlayMode = 'normal' | 'hidden' | 'activate' | 'set';
@@ -29,25 +29,26 @@ export function useCardActions(
     blocked: boolean,
 ) {
     const pendingTributes = useRef<{ cardId: string; indices: number[] } | null>(null);
-    const commit = (command: GameCommand): boolean => {
-        if (!gameState || blocked) return false;
+    const commit = (command: GameCommand): GameState | null => {
+        if (!gameState || blocked) return null;
         const result = applyCommand(gameState, gameState.activePlayerIndex, command);
-        if (result.state === gameState) return false;
+        if (result.state === gameState) return null;
         setGameState(previous => previous ? applyCommand(previous, gameState.activePlayerIndex, command).state : previous);
-        return true;
+        return result.state;
     };
-    const afterSummon = (card: Card, hidden: boolean, selection: PlaySelection) => {
-        if (hidden || !cardRegistry.getEffect(card.id)?.onSummon) return;
+    const afterSummon = (state: GameState, card: Card, hidden: boolean, selection: PlaySelection) => {
+        if (hidden || !cardRegistry.getEffect(card.id)?.onSummon || !effectChoices(state, card, 'summon', 1).length) return;
         selection.setPendingTriggerType?.('summon');
         selection.setTriggeredEffect?.(card);
     };
     const placePawn = (card: Card, hidden: boolean, slot: number, tributes: number[], selection: PlaySelection) => {
-        if (!commit({ type: 'summon', cardId: card.instanceId, hidden, slot, tributes })) return false;
+        const nextState = commit({ type: 'summon', cardId: card.instanceId, hidden, slot, tributes });
+        if (!nextState) return false;
         tributes.forEach(index => {
             const sacrifice = gameState!.players[gameState!.activePlayerIndex].pawnZones[index];
             if (sacrifice) triggerVisual(`${gameState!.activePlayerIndex}-pawn-${index}`, `discard-${gameState!.activePlayerIndex}`, 'discard', sacrifice.card);
         });
-        afterSummon(card, hidden, selection);
+        afterSummon(nextState, card, hidden, selection);
         setSelectedHandIndex(null);
         return true;
     };

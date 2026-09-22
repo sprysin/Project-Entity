@@ -1,3 +1,4 @@
+import BackToHubButton from './BackToHubButton';
 import { matchesCardCatalog, cardSubtype } from '../cards/CardRegistry';
 import React, { useState } from 'react';
 import { sortedCards } from '../decks';
@@ -40,12 +41,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                     className="pl-10 pr-4 py-3 bg-slate-900 border border-yellow-500/30 text-yellow-500 font-orbitron outline-none focus:ring-2 focus:ring-yellow-500 placeholder-slate-600 rounded-sm w-64 md:w-80 shadow-inner"
                                 />
                             </div>
-                            <button
-                                onClick={onBack}
-                                className="px-10 py-3 bg-slate-900 hover:bg-slate-800 text-yellow-500 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-yellow-500/30 uppercase tracking-widest whitespace-nowrap"
-                            >
-                                Back to Hub
-                            </button>
+                            <BackToHubButton onClick={onBack} />
                         </div>
                     </div>
 
@@ -58,7 +54,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                 </h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                                     {pawns.map(card => (
-                                        <div key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-yellow-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
+                                        <div data-sound="select-small" key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-yellow-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
                                             <CardDetail card={card} compact={true} />
                                         </div>
                                     ))}
@@ -73,7 +69,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                 </h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                                     {actions.map(card => (
-                                        <div key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-green-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
+                                        <div data-sound="select-small" key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-green-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
                                             <CardDetail card={card} compact={true} />
                                         </div>
                                     ))}
@@ -88,7 +84,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                 </h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                                     {conditions.map(card => (
-                                        <div key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-purple-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
+                                        <div data-sound="select-small" key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-purple-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
                                             <CardDetail card={card} compact={true} />
                                         </div>
                                     ))}

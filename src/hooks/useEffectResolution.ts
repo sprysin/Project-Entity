@@ -1,10 +1,11 @@
 import { useCallback, Dispatch, SetStateAction, useRef } from 'react';
 import {
-    GameState, Card, CardContext, CardSelectionRequest, CardTarget,
+    GameState, Card, CardContext, CardSelectionRequest, CardTarget, CardType,
     EffectTrigger, HandSelectionRequest, TargetSelectMode, TargetSelectPosition,
     TargetSelectType, TargetSelectScope, TributeSelectionRequest, PeekSelectionRequest
 } from '../types';
 import { applyCommand, previewEffect } from '../game/engine';
+import { playSound } from '../audio';
 
 /**
  * Hook for resolving card effects, including target/discard/hand selection flows.
@@ -178,6 +179,7 @@ export const useEffectResolution = (
             return;
         }
 
+        if (card.type === CardType.PAWN) playSound(card.level <= 4 ? 'minor-card-effect' : 'high-effect');
         selectionState.showEffect?.(card, actualTarget);
 
         // Apply the effect to game state

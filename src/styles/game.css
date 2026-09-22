@@ -89,10 +89,43 @@ body {
 .hidden-card-face::before { width: 92px; height: 92px; border-color: #d4af37aa; box-shadow: 0 0 24px #d4af3744, inset 0 0 16px #d4af3722; }
 .hidden-card-face::after { inset: 9px; border-color: #d4af3766; }
 .hidden-card-icon { position: absolute; left: 50%; top: 50%; z-index: 2; display: grid; width: 88px; height: 88px; place-items: center; color: #d4af37; font-size: 42px; transform: translate(-50%, -50%); filter: drop-shadow(0 0 8px #d4af3766); }
-.game-deck-button { display: grid; grid-template-columns: 18px 1fr 10px; align-items: center; gap: 10px; min-width: 150px; padding: 9px 12px; border: 1px solid #d4af3788; background: linear-gradient(90deg, #171407e8, #080a0ee8); color: #e7c751; font: 700 10px Orbitron, sans-serif; letter-spacing: .16em; text-align: left; backdrop-filter: blur(12px); transition: border-color .16s, background .16s, color .16s; }
-.game-deck-button > i:last-child { font-size: 8px; color: #a17f16; }
-.game-deck-button:hover { border-color: #facc15; background: #292410ee; color: #fff3bd; }
-.game-deck-button:focus-visible { outline: 2px solid #facc15; outline-offset: 3px; }
+.game-corner-controls { display: flex; width: 228px; flex-direction: column; align-items: flex-start; gap: 8px; }
+.game-corner-button { position: relative; display: grid; align-items: center; overflow: hidden; border: 0; color: #f8fafc; background: linear-gradient(135deg, #d4af37 0 18%, #fff 48%, #767b82 78%, #d4af37); box-shadow: 0 7px 17px #000b, 0 0 8px #d4af3730; clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 9px 100%, 0 calc(100% - 9px)); font-family: Orbitron, sans-serif; font-weight: 700; letter-spacing: .16em; text-align: left; text-shadow: 1px 0 #8b6b08, 0 2px 4px #000; text-transform: uppercase; backdrop-filter: blur(12px); transition: box-shadow .16s, color .16s, filter .16s, transform .12s; }
+.game-corner-button::before { content: ''; position: absolute; inset: 1px; z-index: 0; background-color: #080909; background-image: linear-gradient(45deg, #171817 25%, transparent 25%, transparent 75%, #171817 75%), linear-gradient(45deg, #171817 25%, transparent 25%, transparent 75%, #171817 75%), linear-gradient(90deg, #6d510018, transparent 60%); background-position: 0 0, 6px 6px, 0 0; background-size: 12px 12px, 12px 12px, 100% 100%; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); }
+.game-corner-button::after { content: ''; position: absolute; right: 13px; bottom: 3px; left: 9px; z-index: 1; height: 1px; background: linear-gradient(90deg, #f4ce42, #9b7410 72%, transparent); box-shadow: 0 0 6px #facc1588; pointer-events: none; }
+.game-corner-button--primary { width: 100%; min-height: 52px; grid-template-columns: 30px 1fr; gap: 12px; padding: 0 18px; font-size: 15px; letter-spacing: .12em; }
+.game-corner-button > span, .game-corner-button > i { position: relative; z-index: 2; }
+.game-corner-button__icon { display: grid; width: 20px; height: 20px; place-items: center; border: 1px solid #d4af37; color: #fff; background: #0a0a0b; box-shadow: 0 0 7px #d4af3766, inset 0 0 5px #d4af3733; transform: rotate(45deg); }
+.game-corner-button__icon i { font-size: 8px; transform: rotate(-45deg); }
+.game-corner-button--primary .game-corner-button__icon { width: 25px; height: 25px; }
+.game-corner-button--primary .game-corner-button__icon i { font-size: 10px; }
+.game-corner-button--secondary { width: 188px; min-height: 36px; grid-template-columns: 22px 1fr 10px; gap: 9px; padding: 0 13px; font-size: 10px; }
+.game-corner-button__detail { color: #f5cf4a; font-size: 8px; justify-self: end; filter: drop-shadow(0 0 4px #d4af3788); }
+.game-corner-button__status { width: 6px; height: 6px; justify-self: end; border-radius: 50%; background: #64748b; box-shadow: 0 0 0 2px #64748b22; }
+.game-corner-button--secondary.is-active .game-corner-button__status { background: #fff; box-shadow: 0 0 7px #fff, 0 0 0 2px #d4af37; }
+.game-corner-button:hover { color: #fff; filter: brightness(1.16); box-shadow: 0 8px 20px #000d, 0 0 13px #d4af376b; }
+.game-corner-button--primary { background: linear-gradient(135deg, #9a3f31 0 18%, #f1d2b4 44%, #777b80 72%, #d4af37); }
+.game-corner-button--primary::before { background-color: #0b0909; background-image: linear-gradient(45deg, #1b1514 25%, transparent 25%, transparent 75%, #1b1514 75%), linear-gradient(45deg, #1b1514 25%, transparent 25%, transparent 75%, #1b1514 75%), linear-gradient(90deg, #7f1d1d38, #6d510014 62%, transparent); }
+.game-corner-button--primary::after { background: linear-gradient(90deg, #d66b55, #d4af37 65%, transparent); box-shadow: 0 0 7px #dc5b4688; }
+.game-corner-button--primary .game-corner-button__icon { border-color: #d66b55; color: #ffe4df; box-shadow: 0 0 7px #dc5b4666, inset 0 0 5px #d4af372b; }
+.game-corner-button--primary:hover { box-shadow: 0 8px 20px #000d, 0 0 14px #dc5b466b; }
+.game-corner-button:active { transform: translateX(2px); }
+.game-corner-button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* Deliberate, keyboard-contained confirmation before abandoning an active duel. */
+.quit-duel-dialog { position: fixed; inset: 0; z-index: 190; display: grid; place-items: center; padding: 24px; color: #f8fafc; background: #020305b8; backdrop-filter: blur(7px); }
+.quit-duel-dialog__panel { position: relative; width: min(430px, 100%); padding: 30px; overflow: hidden; border: 1px solid #d4af3799; background: linear-gradient(145deg, #151207, #080a0e 58%); box-shadow: 0 26px 80px #000, 0 0 32px #d4af3717; text-align: center; }
+.quit-duel-dialog__panel::before { content: ''; position: absolute; inset: 5px; border: 1px solid #d4af372b; pointer-events: none; }
+.quit-duel-dialog__icon { display: grid; width: 44px; height: 44px; margin: 0 auto 15px; place-items: center; border: 1px solid #d4af3788; color: #d4af37; background: #0b0c0f; transform: rotate(45deg); }
+.quit-duel-dialog__icon i { transform: rotate(-45deg); }
+.quit-duel-dialog h2 { margin: 0; color: #fff; font: 700 24px Orbitron, sans-serif; letter-spacing: .035em; text-transform: uppercase; }
+.quit-duel-dialog__panel > p:last-of-type { margin: 11px 0 0; color: #94a3b8; font-size: 14px; }
+.quit-duel-dialog__actions { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 25px; }
+.quit-duel-dialog__actions button { min-height: 43px; border: 1px solid #475569; padding: 0 14px; color: #e2e8f0; background: #1e293b; font: 700 10px Orbitron, sans-serif; letter-spacing: .1em; text-transform: uppercase; transition: border-color .16s, background .16s, color .16s; }
+.quit-duel-dialog__actions button:hover { border-color: #94a3b8; background: #334155; }
+.quit-duel-dialog__actions .quit-duel-dialog__confirm { border-color: #ef444499; color: #fecaca; background: #7f1d1dcc; }
+.quit-duel-dialog__actions .quit-duel-dialog__confirm:hover { border-color: #f87171; color: #fff; background: #991b1b; }
+.quit-duel-dialog__actions button:focus-visible { outline: 2px solid #facc15; outline-offset: 3px; }
 .animate-spin-slow { animation: spin 8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes lp-pop { 50% { transform: scale(1.5); text-shadow: 0 0 20px currentColor; } }

@@ -5,15 +5,16 @@ interface HubProps {
   onViewCards: () => void;
   onRules: () => void;
   onCreateDeck: () => void;
+  onSettings: () => void;
 }
 
 /**
  * Hub Component
  * The landing page of the game. Features navigation buttons and the game title.
  */
-const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDeck }) => {
+const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDeck, onSettings }) => {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center space-y-8 retro-hash relative">
+    <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center space-y-8 retro-hash relative">
       {/* Decorative gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black pointer-events-none"></div>
 
@@ -30,6 +31,7 @@ const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDe
       {/* Navigation Buttons */}
       <div className="relative z-10 flex flex-col space-y-6 w-72 mt-8">
         <button
+          data-sound="select"
           onClick={onStartGame}
           className="group relative py-4 px-8 bg-yellow-600 hover:bg-yellow-500 text-white rounded-sm font-orbitron font-bold transition-all transform active:scale-95 shadow-[0_0_20px_rgba(202,138,4,0.3)] border border-yellow-400/30 overflow-hidden"
         >
@@ -38,29 +40,35 @@ const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDe
           PLAY TEST GAME
         </button>
         <button
+          data-sound="select"
           onClick={onCreateDeck}
           className="py-4 px-8 bg-slate-900/80 hover:bg-slate-800 text-yellow-500 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-yellow-500/30 backdrop-blur-md"
         >
           DECK CREATOR
         </button>
         <button
+          data-sound="select"
           onClick={onViewCards}
           className="py-4 px-8 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-slate-700/50 backdrop-blur-md"
         >
           CARD DATABASE
         </button>
         <button
+          data-sound="select"
           onClick={onRules}
           className="py-4 px-8 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-slate-700/50 backdrop-blur-md"
         >
           GAME RULES
         </button>
+        <button data-sound="select" onClick={onSettings} className="py-4 px-8 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-slate-700/50 backdrop-blur-md">
+          <i className="fa-solid fa-gear mr-2" aria-hidden="true" /> SETTINGS
+        </button>
       </div>
 
       {/* Footer / Version Info */}
-      <div className="relative z-10 mt-24 text-slate-600 text-[10px] tracking-widest font-orbitron flex space-x-4 items-center">
+      <div className="relative z-10 text-slate-600 text-[10px] tracking-widest font-orbitron flex space-x-4 items-center">
         <div className="w-12 h-[1px] bg-slate-800"></div>
-        <span>Version 0.8.0 · Alpha</span>
+        <span>Version 0.8.5 · Alpha</span>
         <div className="w-12 h-[1px] bg-slate-800"></div>
       </div>
     </div>

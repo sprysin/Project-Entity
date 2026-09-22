@@ -4,6 +4,49 @@ import { getDuelMvp } from '../../game/mvp';
 import { CardDetail } from './CardDetail';
 import { DuelPrompt } from './DuelPrompt';
 
+export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => void }> = ({ onCancel, onConfirm }) => {
+    const cancelButton = React.useRef<HTMLButtonElement>(null);
+    const confirmButton = React.useRef<HTMLButtonElement>(null);
+
+    React.useEffect(() => {
+        const previous = document.activeElement as HTMLElement | null;
+        cancelButton.current?.focus();
+        return () => previous?.focus();
+    }, []);
+
+    return (
+        <div
+            className="quit-duel-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="quit-duel-title"
+            aria-describedby="quit-duel-description"
+            onClick={onCancel}
+            onKeyDown={event => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    onCancel();
+                }
+                if (event.key === 'Tab') {
+                    event.preventDefault();
+                    const next = document.activeElement === cancelButton.current ? confirmButton.current : cancelButton.current;
+                    next?.focus();
+                }
+            }}
+        >
+            <section className="quit-duel-dialog__panel" onClick={event => event.stopPropagation()}>
+                <div className="quit-duel-dialog__icon" aria-hidden="true"><i className="fa-solid fa-power-off" /></div>
+                <h2 id="quit-duel-title">Quit this duel?</h2>
+                <p id="quit-duel-description">Your current duel progress will be lost.</p>
+                <div className="quit-duel-dialog__actions">
+                    <button data-sound="cancellation" ref={cancelButton} type="button" onClick={onCancel}>Keep Playing</button>
+                    <button data-sound="select-small" ref={confirmButton} type="button" className="quit-duel-dialog__confirm" onClick={onConfirm}>Quit Duel</button>
+                </div>
+            </section>
+        </div>
+    );
+};
+
 export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; onQuit: () => void }> = ({ gameState, isDefeat, onQuit }) => {
     const mvp = gameState.isDraw ? null : getDuelMvp(gameState);
     isDefeat = !gameState.isDraw && isDefeat;
@@ -38,7 +81,7 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
                         {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
                     </div>
                 </> : !gameState.isDraw && <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
-                <button ref={button} onClick={onQuit} className="duel-result-button">Continue</button>
+                <button data-sound="select" ref={button} onClick={onQuit} className="duel-result-button">Continue</button>
             </section>
         </div>
     );

@@ -50,6 +50,7 @@ const PhaseAdvanceButton: React.FC<{
 
     return (
         <button
+            data-sound="select"
             disabled={disabled}
             onPointerDown={event => {
                 if (disabled || event.button !== 0) return;
@@ -149,15 +150,15 @@ export const GameOverlays: React.FC<{
                     <div aria-label="Response field message" className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-500">
                         Select a highlighted card
                     </div>
-                    <button onClick={() => actions.setResponseFieldMode(null)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase tracking-widest text-slate-200 hover:bg-slate-700">Return</button>
+                    <button data-sound="cancellation" onClick={() => actions.setResponseFieldMode(null)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase tracking-widest text-slate-200 hover:bg-slate-700">Return</button>
                 </div>
             )}
-            {state.pendingEffectCard && <button onClick={actions.cancelEffect} className="bg-red-900 px-4 py-2 text-white">Cancel effect</button>}
+            {state.pendingEffectCard && <button data-sound="cancellation" onClick={actions.cancelEffect} className="bg-red-900 px-4 py-2 text-white">Cancel effect</button>}
             {state.targetSelectMode === 'effect' && <div className="animate-pulse border-2 border-red-500 bg-red-900 px-4 py-2 text-center font-orbitron text-[10px] font-black uppercase tracking-widest text-white shadow-lg">{state.pendingEffectCard?.name}: Select target</div>}
             {state.targetSelectMode === 'tribute' && (
                 <div className="flex flex-col space-y-2">
                     {state.effectTributeReq && <div className="animate-pulse border-2 border-red-500 bg-red-900 px-4 py-2 text-center font-orbitron text-[10px] font-black uppercase tracking-widest text-white shadow-lg">{state.effectTributeReq.title}</div>}
-                    <button onClick={state.effectTributeReq ? actions.handleEffectTribute : actions.handleTributeSummon} className="animate-pulse bg-green-600 px-6 py-3 font-orbitron text-lg font-black uppercase text-white shadow-lg transition-all hover:bg-green-500 active:translate-x-1">
+                    <button data-sound="select" onClick={state.effectTributeReq ? actions.handleEffectTribute : actions.handleTributeSummon} className="animate-pulse bg-green-600 px-6 py-3 font-orbitron text-lg font-black uppercase text-white shadow-lg transition-all hover:bg-green-500 active:translate-x-1">
                         Sacrifice [{state.tributeSelection.length}/{state.effectTributeReq?.count ?? (state.pendingTributeCard ? (state.pendingTributeCard.level <= 7 ? 1 : 2) : 0)}]
                     </button>
                 </div>

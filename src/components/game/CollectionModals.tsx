@@ -5,7 +5,8 @@ import { CardDetail } from './CardDetail';
 export const PileViewModal: React.FC<{
     viewingDiscardIdx: number | null; viewingVoidIdx: number | null; gameState: GameState | null;
     setViewingDiscardIdx: (index: number | null) => void; setViewingVoidIdx: (index: number | null) => void;
-}> = ({ viewingDiscardIdx, viewingVoidIdx, gameState, setViewingDiscardIdx, setViewingVoidIdx }) => {
+    onSelectCard: (card: Card) => void;
+}> = ({ viewingDiscardIdx, viewingVoidIdx, gameState, setViewingDiscardIdx, setViewingVoidIdx, onSelectCard }) => {
     const panelRef = React.useRef<HTMLElement>(null);
     const close = React.useCallback(() => { setViewingDiscardIdx(null); setViewingVoidIdx(null); }, [setViewingDiscardIdx, setViewingVoidIdx]);
 
@@ -34,11 +35,15 @@ export const PileViewModal: React.FC<{
                     <h2 className={`font-orbitron text-lg ${isVoid ? 'text-purple-400' : 'text-yellow-400'}`}>{isVoid ? 'VOID' : 'DISCARD'} · {cards.length}</h2>
                     <p className="mt-1 text-xs text-slate-400">Most recent first</p>
                 </div>
-                <button aria-label="Close pile" onClick={close} className="rounded px-3 py-2 hover:bg-white/10">✕</button>
+                <button data-sound="cancellation" aria-label="Close pile" onClick={close} className="rounded px-3 py-2 hover:bg-white/10">✕</button>
             </div>
             <div className="grid flex-1 auto-rows-max grid-cols-2 content-start gap-x-3 gap-y-4 overflow-y-auto p-5">
                 {cards.length === 0 && <p className="col-span-2 py-8 text-center text-sm text-slate-400">This pile is empty.</p>}
-                {[...cards].reverse().map(card => <CardDetail key={card.instanceId} card={card} compact />)}
+                {[...cards].reverse().map(card => (
+                    <button data-sound="select-small" type="button" key={card.instanceId} aria-label={`View ${card.name}`} onClick={() => onSelectCard(card)} className="text-left">
+                        <CardDetail card={card} compact className="pointer-events-none" />
+                    </button>
+                ))}
             </div>
         </aside>
     );
@@ -91,7 +96,7 @@ export const DeckViewModal: React.FC<{
                         <p>{playerName} <b aria-hidden="true"></b> </p>
                     </div>
                     <div className="deck-view-count" aria-label={`${deck.length} cards`}><strong>{String(deck.length).padStart(2, '0')}</strong><span>Cards</span></div>
-                    <button aria-label="Close deck" onClick={onClose} className="deck-view-close">
+                    <button data-sound="cancellation" aria-label="Close deck" onClick={onClose} className="deck-view-close">
                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                     </button>
                 </header>
@@ -113,6 +118,7 @@ export const DeckViewModal: React.FC<{
                                 const isSelected = selectedCard?.instanceId === card.instanceId;
                                 return (
                                     <button
+                                        data-sound="select-small"
                                         type="button"
                                         key={card.instanceId}
                                         aria-label={`View ${card.name}`}
