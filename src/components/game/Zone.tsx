@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlacedCard, Position, CardType } from '../../types';
-import { CardDetail } from './CardDetail';
+import { CardDetail } from '../cards/CardDetail';
 import { useManagedTimeout } from '../../hooks/useManagedTimeout';
-import { ActionCardIcon } from '../ActionCardIcon';
+import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { playSound } from '../../audio';
 
 /**

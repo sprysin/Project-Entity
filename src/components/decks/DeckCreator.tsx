@@ -1,15 +1,15 @@
-import BackToHubButton from './BackToHubButton';
-import { matchesCardCatalog } from '../cards/CardRegistry';
+import BackToHubButton from '../common/BackToHubButton';
+import { matchesCardCatalog } from '../../cards/CardRegistry';
 import React, { useEffect, useState } from 'react';
-import { CardDetail } from './game/CardDetail';
-import { CardDefinition } from '../cards/CardRegistry';
-import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, MIN_DECK_SIZE } from '../decks';
-import { getSavedDecks, saveDeckLibrary } from '../desktop/storage';
-import { confirmAction, exportDeck, importDeck, showMessage } from '../desktop/files';
-import { setCloseReason } from '../desktop/lifecycle';
-import { CardType } from '../types';
+import { CardDetail } from '../cards/CardDetail';
+import { CardDefinition } from '../../cards/CardRegistry';
+import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, MIN_DECK_SIZE } from '../../decks';
+import { getSavedDecks, saveDeckLibrary } from '../../desktop/storage';
+import { confirmAction, exportDeck, importDeck, showMessage } from '../../desktop/files';
+import { setCloseReason } from '../../desktop/lifecycle';
+import { CardType } from '../../types';
 import './DeckCreator.css';
-import { ActionCardIcon } from './ActionCardIcon';
+import { ActionCardIcon } from '../icons/ActionCardIcon';
 
 const types = [CardType.PAWN, CardType.ACTION, CardType.CONDITION];
 const icons = ['fa-chess-pawn', '', 'fa-hourglass-half'];

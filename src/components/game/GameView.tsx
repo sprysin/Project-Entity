@@ -1,21 +1,21 @@
 import React from 'react';
-import { CardType, Phase, Position, OpponentMode } from '../types';
-import { useGameLogic } from '../hooks/useGameLogic';
-import { checkActivationConditions, hasOnActivateEffect } from '../game/cardHelpers';
-import { CardDetail } from './game/CardDetail';
-import { Pile, DeckPile } from './game/Pile';
-import { Zone } from './game/Zone';
-import { AttachmentOverlay } from './game/AttachmentOverlay';
-import { AttackOverlay } from './game/AttackOverlay';
-import { PileViewModal, DeckViewModal } from './game/GameModals';
-import { ContextMenu, ContextMenuButton } from './game/ContextMenu';
-import { GameOverlays } from './game/GameOverlays';
-import { GameSidebar } from './game/GameSidebar';
-import { HealthHud } from './game/HealthHud';
-import { SavedDeck } from '../decks';
-import { fieldActivations } from '../game/chains';
-import { canAttack, canChangePosition as canChangePawnPosition } from '../game/engine';
-import { QuitDuelDialog } from './game/MatchModals';
+import { CardType, Phase, Position, OpponentMode } from '../../types';
+import { useGameLogic } from '../../hooks/useGameLogic';
+import { checkActivationConditions, hasOnActivateEffect } from '../../game/cardHelpers';
+import { CardDetail } from '../cards/CardDetail';
+import { Pile, DeckPile } from './Pile';
+import { Zone } from './Zone';
+import { AttachmentOverlay } from './AttachmentOverlay';
+import { AttackOverlay } from './AttackOverlay';
+import { PileViewModal, DeckViewModal } from './GameModals';
+import { ContextMenu, ContextMenuButton } from './ContextMenu';
+import { GameOverlays } from './GameOverlays';
+import { GameSidebar } from './GameSidebar';
+import { HealthHud } from './HealthHud';
+import { SavedDeck } from '../../decks';
+import { fieldActivations } from '../../game/chains';
+import { canAttack, canChangePosition as canChangePawnPosition } from '../../game/engine';
+import { QuitDuelDialog } from './MatchModals';
 
 interface GameViewProps {
   onQuit: () => void;

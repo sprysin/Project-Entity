@@ -1,12 +1,12 @@
-import BackToHubButton from './BackToHubButton';
+import BackToHubButton from '../common/BackToHubButton';
 import React, { useRef, useState } from 'react';
-import { CardDetail } from './game/CardDetail';
-import { NormalAttributeIcon } from './NormalAttributeIcon';
-import { cardRegistry } from '../cards/CardRegistry';
-import { Attribute, Card, PawnType } from '../types';
-import '../cards/pawns';
-import '../cards/actions';
-import '../cards/conditions';
+import { CardDetail } from '../cards/CardDetail';
+import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
+import { cardRegistry } from '../../cards/CardRegistry';
+import { Attribute, Card, PawnType } from '../../types';
+import '../../cards/pawns';
+import '../../cards/actions';
+import '../../cards/conditions';
 import './RulesView.css';
 
 type Topic = {

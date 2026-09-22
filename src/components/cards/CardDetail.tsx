@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { NormalAttributeIcon } from '../NormalAttributeIcon';
-import { ActionCardIcon } from '../ActionCardIcon';
+import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
+import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { Card, CardType, Attribute } from '../../types';
 import { cardTypeLabel } from '../../cards/CardRegistry';
 import { cardRegistry } from '../../cards/CardRegistry';

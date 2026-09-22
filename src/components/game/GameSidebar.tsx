@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardTarget, GameState, Position } from '../../types';
 import { cardRegistry } from '../../cards/CardRegistry';
-import { CardDetail } from './CardDetail';
+import { CardDetail } from '../cards/CardDetail';
 
 interface GameSidebarProps {
     viewerIndex?: number;
@@ -19,6 +19,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
     const selectedZone = selectedFieldSlot
         ? gameState.players[selectedFieldSlot.playerIndex][selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][selectedFieldSlot.index]
         : null;
+    const revealedCard = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewerIndex)?.card;
     useEffect(() => setLogCard(null), [selectedCard?.instanceId, inspectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
 
     const renderLogEntry = (entry: string) => {
@@ -40,7 +41,11 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                 {isOpen ? (
                     <div className="flex h-full flex-1 flex-col overflow-hidden">
                         <div className="flex-none p-6 pb-2">
-                            {logCard ? (
+                            {revealedCard ? (
+                                <div className="space-y-6 animate-in slide-in-from-right-4">
+                                    <CardDetail card={revealedCard} />
+                                </div>
+                            ) : logCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
                                     <CardDetail card={logCard} />
                                     <button data-sound="cancellation" type="button" onClick={() => setLogCard(null)} className="w-full font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-yellow-400">Close log preview</button>

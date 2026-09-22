@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import { Card, GameState, Phase } from '../types';
-import { chooseAIAction, observeGame, simulateSummon } from '../game/opponentAI';
+import { chooseAIAction, observeGame, simulateSummon, updateKnownCards } from '../game/opponentAI';
 import { applyCommand } from '../game/engine';
 import { cardRegistry } from '../cards/CardRegistry';
 import type { useEffectResolution } from './useEffectResolution';
@@ -11,7 +11,15 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
     resolveEffect: ReturnType<typeof useEffectResolution>['resolveEffect'];
 }) {
     const pendingSummon = useRef<Card | undefined>(undefined);
+    const knownCards = useRef(new Map<string, Card>());
+    const lastTurn = useRef(0);
     const moves = useRef({ turn: 0, count: 0 });
+    useEffect(() => {
+        if (!enabled || !gameState) { knownCards.current.clear(); lastTurn.current = 0; return; }
+        if (gameState.turnNumber < lastTurn.current) knownCards.current.clear();
+        lastTurn.current = gameState.turnNumber;
+        updateKnownCards(gameState, 1, knownCards.current);
+    }, [enabled, gameState]);
     useEffect(() => {
         if (!enabled || !gameState || gameState.winner || busy || gameState.response?.ready) return;
         if (gameState.response ? gameState.response.priority !== 1 : gameState.activePlayerIndex !== 1) return;
@@ -20,7 +28,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
             if (moves.current.turn !== gameState.turnNumber) moves.current = { turn: gameState.turnNumber, count: 0 };
             const summon = pendingSummon.current;
             pendingSummon.current = undefined;
-            const action = chooseAIAction(observeGame(gameState, 1), 1, summon);
+            const action = chooseAIAction(observeGame(gameState, 1, knownCards.current), 1, summon);
             if (moves.current.count++ > 70 && !gameState.response) { nextPhase(); return; }
             if (action.kind === 'pass') {
                 if (gameState.response) setGameState(prev => prev ? applyCommand(prev, 1, { type: 'pass' }).state : prev);

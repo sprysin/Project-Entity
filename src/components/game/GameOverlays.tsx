@@ -158,7 +158,7 @@ export const GameOverlays: React.FC<{
             {state.targetSelectMode === 'tribute' && (
                 <div className="flex flex-col space-y-2">
                     {state.effectTributeReq && <div className="animate-pulse border-2 border-red-500 bg-red-900 px-4 py-2 text-center font-orbitron text-[10px] font-black uppercase tracking-widest text-white shadow-lg">{state.effectTributeReq.title}</div>}
-                    <button data-sound="select" onClick={state.effectTributeReq ? actions.handleEffectTribute : actions.handleTributeSummon} className="animate-pulse bg-green-600 px-6 py-3 font-orbitron text-lg font-black uppercase text-white shadow-lg transition-all hover:bg-green-500 active:translate-x-1">
+                    <button data-sound={state.effectTributeReq ? 'select' : 'select-small'} onClick={state.effectTributeReq ? actions.handleEffectTribute : actions.handleTributeSummon} className="animate-pulse bg-green-600 px-6 py-3 font-orbitron text-lg font-black uppercase text-white shadow-lg transition-all hover:bg-green-500 active:translate-x-1">
                         Sacrifice [{state.tributeSelection.length}/{state.effectTributeReq?.count ?? (state.pendingTributeCard ? (state.pendingTributeCard.level <= 7 ? 1 : 2) : 0)}]
                     </button>
                 </div>

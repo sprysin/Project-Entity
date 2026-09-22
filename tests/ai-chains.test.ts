@@ -6,7 +6,7 @@ import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
 import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority } from '../src/game/chains';
-import { chooseAIAction, observeGame } from '../src/game/opponentAI';
+import { chooseAIAction, observeGame, updateKnownCards } from '../src/game/opponentAI';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
@@ -129,7 +129,7 @@ describe('response windows and chains', () => {
 });
 
 describe('fair general AI', () => {
-    it('strips hidden identities and produces the same decision when secrets change', () => {
+    it('uses only observed identities and avoids harmful attacks or buffs', () => {
         const s = game(); s.activePlayerIndex = 1; s.currentPhase = Phase.BATTLE;
         s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
         s.players[0].hand = [card('action_01')];
@@ -140,6 +140,29 @@ describe('fair general AI', () => {
         expect(observeGame(s, 1)).toEqual(first);
         expect(chooseAIAction(observeGame(s, 1), 1)).toEqual(decision);
         expect(first.players[0].pawnZones[0]!.card.atk).toBe(0);
+        const remembered = new Map<string, Card>();
+        s.players[0].pawnZones[0]!.position = Position.DEFENSE;
+        updateKnownCards(s, 1, remembered);
+        s.players[0].pawnZones[0]!.position = Position.HIDDEN;
+        expect(observeGame(s, 1, remembered).players[0].pawnZones[0]!.card.id).toBe('pawn_05');
+        s.players[0].pawnZones[0] = null;
+        updateKnownCards(s, 1, remembered);
+        expect(remembered.size).toBe(0);
+
+        const battle = game(); battle.activePlayerIndex = 1; battle.currentPhase = Phase.BATTLE;
+        const defender = card('pawn_05'); defender.def = 200;
+        battle.players[0].pawnZones[0] = zone(defender, Position.DEFENSE);
+        battle.players[1].pawnZones[0] = zone(card('pawn_01', 1));
+        const battleKnown = new Map<string, Card>();
+        updateKnownCards(battle, 1, battleKnown);
+        battle.players[0].pawnZones[0]!.position = Position.HIDDEN;
+        expect(chooseAIAction(observeGame(battle, 1, battleKnown), 1)).toEqual({ kind: 'pass' });
+
+        battle.currentPhase = Phase.MAIN1;
+        battle.players[0].pawnZones[0]!.position = Position.ATTACK;
+        battle.players[1].hand = [card('condition_01', 1)];
+        const choice = chooseAIAction(observeGame(battle, 1), 1);
+        expect(choice.kind === 'effect' && choice.context.target?.playerIndex === 0).toBe(false);
     });
 
     it('tribute summons a searched boss when it takes combat control', () => {

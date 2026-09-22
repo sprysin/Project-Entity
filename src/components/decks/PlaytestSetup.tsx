@@ -1,8 +1,8 @@
-import BackToHubButton from './BackToHubButton';
-import { OpponentMode } from '../types';
+import BackToHubButton from '../common/BackToHubButton';
+import { OpponentMode } from '../../types';
 import React, { useEffect, useState } from 'react';
-import { deckSize, isDeckPlayable, SavedDeck } from '../decks';
-import { getSavedDecks, getSettings } from '../desktop/storage';
+import { deckSize, isDeckPlayable, SavedDeck } from '../../decks';
+import { getSavedDecks, getSettings } from '../../desktop/storage';
 
 interface PlaytestSetupProps {
   onBack: () => void;

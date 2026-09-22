@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, GameState } from '../../types';
 import { getDuelMvp } from '../../game/mvp';
-import { CardDetail } from './CardDetail';
+import { CardDetail } from '../cards/CardDetail';
 import { DuelPrompt } from './DuelPrompt';
 
 export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => void }> = ({ onCancel, onConfirm }) => {

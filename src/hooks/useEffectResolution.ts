@@ -179,7 +179,7 @@ export const useEffectResolution = (
             return;
         }
 
-        if (card.type === CardType.PAWN) playSound(card.level <= 4 ? 'minor-card-effect' : 'high-effect');
+        playSound(card.type === CardType.PAWN && card.level > 4 ? 'high-effect' : 'minor-card-effect');
         selectionState.showEffect?.(card, actualTarget);
 
         // Apply the effect to game state

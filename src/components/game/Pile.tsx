@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from '../../types';
-import { CardDetail } from './CardDetail';
+import { CardDetail } from '../cards/CardDetail';
 
 /**
  * DeckPile Sub-component: Visualizes the deck with a card count.

@@ -1,10 +1,10 @@
-import BackToHubButton from './BackToHubButton';
-import { matchesCardCatalog, cardSubtype } from '../cards/CardRegistry';
+import BackToHubButton from '../common/BackToHubButton';
+import { matchesCardCatalog, cardSubtype } from '../../cards/CardRegistry';
 import React, { useState } from 'react';
-import { sortedCards } from '../decks';
-import { CardDetail } from './game/CardDetail';
-import { CardType, Card } from '../types';
-import { ActionCardIcon } from './ActionCardIcon';
+import { sortedCards } from '../../decks';
+import { CardDetail } from '../cards/CardDetail';
+import { CardType, Card } from '../../types';
+import { ActionCardIcon } from '../icons/ActionCardIcon';
 
 interface CardDatabaseProps {
     onBack: () => void;

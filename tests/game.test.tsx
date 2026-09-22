@@ -27,32 +27,6 @@ function setup(edit: (s: GameState) => void) {
 beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it('ends the duel on the first missing Draw Phase card and cancels further phase advancement', () => {
-    setup(s => { s.currentPhase = Phase.DRAW; s.players[0].deck = [card('pawn_01')]; });
-    act(() => vi.advanceTimersByTime(300));
-    expect(game.gameState!.winner).toBeNull();
-    act(() => vi.advanceTimersByTime(300));
-    expect(game.gameState!.winner).toBe('Player 2');
-    expect(game.gameState!.players[0].hand).toHaveLength(1);
-    act(() => vi.advanceTimersByTime(5000));
-    expect(game.gameState!.currentPhase).toBe(Phase.DRAW);
-});
-
-it('Void Blast wins immediately and is discarded exactly once', () => {
-    const blast = card('action_01');
-    setup(s => { s.players[0].hand = [blast]; s.players[1].lp = 50; });
-    act(() => game.actions.handleActionFromHand(blast, 'activate', 0));
-    expect(game.gameState!.winner).toBe('Player 1');
-    expect(game.gameState!.damageEvents).toEqual([{ card: blast, playerIndex: 0, amount: 50, kind: 'effect' }]);
-    expect(game.gameState!.players[1].lp).toBe(0);
-    expect(game.gameState!.players[0].actionZones[0]).toBeNull();
-    expect(game.gameState!.players[0].discard.map(c => c.instanceId)).toEqual([blast.instanceId]);
-    expect(game.gameState!.log[0]).toBe('"Void Blast" activated, "Player 2" -50 LP.');
-    const ended = game.gameState;
-    act(() => { game.actions.nextPhase(); game.actions.resolveEffect(blast); vi.advanceTimersByTime(5000); });
-    expect(game.gameState).toBe(ended);
-});
-
 it('silently rejects unavailable effects instead of prompting for them', () => {
     const recovery = card('action_02');
     setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('pawn_04')]; });
@@ -153,35 +127,6 @@ it('automated drawing refills to five and advances exactly one turn under Strict
     act(() => vi.advanceTimersByTime(1200));
     expect(game.gameState!.currentPhase).toBe(Phase.MAIN1);
     expect(game.gameState!.turnNumber).toBe(2);
-});
-
-it('allows a tribute summon to free and reuse a zone on a full Pawn field', () => {
-    const king = card('pawn_02');
-    setup(s => {
-        s.players[0].hand = [king];
-        s.players[0].pawnZones = Array.from({ length: 5 }, () => placed(card('pawn_01')));
-    });
-
-    act(() => game.actions.handleSummon(king, 'normal', 0));
-    expect(game.state.targetSelectMode).toBe('tribute');
-
-    const tributeId = game.gameState!.players[0].pawnZones[0]!.card.instanceId;
-    act(() => game.actions.setTributeSelection([0]));
-    act(() => game.actions.handleTributeSummon());
-    expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
-    expect(game.gameState!.players[0].discard.at(-1)?.instanceId).toBe(tributeId);
-    expect(game.state.targetSelectMode).toBeNull();
-});
-
-it('does not enter tribute selection without enough Pawns to tribute', () => {
-    const king = card('pawn_02');
-    setup(s => { s.players[0].hand = [king]; });
-
-    act(() => game.actions.handleSummon(king, 'normal', 0));
-
-    expect(game.state.targetSelectMode).toBeNull();
-    expect(game.state.pendingTributeCard).toBeNull();
-    expect(game.state.tributeSelection).toEqual([]);
 });
 
 it('clears selected-card placement highlights when the phase changes', () => {

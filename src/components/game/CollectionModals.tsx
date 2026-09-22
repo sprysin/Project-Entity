@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardType, GameState } from '../../types';
-import { CardDetail } from './CardDetail';
+import { CardDetail } from '../cards/CardDetail';
 
 export const PileViewModal: React.FC<{
     viewingDiscardIdx: number | null; viewingVoidIdx: number | null; gameState: GameState | null;

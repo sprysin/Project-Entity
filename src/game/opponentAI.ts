@@ -13,7 +13,7 @@ export type AIDecision =
     | { kind: 'pass' };
 
 /** The planner receives only this observation. Hidden identities, stats, hands and draw order are stripped. */
-export function observeGame(state: GameState, viewer: number): GameState {
+export function observeGame(state: GameState, viewer: number, knownCards: ReadonlyMap<string, Card> = new Map()): GameState {
     const view = structuredClone(state);
     const unknown = (card: Card, type: CardType): Card => ({ instanceId: card.instanceId, ownerId: card.ownerId, id: 'unknown', name: 'Unknown card', type, level: 0, atk: 0, def: 0, effectText: '' });
     view.players.forEach((p, index) => {
@@ -25,8 +25,8 @@ export function observeGame(state: GameState, viewer: number): GameState {
         }
         p.hand = p.hand.map(c => unknown(c, CardType.ACTION));
         p.deck = p.deck.map(c => unknown(c, CardType.ACTION));
-        p.pawnZones = p.pawnZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: unknown(z.card, CardType.PAWN) } : z);
-        p.actionZones = p.actionZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: unknown(z.card, CardType.CONDITION) } : z);
+        p.pawnZones = p.pawnZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: knownCards.get(z.card.instanceId) ?? unknown(z.card, CardType.PAWN) } : z);
+        p.actionZones = p.actionZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: knownCards.get(z.card.instanceId) ?? unknown(z.card, CardType.CONDITION) } : z);
     });
     view.log = [];
     return view;
@@ -96,6 +96,15 @@ export function simulateAttack(state: GameState, index: number, target: number |
     return resolveCombat(estimate, index, target);
 }
 
+/** Retain only identities that the AI has actually seen on the opponent's field. */
+export function updateKnownCards(state: GameState, viewer: number, knownCards: Map<string, Card>): void {
+    const opponent = state.players[1 - viewer];
+    const field = [...opponent.pawnZones, ...opponent.actionZones].filter(z => z !== null);
+    const present = new Set(field.map(z => z.card.instanceId));
+    for (const id of knownCards.keys()) if (!present.has(id)) knownCards.delete(id);
+    for (const zone of field) if (zone.position !== Position.HIDDEN) knownCards.set(zone.card.instanceId, { ...zone.card });
+}
+
 function attackChoices(state: GameState): Extract<AIDecision, { kind: 'attack' }>[] {
     const p = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
     const targets: (number | 'direct')[] = opp.pawnZones.some(Boolean) ? opp.pawnZones.flatMap((z, i) => z ? [i] : []) : ['direct'];
@@ -159,6 +168,10 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
         const originalAttack = new Map(before.players[player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
         return after.players[player].pawnZones.some(z => z && z.card.atk < (originalAttack.get(z.card.instanceId) ?? z.card.atk));
     };
+    const raisesOpponentPawnAttack = (before: GameState, after: GameState) => {
+        const originalAttack = new Map(before.players[1 - player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
+        return after.players[1 - player].pawnZones.some(z => z && z.card.atk > (originalAttack.get(z.card.instanceId) ?? z.card.atk));
+    };
     const opponentFieldRemovals = (before: GameState, after: GameState) => {
         const fieldIds = (snapshot: GameState) => {
             const opponent = snapshot.players[1 - player];
@@ -176,7 +189,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             // A legal target is not necessarily a sensible one. In particular,
             // optional broad targeting must never turn an ATK reduction on the
             // AI's own Pawn just because no opponent target is available.
-            if (lowersOwnPawnAttack(base, next)) continue;
+            if (lowersOwnPawnAttack(base, next) || raisesOpponentPawnAttack(base, next)) continue;
             // Reward all forms of opposing field removal equally. It does not
             // matter whether the effect destroys, voids, returns to hand, or
             // otherwise moves the card away from the opponent's field.
@@ -211,7 +224,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
                 if (!hidden && cardRegistry.getEffect(card.id)?.onSummon) {
                     for (const context of effectChoices(next, card, 'summon')) {
                         const resolved = resolveChain(addChainLink(next, context, 'summon'));
-                        if (!lowersOwnPawnAttack(next, resolved)) {
+                        if (!lowersOwnPawnAttack(next, resolved) && !raisesOpponentPawnAttack(next, resolved)) {
                             // Small generic credit for successfully using a summon
                             // effect. This lets utility Pawns enter face-up even when
                             // the immediate numeric result (such as LP above 100) is

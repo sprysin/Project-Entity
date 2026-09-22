@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardSelectionRequest, GameState, HandSelectionRequest, PeekSelectionRequest } from '../../types';
-import { CardDetail } from './CardDetail';
+import { CardDetail } from '../cards/CardDetail';
 
 type SelectionTheme = 'red' | 'yellow' | 'indigo';
 
