@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Local game saves and user-selected deck files only",
+  "windows": ["main"],
+  "permissions": [
+    "core:default", "core:window:allow-set-fullscreen", "core:window:allow-is-fullscreen", "core:window:allow-destroy",
+    "dialog:allow-open", "dialog:allow-save", "dialog:allow-message", "dialog:allow-confirm",
+    "fs:allow-exists", "fs:allow-read-text-file", "fs:allow-write-text-file", "fs:allow-stat", "fs:allow-mkdir", "fs:allow-rename",
+    { "identifier": "fs:scope", "allow": [{ "path": "$APPDATA" }, { "path": "$APPDATA/save.json" }, { "path": "$APPDATA/save.json.tmp" }] }
+  ]
+}

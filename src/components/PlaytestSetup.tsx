@@ -1,6 +1,7 @@
 import { OpponentMode } from '../types';
 import React, { useEffect, useState } from 'react';
-import { deckSize, isDeckPlayable, loadDecks, SavedDeck } from '../decks';
+import { deckSize, isDeckPlayable, SavedDeck } from '../decks';
+import { getSavedDecks } from '../desktop/storage';
 
 interface PlaytestSetupProps {
   onBack: () => void;
@@ -17,7 +18,7 @@ const PlaytestSetup: React.FC<PlaytestSetupProps> = ({ onBack, onStart }) => {
 
   useEffect(() => {
     try {
-      setLibrary(loadDecks(localStorage));
+      setLibrary(getSavedDecks());
     } catch {
       setLoadError(true);
     }

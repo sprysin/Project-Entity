@@ -1,18 +1,8 @@
 import { expect, it } from 'vitest';
-import { DECK_STORAGE_KEY, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, isDeckPlayable } from '../src/decks';
+import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable } from '../src/decks';
 
-it('round-trips a named deck through JSON and local storage, updating only that deck', () => {
-    let value: string | null = null;
-    const storage = { getItem: () => value, setItem: (key: string, text: string) => { expect(key).toBe(DECK_STORAGE_KEY); value = text; } };
+it('round-trips a named deck through JSON', () => {
     const first = { ...newDeck(), name: 'My beasts', cards: [{ cardId: sortedCards()[0].id, quantity: 3 }] };
-    const other = { ...newDeck(), name: 'Another deck' };
-    let library = storeDeck(storage, [], first);
-    library = storeDeck(storage, library, other);
-    storeDeck(storage, library, { ...first, name: 'Renamed', cards: [{ ...first.cards[0], quantity: 2 }] });
-    const loaded = loadDecks(storage);
-    expect(loaded).toHaveLength(2);
-    expect(loaded.find(d => d.id === other.id)).toEqual(other);
-    expect(loaded.find(d => d.id === first.id)).toMatchObject({ name: 'Renamed', cards: [{ cardId: first.cards[0].cardId, quantity: 2 }] });
     expect(parseDeck(JSON.parse(JSON.stringify(first)))).toEqual(first);
 });
 
@@ -23,7 +13,7 @@ it('caps copies at three and rejects imported fourth copies while keeping legacy
     expect(canAddCard({ ...deck, cards: [{ cardId, quantity: 2 }] }, cardId)).toBe(true);
     const legacy = { ...deck, cards: [{ cardId, quantity: 4 }] };
     expect(() => parseDeck(legacy)).toThrow('Only 3 copies');
-    expect(loadDecks({ getItem: () => JSON.stringify([legacy]) })).toEqual([legacy]);
+    expect(parseDeck(legacy, false)).toEqual(legacy);
 });
 
 it('allows 40–60 cards and blocks additions at 60, even for a card not yet included', () => {
@@ -39,13 +29,11 @@ it('allows 40–60 cards and blocks additions at 60, even for a card not yet inc
     expect(parseDeck(newDeck()).cards).toEqual([]);
 });
 
-it('rejects malformed imports and does not overwrite unreadable saved data', () => {
+it('rejects malformed imports', () => {
     const entry = { cardId: sortedCards()[0].id, quantity: 1 };
     for (const cards of [[{ ...entry, cardId: 'missing' }], [{ ...entry, quantity: -1 }], [{ ...entry, quantity: 1.5 }], [entry, entry], [null]]) {
         expect(() => parseDeck({ ...newDeck(), cards })).toThrow();
     }
     expect(() => parseDeck({ ...newDeck(), version: 2 })).toThrow();
     expect(() => parseDeck(null)).toThrow();
-    expect(() => loadDecks({ getItem: () => '{broken' })).toThrow();
-    expect(loadDecks({ getItem: () => null })).toEqual([]);
 });

@@ -1,8 +1,11 @@
 import { matchesCardCatalog } from '../cards/CardRegistry';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CardDetail } from './game/CardDetail';
 import { CardDefinition } from '../cards/CardRegistry';
-import { SavedDeck, downloadDeck, loadDecks, newDeck, parseDeck, sortedCards, storeDeck, canAddCard, deckSize as total, MIN_DECK_SIZE, DECK_STORAGE_KEY } from '../decks';
+import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, MIN_DECK_SIZE } from '../decks';
+import { getSavedDecks, saveDeckLibrary } from '../desktop/storage';
+import { confirmAction, exportDeck, importDeck, showMessage } from '../desktop/files';
+import { setCloseReason } from '../desktop/lifecycle';
 import { CardType } from '../types';
 import './DeckCreator.css';
 import { ActionCardIcon } from './ActionCardIcon';
@@ -28,31 +31,30 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const [notice, setNotice] = useState('');
     const [libraryReadable, setLibraryReadable] = useState(true);
     const [deleteMode, setDeleteMode] = useState(false);
-    const fileInput = useRef<HTMLInputElement>(null);
+    const [busy, setBusy] = useState(false);
 
     useEffect(() => {
-        try { setLibrary(loadDecks(localStorage)); }
+        try { setLibrary(getSavedDecks()); }
         catch { setLibraryReadable(false); setNotice('Local library unavailable. You can still save and open JSON files.'); }
     }, []);
     useEffect(() => {
-        const guard = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } };
-        window.addEventListener('beforeunload', guard);
-        return () => window.removeEventListener('beforeunload', guard);
+        setCloseReason('deck', dirty ? 'Your deck has unsaved changes.' : null);
+        return () => setCloseReason('deck', null);
     }, [dirty]);
 
     const open = (next: SavedDeck) => { setDeck(structuredClone(next)); setDirty(false); setNotice(''); setSearch(''); };
-    const deleteDeck = (item: SavedDeck) => {
-        if (!window.confirm(`Delete "${item.name}" from your decks? Downloaded JSON files will remain on your computer.`)) return;
+    const deleteDeck = async (item: SavedDeck) => {
+        if (!await confirmAction(`Delete "${item.name}" from your decks? Exported JSON files will remain on your computer.`)) return;
         try {
             const remaining = library.filter(saved => saved.id !== item.id);
-            localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(remaining));
+            await saveDeckLibrary(remaining);
             setLibrary(remaining);
             setDeleteMode(false);
             setNotice('Deck deleted');
         } catch { setNotice('Could not delete the deck. Please try again.'); }
     };
-    const leave = () => {
-        if (dirty && !window.confirm('Leave without saving your deck changes?')) return;
+    const leave = async () => {
+        if (dirty && !await confirmAction('Leave without saving your deck changes?')) return;
         setDeck(null); setDirty(false); setNotice('');
     };
     const changeQuantity = (card: CardDefinition, delta: number) => {
@@ -62,42 +64,44 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         setDeck({ ...deck, cards: [...deck.cards.filter(e => e.cardId !== card.id), ...(quantity ? [{ cardId: card.id, quantity }] : [])] });
         setSelected(card); setDirty(true); setNotice('');
     };
-    const save = () => {
+    const save = async () => {
         if (!deck) return;
         let saved: SavedDeck;
         try { saved = parseDeck({ ...deck, name: deck.name.trim() || 'Untitled deck' }); }
-        catch (error) { window.alert(error instanceof Error ? error.message : 'Please check your deck.'); return; }
+        catch (error) { await showMessage(error instanceof Error ? error.message : 'Please check your deck.'); return; }
         if (!libraryReadable) { setNotice('Local library unavailable. Export to JSON to keep a copy.'); return; }
-        try { setLibrary(storeDeck(localStorage, library, saved)); }
+        setBusy(true);
+        try {
+            const next = [...library.filter(item => item.id !== saved.id), saved];
+            await saveDeckLibrary(next);
+            setLibrary(next);
+        }
         catch { setNotice('Could not save the deck locally. Export to JSON to keep a copy.'); return; }
+        finally { setBusy(false); }
         setDeck(saved); setDirty(false);
         setNotice('Deck saved locally');
-        if (total(saved) < MIN_DECK_SIZE) window.alert(`Deck saved, but it is unplayable. A playable deck needs 40–60 cards. This deck has ${total(saved)}; add ${MIN_DECK_SIZE - total(saved)} more.`);
+        if (total(saved) < MIN_DECK_SIZE) await showMessage(`Deck saved, but it is unplayable. A playable deck needs 40–60 cards. This deck has ${total(saved)}; add ${MIN_DECK_SIZE - total(saved)} more.`);
     };
-    const exportJson = () => {
+    const exportJson = async () => {
         if (!deck) return;
         try {
             const exported = parseDeck({ ...deck, name: deck.name.trim() || 'Untitled deck' });
-            downloadDeck(exported);
-            setNotice('JSON download started');
-        } catch (error) { window.alert(error instanceof Error ? error.message : 'Please check your deck.'); }
+            if (await exportDeck(exported)) setNotice('Deck exported');
+        } catch (error) { await showMessage(error instanceof Error ? error.message : 'Could not export your deck.'); }
     };
-    const importFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-        if (!file) return;
+    const importFile = async () => {
         try {
-            if (file.size > 1024 * 1024) throw new Error('Please choose a deck JSON file smaller than 1 MB.');
-            const imported = parseDeck(JSON.parse(await file.text()));
+            const imported = await importDeck();
+            if (!imported) return;
             // A file opens as a separate deck so an import cannot replace local work.
-            open({ ...imported, id: crypto.randomUUID() }); setDirty(true);
+            open(imported); setDirty(true);
         } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not open this file.'); }
     };
     const filtered = cards.filter(c => matchesCardCatalog(c, search));
     const quantity = (card: CardDefinition) => deck?.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
 
-    return <div className="deck-workspace retro-hash">
-        <input ref={fileInput} type="file" accept=".json,application/json" onChange={importFile} hidden aria-label="Open deck JSON" />
+    return <div className="deck-workspace retro-hash" inert={busy}>
+        {busy && <div role="status" style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', background: '#020617aa' }}>Saving deck…</div>}
         {!deck ? <main className="deck-library">
             <header className="deck-library-header">
                 <div><span className="deck-eyebrow">PROJECT PAWN</span><h1>YOUR DECKS</h1></div>
@@ -105,7 +109,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             </header>
             <div className="deck-library-actions">
                 <button className="deck-primary" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-plus" aria-hidden="true" /> New deck</button>
-                <button className="deck-secondary" onClick={() => fileInput.current?.click()}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
+                <button className="deck-secondary" onClick={importFile}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
                 <IconButton label={deleteMode ? 'Cancel deleting' : 'Delete a deck'} icon={deleteMode ? 'fa-xmark' : 'fa-trash-can'} active={deleteMode} disabled={!library.length} onClick={() => { setDeleteMode(value => !value); setNotice(deleteMode ? '' : 'Select a deck to delete'); }} />
             </div>
             <div className="deck-library-grid">

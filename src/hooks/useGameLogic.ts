@@ -18,12 +18,14 @@ import '../cards/actions';
 import '../cards/conditions';
 import { createRuntimeDeck, SavedDeck } from '../decks';
 import { useManagedTimeout } from './useManagedTimeout';
+import { getActivationPopups, saveActivationPopups } from '../desktop/storage';
+import { showMessage } from '../desktop/files';
 
 export const ACTIVATION_POPUPS_STORAGE_KEY = 'project-entity.activation-popups-enabled';
 
 const loadActivationPopupPreference = () => {
     try {
-        return typeof localStorage === 'undefined' || localStorage.getItem(ACTIVATION_POPUPS_STORAGE_KEY) !== 'false';
+        return getActivationPopups();
     } catch {
         return true;
     }
@@ -78,14 +80,22 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
     const [isDeckViewerOpen, setIsDeckViewerOpen] = useState(false);
     const [activationPopupsEnabled, setActivationPopupsEnabled] = useState(loadActivationPopupPreference);
+    const previousPopupPreference = useRef(activationPopupsEnabled);
 
     useEffect(() => {
-        try {
-            if (typeof localStorage !== 'undefined') localStorage.setItem(ACTIVATION_POPUPS_STORAGE_KEY, String(activationPopupsEnabled));
-        } catch {
-            // Keep the in-session preference when storage is unavailable.
+        if (activationPopupsEnabled !== previousPopupPreference.current) {
+            previousPopupPreference.current = activationPopupsEnabled;
+            void saveActivationPopups(activationPopupsEnabled).catch(() => showMessage('Could not save the activation popup setting. It will apply for this session only.'));
         }
     }, [activationPopupsEnabled]);
+
+    // A selected hand card only describes an action in the current phase. Clear
+    // it when the turn/phase moves so placement highlights cannot leak into
+    // Battle, End, or the next player's turn.
+    useEffect(() => {
+        setSelectedHandIndex(null);
+        setSelectedFieldSlot(null);
+    }, [gameState?.activePlayerIndex, gameState?.currentPhase, gameState?.turnNumber]);
 
     // Compose sub-hooks
     const animations = useAnimations();

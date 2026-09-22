@@ -11,7 +11,6 @@ export interface SavedDeck {
     cards: { cardId: string; quantity: number }[];
 }
 
-export const DECK_STORAGE_KEY = 'project-pawn.decks.v1';
 export const MAX_COPIES = 3;
 export const MIN_DECK_SIZE = 40;
 export const MAX_DECK_SIZE = 60;
@@ -62,31 +61,4 @@ export function parseDeck(value: unknown, enforceLimits = true): SavedDeck {
     if (enforceLimits && deckSize({ ...deck, cards }) > MAX_DECK_SIZE) throw new Error('Decks cannot contain more than 60 cards.');
     cards.sort((a, b) => positions.get(a.cardId)! - positions.get(b.cardId)!);
     return { version: 1, id: deck.id, name: deck.name.trim(), cards };
-}
-
-export function loadDecks(storage: Pick<Storage, 'getItem'>): SavedDeck[] {
-    const raw = storage.getItem(DECK_STORAGE_KEY);
-    if (!raw) return [];
-    const data: unknown = JSON.parse(raw);
-    if (!Array.isArray(data)) throw new Error('The local deck library could not be read.');
-    // Keep older decks accessible so excess copies can be removed in the editor.
-    return data.map(value => parseDeck(value, false));
-}
-
-export function storeDeck(storage: Pick<Storage, 'setItem'>, library: SavedDeck[], deck: SavedDeck): SavedDeck[] {
-    const valid = parseDeck(deck);
-    const next = [...library.filter(item => item.id !== valid.id), valid];
-    storage.setItem(DECK_STORAGE_KEY, JSON.stringify(next));
-    return next;
-}
-
-export function downloadDeck(deck: SavedDeck) {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(parseDeck(deck), null, 2) + '\n'], { type: 'application/json' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = (deck.name.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-|-$/g, '') || 'deck') + '.json';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

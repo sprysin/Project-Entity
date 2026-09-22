@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { setCloseReason } from './desktop/lifecycle';
 import Hub from './components/Hub';
 import GameView from './components/GameView';
 import CardDatabase from './components/CardDatabase';
@@ -19,6 +20,10 @@ const App: React.FC = () => {
   const [opponentMode, setOpponentMode] = useState<OpponentMode>('self');
   const [currentView, setCurrentView] = useState<View>('HUB');
   const [playtestDecks, setPlaytestDecks] = useState<[SavedDeck | null, SavedDeck | null]>([null, null]);
+  useEffect(() => {
+    setCloseReason('match', currentView === 'GAME' ? 'The current match will be lost.' : null);
+    return () => setCloseReason('match', null);
+  }, [currentView]);
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col">

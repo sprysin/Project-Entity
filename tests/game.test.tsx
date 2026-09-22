@@ -160,4 +160,28 @@ it('allows a tribute summon to free and reuse a zone on a full Pawn field', () =
     expect(game.state.targetSelectMode).toBeNull();
 });
 
+it('does not enter tribute selection without enough Pawns to tribute', () => {
+    const king = card('pawn_02');
+    setup(s => { s.players[0].hand = [king]; });
+
+    act(() => game.actions.handleSummon(king, 'normal', 0));
+
+    expect(game.state.targetSelectMode).toBeNull();
+    expect(game.state.pendingTributeCard).toBeNull();
+    expect(game.state.tributeSelection).toEqual([]);
+});
+
+it('clears selected-card placement highlights when the phase changes', () => {
+    const pawn = card('pawn_01');
+    setup(s => { s.players[0].hand = [pawn]; });
+
+    act(() => game.actions.setSelectedHandIndex(0));
+    expect(game.state.selectedHandIndex).toBe(0);
+
+    act(() => game.setGameState(prev => prev ? { ...prev, currentPhase: Phase.BATTLE } : prev));
+
+    expect(game.state.selectedHandIndex).toBeNull();
+    expect(game.state.selectedFieldSlot).toBeNull();
+});
+
 

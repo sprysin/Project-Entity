@@ -1,9 +1,11 @@
-@import '@fontsource/orbitron/400.css';
-@import '@fontsource/orbitron/700.css';
-@import '@fontsource/roboto/300.css';
-@import '@fontsource/roboto/400.css';
-@import '@fontsource/roboto/700.css';
-@import '@fortawesome/fontawesome-free/css/all.min.css';
+@import '@fontsource/orbitron/latin-400.css';
+@import '@fontsource/orbitron/latin-700.css';
+@import '@fontsource/roboto/latin-300.css';
+@import '@fontsource/roboto/latin-400.css';
+@import '@fontsource/roboto/latin-700.css';
+@import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
+@import '@fortawesome/fontawesome-free/css/solid.min.css';
+@import '@fortawesome/fontawesome-free/css/regular.min.css';
 @import './game.css';
 
 @tailwind base;

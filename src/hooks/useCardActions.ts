@@ -56,6 +56,9 @@ export function useCardActions(
         if (!gameState || blocked || gameState.winner) return;
         pendingTributes.current = null;
         if (card.level >= 5) {
+            const requiredTributes = card.level <= 7 ? 1 : 2;
+            const availableTributes = gameState.players[gameState.activePlayerIndex].pawnZones.filter(Boolean).length;
+            if (availableTributes < requiredTributes) return;
             selection.setPendingTributeCard(card);
             selection.setTributeSummonMode(mode === 'hidden' ? 'hidden' : 'normal');
             selection.setTributeSelection([]);

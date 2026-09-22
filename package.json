@@ -1,23 +1,30 @@
 {
   "name": "project-entity",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tauri dev",
+    "dev:frontend": "vite",
+    "tauri": "tauri",
+    "desktop:build": "tauri build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "vite build",
-    "preview": "vite preview"
+    "icons": "tauri icon assets/app-icon.svg && node scripts/prune-generated-icons.mjs"
   },
   "dependencies": {
     "@fontsource/orbitron": "^5.3.0",
     "@fontsource/roboto": "^5.3.0",
     "@fortawesome/fontawesome-free": "^6.4.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-fs": "^2.5.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.6.0",
