@@ -158,7 +158,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
                             <AttributeSymbol attribute={card.attribute} />
                         </div>
                         <span className={`text-[9px] font-orbitron text-slate-300 font-bold uppercase tracking-wider`}>
-                            [{card.pawnType || 'Unknown'}/Pawn]
+                            [{card.pawnType || 'Unknown'}/{cardTypeLabel(card)}]
                         </span>
                     </div>
                 ) : (

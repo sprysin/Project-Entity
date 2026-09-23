@@ -22,6 +22,7 @@ export const buildEffect = (steps: EffectStep[]) => {
                         requireTarget: result.requireTarget,
                         requireTargetPosition: result.requireTargetPosition,
                         requireTargetScope: result.requireTargetScope,
+                        requireTargetFilter: result.requireTargetFilter,
                         requireTargetIndex: result.requireTargetIndex,
                         requireDiscardSelection: result.requireDiscardSelection,
                         requireHandSelection: result.requireHandSelection,

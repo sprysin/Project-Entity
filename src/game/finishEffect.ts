@@ -1,5 +1,6 @@
 import { Card, CardType, GameState } from '../types';
 import { destroyOrphanedAttachments } from './attachments';
+import { sendToOwnerPile } from './cardOwnership';
 
 /** Complete an activation atomically; locate the source by identity, never by an old slot. */
 export function finishEffect(state: GameState, card: Card, log?: string): GameState {
@@ -9,7 +10,7 @@ export function finishEffect(state: GameState, card: Card, log?: string): GameSt
         for (const player of next.players) {
             const index = player.actionZones.findIndex(z => z?.card.instanceId === card.instanceId);
             if (index !== -1) {
-                player.discard.push(player.actionZones[index]!.card);
+                sendToOwnerPile(next, player.actionZones[index]!.card, 'discard');
                 player.actionZones[index] = null;
             }
         }

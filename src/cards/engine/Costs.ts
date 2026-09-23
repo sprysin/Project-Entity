@@ -3,6 +3,7 @@ import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, Position, TargetSelectPosition, TargetSelectScope } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
+import { sendToOwnerPile } from '../../game/cardOwnership';
 
 export const Cost = {
     /** Destroys the activating Pawn as an activation cost. */
@@ -10,7 +11,7 @@ export const Cost = {
         const player = draftState.players[context.playerIndex];
         const index = player.pawnZones.findIndex(zone => zone?.card.instanceId === context.card.instanceId);
         if (index < 0) return { halt: true };
-        player.discard.push(player.pawnZones[index]!.card);
+        sendToOwnerPile(draftState, player.pawnZones[index]!.card, 'discard');
         player.pawnZones[index] = null;
     }),
 
@@ -63,7 +64,7 @@ export const Cost = {
         if (indices.length !== count || new Set(indices).size !== count || indices.some(i => !player.pawnZones[i] || (filter && !filter(player.pawnZones[i]!.card)))) return { halt: true };
         context.tributeCards = indices.map(i => player.pawnZones[i]!.card);
         indices.forEach(i => {
-            player.discard.push({ ...player.pawnZones[i]!.card, tributedByAction: context.card.type === 'ACTION' });
+            sendToOwnerPile(draftState, { ...player.pawnZones[i]!.card, tributedByAction: context.card.type === 'ACTION' }, 'discard');
             player.pawnZones[i] = null;
         });
     }),
@@ -84,7 +85,7 @@ export const Cost = {
 
         if (discardedCard && (!filter || filter(discardedCard))) {
             activePlayer.hand.splice(context.handIndex, 1);
-            activePlayer.discard.push(discardedCard);
+            sendToOwnerPile(draftState, discardedCard, 'discard');
 
             const discardEffect = cardRegistry.getEffect(discardedCard.id)?.onDiscard;
             if (discardEffect) {

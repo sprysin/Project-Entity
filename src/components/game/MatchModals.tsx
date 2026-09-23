@@ -3,6 +3,7 @@ import { Card, GameState } from '../../types';
 import { getDuelMvp } from '../../game/mvp';
 import { CardDetail } from '../cards/CardDetail';
 import { DuelPrompt } from './DuelPrompt';
+import { playSound } from '../../audio';
 
 export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => void }> = ({ onCancel, onConfirm }) => {
     const cancelButton = React.useRef<HTMLButtonElement>(null);
@@ -52,12 +53,17 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
     isDefeat = !gameState.isDraw && isDefeat;
     const button = React.useRef<HTMLButtonElement>(null);
     const [revealed, setRevealed] = React.useState(false);
+    const defeatSoundPlayed = React.useRef(false);
     React.useEffect(() => {
+        if (isDefeat && !defeatSoundPlayed.current) {
+            defeatSoundPlayed.current = true;
+            playSound('defeat');
+        }
         const previous = document.activeElement as HTMLElement | null;
         button.current?.focus();
         const timer = setTimeout(() => setRevealed(true), 1000);
         return () => { clearTimeout(timer); previous?.focus(); };
-    }, []);
+    }, [isDefeat]);
     return (
         <div className={`duel-result ${isDefeat ? 'duel-result--defeat' : ''}`} role="dialog" aria-modal="true" aria-labelledby="duel-result-title" onKeyDown={event => { if (event.key === 'Tab') { event.preventDefault(); button.current?.focus(); } }}>
             <div className="duel-result-vfx" aria-hidden="true">
@@ -78,7 +84,7 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
                         </div>
                     </div>
                     <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
-                        {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
+                        {revealed && <><h3>{mvp.card.name}</h3><p>{mvp.total.toLocaleString()} damage dealt</p></>}
                     </div>
                 </> : !gameState.isDraw && <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
                 <button data-sound="select" ref={button} onClick={onQuit} className="duel-result-button">Continue</button>
@@ -88,6 +94,7 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
 };
 
 interface EffectModalProps {
+    declineSwitch: (cardId: string) => void;
     triggeredEffect: Card | null;
     gameState: GameState | null;
     isPeekingField: boolean;
@@ -98,7 +105,7 @@ interface EffectModalProps {
     setPendingEffectCard: (card: Card | null) => void;
 }
 
-export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameState, isPeekingField, resolveEffect, checkActivationConditions, setIsPeekingField, setTriggeredEffect, setPendingEffectCard }) => {
+export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameState, isPeekingField, resolveEffect, checkActivationConditions, setIsPeekingField, setTriggeredEffect, setPendingEffectCard, declineSwitch }) => {
     React.useEffect(() => {
         if (!triggeredEffect || !isPeekingField) return;
         const returnToPrompt = (event: KeyboardEvent) => {
@@ -111,8 +118,10 @@ export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameS
     }, [isPeekingField, setIsPeekingField, triggeredEffect]);
 
     if (!triggeredEffect || !gameState) return null;
-    const canActivate = checkActivationConditions(gameState, triggeredEffect, gameState.activePlayerIndex);
+    const switchController = gameState.pendingSwitches?.find(entry => entry.card.instanceId === triggeredEffect.instanceId)?.playerIndex;
+    const canActivate = checkActivationConditions(gameState, triggeredEffect, switchController ?? gameState.activePlayerIndex);
     const decline = () => {
+        if (switchController !== undefined) declineSwitch(triggeredEffect.instanceId);
         setTriggeredEffect(null);
         setPendingEffectCard(null);
         setIsPeekingField(false);
@@ -124,7 +133,7 @@ export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameS
         peeking={isPeekingField}
         setPeeking={setIsPeekingField}
         actions={[
-            { label: 'Decline', onClick: decline, variant: 'secondary' },
+            ...(!triggeredEffect.switchMandatory || switchController === undefined ? [{ label: 'Decline', onClick: decline, variant: 'secondary' as const }] : []),
             { label: 'Activate', onClick: () => resolveEffect(triggeredEffect), variant: 'primary', disabled: !canActivate },
         ]}
     >

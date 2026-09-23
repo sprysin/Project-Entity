@@ -2,6 +2,7 @@ import { IEffect, CardType } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect, EffectStep } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
+import { sendToOwnerPile } from '../../game/cardOwnership';
 
 const resolveTributeAndGainAttack: EffectStep = (state, context) => {
     const player = state.players[context.playerIndex];
@@ -12,7 +13,7 @@ const resolveTributeAndGainAttack: EffectStep = (state, context) => {
     if (!tributed || tributed.type !== CardType.PAWN || tributed.level > 3) return;
 
     if (fieldTribute && tributeIndex !== undefined) {
-        player.discard.push({ ...fieldTribute, tributedByAction: true });
+        sendToOwnerPile(state, { ...fieldTribute, tributedByAction: true }, 'discard');
         player.pawnZones[tributeIndex] = null;
     }
     state.players[context.playerIndex].lp += tributed.atk;

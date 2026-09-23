@@ -33,7 +33,11 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 
-  const selectingPlayer = state.pendingEffectCard ? gameState.players.findIndex(p => p.id === state.pendingEffectCard!.ownerId) : undefined;
+  const selectingPlayer = state.pendingEffectCard ? gameState.pendingSwitches?.find(entry => entry.card.instanceId === state.pendingEffectCard!.instanceId)?.playerIndex
+    ?? gameState.players.findIndex((p, index) =>
+    p.pawnZones.some(z => z?.card.instanceId === state.pendingEffectCard!.instanceId)
+    || p.actionZones.some(z => z?.card.instanceId === state.pendingEffectCard!.instanceId)
+    || gameState.pendingSwitches?.some(entry => entry.card.instanceId === state.pendingEffectCard!.instanceId && entry.playerIndex === index)) : undefined;
   const privatePeek = gameState.peekEvents?.[0];
   const viewIndex = opponentMode === 'ai' ? 0 : state.peekSelectionReq?.playerIndex ?? privatePeek?.viewerPlayerIndex ?? selectingPlayer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
   const turnIsMine = viewIndex === gameState.activePlayerIndex;
@@ -68,6 +72,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
       if (state.targetSelectScope === 'active' && isOpponent) return false;
       if (state.targetSelectScope === 'opponent' && !isOpponent) return false;
       if (!z) return false;
+      if (state.targetSelectFilter && !state.targetSelectFilter(z.card)) return false;
       if (state.targetSelectPosition === 'both') return true;
       if (state.targetSelectPosition === 'hidden' && z.position === Position.HIDDEN) return true;
       if (state.targetSelectPosition === 'faceup' && z.position !== Position.HIDDEN) return true;
@@ -306,7 +311,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
           {state.cardMotions.map(motion => (
-            <div key={motion.id} className={`card-travel ${motion.activation ? 'card-travel-activation' : ''}`} onAnimationEnd={event => { if (event.target === event.currentTarget) state.finishMotion(motion.id); }}
+            <div key={motion.id} className={`card-travel ${motion.activation ? 'card-travel-activation' : ''}`}
+              onAnimationEnd={event => { if (event.target === event.currentTarget && event.animationName === 'card-zone-travel') state.finishMotion(motion.id); }}
               style={{
                 left: motion.from.left, top: motion.from.top, width: motion.from.width, height: motion.from.height,
                 animationDelay: `${motion.delay ?? 0}ms`, animationDuration: `${motion.duration ?? 490}ms`,

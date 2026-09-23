@@ -13,6 +13,9 @@ const soundUrls = {
   'hide-card': new URL('./Sounds/HideCard.mp3', import.meta.url).href,
   'high-effect': new URL('./Sounds/HighEffect.mp3', import.meta.url).href,
   'card-destruction': new URL('./Sounds/CardDestruction.mp3', import.meta.url).href,
+  'draw-tick': new URL('./Sounds/DrawTick.mp3', import.meta.url).href,
+  'action-condition-destroyed': new URL('./Sounds/ActionConditionDestroyed.mp3', import.meta.url).href,
+  defeat: new URL('./Sounds/Defeat.mp3', import.meta.url).href,
 } as const;
 
 export type SoundName = keyof typeof soundUrls;

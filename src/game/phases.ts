@@ -3,6 +3,7 @@ import { cardRegistry } from '../cards/CardRegistry';
 import { formatEffectLog } from './effectLog';
 import { checkVictory } from './finishEffect';
 import { drawCards } from './draw';
+import { sendToOwnerPile } from './cardOwnership';
 
 /** Applies one complete phase transition, including phase-entry maintenance. */
 export const advancePhaseState = (prev: GameState): GameState => {
@@ -67,6 +68,11 @@ export const advancePhaseState = (prev: GameState): GameState => {
 
     // Expire only after End Phase responses finish, immediately before the next turn.
     if (prev.currentPhase === Phase.END) {
+        for (const player of updatedPlayers) player.pawnZones.forEach((zone, index) => {
+            if (!zone?.returnToOwnerEndPhase) return;
+            sendToOwnerPile({ ...prev, players: updatedPlayers as [Player, Player] }, zone.card, 'discard');
+            player.pawnZones[index] = null;
+        });
         const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
         const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
         updatedPlayers = updatedPlayers.map(p => ({

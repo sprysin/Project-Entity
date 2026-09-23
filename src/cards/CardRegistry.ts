@@ -59,15 +59,15 @@ export const cardRegistry = CardRegistry.getInstance();
 
 
 
-type Metadata = Pick<Card, 'type' | 'isAttached' | 'isLingering' | 'name' | 'effectText' | 'attribute' | 'pawnType'>;
+type Metadata = Pick<Card, 'type' | 'isAttached' | 'isLingering' | 'name' | 'effectText' | 'attribute' | 'pawnType' | 'pawnSubtype'>;
 type CardSubtype = 'Normal' | 'Lingering' | 'Attach';
 
 export function cardSubtype(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering'>): CardSubtype | null {
     return card.type === CardType.PAWN ? null : card.isAttached ? 'Attach' : card.isLingering ? 'Lingering' : 'Normal';
 }
 
-export function cardTypeLabel(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering'>): string {
-    return card.type === CardType.PAWN ? 'Pawn' : `${cardSubtype(card)} ${card.type === CardType.ACTION ? 'Action' : 'Condition'}`;
+export function cardTypeLabel(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering' | 'pawnSubtype'>): string {
+    return card.type === CardType.PAWN ? `${card.pawnSubtype ? `${card.pawnSubtype}/` : ''}Pawn` : `${cardSubtype(card)} ${card.type === CardType.ACTION ? 'Action' : 'Condition'}`;
 }
 
 export function matchesCardCatalog(card: Metadata, query: string): boolean {

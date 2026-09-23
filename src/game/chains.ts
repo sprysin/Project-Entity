@@ -12,6 +12,7 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
     }
     const effect = cardRegistry.getEffect(context.card.id);
     const fn = trigger === 'summon' ? effect?.onSummon
+        : trigger === 'switch' ? effect?.onSwitch
         : trigger === 'phase' ? effect?.onPhaseChange
         : trigger === 'discard' ? effect?.onDiscard
         : trigger === 'tribute' ? effect?.onTribute
@@ -32,7 +33,11 @@ export function combinations(values: number[], count: number): number[][] {
 
 /** Enumerate legal choices through the effect's own requirements, never card-name recipes. */
 export function effectChoices(state: GameState, card: Card, trigger: EffectTrigger, limit = 160): CardContext[] {
-    const playerIndex = state.players.findIndex(p => p.id === card.ownerId);
+    const controllerIndex = state.players.findIndex(p => p.pawnZones.some(z => z?.card.instanceId === card.instanceId)
+        || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
+        || state.pendingSwitches?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === state.players.indexOf(p)));
+    const switchIndex = trigger === 'switch' ? state.pendingSwitches?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex : undefined;
+    const playerIndex = switchIndex ?? (controllerIndex >= 0 ? controllerIndex : state.players.findIndex(p => p.id === card.ownerId));
     if (playerIndex < 0) return [];
     const effect = cardRegistry.getEffect(card.id);
     if (effect?.canActivate && !effect.canActivate(state, { card, playerIndex })) return [];
@@ -53,6 +58,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
                     if (!zone) return;
                     if (result.requireTargetPosition === 'hidden' && zone.position !== Position.HIDDEN) return;
                     if (result.requireTargetPosition === 'faceup' && zone.position === Position.HIDDEN) return;
+                    if (result.requireTargetFilter && !result.requireTargetFilter(zone.card)) return;
                     const target = { playerIndex: pi, type, index };
                     const targets = [...(context.targets ?? [])];
                     targets[targetIndex] = target;
@@ -122,6 +128,7 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
 function appendChainLink(state: GameState, context: CardContext, trigger: EffectTrigger, buildingTriggers: boolean): GameState {
     if (state.winner || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
     if (trigger === 'summon' && !cardRegistry.getEffect(context.card.id)?.onSummon) return state;
+    if (trigger === 'switch' && !state.pendingSwitches?.some(entry => entry.card.instanceId === context.card.instanceId && entry.playerIndex === context.playerIndex)) return state;
     if (!buildingTriggers && state.response && state.response.priority !== context.playerIndex) return state;
     if (!buildingTriggers && state.response && !fieldActivations(state, context.playerIndex, true).some(a => a.card.instanceId === context.card.instanceId && a.trigger === trigger)) return state;
     const effect = cardRegistry.getEffect(context.card.id);
@@ -131,6 +138,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const paid = runEffect(state, { ...context, execution: 'costs' }, trigger);
     if (paid.halted || needsChoice(paid)) return state;
     let next = structuredClone(paid.newState);
+    if (trigger === 'switch') next.pendingSwitches = next.pendingSwitches?.filter(entry => entry.card.instanceId !== context.card.instanceId);
     const p = next.players[context.playerIndex];
     const tributeCards = context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
     const source = [...p.pawnZones, ...p.actionZones].find(z => z?.card.instanceId === context.card.instanceId);
@@ -209,7 +217,8 @@ export function resolveChain(state: GameState): GameState {
             invalid ||= context.peekIndex < 0;
         }
         const before = next;
-        const result = invalid ? undefined : runEffect(next, context, link.trigger);
+        const effect = cardRegistry.getEffect(context.card.id);
+        const result = invalid && !effect?.allowMissingTargets ? undefined : runEffect(next, context, link.trigger);
         const fizzled = !result || result.halted || needsChoice(result);
         next = finishEffect(fizzled ? next : result.newState, context.card,
             fizzled ? `"${context.card.name}" resolved without effect: its selection is no longer valid.` : formatEffectLog(before, result.newState, context.card, context, link.trigger, context.tributeCards));

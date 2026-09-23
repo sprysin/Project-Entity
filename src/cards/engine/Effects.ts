@@ -3,6 +3,7 @@ import { Dynamic, resolveDynamic } from './Dynamic';
 import { CardFilter, Position, TargetSelectScope } from '../../types';
 import { getEffectTarget } from './Targets';
 import { drawCards } from '../../game/draw';
+import { sendToOwnerPile } from '../../game/cardOwnership';
 
 export const Effect = {
     /** Has the opponent choose one card in their hand to reveal privately to this effect's controller. */
@@ -96,8 +97,15 @@ export const Effect = {
             const p = draftState.players[target.playerIndex];
             const tE = p.pawnZones[target.index];
             if (tE) {
-                tE.card.atk = Math.max(0, tE.card.atk + atkChange);
-                tE.card.def = Math.max(0, tE.card.def + defChange);
+                const previousAtk = tE.card.atk, previousDef = tE.card.def;
+                tE.card.atk = Math.max(0, previousAtk + atkChange);
+                tE.card.def = Math.max(0, previousDef + defChange);
+                const source = draftState.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
+                if (context.card.isAttached && source?.attachedToInstanceId === tE.card.instanceId) {
+                    tE.attachmentStatBonuses ??= [];
+                    tE.attachmentStatBonuses.push({ sourceInstanceId: context.card.instanceId,
+                        atk: tE.card.atk - previousAtk, def: tE.card.def - previousDef });
+                }
             }
         }
     },
@@ -165,7 +173,7 @@ export const Effect = {
             const cardInZone = zones[target.index];
 
             if (cardInZone) {
-                p.void.push(cardInZone.card);
+                sendToOwnerPile(draftState, cardInZone.card, 'void');
                 zones[target.index] = null;
             }
         }

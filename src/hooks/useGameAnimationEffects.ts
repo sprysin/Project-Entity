@@ -17,6 +17,23 @@ export const useGameAnimationEffects = (
 ) => {
     const schedule = useManagedTimeout();
     const previousTurn = useRef<number | null>(null);
+    const soundedAttack = useRef<GameState['deferredAction']>();
+
+    useEffect(() => {
+        const attack = gameState?.deferredAction;
+        if (attack?.kind !== 'attack') {
+            soundedAttack.current = undefined;
+            return;
+        }
+        if (soundedAttack.current?.kind === 'attack'
+            && soundedAttack.current.attackerId === attack.attackerId
+            && soundedAttack.current.targetId === attack.targetId) return;
+        soundedAttack.current = attack;
+        if (attack.targetId === 'direct') {
+            playSound('draw-tick');
+            schedule(() => playSound('draw-tick'), 180);
+        }
+    }, [gameState?.deferredAction, schedule]);
 
     useEffect(() => {
         if (!gameState) return;

@@ -9,3 +9,6 @@ import './QuickstrikeSerpent';
 import './LingeringLamb';
 import './GlitterGuardBeatle';
 import './GlassWitch';
+import './CurseGivingGhost';
+import './GlitterGrub';
+import './ZombieNecromancer';

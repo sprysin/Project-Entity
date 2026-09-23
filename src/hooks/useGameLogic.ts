@@ -4,7 +4,7 @@ import {
     EffectTrigger, HandSelectionRequest, OpponentMode, TargetSelectMode, TargetSelectPosition,
     TargetSelectScope, TargetSelectType, TributeSelectionRequest, PeekSelectionRequest
 } from '../types';
-import { fieldActivations } from '../game/chains';
+import { effectChoices, fieldActivations } from '../game/chains';
 import { applyCommand, applySystemCommand, canPlayCard as engineCanPlayCard, createGame } from '../game/engine';
 import { useOpponentAI } from './useOpponentAI';
 import { createDeck } from '../constants';
@@ -57,6 +57,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [triggeredEffect, setTriggeredEffect] = useState<Card | null>(null);
     const [pendingEffectCard, setPendingEffectCard] = useState<Card | null>(null);
     const [pendingTriggerType, setPendingTriggerType] = useState<EffectTrigger | null>(null);
+    const [targetSelectFilter, setTargetSelectFilter] = useState<((card: Card) => boolean) | null>(null);
     const [isPeekingField, setIsPeekingField] = useState(false);
     const [responseFieldMode, setResponseFieldMode] = useState<'peek' | 'activate' | null>(null);
     const [visuallyDestroyedCardIds, setVisuallyDestroyedCardIds] = useState<string[]>([]);
@@ -105,7 +106,8 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Compose sub-hooks
     const animations = useAnimations();
     const schedule = useManagedTimeout();
-    const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined, visuallyDestroyedCardIds);
+    const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined, visuallyDestroyedCardIds,
+        (key, source) => animations.triggerShatter(key, source, 'action-condition-destroyed'));
 
     const { resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, cancelEffect } = useEffectResolution(
         gameState, setGameState, cardMotion.recordMovement,
@@ -128,6 +130,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setDeckSelectionReq, setSelectedDeckIndex,
             pendingEffectCard, discardSelectionReq, deckSelectionReq, handSelectionReq,
             setPendingTriggerType, pendingTriggerType,
+            setTargetSelectFilter,
             setEffectTributeReq,
             showEffect: (card, target) => {
                 cardMotion.recordActivation(card);
@@ -212,6 +215,22 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         return () => clearTimeout(timeout);
     }, [gameState]);
     const responseOptions = gameState?.response && !gameState.response.ready ? fieldActivations(gameState, gameState.response.priority, true) : [];
+    useEffect(() => {
+        const pending = gameState?.pendingSwitches?.[0];
+        if (!pending || triggeredEffect || pendingEffectCard || gameState?.response || gameState?.winner) return;
+        const choices = effectChoices(gameState, pending.card, 'switch', 1);
+        if (!choices.length) {
+            setGameState(prev => prev?.pendingSwitches?.[0]?.card.instanceId === pending.card.instanceId
+                ? { ...prev, pendingSwitches: prev.pendingSwitches.slice(1) } : prev);
+            return;
+        }
+        if (opponentMode === 'ai' && pending.playerIndex === 1) {
+            setGameState(prev => prev ? applyCommand(prev, 1, { type: 'activate', context: choices[0], trigger: 'switch' }).state : prev);
+            return;
+        }
+        setPendingTriggerType('switch');
+        setTriggeredEffect(pending.card);
+    }, [gameState, opponentMode, triggeredEffect, pendingEffectCard]);
     const respond = (instanceId: string) => {
         const activation = responseOptions.find(option => option.card.instanceId === instanceId);
         if (!activation || pendingEffectCard) return;
@@ -250,6 +269,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         state: {
             opponentMode, responseOptions,
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition, targetSelectScope,
+            targetSelectFilter,
             tributeSelection, pendingTributeCard, tributeSummonMode, pendingTributeSlot,
             pendingPlayCard, playMode,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
@@ -314,6 +334,9 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             activateOnField: cardActions.activateOnField,
             canPlacePawn: (slot: number) => cardActions.canPlacePawn(pendingPlayCard, playMode, slot),
             changePosition: (index: number) => setGameState(prev => prev ? applyCommand(prev, prev.activePlayerIndex, { type: 'position', index }).state : prev),
+            declineSwitch: (cardId: string) => setGameState(prev => prev ? applyCommand(prev,
+                prev.pendingSwitches?.find(entry => entry.card.instanceId === cardId)?.playerIndex ?? prev.activePlayerIndex,
+                { type: 'cancelEffect', cardId }).state : prev),
             handleAttack: requestAttack,
         }
     };

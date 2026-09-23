@@ -50,6 +50,7 @@ export enum PawnType {
 }
 
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export enum PawnSubtype { SWITCH = 'Switch' }
 
 export interface Card {
   instanceId: string;
@@ -59,9 +60,13 @@ export interface Card {
   level: Level;
   attribute?: Attribute;
   pawnType?: PawnType;
+  pawnSubtype?: PawnSubtype;
+  switchMandatory?: boolean;
   isLingering?: boolean;
   /** Attach subtype for Actions/Conditions; mutually exclusive with isLingering. */
   isAttached?: boolean;
+  /** This Attach card remains attached when its target turns face-down. */
+  survivesTargetFlip?: boolean;
   atk: number;
   def: number;
   effectText: string;
@@ -70,7 +75,9 @@ export interface Card {
 }
 
 export interface PlacedCard {
+  returnToOwnerEndPhase?: boolean;
   attachedToInstanceId?: string;
+  attachmentStatBonuses?: { sourceInstanceId: string; atk: number; def: number }[];
   card: Card;
   position: Position;
   hasAttacked: boolean;
@@ -107,6 +114,7 @@ export interface PendingEffect {
 }
 
 export interface GameState {
+  pendingSwitches?: { card: Card; playerIndex: number }[];
   drawProgress?: { turn: number; remaining: number };
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
   chain?: ChainLink[];
@@ -166,7 +174,7 @@ export interface TributeSelectionRequest extends HandSelectionRequest {
   filter?: CardFilter;
 }
 
-export type EffectTrigger = 'summon' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
+export type EffectTrigger = 'summon' | 'switch' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
@@ -178,6 +186,7 @@ export type EffectResult = {
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
   requireTargetScope?: TargetSelectScope;
+  requireTargetFilter?: (card: Card) => boolean;
   requireTargetIndex?: number;
   requireDiscardSelection?: CardSelectionRequest;
   requireHandSelection?: HandSelectionRequest;
@@ -203,8 +212,12 @@ export interface CardContext {
 export interface IEffect {
   /** Only explicitly quick Pawn effects may respond outside normal ignition timing. */
   timing?: 'main' | 'quick';
+  /** Let an effect resolve its remaining instructions when one selected target has left the field. */
+  allowMissingTargets?: boolean;
   // Triggered when an Pawn is Normal Summoned or Set
   onSummon?(state: GameState, context: CardContext): EffectResult;
+  onSwitch?(state: GameState, context: CardContext): EffectResult;
+  onBattleDestroy?(state: GameState, context: CardContext & { destroyedCard: Card }): EffectResult;
 
   // Triggered when a card is Tributed
   onTribute?(state: GameState, context: CardContext): EffectResult;

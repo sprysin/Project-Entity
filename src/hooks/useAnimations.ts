@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react';
 import { useManagedTimeout } from './useManagedTimeout';
 import { playSound } from '../audio';
+import type { SoundName } from '../audio';
+
+export type ShatterSource = { rect: DOMRect; cardMarkup: string; rotated: boolean; faceDown: boolean };
 
 type ShatterShard = {
     x: number;
@@ -62,18 +65,15 @@ export const useAnimations = () => {
     };
 
     /** Breaks a visual copy of the card into fragments spanning its full footprint. */
-    const triggerShatter = (zoneKey: string) => {
-        const el = zoneRefs.current.get(zoneKey);
-        if (!el) return;
-        const cardFace = el.querySelector<HTMLElement>('[data-card-face]');
-        const visibleCard = cardFace?.querySelector<HTMLElement>('[data-field-card-id]');
-        if (!visibleCard) return;
-        const rect = visibleCard.getBoundingClientRect();
+    const triggerShatter = (zoneKey: string, captured?: ShatterSource, sound: SoundName = 'card-destruction') => {
+        const visibleCard = zoneRefs.current.get(zoneKey)?.querySelector<HTMLElement>('[data-card-face] [data-field-card-id]');
+        if (!captured && !visibleCard) return;
+        const rect = captured?.rect ?? visibleCard!.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
 
-        playSound('card-destruction');
+        playSound(sound);
 
-        const rotated = visibleCard.classList.contains('rotate-90');
+        const rotated = captured?.rotated ?? visibleCard!.classList.contains('rotate-90');
         // Swap the grid with the card so portrait and defense-position cards
         // produce similarly sized fragments instead of long landscape strips.
         const columns = rotated ? 6 : 5;
@@ -116,9 +116,9 @@ export const useAnimations = () => {
             top: rect.top,
             width: rect.width,
             height: rect.height,
-            cardMarkup: visibleCard.innerHTML,
+            cardMarkup: captured?.cardMarkup ?? visibleCard!.innerHTML,
             rotated,
-            faceDown: visibleCard.classList.contains('card-back'),
+            faceDown: captured?.faceDown ?? visibleCard!.classList.contains('card-back'),
             shards,
         }]);
         schedule(() => setShatterEffects(prev => prev.filter(e => e.id !== id)), 1250);

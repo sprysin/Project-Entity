@@ -69,6 +69,7 @@ const topics: Topic[] = [
       'Pawns can be in face-up Attack, face-up Defense or face-down Defense Position.',
       'Normal and Tribute Summons place Pawns in face-up Attack Position. Setting places them in face-down Defense Position.',
       'Face-down cards are hidden from your opponent. You may inspect your own face-down cards.',
+      'A card controlled by an opponent still goes to its original owner’s Discard or Void Pile when it leaves the field.',
     ]
   },
   {
@@ -91,6 +92,7 @@ const topics: Topic[] = [
       'During either Main Phase, each Pawn may manually change between Attack and Defense Position once per turn.',
       'A Pawn cannot manually change position on the turn it was summoned or set, or after it has attacked that turn.',
       'Manually turning a face-down Pawn face-up is a Flip Summon. It enters Attack Position and uses its manual position change for that turn.',
+      'A Switch Pawn has [Type/Switch/Pawn] on its card. Its Switch effect triggers when it turns from face-down to face-up, including when attacked.',
       'Position changes caused by card effects do not use the manual position change allowance.',
     ]
   },
@@ -141,6 +143,7 @@ const topics: Topic[] = [
       'Attach Actions and Attach Conditions stay face-up in their Action/Condition zone after successfully attaching to a field card.',
       'The card text specifies eligible targets: usually a Pawn, but some cards can attach to an Action or Condition.',
       "When an Attach card's target leaves the field, destroy the Attach card.",
+      'When its target turns face-down, destroy the Attach card unless its text says otherwise. Its benefits last only while attached.',
       'Attaching does not repeat the original activation. If the chosen target becomes invalid before resolution, the attachment fails and the source is discarded.',
     ]
   },
@@ -165,7 +168,7 @@ const pawnCardFields = [
   ['Name', 'The Pawn’s unique name. Card effects may refer to a Pawn by name.'],
   ['Level', 'Shown as Lv. 1–10. Level determines how many tributes are required to summon or set the Pawn.'],
   ['Attribute', 'The Pawn’s elemental alignment. Attributes can be referenced by card effects.'],
-  ['Type', 'The Pawn’s creature classification, shown as [Type/Pawn]. Types can be referenced by card effects.'],
+  ['Type', 'The Pawn’s creature classification, shown as [Type/Pawn] or [Type/Switch/Pawn]. Types can be referenced by card effects.'],
   ['Effect', 'The text that explains the Pawn’s abilities, activation requirements, costs and limits.'],
   ['ATK & DEF', 'ATK is used while attacking or being attacked in Attack Position. DEF is used when attacked in Defense Position.'],
 ] as const;
@@ -274,7 +277,7 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <p className="rulebook-page-intro">Every Pawn card shows the information below. Read these fields together to understand how the Pawn enters play, what effects can interact with it, and how it performs in combat.</p>
                   <div>{pawnCardFields.map(([label, description], index) => <article key={label}><span>{String(index + 1).padStart(2, '0')}</span><h2>{label}</h2><p>{description}</p></article>)}</div>
                 </section> : isPawnInfo && page === 1 ? <section aria-label="All Pawn types">
-                  <p className="rulebook-page-intro">A Pawn’s Type appears beneath its name as <strong>[Type/Pawn]</strong>. Types do not have inherent abilities of their own, however cards of the same type may have stronger synergies when played together.</p>
+                  <p className="rulebook-page-intro">A Pawn’s Type appears beneath its name as <strong>[Type/Pawn]</strong>, or <strong>[Type/Switch/Pawn]</strong> for a Switch Pawn. Types do not have inherent abilities of their own, however cards of the same type may have stronger synergies when played together.</p>
                   <div className="rulebook-type-grid">{pawnTypes.map((type, index) => <div key={type}><span>{String(index + 1).padStart(2, '0')}</span>{type}</div>)}</div>
                 </section> : isPawnInfo && page === 2 ? <section aria-label="All Pawn attributes">
                   <p className="rulebook-page-intro">The circular icon beside a Pawn’s Type shows its Attribute. Like Types, Attributes are classifications used by card effects.</p>

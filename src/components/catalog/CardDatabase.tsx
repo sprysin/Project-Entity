@@ -119,6 +119,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">LEVEL:</span> <span className="text-white">{selectedCard.level}</span></div>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">ATTR:</span> <span className="text-white">{selectedCard.attribute || 'N/A'}</span></div>
                                     <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TYPE:</span> <span className="text-white">{selectedCard.pawnType || 'N/A'}</span></div>
+                                    {selectedCard.pawnSubtype && <div className="text-xs text-slate-400 font-mono flex justify-between"><span>SUBTYPE:</span><span className="text-white">{selectedCard.pawnSubtype}</span></div>}
                                 </>
                             )}
                         </div>

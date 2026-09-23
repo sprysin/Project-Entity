@@ -21,6 +21,7 @@ export const useEffectResolution = (
         setTargetSelectType: (type: TargetSelectType) => void,
         setTargetSelectPosition: (pos: TargetSelectPosition) => void,
         setTargetSelectScope: (scope: TargetSelectScope) => void,
+        setTargetSelectFilter: Dispatch<SetStateAction<((card: Card) => boolean) | null>>,
         setIsPeekingField: (peek: boolean) => void,
         setDiscardSelectionReq: (req: CardSelectionRequest | null) => void,
         setSelectedDiscardIndex: (idx: number | null) => void,
@@ -69,7 +70,11 @@ export const useEffectResolution = (
         peekIndex?: number
     ) => {
         if (!gameState || gameState.winner) return;
-        const activeIndex = gameState.players.findIndex(p => p.id === card.ownerId);
+        const controllerIndex = gameState.players.findIndex((p, index) => p.pawnZones.some(z => z?.card.instanceId === card.instanceId)
+            || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
+            || gameState.pendingSwitches?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === index));
+        const switchIndex = gameState.pendingSwitches?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex;
+        const activeIndex = switchIndex ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
         if (activeIndex < 0) return;
 
         const actualTargets = [...(providedTargets ?? pendingContext.current.targets ?? (pendingContext.current.target ? [pendingContext.current.target] : []))];
@@ -110,6 +115,7 @@ export const useEffectResolution = (
             setTargetSelectMode('effect');
             setTargetSelectType(peekResult.requireTarget);
             setTargetSelectPosition(peekResult.requireTargetPosition || 'both');
+            selectionState.setTargetSelectFilter(() => peekResult.requireTargetFilter ?? null);
             selectionState.setTargetSelectScope(peekResult.requireTargetScope || 'both');
             setIsPeekingField(false);
             setPendingTriggerType(actualTriggerType);
@@ -196,6 +202,7 @@ export const useEffectResolution = (
         setTargetSelectType('pawn');
         setTargetSelectPosition('both');
         selectionState.setTargetSelectScope('both');
+        selectionState.setTargetSelectFilter(null);
         setIsPeekingField(false);
         setPendingTriggerType(null);
         pendingContext.current = {};
@@ -275,7 +282,9 @@ export const useEffectResolution = (
 
     const cancelEffect = () => {
         const card = selectionState.pendingEffectCard;
-        if (card) setGameState(prev => prev && !prev.response ? applyCommand(prev, prev.players.findIndex(p => p.id === card.ownerId), { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
+        if (card && !card.switchMandatory) setGameState(prev => prev && !prev.response ? applyCommand(prev,
+            prev.pendingSwitches?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? prev.players.findIndex(p => p.id === card.ownerId),
+            { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
         pendingContext.current = {};
         if (card) selectionState.clearPreparedPeek?.(card);
         setTriggeredEffect(null);
@@ -283,6 +292,7 @@ export const useEffectResolution = (
         setPendingTriggerType(null);
         setTargetSelectMode(null);
         selectionState.setTargetSelectScope('both');
+        selectionState.setTargetSelectFilter(null);
         setIsPeekingField(false);
         setDiscardSelectionReq(null);
         setHandSelectionReq(null);

@@ -18,7 +18,7 @@ function setup() {
     return { state, source, target };
 }
 
-it('Reinforcement attaches once, grants +20 ATK and remains face-up as a Condition', () => {
+it('Reinforcement grants ATK only while attached and normally falls off a face-down target', () => {
     const { state, source, target } = setup();
     expect(source).toMatchObject({ type: CardType.CONDITION, isAttached: true });
     const next = addChainLink(state, { card: source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate');
@@ -26,6 +26,20 @@ it('Reinforcement attaches once, grants +20 ATK and remains face-up as a Conditi
     expect(next.players[0].pawnZones[0]?.card.atk).toBe(target.atk + 20);
     expect(fieldActivations(next, 0)).toHaveLength(0);
     expect(state.players[0].actionZones[0]?.attachedToInstanceId).toBeUndefined();
+    next.players[0].pawnZones[0]!.position = Position.HIDDEN;
+    checkVictory(next);
+    expect(next.players[0].actionZones[0]).toBeNull();
+    expect(next.players[0].pawnZones[0]?.card.atk).toBe(target.atk);
+
+    const another = setup();
+    const sustained = addChainLink(another.state, { card: another.source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate');
+    sustained.players[0].actionZones[0]!.card.survivesTargetFlip = true;
+    sustained.players[0].pawnZones[0]!.position = Position.HIDDEN;
+    checkVictory(sustained);
+    expect(sustained.players[0].pawnZones[0]?.card.atk).toBe(target.atk + 20);
+    sustained.players[0].actionZones[0] = null;
+    checkVictory(sustained);
+    expect(sustained.players[0].pawnZones[0]?.card.atk).toBe(target.atk);
 });
 
 it('discards an attachment that fizzles instead of linking to a replacement target', () => {

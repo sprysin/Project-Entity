@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState, RefObject } from 'react';
 import { Card, CardType, GameState, Position } from '../types';
+import { playSound } from '../audio';
+import type { ShatterSource } from './useAnimations';
 
-type Location = { key: string; card: Card; hidden: boolean; rotation: number; rect?: DOMRect };
+type Location = { key: string; card: Card; hidden: boolean; rotation: number; rect?: DOMRect; shatter?: ShatterSource; attached?: boolean };
 export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean };
 
 /** Observe committed zone changes only. Animation never delays or mutates game state. */
-export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number, suppressedCardIds: string[] = []) {
+export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number, suppressedCardIds: string[] = [], onActionDestroyed?: (key: string, source: ShatterSource) => void) {
     const previous = useRef<Map<string, Location>>(new Map());
+    const previousGame = useRef<GameState | null>(null);
     const waypoints = useRef(new Map<string, DOMRect>());
     const activated = useRef(new Set<string>());
     const [motions, setMotions] = useState<CardMotion[]>([]);
@@ -24,11 +27,14 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         };
     }, [refs]);
     useLayoutEffect(() => {
-        if (!game) { previous.current.clear(); return; }
+        if (!game) { previous.current.clear(); previousGame.current = null; return; }
         const next = new Map<string, Location>();
-        const add = (card: Card, key: string, hidden = false, rotation = 0) => {
+        const add = (card: Card, key: string, hidden = false, rotation = 0, attached = false) => {
             const el = refs.current.get(key);
-            next.set(card.instanceId, { card, key, hidden, rotation, rect: el?.getBoundingClientRect() });
+            const face = el?.querySelector<HTMLElement>('[data-card-face] [data-field-card-id]');
+            next.set(card.instanceId, { card, key, hidden, rotation, rect: el?.getBoundingClientRect(), attached,
+                shatter: face ? { rect: face.getBoundingClientRect(), cardMarkup: face.innerHTML,
+                    rotated: face.classList.contains('rotate-90'), faceDown: face.classList.contains('card-back') } : undefined });
         };
         game.players.forEach((p, pi) => {
             p.hand.forEach((c, i) => add(c, `${pi}-hand-${i}`, pi !== (viewerIndex ?? game.activePlayerIndex)));
@@ -37,7 +43,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             p.void.forEach(c => add(c, `void-${pi}`));
             (['pawn', 'action'] as const).forEach(type => p[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((z, i) => {
                 if (z) add(z.card, `${pi}-${type}-${i}`, z.position === Position.HIDDEN,
-                    z.position === Position.DEFENSE || (z.position === Position.HIDDEN && z.card.type === CardType.PAWN) ? 90 : 0);
+                    z.position === Position.DEFENSE || (z.position === Position.HIDDEN && z.card.type === CardType.PAWN) ? 90 : 0, !!z.attachedToInstanceId);
             }));
         });
         const batch: CardMotion[] = [];
@@ -46,6 +52,15 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             if (suppressedCardIds.includes(id)) return;
             // A hand index changing is reflow, not a zone transfer.
             if (!src || src.key === dest.key || src.key.replace(/-hand-\d+$/, '-hand') === dest.key.replace(/-hand-\d+$/, '-hand')) return;
+            if (/^deck-\d+$/.test(src.key) && /^\d+-hand-\d+$/.test(dest.key)) playSound('draw-tick');
+            if (/^\d+-action-\d+$/.test(src.key) && /^discard-\d+$/.test(dest.key)) {
+                const resolvedOwnEffect = activated.current.has(id) || previousGame.current?.chain?.some(link => link.context.card.instanceId === id);
+                if (!resolvedOwnEffect || src.attached || src.hidden || src.card.isLingering) {
+                    if (src.shatter) onActionDestroyed?.(src.key, src.shatter);
+                    else playSound('action-condition-destroyed');
+                    return;
+                }
+            }
             if (!src.rect || !dest.rect) return;
             const waypoint = waypoints.current.get(id);
             const activation = activated.current.has(id);
@@ -72,6 +87,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             }
         });
         previous.current = next;
+        previousGame.current = game;
         waypoints.current.clear();
         activated.current.clear();
         if (!batch.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
