@@ -5,7 +5,7 @@ import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
-import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority } from '../src/game/chains';
+import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority, resolveChainStep } from '../src/game/chains';
 import { chooseAIAction, observeGame, updateKnownCards } from '../src/game/opponentAI';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
@@ -20,7 +20,8 @@ function game(): GameState {
     return { players: [player(0), player(1)], activePlayerIndex: 0, currentPhase: Phase.MAIN1, turnNumber: 3, log: [], winner: null, pendingEffects: [] };
 }
 function passAll(state: GameState) {
-    for (let i = 0; i < 20 && state.response && !state.response.ready && !state.winner; i++) state = passPriority(state);
+    for (let i = 0; i < 20 && state.response && !state.response.ready && !state.winner; i++)
+        state = state.resolvingChain ? resolveChainStep(state) : passPriority(state);
     return state;
 }
 
@@ -123,8 +124,9 @@ describe('response windows and chains', () => {
         const choices = effectChoices(s, maintenance, 'activate');
         expect(choices.length).toBeGreaterThan(0);
         const next = addChainLink(s, choices[0], 'activate');
-        expect(next.players[0].pawnZones.filter(Boolean)).toHaveLength(4);
+        expect(next.players[0].pawnZones.filter(Boolean)).toHaveLength(3);
         expect(next.players[0].discard.filter(c => c.tributedByAction)).toHaveLength(2);
+        expect(passAll(next).players[0].pawnZones.filter(Boolean)).toHaveLength(4);
     });
 });
 

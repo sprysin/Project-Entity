@@ -4,6 +4,7 @@ vi.mock('react', () => { throw new Error('The rules engine must not import React
 import { applyCommand, applySystemCommand, createGame, GameCommand } from '../src/game/engine';
 import { Card, GameState, Phase, Position } from '../src/types';
 import { cardRegistry } from '../src/cards/CardRegistry';
+import { resolveChainStep } from '../src/game/chains';
 import { simulateAttack, simulateSummon } from '../src/game/opponentAI';
 
 let serial = 0;
@@ -130,7 +131,8 @@ it('resolves card activation and costs through the engine without mutating the c
     const blast = card('action_01');
     state.players[0].hand = [blast];
     const played = command(freeze(state), { type: 'play', cardId: blast.instanceId, set: false, slot: 0 });
-    const result = command(freeze(played), { type: 'activate', context: { card: blast, playerIndex: 0 }, trigger: 'activate' });
+    let result = command(freeze(played), { type: 'activate', context: { card: blast, playerIndex: 0 }, trigger: 'activate' });
+    while (result.resolvingChain) result = resolveChainStep(result);
     expect(result.players[1].lp).toBe(750);
     expect(result.players[0].discard.map(c => c.instanceId)).toContain(blast.instanceId);
     expect(played.players[1].lp).toBe(800);

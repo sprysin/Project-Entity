@@ -1,11 +1,44 @@
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card, Position, TargetSelectPosition, TargetSelectScope } from '../../types';
+import { Card, Position, ShuffleLocation, TargetSelectPosition, TargetSelectScope } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
 import { sendToOwnerPile } from '../../game/cardOwnership';
+import { shuffleCandidates } from '../../game/shuffleSelection';
+import { destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Cost = {
+    /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
+    ShuffleFrom: (location: ShuffleLocation, count: number, target: boolean, filter: (card: Card) => boolean = () => true): EffectStep => activationCost((draftState, context) => {
+        if (!Number.isInteger(count) || count < 1) return { halt: true };
+        const candidates = shuffleCandidates(draftState, context.playerIndex, location);
+        if (!context.shuffleIndices) return { requireShuffleSelection: { playerIndex: context.playerIndex, location, count, target, filter } };
+        const indices = context.shuffleIndices;
+        if (indices.length !== count || new Set(indices).size !== count
+            || indices.some(index => !candidates.some(entry => entry.index === index && filter(entry.card)))) return { halt: true };
+        const selected = indices.map(index => candidates.find(entry => entry.index === index)!.card);
+        const player = draftState.players[context.playerIndex];
+        for (const index of [...indices].sort((a, b) => b - a)) {
+            if (location === 'hand') player.hand.splice(index, 1);
+            else if (location === 'discard') player.discard.splice(index, 1);
+            else if (index < player.pawnZones.length) player.pawnZones[index] = null;
+            else player.actionZones[index - player.pawnZones.length] = null;
+        }
+        const owners = new Set<string>();
+        for (const card of selected) {
+            const owner = draftState.players.find(candidate => candidate.id === card.ownerId) ?? player;
+            owner.deck.push(card);
+            owners.add(owner.id);
+        }
+        for (const ownerId of owners) {
+            const deck = draftState.players.find(candidate => candidate.id === ownerId)!.deck;
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+        if (location === 'field') Object.assign(draftState, destroyOrphanedAttachments(draftState));
+    }),
     /** Destroys the activating Pawn as an activation cost. */
     DestroySelf: (): EffectStep => activationCost((draftState, context) => {
         const player = draftState.players[context.playerIndex];

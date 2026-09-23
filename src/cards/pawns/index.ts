@@ -12,3 +12,4 @@ import './GlassWitch';
 import './CurseGivingGhost';
 import './GlitterGrub';
 import './ZombieNecromancer';
+import './TurnadosTheWindConstruct';

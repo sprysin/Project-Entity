@@ -1,4 +1,4 @@
-import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
+import { Attribute, Card, CardContext, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, fieldActivations, openResponse, passPriority, runEffect } from './chains';
 import { destroyOrphanedAttachments } from './attachments';
@@ -19,6 +19,8 @@ export type GameCommand =
     | { type: 'activate'; context: CardContext; trigger: EffectTrigger }
     | { type: 'cancelEffect'; cardId: string }
     | { type: 'attack'; attackerIndex: number; targetIndex: number | 'direct' }
+    | { type: 'frontlineSummon'; sourceId: string; cardId: string; slot: number; position: Position }
+    | { type: 'frontlineDecline'; sourceId: string }
     | { type: 'phase' | 'end' | 'pass' };
 
 /** Host commands advance automatic rules; players cannot submit them as game commands. */
@@ -41,7 +43,7 @@ export function createGame(players: [
         log: ['Turn 1', `Duel initialized. ${players[0].name}: ${players[0].deckName ?? 'Random test deck'}; ${players[1].name}: ${players[1].deckName ?? 'Random test deck'}.`] };
 }
 
-const isMain = (state: GameState, actor: number) => !state.winner && !state.response && !state.pendingSwitches?.length
+const isMain = (state: GameState, actor: number) => !state.winner && !state.response && !state.pendingSwitches?.length && !state.pendingFrontline?.length
     && actor === state.activePlayerIndex && [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase);
 const validSlot = (slot: number) => Number.isInteger(slot) && slot >= 0 && slot < 5;
 
@@ -52,7 +54,7 @@ export function canChangePosition(state: GameState, actor: number, index: number
 
 export function canAttack(state: GameState, actor: number, index: number): boolean {
     const zone = state.players[actor]?.pawnZones[index];
-    return !state.winner && !state.response && !state.pendingSwitches?.length && state.activePlayerIndex === actor && state.currentPhase === Phase.BATTLE
+    return !state.winner && !state.response && !state.pendingSwitches?.length && !state.pendingFrontline?.length && state.activePlayerIndex === actor && state.currentPhase === Phase.BATTLE
         && state.turnNumber > 1 && !!zone && zone.position === Position.ATTACK
         && (zone.attacksRemaining !== undefined ? zone.attacksRemaining > 0 : !zone.hasAttacked);
 }
@@ -71,8 +73,31 @@ export const previewEffect = runEffect;
 
 function reduceCommand(state: GameState, actor: number, command: GameCommand): GameState {
     if (state.winner || !state.players[actor]) return state;
+    if (state.pendingFrontline?.length && !['frontlineSummon', 'frontlineDecline', 'activate', 'pass', 'cancelEffect'].includes(command.type)) return state;
     const player = state.players[actor];
     switch (command.type) {
+        case 'frontlineDecline': {
+            const pending = state.pendingFrontline?.[0];
+            if (!pending || state.response || state.resolvingChain || pending.playerIndex !== actor || pending.sourceId !== command.sourceId) return state;
+            return { ...state, pendingFrontline: state.pendingFrontline!.slice(1) };
+        }
+        case 'frontlineSummon': {
+            const pending = state.pendingFrontline?.[0];
+            if (!pending || state.response || state.resolvingChain || pending.playerIndex !== actor || pending.sourceId !== command.sourceId
+                || !validSlot(command.slot) || player.pawnZones[command.slot]
+                || ![Position.ATTACK, Position.DEFENSE].includes(command.position)) return state;
+            const source = player.actionZones.find(zone => zone?.card.instanceId === pending.sourceId && zone.position !== Position.HIDDEN);
+            const card = player.hand.find(candidate => candidate.instanceId === command.cardId);
+            if (!source || source.card.id !== 'condition_06' || !card || card.type !== CardType.PAWN
+                || card.attribute !== Attribute.LIGHT || card.level > 4) return state;
+            const next = structuredClone(state), own = next.players[actor];
+            own.hand = own.hand.filter(candidate => candidate.instanceId !== card.instanceId);
+            own.pawnZones[command.slot] = { card: { ...card }, position: command.position,
+                hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+            next.pendingFrontline = next.pendingFrontline!.slice(1);
+            next.log = [`"${card.name}" was special summoned by "${source.card.name}".`, ...next.log].slice(0, 50);
+            return next;
+        }
         case 'summon': {
             if (!isMain(state, actor) || !validSlot(command.slot)) return state;
             const card = player.hand.find(c => c.instanceId === command.cardId);
@@ -89,6 +114,18 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
             if (!required) { if (command.hidden) p.hiddenSummonUsed = true; else p.normalSummonUsed = true; }
             if (!command.hidden) next.log = [formatSummonLog(card), ...next.log].slice(0, 50);
+            if (required && !command.hidden) {
+                const opponentIndex = 1 - actor;
+                const opponent = next.players[opponentIndex];
+                if (opponent.pawnZones.some(zone => !zone)
+                    && opponent.hand.some(candidate => candidate.type === CardType.PAWN && candidate.attribute === Attribute.LIGHT && candidate.level <= 4)) {
+                    next.pendingFrontline = [
+                        ...(next.pendingFrontline ?? []),
+                        ...opponent.actionZones.flatMap(zone => zone?.card.id === 'condition_06' && zone.position !== Position.HIDDEN
+                            ? [{ sourceId: zone.card.instanceId, playerIndex: opponentIndex }] : [])
+                    ];
+                }
+            }
             return destroyOrphanedAttachments(next);
         }
         case 'play': {

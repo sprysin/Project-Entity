@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
-import { GameState, Player } from '../../types';
+import { Attribute, CardType, GameState, Player } from '../../types';
+import { ShuffleSelectionModal } from './SelectionModals';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
 import { DuelPrompt } from './DuelPrompt';
@@ -97,6 +98,12 @@ export const GameOverlays: React.FC<{
         {state.floatingTexts.map(text => (
             <div key={text.id} className={`floating-text text-6xl ${text.type === 'damage' ? 'text-red-600' : 'text-green-500'}`} style={{ left: `${text.x}%`, top: `${text.y}%` }}>{text.text}</div>
         ))}
+        {gameState.resolvingChain && (
+            <div role="status" aria-live="polite" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-500 bg-slate-950/95 px-5 py-3 text-center shadow-lg">
+                <div className="font-orbitron text-[10px] uppercase tracking-widest text-yellow-400">Chain resolving · {gameState.resolvingChain.current} / {gameState.resolvingChain.total}</div>
+                <div className="mt-1 text-sm font-bold text-white">{gameState.resolvingChain.cardName}</div>
+            </div>
+        )}
 
         {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && state.responseFieldMode !== 'activate' && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
             <DuelPrompt
@@ -115,8 +122,22 @@ export const GameOverlays: React.FC<{
                 {!!gameState.chain?.length && <ol className="duel-prompt__chain">{gameState.chain.map((link, i) => <li key={i}>{i + 1}. {link.context.card.name}{i === gameState.chain!.length - 1 ? ' · resolves first' : ''}</li>)}</ol>}
             </DuelPrompt>
         )}
-        {state.opponentMode === 'ai' && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
+        {state.opponentMode === 'ai' && !gameState.resolvingChain && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
+        <ShuffleSelectionModal request={state.shuffleSelectionReq} gameState={gameState} onConfirm={actions.handleShuffleSelection} onCancel={actions.cancelEffect} />
+        {gameState.pendingFrontline?.length && !state.frontlineCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
+            && !(state.opponentMode === 'ai' && gameState.pendingFrontline[0].playerIndex === 1)
+            && <PeekSelectionModal
+                selectionReq={{ playerIndex: gameState.pendingFrontline[0].playerIndex, viewerPlayerIndex: gameState.pendingFrontline[0].playerIndex, title: 'Orcustrated Frontline Unit: Choose a LIGHT Pawn' }}
+                gameState={gameState}
+                selectedPeekIndex={state.frontlineSelectedHandIndex}
+                setSelectedPeekIndex={actions.setFrontlineSelectedHandIndex}
+                cancelEffect={() => actions.frontlineDecline(gameState.pendingFrontline![0].sourceId)}
+                handlePeekSelection={actions.frontlineChooseCard}
+                filter={card => card.type === CardType.PAWN && card.attribute === Attribute.LIGHT && card.level <= 4}
+                confirmLabel="Choose Pawn"
+                cancellable
+            />}
         <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} setHandSelectionReq={actions.cancelEffect} handleHandSelection={actions.handleHandSelection} />
         <PeekSelectionModal selectionReq={state.peekSelectionReq} gameState={gameState} selectedPeekIndex={state.selectedPeekIndex} setSelectedPeekIndex={actions.setSelectedPeekIndex} cancelEffect={actions.cancelEffect} handlePeekSelection={actions.handlePeekSelection} />
         {gameState.peekEvents?.filter(event => event.viewerPlayerIndex === viewerIndex).slice(0, 1).map(event => <PeekAutoDismiss key={event.id} eventId={event.id} dismiss={actions.dismissPeek} />)}
@@ -145,6 +166,12 @@ export const GameOverlays: React.FC<{
                 <div className="mt-1 font-orbitron text-[10px] font-bold uppercase tracking-widest text-yellow-500">{gameState.players[gameState.activePlayerIndex].name}'s turn</div>
             </div>
             <PhaseAdvanceButton disabled={actionsDisabled || state.targetSelectMode !== null} phase={gameState.currentPhase} nextPhase={actions.nextPhase} skipToEndPhase={actions.skipToEndPhase} />
+            {state.frontlineCardId && gameState.pendingFrontline?.[0] && (
+                <div className="w-44 border border-yellow-500 bg-slate-950 p-2 text-right shadow-lg" role="status">
+                    <div className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-400">Select an empty Pawn slot</div>
+                    <button data-sound="cancellation" onClick={() => actions.frontlineDecline(gameState.pendingFrontline![0].sourceId)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase text-slate-200 hover:bg-slate-700">Decline</button>
+                </div>
+            )}
             {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && state.responseFieldMode === 'activate' && !state.pendingEffectCard && !state.triggeredEffect && (
                 <div className="w-44 border border-white/10 bg-black/80 p-2 text-right shadow-lg backdrop-blur-md" role="status" aria-label="Response field controls">
                     <div aria-label="Response field message" className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-500">

@@ -65,7 +65,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             const waypoint = waypoints.current.get(id);
             const activation = activated.current.has(id);
             const token = `${id}-${performance.now()}`;
-            if (waypoint && !/-(pawn|action)-/.test(dest.key)) {
+            if (waypoint) {
                 batch.push({ id: `${token}-field`, card: dest.card, hidden: false, from: src.rect, to: waypoint,
                     rotation: 0, fromRotation: src.rotation, duration: 650, activation });
                 batch.push({ id: token, card: dest.card, hidden: dest.hidden, from: waypoint, to: dest.rect,
@@ -83,7 +83,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
                     { opacity: 1, transform: 'translateY(-14px) scale(1.06)', offset: .72 },
                     { opacity: 1, transform: 'translateY(3px) scale(.98)', offset: .85 },
                     { opacity: 1, transform: 'translateY(0) scale(1)' }
-                ], { duration: 700, easing: 'ease-out' });
+                ], { duration: waypoint ? 1350 : 700, easing: 'ease-out' });
             }
         });
         previous.current = next;
@@ -97,7 +97,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         motions,
         // Preserve temporary field stops that React batches away during instant effects.
         recordMovement: (_source: string, target: string, _type: 'discard' | 'void' | 'retrieve', card?: Card) => {
-            if (!card || !/-(pawn|action)-/.test(target)) return;
+            if (!card) return;
             const rect = refs.current.get(target)?.getBoundingClientRect();
             if (rect) waypoints.current.set(card.instanceId, rect);
         },

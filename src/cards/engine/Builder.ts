@@ -16,7 +16,7 @@ export const buildEffect = (steps: EffectStep[]) => {
             if (context.execution === 'resolve' && step.activationCost) continue;
             const result = step(draftState, context);
             if (result) {
-                if (result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireEffectTribute) {
+                if (result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection) {
                     return {
                         newState: draftState,
                         requireTarget: result.requireTarget,
@@ -28,7 +28,8 @@ export const buildEffect = (steps: EffectStep[]) => {
                         requireHandSelection: result.requireHandSelection,
                         requirePeekSelection: result.requirePeekSelection,
                         requireDeckSelection: result.requireDeckSelection,
-                        requireEffectTribute: result.requireEffectTribute
+                        requireEffectTribute: result.requireEffectTribute,
+                        requireShuffleSelection: result.requireShuffleSelection
                     };
                 }
 

@@ -6,6 +6,16 @@ import { drawCards } from '../../game/draw';
 import { sendToOwnerPile } from '../../game/cardOwnership';
 
 export const Effect = {
+    /** Destroys the selected field card. */
+    DestroyTarget: (targetIndex = 0): EffectStep => (draftState, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        if (!target) return { halt: true };
+        const zones = draftState.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'];
+        const zone = zones[target.index];
+        if (!zone) return { halt: true };
+        sendToOwnerPile(draftState, zone.card, 'discard');
+        zones[target.index] = null;
+    },
     /** Has the opponent choose one card in their hand to reveal privately to this effect's controller. */
     PeekOpponentHand: (): EffectStep => (draftState, context) => {
         const ownerPlayerIndex = 1 - context.playerIndex;

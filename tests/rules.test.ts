@@ -5,7 +5,7 @@ import { checkVictory } from '../src/game/finishEffect';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { addSimultaneousTriggers, SimultaneousTrigger } from '../src/game/chains';
+import { addSimultaneousTriggers, resolveChainStep, SimultaneousTrigger } from '../src/game/chains';
 import { advancePhaseState } from '../src/game/phases';
 
 function state(): GameState {
@@ -82,14 +82,20 @@ it('builds all four trigger groups before any effect resolves, then resolves in 
             const source = card(`trigger-${active}-${index}`, owner as number);
             cardRegistry.register(source, { onSummon: buildEffect([(draft, context) => {
                 if (context.execution === 'resolve') {
-                    expect(draft.chain).toHaveLength(4);
+                    expect(draft.chain).toHaveLength(4 - resolved.length);
                     resolved.push(name as string);
                 }
             }]) });
             return { context: { card: source, playerIndex: owner as number }, trigger: 'summon',
                 mandatory: mandatory as boolean, accepted: name !== 'declined' };
         });
-        addSimultaneousTriggers(game, [entries[3], entries[1], entries[4], entries[2], entries[0]]);
+        let pending = addSimultaneousTriggers(game, [entries[3], entries[1], entries[4], entries[2], entries[0]]);
+        expect(pending.resolvingChain).toMatchObject({ current: 1, total: 4, cardName: entries[3].context.card.name });
+        while (pending.resolvingChain) {
+            const previous = pending;
+            pending = resolveChainStep(pending);
+            expect(pending.chain).toHaveLength(previous.chain!.length - 1);
+        }
         expect(resolved).toEqual(['opponent optional', 'turn optional', 'opponent mandatory', 'turn mandatory']);
     }
 });

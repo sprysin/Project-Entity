@@ -14,8 +14,15 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({ id: 'pawn_13', name: 'Glitter Grub', type: CardType.PAWN,
-    level: 2, attribute: Attribute.LIGHT, pawnType: PawnType.BUG, pawnSubtype: PawnSubtype.SWITCH,
-    atk: 10, def: 120,
+cardRegistry.register({
+    id: 'pawn_13',
+    name: 'Glitter Grub',
+    type: CardType.PAWN,
+    level: 2,
+    attribute: Attribute.LIGHT,
+    pawnType: PawnType.BUG,
+    pawnSubtype: PawnSubtype.SWITCH,
+    atk: 10,
+    def: 120,
     effectText: 'Switch: You can discard 1 Light Pawn to draw 1 card. You can only use this effect of “Glitter Grub” once per turn.'
 }, effect);

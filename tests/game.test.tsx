@@ -27,7 +27,7 @@ function setup(edit: (s: GameState) => void) {
 beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it('silently rejects unavailable effects instead of prompting for them', () => {
+it('prompts only for available effects and honors a chosen special-summon slot', () => {
     const recovery = card('action_02');
     setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('pawn_04')]; });
     const previousLog = game.gameState!.log;
@@ -45,6 +45,23 @@ it('silently rejects unavailable effects instead of prompting for them', () => {
     setup(s => { s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('action_01')]; });
     act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(eligibleCaster.instanceId);
+
+    const frontline = card('condition_06', 1);
+    const light = card('pawn_01', 1);
+    setup(s => {
+        s.activePlayerIndex = 0;
+        s.players[1].actionZones[0] = placed(frontline);
+        s.players[1].hand = [light];
+        s.pendingFrontline = [{ sourceId: frontline.instanceId, playerIndex: 1 }];
+    });
+    act(() => game.actions.setTriggeredEffect(null));
+    act(() => game.actions.frontlineChooseCard(0));
+    expect(game.state.frontlineCardId).toBe(light.instanceId);
+    act(() => game.actions.frontlineSummon(3, Position.DEFENSE));
+    expect(game.gameState!.players[1].pawnZones[0]).toBeNull();
+    expect(game.gameState!.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
+    expect(game.gameState!.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
+    expect(game.state.frontlineCardId).toBeNull();
 });
 
 it('holds a declared attack for 1.5 seconds before committing combat', () => {
@@ -78,6 +95,7 @@ it('discard then target charges one card and applies the selected effect', () =>
     expect(game.state.handSelectionReq).toBeNull();
     expect(game.gameState!.players[0].hand).toHaveLength(1);
     act(() => game.actions.resolveEffect(beast, { playerIndex: 1, type: 'pawn', index: 0 }));
+    act(() => vi.advanceTimersByTime(500));
     expect(game.gameState!.players[0].hand).toHaveLength(0);
     expect(game.gameState!.players[0].discard).toHaveLength(1);
     expect(game.gameState!.players[1].pawnZones[0]?.position).toBe(Position.DEFENSE);
@@ -94,6 +112,7 @@ it('effect tributes are paid once after all activation selections are complete',
     act(() => vi.advanceTimersByTime(10000));
     expect(game.gameState!.players[0].actionZones[0]?.card.instanceId).toBe(maintenance.instanceId);
     act(() => game.actions.handleDiscardSelection(0));
+    act(() => vi.advanceTimersByTime(500));
     expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(recovered.instanceId);
     expect(game.gameState!.players[0].discard).toHaveLength(3);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
@@ -109,9 +128,10 @@ it('keeps a peeked card in hand and waits for the viewer to hide the reveal', ()
 
     act(() => game.actions.resolveEffect(witch));
     expect(game.state.peekSelectionReq).toBeNull();
-    act(() => vi.advanceTimersByTime(1300));
+    act(() => vi.advanceTimersByTime(1800));
     expect(game.state.peekSelectionReq).toMatchObject({ playerIndex: 1, viewerPlayerIndex: 0 });
     act(() => game.actions.handlePeekSelection(0));
+    act(() => vi.advanceTimersByTime(500));
     expect(game.gameState!.players[1].hand[0].instanceId).toBe(shown.instanceId);
     expect(game.gameState!.peekEvents?.[0].card.instanceId).toBe(shown.instanceId);
     const eventId = game.gameState!.peekEvents![0].id;

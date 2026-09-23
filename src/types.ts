@@ -114,10 +114,12 @@ export interface PendingEffect {
 }
 
 export interface GameState {
+  pendingFrontline?: { sourceId: string; playerIndex: number }[];
   pendingSwitches?: { card: Card; playerIndex: number }[];
   drawProgress?: { turn: number; remaining: number };
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
   chain?: ChainLink[];
+  resolvingChain?: { total: number; current: number; cardName: string };
   deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };
   players: [Player, Player];
   activePlayerIndex: number;
@@ -152,6 +154,15 @@ export interface HandSelectionRequest {
   filter?: CardFilter;
   playerIndex: number;
   title?: string;
+}
+
+export type ShuffleLocation = 'hand' | 'field' | 'discard';
+export interface ShuffleSelectionRequest {
+  playerIndex: number;
+  location: ShuffleLocation;
+  count: number;
+  target: boolean;
+  filter: CardFilter;
 }
 
 export interface PeekSelectionRequest {
@@ -193,6 +204,7 @@ export type EffectResult = {
   requirePeekSelection?: PeekSelectionRequest;
   requireDeckSelection?: CardSelectionRequest;
   requireEffectTribute?: TributeSelectionRequest;
+  requireShuffleSelection?: ShuffleSelectionRequest;
 };
 
 export interface CardContext {
@@ -207,6 +219,7 @@ export interface CardContext {
   peekIndex?: number;
   deckIndex?: number;
   tributeIndices?: number[];
+  shuffleIndices?: number[];
 }
 
 export interface IEffect {
