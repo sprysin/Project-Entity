@@ -5,7 +5,7 @@ import { CardDetail } from '../cards/CardDetail';
 import { CardDefinition } from '../../cards/CardRegistry';
 import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, MIN_DECK_SIZE } from '../../decks';
 import { getSavedDecks, saveDeckLibrary } from '../../desktop/storage';
-import { confirmAction, exportDeck, importDeck, showMessage } from '../../desktop/files';
+import { exportDeck, importDeck } from '../../desktop/files';
 import { setCloseReason } from '../../desktop/lifecycle';
 import { CardType } from '../../types';
 import './DeckCreator.css';
@@ -33,6 +33,8 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const [libraryReadable, setLibraryReadable] = useState(true);
     const [deleteMode, setDeleteMode] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [cardMotion, setCardMotion] = useState<{ id: string; direction: 'add' | 'remove'; key: number } | null>(null);
+    const [prompt, setPrompt] = useState<{ title: string; message: string; confirm?: () => void; confirmLabel?: string } | null>(null);
 
     useEffect(() => {
         try { setLibrary(getSavedDecks()); }
@@ -44,8 +46,10 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     }, [dirty]);
 
     const open = (next: SavedDeck) => { setDeck(structuredClone(next)); setDirty(false); setNotice(''); setSearch(''); };
-    const deleteDeck = async (item: SavedDeck) => {
-        if (!await confirmAction(`Delete "${item.name}" from your decks? Exported JSON files will remain on your computer.`)) return;
+    const deleteDeck = (item: SavedDeck) => {
+        setPrompt({ title: 'Delete deck?', message: `Delete "${item.name}" from your decks? Exported JSON files will remain on your computer.`, confirmLabel: 'Delete', confirm: () => { void deleteConfirmed(item); } });
+    };
+    const deleteConfirmed = async (item: SavedDeck) => {
         try {
             const remaining = library.filter(saved => saved.id !== item.id);
             await saveDeckLibrary(remaining);
@@ -54,14 +58,20 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             setNotice('Deck deleted');
         } catch { setNotice('Could not delete the deck. Please try again.'); }
     };
-    const leave = async () => {
-        if (dirty && !await confirmAction('Leave without saving your deck changes?')) return;
+    const leave = () => {
+        if (dirty) { setPrompt({ title: 'Unsaved changes', message: 'Leave without saving your deck changes?', confirmLabel: 'Leave', confirm: closeDeck }); return; }
+        closeDeck();
+    };
+    const closeDeck = () => {
         setDeck(null); setDirty(false); setNotice('');
     };
     const changeQuantity = (card: CardDefinition, delta: number) => {
         if (!deck) return;
         if (delta > 0 && !canAddCard(deck, card.id)) return;
-        const quantity = Math.max(0, (deck.cards.find(e => e.cardId === card.id)?.quantity ?? 0) + delta);
+        const previous = deck.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
+        const quantity = Math.max(0, previous + delta);
+        if (quantity === previous) return;
+        setCardMotion({ id: card.id, direction: delta > 0 ? 'add' : 'remove', key: Date.now() });
         setDeck({ ...deck, cards: [...deck.cards.filter(e => e.cardId !== card.id), ...(quantity ? [{ cardId: card.id, quantity }] : [])] });
         setSelected(card); setDirty(true); setNotice('');
     };
@@ -69,7 +79,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         if (!deck) return;
         let saved: SavedDeck;
         try { saved = parseDeck({ ...deck, name: deck.name.trim() || 'Untitled deck' }); }
-        catch (error) { await showMessage(error instanceof Error ? error.message : 'Please check your deck.'); return; }
+        catch (error) { setPrompt({ title: 'Could not save deck', message: error instanceof Error ? error.message : 'Please check your deck.' }); return; }
         if (!libraryReadable) { setNotice('Local library unavailable. Export to JSON to keep a copy.'); return; }
         setBusy(true);
         try {
@@ -81,14 +91,14 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         finally { setBusy(false); }
         setDeck(saved); setDirty(false);
         setNotice('Deck saved locally');
-        if (total(saved) < MIN_DECK_SIZE) await showMessage(`Deck saved, but it is unplayable. A playable deck needs 40–60 cards. This deck has ${total(saved)}; add ${MIN_DECK_SIZE - total(saved)} more.`);
+        if (total(saved) < MIN_DECK_SIZE) setPrompt({ title: 'Deck saved', message: `This deck is unplayable. A playable deck needs 40–60 cards. This deck has ${total(saved)}; add ${MIN_DECK_SIZE - total(saved)} more.` });
     };
     const exportJson = async () => {
         if (!deck) return;
         try {
             const exported = parseDeck({ ...deck, name: deck.name.trim() || 'Untitled deck' });
             if (await exportDeck(exported)) setNotice('Deck exported');
-        } catch (error) { await showMessage(error instanceof Error ? error.message : 'Could not export your deck.'); }
+        } catch (error) { setPrompt({ title: 'Could not export deck', message: error instanceof Error ? error.message : 'Could not export your deck.' }); }
     };
     const importFile = async () => {
         try {
@@ -105,7 +115,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         {busy && <div role="status" style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', background: '#020617aa' }}>Saving deck…</div>}
         {!deck ? <main className="deck-library">
             <header className="deck-library-header">
-                <div><span className="deck-eyebrow">PROJECT PAWN</span><h1>YOUR DECKS</h1></div>
+                <div><span className="deck-eyebrow">PROJECT ENTITY</span><h1>YOUR DECKS</h1></div>
                 <BackToHubButton onClick={onBack} />
             </header>
             <div className="deck-library-actions">
@@ -126,7 +136,10 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             <aside className="deck-preview" aria-label="Card viewer">
                 <div className="deck-preview-nav"><IconButton sound="cancellation" label="Back to decks" icon="fa-arrow-left" onClick={leave} /><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
                 {selected && <div className="deck-preview-face">{face(selected)}</div>}
-                {selected && <div className="deck-preview-controls"><IconButton sound="toggle" label={`Remove ${selected.name}`} icon="fa-minus" onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)} /><IconButton sound="toggle" label={`Add ${selected.name}`} icon="fa-plus" onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id)} /></div>}
+                {selected && <div className="deck-preview-controls">
+                    <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Remove ${selected.name}`} onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)}>Remove card <span aria-hidden="true">−</span></button>
+                    <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Add ${selected.name}`} onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id)}>Add card <span aria-hidden="true">+</span></button>
+                </div>}
             </aside>
             <main className="deck-center" aria-label="Deck contents">
                 <header className="deck-center-header">
@@ -139,9 +152,8 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                 <div className="deck-content-scroll">
                     {!deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
                     <div className="deck-owned-grid">{cards.flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
-                        <div key={`${card.id}-${copy}`} className="deck-owned-card">
-                            <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
-                            <div className="deck-quantity"><IconButton sound="toggle" label={`Remove ${card.name}, copy ${copy + 1}`} icon="fa-minus" onClick={() => changeQuantity(card, -1)} /></div>
+                        <div key={`${card.id}-${copy}-${cardMotion?.id === card.id ? cardMotion.key : ''}`} className={`deck-owned-card${cardMotion?.id === card.id ? ` deck-card-${cardMotion.direction}` : ''}`}>
+                            <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}; right click to remove`} title="Right click to remove" onClick={() => setSelected(card)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, -1); }}>{face(card, true)}</button>
                         </div>
                     ))}</div>
                 </div>
@@ -156,7 +168,6 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
                                 <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
-                                <div className="deck-catalog-add"><span /><IconButton sound="toggle" label={`Add ${card.name}`} icon="fa-plus" onClick={() => changeQuantity(card, 1)} disabled={!canAddCard(deck, card.id)} /></div>
                             </div>)}</div>
                         </section>;
                     })}
@@ -164,5 +175,12 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             </aside>
         </div>}
         {notice && <div className="deck-notice" role="status">{notice}<IconButton sound="cancellation" label="Dismiss notification" icon="fa-xmark" onClick={() => setNotice('')} /></div>}
+        {prompt && <div className="deck-prompt-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setPrompt(null); }}>
+            <section className="deck-prompt" role="dialog" aria-modal="true" aria-labelledby="deck-prompt-title" aria-describedby="deck-prompt-message" onKeyDown={event => { if (event.key === 'Escape') setPrompt(null); }}>
+                <span className="deck-eyebrow">PROJECT ENTITY</span><h2 id="deck-prompt-title">{prompt.title}</h2>
+                <p id="deck-prompt-message">{prompt.message}</p>
+                <div className="deck-prompt-actions">{prompt.confirm && <button className="deck-secondary" onClick={() => setPrompt(null)}>Cancel</button>}<button autoFocus className="deck-primary" onClick={() => { const action = prompt.confirm; setPrompt(null); action?.(); }}>{prompt.confirmLabel ?? 'OK'}</button></div>
+            </section>
+        </div>}
     </div>;
 }

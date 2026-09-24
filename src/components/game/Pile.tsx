@@ -7,12 +7,11 @@ import { CardDetail } from '../cards/CardDetail';
  */
 export const DeckPile: React.FC<{ count: number, label: string, domRef?: (el: HTMLElement | null) => void }> = ({ count, label, domRef }) => (
     <div className="flex flex-col items-center group relative">
-        <div ref={domRef} className={`w-32 aspect-[2/3] card-back rounded border-2 border-slate-400 flex items-center justify-center shadow-xl transition-transform group-hover:scale-105 relative`}>
-            <div className="absolute inset-0 flex items-center justify-center">
-                <span className="font-black text-white text-3xl font-orbitron drop-shadow-md z-20 pointer-events-none">{count}</span>
-            </div>
+        <div ref={domRef} aria-label={`${label}: ${count} cards`} className={`deck-pile w-32 aspect-[2/3] rounded flex items-center justify-center relative ${count > 0 ? 'card-back border-2 border-slate-400 shadow-xl transition-transform group-hover:scale-105' : 'deck-pile--empty'}`}>
+            {count > 0
+                ? <span className="font-black text-white text-3xl font-orbitron drop-shadow-md z-20 pointer-events-none">{count}</span>
+                : <span className="deck-pile__empty-label">EMPTY</span>}
         </div>
-        <span className="text-[11px] font-orbitron mt-2 text-white font-black drop-shadow-md tracking-widest">{label.toUpperCase()}</span>
     </div>
 );
 
@@ -20,23 +19,25 @@ export const DeckPile: React.FC<{ count: number, label: string, domRef?: (el: HT
  * Pile Sub-component: Represents Discard and Void piles. Supports glow animations.
  */
 export const Pile: React.FC<{
-    count: number;
-    topCard?: Card;
+    cards: Card[];
     label: string;
-    color: string;
+    color: 'slate' | 'purple';
     icon: string;
     isFlashing?: boolean;
     onClick?: () => void;
     domRef?: (el: HTMLElement | null) => void;
-}> = ({ count, topCard, label, color, icon, isFlashing, onClick, domRef }) => (
-    <button type="button" data-sound="select-small" data-pile-trigger aria-label={`${label}: ${count} cards. Open pile`} className="flex flex-col items-center group cursor-pointer" onClick={onClick}>
-        <div ref={domRef} className={`relative w-32 aspect-[2/3] ${color === 'slate' ? 'bg-slate-900/40' : 'bg-purple-900/40'} border border-white/10 rounded flex flex-col items-center justify-center shadow-xl transition-all group-hover:scale-105 text-white font-orbitron ${isFlashing ? (color === 'slate' ? 'flash-gold' : 'flash-purple') : ''}`}>
-            {topCard && <div className="absolute inset-0"><CardDetail card={topCard} compact className="w-full h-full" /></div>}
-            {topCard && <div aria-hidden="true" className={`absolute inset-0 pointer-events-none ${color === 'slate' ? 'bg-slate-500/35' : 'bg-purple-600/35'}`} />}
-            <div className={`z-10 rounded px-2 py-1 ${topCard ? 'absolute bottom-1 right-1 bg-black/85 border border-white/30' : 'relative'}`}>
-            <i className={`fa-solid ${icon} text-2xl mb-1 opacity-60`}></i>
-            <span className="text-xl font-black">{count}</span>
-            </div>
-        </div>
+}> = ({ cards, label, color, icon, isFlashing, onClick, domRef }) => (
+    <button type="button" data-sound="select-small" data-pile-trigger aria-label={`${label}: ${cards.length} cards. Open pile`} className={`history-pile history-pile--${color} ${isFlashing ? (color === 'slate' ? 'flash-gold' : 'flash-purple') : ''}`} onClick={onClick}>
+        <span ref={domRef} className="history-pile__target" aria-hidden="true" />
+        <span className="history-pile__cards" aria-hidden="true">
+            {cards.slice(-4).reverse().map((card, index) => (
+                <span key={card.instanceId} className="history-pile__card" style={{ left: `${7 + index * 55}px`, zIndex: 4 - index }}>
+                    <CardDetail card={card} compact className="w-full h-full" />
+                </span>
+            ))}
+        </span>
+        <span className="history-pile__counter" aria-hidden="true">
+            <span className="history-pile__count"><i className={`fa-solid ${icon}`} />{cards.length}</span>
+        </span>
     </button>
 );

@@ -91,7 +91,7 @@ const topics: Topic[] = [
     id: 'pawn-info', title: 'Pawn Information', subtitle: 'Read every part of a Pawn card', icon: 'fa-address-card', rules: [
       'During either Main Phase, each Pawn may manually change between Attack and Defense Position once per turn.',
       'A Pawn cannot manually change position on the turn it was summoned or set, or after it has attacked that turn.',
-      'Manually turning a face-down Pawn face-up is a Flip Summon. It enters Attack Position and uses its manual position change for that turn.',
+      'Manually turning a face-down Pawn face-up is a Switch Summon. It enters Attack Position and uses its manual position change for that turn.',
       'A Switch Pawn has [Type/Switch/Pawn] on its card. Its Switch effect triggers when it turns from face-down to face-up, including when attacked.',
       'Position changes caused by card effects do not use the manual position change allowance.',
     ]
@@ -283,7 +283,7 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <p className="rulebook-page-intro">The circular icon beside a Pawn’s Type shows its Attribute. Like Types, Attributes are classifications used by card effects.</p>
                   <div className="rulebook-attribute-grid">{attributes.map(attribute => <article key={attribute.value} style={{ '--attribute-color': attribute.color } as React.CSSProperties}>{attribute.icon ? <i className={`fa-solid ${attribute.icon}`} aria-hidden="true" /> : <span className="rulebook-attribute-glyph" aria-hidden="true">{attribute.glyph}</span>}<div><h2>{attribute.value}</h2><p>{attribute.description}</p></div></article>)}</div>
                 </section> : isPawnInfo && page === 3 ? <section aria-label="Changing position rules">
-                  <div className="rulebook-section-kicker"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> Manual changes & Flip Summons</div>
+                  <div className="rulebook-section-kicker"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> Manual changes & Switch Summons</div>
                   <ol className="rulebook-rule-list">{topic.rules?.map((rule, index) => <li key={rule}><span className="rulebook-rule-number">{String(index + 1).padStart(2, '0')}</span><p>{rule}</p></li>)}</ol>
                 </section> : tablePage && topic.table ? <div className="rulebook-table-wrap"><table><caption className="sr-only">{topic.title} reference</caption><thead><tr>{topic.table.headings.map(value => <th key={value} scope="col">{value}</th>)}</tr></thead><tbody>{topic.table.rows.map(row => <tr key={row[0]}>{row.map((value, index) => index === 0 ? <th key={index} scope="row">{value}</th> : <td key={index}>{value}</td>)}</tr>)}</tbody></table></div> :
                   <ol className="rulebook-rule-list">{rulePages[page]?.map((rule, index) => <li key={rule}><span className="rulebook-rule-number">{String(page * 4 + index + 1).padStart(2, '0')}</span><p>{rule}</p></li>)}</ol>}

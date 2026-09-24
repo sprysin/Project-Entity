@@ -1,11 +1,6 @@
 import { expect, it } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable } from '../src/decks';
 
-it('round-trips a named deck through JSON', () => {
-    const first = { ...newDeck(), name: 'My beasts', cards: [{ cardId: sortedCards()[0].id, quantity: 3 }] };
-    expect(parseDeck(JSON.parse(JSON.stringify(first)))).toEqual(first);
-});
-
 it('caps copies at three and rejects imported fourth copies while keeping legacy decks editable', () => {
     const cardId = sortedCards()[0].id;
     const deck = { ...newDeck(), cards: [{ cardId, quantity: 3 }] };

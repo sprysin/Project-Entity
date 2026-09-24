@@ -6,6 +6,7 @@ import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
 import { addChainLink, fieldActivations, resolveChain } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
+import { advancePhaseState } from '../src/game/phases';
 
 const card = (id: string): Card => ({ ...cardRegistry.getCard(id)!, instanceId: id, ownerId: 'p0' });
 const zone = (card: Card) => ({ card, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: 1, isSetTurn: false });
@@ -40,6 +41,19 @@ it('Reinforcement grants ATK only while attached and normally falls off a face-d
     sustained.players[0].actionZones[0] = null;
     checkVictory(sustained);
     expect(sustained.players[0].pawnZones[0]?.card.atk).toBe(target.atk);
+
+    const dragonSetup = setup();
+    const dragon = card('pawn_05');
+    dragonSetup.state.players[0].pawnZones[0] = zone(dragon);
+    dragonSetup.state.players[0].hand = [card('pawn_02')];
+    const attached = resolveChain(addChainLink(dragonSetup.state, { card: dragonSetup.source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate'));
+    const effect = cardRegistry.getEffect(dragon.id)!.onActivate!;
+    const activated = effect(attached, { card: dragon, playerIndex: 0, handIndex: 0 }).newState;
+    expect(activated.players[0].pawnZones[0]?.card.atk).toBe(280);
+    activated.currentPhase = Phase.END;
+    const expired = advancePhaseState(activated);
+    expect(expired.players[0].pawnZones[0]?.card.atk).toBe(270);
+    expect(expired.players[0].actionZones[0]?.attachedToInstanceId).toBe(dragon.instanceId);
 });
 
 it('discards an attachment that fizzles instead of linking to a replacement target', () => {

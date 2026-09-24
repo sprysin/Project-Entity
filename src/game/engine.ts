@@ -135,7 +135,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             const effect = cardRegistry.getEffect(card.id);
             if (!command.set && effect?.canActivate && !effect.canActivate(state, { card, playerIndex: actor })) return state;
             const next = structuredClone(state), p = next.players[actor];
-            p.actionZones[command.slot] = { card: { ...card }, position: command.set ? Position.HIDDEN : Position.ATTACK,
+            p.actionZones[command.slot] = { card: { ...card }, position: command.set ? Position.HIDDEN : Position.FACE_UP,
                 hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: command.set };
             p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
             return next;
@@ -214,8 +214,9 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
     }
     const events: GameEvent[] = [];
     if (action.kind === 'attack') state.players.forEach((p, playerIndex) => p.pawnZones.forEach((zone, index) => {
-        if (zone && next.players.some(player => player.discard.some(c => c.instanceId === zone.card.instanceId))
-            && !next.players.some(player => player.pawnZones.some(z => z?.card.instanceId === zone.card.instanceId))) {
+        if (zone && next.players[playerIndex].pawnZones[index]?.card.instanceId !== zone.card.instanceId
+            && (next.players.some(player => player.discard.some(c => c.instanceId === zone.card.instanceId))
+                || next.players.some(player => player.pawnZones.some(z => z?.card.instanceId === zone.card.instanceId)))) {
             events.push({ type: 'destroyed', playerIndex, index, card: zone.card });
         }
     }));

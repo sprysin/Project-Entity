@@ -4,6 +4,7 @@ import { CardDetail } from '../cards/CardDetail';
 import { useManagedTimeout } from '../../hooks/useManagedTimeout';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { playSound } from '../../audio';
+import { cardRegistry } from '../../cards/CardRegistry';
 
 /**
  * Zone Sub-component: A single slot on the field. Handles display of cards in Attack/Defense/Hidden positions.
@@ -23,6 +24,9 @@ export const Zone: React.FC<{
 }> = ({ card, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, isVisuallyHidden, contextualActions, domRef }) => {
     const schedule = useManagedTimeout();
     const visibleCard = isVisuallyHidden ? null : card;
+    const originalCard = visibleCard?.card.type === CardType.PAWN ? cardRegistry.getCard(visibleCard.card.id) : undefined;
+    const statTone = (current: number, original: number | undefined) =>
+        original === undefined || current === original ? 'is-base' : current > original ? 'is-increased' : 'is-decreased';
     // Track previous stats to trigger pop animations
     const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
     const prevPlacement = useRef<{ id: string, position: Position } | null>(null);
@@ -90,9 +94,20 @@ export const Zone: React.FC<{
                             highlightDef={popStats.def}
                             className="w-full h-full"
                             compact={true}
+                            showOriginalStats={type === 'pawn'}
                         />
                     )}
                 </div>
+                {type === 'pawn' && visibleCard.position !== Position.HIDDEN && (
+                    <div className={`field-pawn-overlay ${visibleCard.position === Position.DEFENSE ? 'field-pawn-overlay--defense' : 'field-pawn-overlay--attack'}`} aria-label={`Level ${visibleCard.card.level}, attack ${visibleCard.card.atk}, defense ${visibleCard.card.def}`}>
+                        <div className="field-pawn-overlay__level"><span>Lv.</span><strong>{visibleCard.card.level}</strong></div>
+                        <div className="field-pawn-overlay__stats">
+                            <span className={`${statTone(visibleCard.card.atk, originalCard?.atk)} ${visibleCard.position === Position.DEFENSE ? 'is-secondary' : ''} ${popStats.atk ? 'is-popping' : ''}`}>{visibleCard.card.atk}</span>
+                            <span className="field-pawn-overlay__divider">/</span>
+                            <span className={`${statTone(visibleCard.card.def, originalCard?.def)} ${visibleCard.position === Position.ATTACK ? 'is-secondary' : ''} ${popStats.def ? 'is-popping' : ''}`}>{visibleCard.card.def}</span>
+                        </div>
+                    </div>
+                )}
                 </div>
             )}
         </div>

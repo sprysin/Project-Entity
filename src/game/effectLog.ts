@@ -1,4 +1,4 @@
-import { Card, CardContext, EffectTrigger, GameState, PlacedCard } from '../types';
+import { Card, CardContext, EffectTrigger, GameState, PlacedCard, Position } from '../types';
 
 type LocatedCard = { playerIndex: number; zone: 'pawn' | 'action'; placed: PlacedCard };
 
@@ -53,6 +53,13 @@ export function formatEffectLog(
         details.push(`adds ${quote(selected.name)} to hand`);
     }
 
+    before.players.forEach((player, playerIndex) => {
+        const handIds = new Set(after.players[playerIndex].hand.map(c => c.instanceId));
+        const drawn = player.deck.filter(c => c.instanceId !== selected?.instanceId || context.deckIndex === undefined)
+            .filter(c => handIds.has(c.instanceId)).length;
+        if (drawn) details.push(`${quote(player.name)} draws ${drawn} ${drawn === 1 ? 'card' : 'cards'}`);
+    });
+
     const previousPeeks = new Set((before.peekEvents ?? []).map(event => event.id));
     (after.peekEvents ?? []).filter(event => !previousPeeks.has(event.id)).forEach(event => {
         details.push(`reveals ${quote(event.card.name)} from ${quote(before.players[event.ownerPlayerIndex].name)}'s hand`);
@@ -75,7 +82,11 @@ export function formatEffectLog(
         const defDelta = changed.placed.card.def - located.placed.card.def;
         if (atkDelta) details.push(`${quote(changed.placed.card.name)} ${atkDelta > 0 ? '+' : ''}${atkDelta} ATK`);
         if (defDelta) details.push(`${quote(changed.placed.card.name)} ${defDelta > 0 ? '+' : ''}${defDelta} DEF`);
-        if (changed.placed.position !== located.placed.position) details.push(`${quote(changed.placed.card.name)} to ${changed.placed.position}`);
+        if (changed.placed.position !== located.placed.position) details.push(
+            changed.zone === 'action' && changed.placed.position === Position.FACE_UP
+                ? `${quote(changed.placed.card.name)} turns face-up`
+                : `${quote(changed.placed.card.name)} to ${changed.placed.position}`
+        );
     }
 
     for (const [instanceId, located] of afterField) {

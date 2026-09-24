@@ -9,7 +9,7 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
     if (context.card.type !== CardType.PAWN) {
         state = structuredClone(state);
         const source = state.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
-        if (source) source.position = Position.ATTACK;
+        if (source) source.position = Position.FACE_UP;
     }
     const effect = cardRegistry.getEffect(context.card.id);
     const fn = trigger === 'summon' ? effect?.onSummon
@@ -148,7 +148,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const p = next.players[context.playerIndex];
     const tributeCards = context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
     const source = [...p.pawnZones, ...p.actionZones].find(z => z?.card.instanceId === context.card.instanceId);
-    if (source && context.card.type !== CardType.PAWN) source.position = Position.ATTACK;
+    if (source && context.card.type !== CardType.PAWN) source.position = Position.FACE_UP;
     const targets = context.targets ?? (context.target ? [context.target] : []);
     const target = targets[0];
     const link: ChainLink = {

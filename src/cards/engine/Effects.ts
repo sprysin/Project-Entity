@@ -212,11 +212,12 @@ export const Effect = {
     },
 
     /** Registers a Lingering Effect on the active activating card. */
-    RegisterSelfPendingEffect: (type: 'RESET_ATK' | 'RESET_DEF', value: number, durationTurns: number = 0): EffectStep => (draftState, context) => {
+    RegisterSelfPendingEffect: (type: 'RESET_ATK' | 'RESET_DEF', value: number, durationTurns: number = 0, delta?: number): EffectStep => (draftState, context) => {
         draftState.pendingEffects.push({
             type,
             targetInstanceId: context.card.instanceId,
             value,
+            delta,
             dueTurn: draftState.turnNumber + durationTurns
         });
     },

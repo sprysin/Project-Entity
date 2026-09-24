@@ -82,8 +82,8 @@ export const advancePhaseState = (prev: GameState): GameState => {
                 if (!z) return null;
                 let newZ = { ...z };
                 if (z.card.effectText?.includes('Once per turn')) newZ.hasActivatedEffect = false;
-                const atkEffect = effectsToResolve.find(e => e.type === 'RESET_ATK' && e.targetInstanceId === z.card.instanceId);
-                if (atkEffect) newZ = { ...newZ, card: { ...newZ.card, atk: atkEffect.value } };
+                const atkEffects = effectsToResolve.filter(e => e.type === 'RESET_ATK' && e.targetInstanceId === z.card.instanceId);
+                for (const atkEffect of atkEffects) newZ = { ...newZ, card: { ...newZ.card, atk: atkEffect.delta === undefined ? atkEffect.value : newZ.card.atk - atkEffect.delta } };
                 const defEffect = effectsToResolve.find(e => e.type === 'RESET_DEF' && e.targetInstanceId === z.card.instanceId);
                 if (defEffect) newZ = { ...newZ, card: { ...newZ.card, def: defEffect.value } };
                 return newZ;

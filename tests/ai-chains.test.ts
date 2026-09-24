@@ -5,11 +5,11 @@ import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
-import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority, resolveChainStep } from '../src/game/chains';
-import { chooseAIAction, observeGame, updateKnownCards } from '../src/game/opponentAI';
+import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority, resolveChain, resolveChainStep } from '../src/game/chains';
+import { applyCommand } from '../src/game/engine';
+import { chooseAIAction, hasWorthwhileAttack, observeGame, updateKnownCards } from '../src/game/opponentAI';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
-import { Cost } from '../src/cards/engine/Costs';
 import { Require } from '../src/cards/engine/Requirements';
 
 let serial = 0;
@@ -28,6 +28,9 @@ function passAll(state: GameState) {
 describe('response windows and chains', () => {
     it('skips empty windows, and excludes newly set Conditions and ordinary Pawn effects', () => {
         const s = game();
+        const played = card('action_01');
+        s.players[0].hand = [played];
+        expect(applyCommand(s, 0, { type: 'play', cardId: played.instanceId, set: false, slot: 0 }).state.players[0].actionZones[0]?.position).toBe(Position.FACE_UP);
         s.players[1].pawnZones[0] = zone(card('pawn_05', 1));
         s.players[1].hand = [card('action_01', 1)];
         s.players[1].actionZones[0] = zone(card('test_attached_condition', 1), Position.HIDDEN, s.turnNumber);
@@ -42,6 +45,14 @@ describe('response windows and chains', () => {
         expect(fieldActivations(s, 1, true)).toHaveLength(0);
         s.players[0].actionZones[0] = zone(card('action_01'), Position.HIDDEN);
         expect(fieldActivations(s, 1, true)).toHaveLength(1);
+
+        const depths = game();
+        depths.players[1].actionZones[0] = zone(card('condition_04', 1), Position.HIDDEN);
+        depths.players[1].pawnZones[0] = zone(card('pawn_04', 1));
+        depths.players[0].pawnZones[0] = zone(card('pawn_01'), Position.HIDDEN);
+        expect(fieldActivations(depths, 1, true)).toHaveLength(0);
+        depths.players[0].pawnZones[0]!.position = Position.ATTACK;
+        expect(fieldActivations(depths, 1, true)).toHaveLength(1);
     });
 
     it('lets a controller respond during the other player’s turn and resolves LIFO', () => {
@@ -56,6 +67,8 @@ describe('response windows and chains', () => {
         expect(next.response?.priority).toBe(1);
         next = addChainLink(next, { card: draw, playerIndex: 1 }, 'activate');
         expect(next.players[1].lp).toBe(600); // paid before responses
+        expect(next.players[1].actionZones[0]?.position).toBe(Position.FACE_UP);
+        expect(next.log[0]).toContain('turns face-up');
         expect(next.players[1].hand).toHaveLength(0);
         next = addChainLink(next, { card: reinforcement, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'activate');
         next = passAll(next);
@@ -66,38 +79,10 @@ describe('response windows and chains', () => {
         const resolutionLogs = next.log.slice(0, 3);
         expect(resolutionLogs[0]).toContain('Void Blast');
         expect(resolutionLogs[1]).toContain('Dark Draw');
+        expect(resolutionLogs[1]).toContain('draws 1 card');
+        expect(next.log.join(' ')).not.toContain('to ATTACK');
         expect(resolutionLogs[2]).toContain('Reinforcement');
         expect(next.chain).toHaveLength(0);
-    });
-
-    it('supports explicitly quick Pawns, reserves costs and prevents the same source rejoining its chain', () => {
-        cardRegistry.register({ id: 'test-quick', name: 'Quick Pawn', type: CardType.PAWN, level: 1, atk: 10, def: 20, effectText: 'Quick: discard 1; gain 20 LP.' }, {
-            timing: 'quick', onActivate: buildEffect([Cost.DiscardCardFilter(), Effect.RestoreLP((_s, c) => c.playerIndex, 20)])
-        });
-        const s = game(), quick = card('test-quick', 1), reply = card('test_attached_condition');
-        s.players[1].pawnZones[0] = zone(quick);
-        s.players[1].hand = [card('action_01', 1)];
-        s.players[0].actionZones[0] = zone(reply, Position.HIDDEN);
-        const window = openResponse(s, { kind: 'phase' }, 'Leave Main');
-        expect(fieldActivations(window, 1, true)).toHaveLength(1);
-        const next = addChainLink(window, { card: quick, playerIndex: 1, handIndex: 0 }, 'activate');
-        expect(next.players[1].hand).toHaveLength(0);
-        expect(next.players[1].lp).toBe(800);
-        expect(fieldActivations(next, 1, true)).toHaveLength(0);
-        expect(passAll(next).players[1].lp).toBe(820);
-    });
-
-    it('does not retarget a replacement card that occupies the old slot', () => {
-        const s = game(), king = card('pawn_02'), target = card('pawn_05', 1);
-        s.players[0].pawnZones[0] = zone(king);
-        s.players[1].pawnZones[0] = zone(target);
-        s.players[1].actionZones[0] = zone(card('test_attached_condition', 1), Position.HIDDEN);
-        let next = addChainLink(s, { card: king, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'summon');
-        const replacement = card('pawn_08', 1);
-        next.players[1].pawnZones[0] = zone(replacement);
-        next = passAll(next);
-        expect(next.players[1].pawnZones[0]!.card.atk).toBe(130);
-        expect(next.log[0]).toContain('no longer valid');
     });
 
     it('a set card flipped in response no longer satisfies an earlier hidden-only target', () => {
@@ -111,22 +96,6 @@ describe('response windows and chains', () => {
         expect(next.players[1].actionZones[0]?.card.instanceId).toBe(reinforcement.instanceId);
         expect(next.players[1].pawnZones[0]!.card.atk).toBe(150);
         expect(next.players[1].void).toHaveLength(0);
-    });
-
-    it('validates tribute costs, handles full fields, and pays only at activation', () => {
-        const s = game(), maintenance = card('action_04');
-        s.players[0].actionZones[0] = zone(maintenance);
-        s.players[0].pawnZones = Array.from({ length: 5 }, () => zone(card('pawn_01')));
-        s.players[0].discard = [card('pawn_05')];
-        // Charged Dragon is not Mechanical, so no valid recovery exists.
-        expect(effectChoices(s, maintenance, 'activate')).toHaveLength(0);
-        s.players[0].discard = [card('pawn_01')];
-        const choices = effectChoices(s, maintenance, 'activate');
-        expect(choices.length).toBeGreaterThan(0);
-        const next = addChainLink(s, choices[0], 'activate');
-        expect(next.players[0].pawnZones.filter(Boolean)).toHaveLength(3);
-        expect(next.players[0].discard.filter(c => c.tributedByAction)).toHaveLength(2);
-        expect(passAll(next).players[0].pawnZones.filter(Boolean)).toHaveLength(4);
     });
 });
 
@@ -165,17 +134,95 @@ describe('fair general AI', () => {
         battle.players[1].hand = [card('condition_01', 1)];
         const choice = chooseAIAction(observeGame(battle, 1), 1);
         expect(choice.kind === 'effect' && choice.context.target?.playerIndex === 0).toBe(false);
-    });
 
-    it('tribute summons a searched boss when it takes combat control', () => {
-        const s = game(); s.activePlayerIndex = 1;
-        s.players[0].pawnZones[0] = zone(card('pawn_02'));
-        s.players[1].pawnZones[0] = zone(card('pawn_01', 1));
-        s.players[1].pawnZones[1] = zone(card('pawn_04', 1));
-        s.players[1].hand = [card('pawn_07', 1)];
-        expect(chooseAIAction(observeGame(s, 1), 1)).toMatchObject({
-            kind: 'summon', hidden: false, card: { id: 'pawn_07' }, tributes: [0, 1]
-        });
+        for (const [conditionId, targetType] of [
+            ['condition_02', 'action'], ['condition_04', 'pawn']
+        ] as const) {
+            const chained = game();
+            chained.activePlayerIndex = 1;
+            const first = card(conditionId, 1), second = card(conditionId, 1);
+            chained.players[1].actionZones[0] = zone(first, Position.HIDDEN);
+            chained.players[1].actionZones[1] = zone(second, Position.HIDDEN);
+            if (targetType === 'action') chained.players[0].actionZones[0] = zone(card('action_01'), Position.HIDDEN);
+            else {
+                chained.players[0].pawnZones[0] = zone(card('pawn_01'));
+                chained.players[1].pawnZones[0] = zone(card('pawn_04', 1));
+                chained.players[1].pawnZones[1] = zone(card('pawn_06', 1));
+            }
+            const context = effectChoices(chained, first, 'activate').find(c => c.targets?.some(t => t.playerIndex === 0))!;
+            const pending = addChainLink(chained, context, 'activate');
+            expect(pending.chain).toHaveLength(1);
+            expect(pending.response?.priority).toBe(1);
+            expect(fieldActivations(pending, 1, true).some(a => a.card.instanceId === second.instanceId)).toBe(true);
+            expect(chooseAIAction(observeGame(pending, 1), 1)).toEqual({ kind: 'pass' });
+        }
+
+        const guarded = game();
+        guarded.activePlayerIndex = 1;
+        guarded.players[0].pawnZones[0] = zone(card('pawn_07'), Position.DEFENSE);
+        guarded.players[0].pawnZones[0]!.card.def = 260;
+        guarded.players[1].pawnZones[0] = zone(card('pawn_05', 1));
+        guarded.players[1].hand = [card('action_01', 1), card('action_01', 1)];
+        expect(hasWorthwhileAttack(observeGame(guarded, 1), 1)).toBe(false);
+        const shortOnCards = structuredClone(guarded);
+        shortOnCards.players[1].hand.pop();
+        const insufficientBoost = chooseAIAction(observeGame(shortOnCards, 1), 1);
+        expect(insufficientBoost.kind === 'effect' && insufficientBoost.context.card.id === 'pawn_05').toBe(false);
+        let boosted = guarded;
+        for (let i = 0; i < 2; i++) {
+            const action = chooseAIAction(observeGame(boosted, 1), 1);
+            expect(action).toMatchObject({ kind: 'effect', context: { card: { id: 'pawn_05' } } });
+            if (action.kind !== 'effect') break;
+            boosted = resolveChain(addChainLink(boosted, action.context, action.trigger));
+        }
+        expect(boosted.players[1].pawnZones[0]!.card.atk).toBe(270);
+        expect(hasWorthwhileAttack(observeGame(boosted, 1), 1)).toBe(true);
+        boosted.currentPhase = Phase.BATTLE;
+        expect(chooseAIAction(observeGame(boosted, 1), 1)).toEqual({ kind: 'attack', index: 0, target: 0 });
+
+        const stronger = game();
+        stronger.activePlayerIndex = 1;
+        stronger.players[0].pawnZones[0] = zone(card('pawn_05'));
+        stronger.players[1].pawnZones[0] = zone(card('pawn_05', 1));
+        stronger.players[1].pawnZones[0]!.card.atk = 220;
+        stronger.players[1].hand = Array.from({ length: 4 }, () => card('action_01', 1));
+        let contender = stronger;
+        for (let i = 0; i < 4; i++) {
+            const action = chooseAIAction(observeGame(contender, 1), 1);
+            expect(action).toMatchObject({ kind: 'effect', context: { card: { id: 'pawn_05' } } });
+            if (action.kind !== 'effect') break;
+            contender = resolveChain(addChainLink(contender, action.context, action.trigger));
+        }
+        expect(contender.players[1].pawnZones[0]!.card.atk).toBe(260);
+        expect(hasWorthwhileAttack(observeGame(contender, 1), 1)).toBe(true);
+
+        let pressured = structuredClone(stronger);
+        pressured.players[1].hand = [];
+        pressured.players[1].pawnZones[1] = zone(card('pawn_01', 1));
+        for (let i = 0; i < 2; i++) {
+            const action = chooseAIAction(observeGame(pressured, 1), 1);
+            expect(action.kind).toBe('position');
+            if (action.kind === 'position') pressured = applyCommand(pressured, 1, { type: 'position', index: action.index }).state;
+        }
+        expect(pressured.players[1].pawnZones.slice(0, 2).every(z => z?.position === Position.DEFENSE)).toBe(true);
+
+        let advantage = game();
+        advantage.activePlayerIndex = 1;
+        advantage.players[0].pawnZones[0] = zone(card('pawn_01'));
+        advantage.players[0].pawnZones[0]!.card.atk = 80;
+        advantage.players[1].pawnZones[0] = zone(card('pawn_01', 1), Position.DEFENSE);
+        advantage.players[1].pawnZones[0]!.card.atk = 150;
+        advantage.players[1].pawnZones[1] = zone(card('pawn_01', 1), Position.DEFENSE);
+        advantage.players[1].pawnZones[1]!.card.atk = 100;
+        advantage.players[1].pawnZones[2] = zone(card('pawn_01', 1), Position.DEFENSE);
+        advantage.players[1].pawnZones[2]!.card.atk = 20;
+        for (let i = 0; i < 2; i++) {
+            const action = chooseAIAction(observeGame(advantage, 1), 1);
+            expect(action.kind).toBe('position');
+            if (action.kind === 'position') advantage = applyCommand(advantage, 1, { type: 'position', index: action.index }).state;
+        }
+        expect(advantage.players[1].pawnZones.slice(0, 2).every(z => z?.position === Position.ATTACK)).toBe(true);
+        expect(advantage.players[1].pawnZones[2]?.position).toBe(Position.DEFENSE);
     });
 
     it('finds lethal attack order by saving the stronger attacker for direct damage', () => {

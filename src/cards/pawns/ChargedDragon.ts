@@ -9,7 +9,7 @@ const effect: IEffect = {
     onActivate: buildEffect([
         Cost.DiscardCardFilter(),
         Effect.ModifySelfStats(10, 0),
-        Effect.RegisterSelfPendingEffect('RESET_ATK', 250)
+        Effect.RegisterSelfPendingEffect('RESET_ATK', 250, 0, 10)
     ]),
     canActivate: buildCondition([
         Condition.CompareValue((s, c) => s.players[c.playerIndex].hand.length, '>', 0)

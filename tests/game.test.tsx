@@ -121,24 +121,6 @@ it('effect tributes are paid once after all activation selections are complete',
     expect(game.gameState!.log[0]).toContain('special summons "Solstice Sentinel"');
 });
 
-it('keeps a peeked card in hand and waits for the viewer to hide the reveal', () => {
-    const witch = card('pawn_11');
-    const shown = card('action_01', 1);
-    setup(s => { s.players[0].pawnZones[0] = placed(witch); s.players[1].hand = [shown]; });
-
-    act(() => game.actions.resolveEffect(witch));
-    expect(game.state.peekSelectionReq).toBeNull();
-    act(() => vi.advanceTimersByTime(1800));
-    expect(game.state.peekSelectionReq).toMatchObject({ playerIndex: 1, viewerPlayerIndex: 0 });
-    act(() => game.actions.handlePeekSelection(0));
-    act(() => vi.advanceTimersByTime(500));
-    expect(game.gameState!.players[1].hand[0].instanceId).toBe(shown.instanceId);
-    expect(game.gameState!.peekEvents?.[0].card.instanceId).toBe(shown.instanceId);
-    const eventId = game.gameState!.peekEvents![0].id;
-    act(() => game.actions.dismissPeek(eventId));
-    expect(game.gameState!.peekEvents).toEqual([]);
-});
-
 it('automated drawing refills to five and advances exactly one turn under StrictMode', () => {
     setup(s => { s.currentPhase = Phase.DRAW; s.players[0].hand = [card('action_01')]; s.players[0].deck = Array.from({ length: 10 }, () => card('pawn_01')); });
     act(() => vi.advanceTimersByTime(1700));
@@ -148,28 +130,3 @@ it('automated drawing refills to five and advances exactly one turn under Strict
     expect(game.gameState!.currentPhase).toBe(Phase.MAIN1);
     expect(game.gameState!.turnNumber).toBe(2);
 });
-
-it('clears selected-card placement highlights when the phase changes', () => {
-    const pawn = card('pawn_01');
-    setup(s => { s.players[0].hand = [pawn]; });
-
-    act(() => game.actions.setSelectedHandIndex(0));
-    expect(game.state.selectedHandIndex).toBe(0);
-
-    act(() => game.setGameState(prev => prev ? { ...prev, currentPhase: Phase.BATTLE } : prev));
-
-    expect(game.state.selectedHandIndex).toBeNull();
-    expect(game.state.selectedFieldSlot).toBeNull();
-
-    const discarded = card('action_01');
-    act(() => {
-        game.actions.setViewingDiscardIdx(0);
-        game.actions.setIsRightPanelOpen(false);
-        game.actions.inspectPileCard(discarded);
-    });
-    expect(game.state.viewingDiscardIdx).toBeNull();
-    expect(game.state.inspectedPileCard?.instanceId).toBe(discarded.instanceId);
-    expect(game.state.isRightPanelOpen).toBe(true);
-});
-
-

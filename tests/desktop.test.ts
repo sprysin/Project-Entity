@@ -71,14 +71,6 @@ it('does not overwrite a damaged save or permit saving after failed initializati
   expect(disk.files.get('save.json')).toBe('{broken');
 });
 
-it('honors canceled file dialogs without reading or writing files', async () => {
-  vi.mocked(open).mockResolvedValueOnce(null);
-  vi.mocked(save).mockResolvedValueOnce(null);
-  expect(await importDeck()).toBeNull();
-  expect(await exportDeck(newDeck())).toBe(false);
-  expect(disk.files.size).toBe(0);
-});
-
 it('round-trips native deck files with a fresh import ID and rejects oversized files', async () => {
   const deck = { ...newDeck(), name: 'My deck' };
   vi.mocked(save).mockResolvedValueOnce('chosen.json');

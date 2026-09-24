@@ -17,6 +17,7 @@ export enum Phase {
 export enum Position {
   ATTACK = 'ATTACK',
   DEFENSE = 'DEFENSE',
+  FACE_UP = 'FACE_UP',
   HIDDEN = 'HIDDEN'
 }
 
@@ -110,6 +111,7 @@ export interface PendingEffect {
   type: 'RESET_ATK' | 'RESET_DEF';
   targetInstanceId: string;
   value: number;
+  delta?: number;
   dueTurn: number;
 }
 

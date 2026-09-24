@@ -104,6 +104,7 @@ interface CardDetailProps {
     highlightAtk?: boolean;
     highlightDef?: boolean;
     compact?: boolean;
+    showOriginalStats?: boolean;
     domRef?: (el: HTMLElement | null) => void;
 }
 
@@ -111,8 +112,10 @@ interface CardDetailProps {
  * CardDetail Sub-component: A high-fidelity representation of a card.
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
-export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, domRef }) => {
+export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, showOriginalStats, domRef }) => {
     const originalCard = cardRegistry.getCard(card.id);
+    const displayedAtk = showOriginalStats ? originalCard?.atk ?? card.atk : card.atk;
+    const displayedDef = showOriginalStats ? originalCard?.def ?? card.def : card.def;
     const getStatColor = (current: number, original?: number) => {
         if (original === undefined) return 'text-yellow-400';
         if (current > original) return 'text-blue-500';
@@ -189,8 +192,8 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
             {/* Footer: Stats (Entities only) */}
             {card.type === CardType.PAWN && (
                 <div className={`flex shrink-0 justify-between items-center px-4 py-1 mt-auto bg-black/50 border border-white/10 rounded-sm relative z-10`}>
-                    <span className={`font-orbitron font-bold ${getStatColor(card.atk, originalCard?.atk)} text-xs transition-all duration-300 ${highlightAtk ? 'scale-125' : ''}`}>ATK: {card.atk}</span>
-                    <span className={`font-orbitron font-bold ${getStatColor(card.def, originalCard?.def)} text-xs transition-all duration-300 ${highlightDef ? 'scale-125' : ''}`}>DEF: {card.def}</span>
+                    <span className={`font-orbitron font-bold ${getStatColor(displayedAtk, originalCard?.atk)} text-xs transition-all duration-300 ${highlightAtk && !showOriginalStats ? 'scale-125' : ''}`}>ATK: {displayedAtk}</span>
+                    <span className={`font-orbitron font-bold ${getStatColor(displayedDef, originalCard?.def)} text-xs transition-all duration-300 ${highlightDef && !showOriginalStats ? 'scale-125' : ''}`}>DEF: {displayedDef}</span>
                 </div>
             )}
         </div>

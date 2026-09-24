@@ -16,18 +16,26 @@ export function LinkGraphic({ link, kind, outlineTarget = true }: { link: FieldL
     const start = edge(source, a, b), end = edge(target, b, a);
     const path = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
     const attack = kind === 'attack';
+    const length = Math.hypot(end.x - start.x, end.y - start.y) || 1;
+    const direction = { x: (end.x - start.x) / length, y: (end.y - start.y) / length };
+    const arrowBase = { x: end.x - direction.x * 12, y: end.y - direction.y * 12 };
+    const arrow = `M ${arrowBase.x - direction.y * 5} ${arrowBase.y + direction.x * 5} L ${end.x} ${end.y} L ${arrowBase.x + direction.y * 5} ${arrowBase.y - direction.x * 5} Z`;
+    const corners = (rect: Bounds) => {
+        const x = rect.x - 4, y = rect.y - 4, w = rect.width + 8, h = rect.height + 8;
+        const arm = Math.min(13, w / 4, h / 4);
+        return `M ${x} ${y + arm} V ${y} H ${x + arm} M ${x + w - arm} ${y} H ${x + w} V ${y + arm} M ${x + w} ${y + h - arm} V ${y + h} H ${x + w - arm} M ${x + arm} ${y + h} H ${x} V ${y + h - arm}`;
+    };
     return createPortal(
-        <svg aria-hidden="true" className={`${kind}-overlay`} style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 60 }} fill="none" stroke={attack ? '#ef4444' : '#facc15'} strokeWidth={attack ? 2.5 : 1.5}>
-            {[source, ...(outlineTarget ? [target] : [])].map((rect, index) => <rect key={index} x={rect.x - 3} y={rect.y - 3} width={rect.width + 6} height={rect.height + 6} rx="5" />)}
-            <path d={path} />
-            {[0, 1, 2, 3].map(index => attack
-                ? <path className="attack-arrow" key={index} d="M -7 -6 L 0 0 L -7 6">
-                    <animateMotion path={path} dur="1.5s" begin={`-${(index + 1) * 0.375}s`} rotate="auto" repeatCount="indefinite" />
-                </path>
-                : <circle className="attachment-bead" key={index} r="3" cx="0" cy="0">
-                    <animateMotion path={path} dur="1.6s" begin={`-${(index + 1) * 0.4}s`} repeatCount="indefinite" />
-                </circle>
-            )}
+        <svg aria-hidden="true" className={`field-link field-link--${kind}`} style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: attack ? 60 : 15 }} fill="none">
+            {[source, ...(outlineTarget ? [target] : [])].map((rect, index) => <path key={index} className="field-link__corners" d={corners(rect)} />)}
+            <path className="field-link__halo" d={path} />
+            <path className="field-link__line" d={path} />
+            <path className="field-link__flow" d={path} />
+            <circle className="field-link__badge" cx={start.x} cy={start.y} r="7" />
+            <circle className="field-link__symbol" cx={start.x} cy={start.y} r="2.5" />
+            {attack
+                ? <path className="field-link__arrow" d={arrow} />
+                : <><circle className="field-link__badge" cx={end.x} cy={end.y} r="7" /><circle className="field-link__symbol" cx={end.x} cy={end.y} r="2.5" /></>}
         </svg>, document.body
     );
 }

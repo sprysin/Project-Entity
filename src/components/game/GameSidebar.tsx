@@ -52,7 +52,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                                 </div>
                             ) : selectedZone && selectedFieldSlot ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={selectedZone.card} isSet={selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex} />
+                                    <CardDetail card={selectedZone.card} isSet={selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex} showOriginalStats={selectedFieldSlot.type === 'pawn'} />
                                 </div>
                             ) : selectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">

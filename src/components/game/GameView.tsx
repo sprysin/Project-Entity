@@ -155,8 +155,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
           <div className="relative z-10 flex flex-col space-y-4 transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20">
             {/* Opponent Field View */}
             <div className="flex flex-col items-center space-y-4 opacity-90">
-              <div className="flex space-x-6 items-center">
-                <div className="flex space-x-6">
+              <div className="game-field-row">
+                <div className="game-field-zones">
                   {opponent.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'action', oppIdx)} onClick={() => {
                     if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                       if (checkIsSelectable(z, 'action', oppIdx)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
@@ -164,10 +164,10 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'action', index: i })
                   }} />))}
                 </div>
-                <DeckPile count={opponent.deck.length} label="Deck" domRef={actions.setRef(`deck-${oppIdx}`)} />
+                <div className="game-field-side"><DeckPile count={opponent.deck.length} label="Deck" domRef={actions.setRef(`deck-${oppIdx}`)} /></div>
               </div>
-              <div className="flex space-x-6 items-center">
-                <div className="flex space-x-6">
+              <div className="game-field-row game-field-row--pawns">
+                <div className="game-field-zones">
                   {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
                     if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
                       const hasMonsters = opponent.pawnZones.some(mz => mz !== null);
@@ -183,20 +183,32 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'pawn', index: i });
                   }} />))}
                 </div>
-                <div className="flex space-x-6">
-                  <Pile count={opponent.discard.length} topCard={opponent.discard[opponent.discard.length - 1]} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${oppIdx}`)} isFlashing={state.discardFlash[oppIdx]} onClick={() => actions.setViewingDiscardIdx(oppIdx)} />
-                  <Pile count={opponent.void.length} topCard={opponent.void[opponent.void.length - 1]} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${oppIdx}`)} isFlashing={state.voidFlash[oppIdx]} onClick={() => actions.setViewingVoidIdx(oppIdx)} />
+                <div className="game-field-side game-field-side--piles">
+                  <Pile cards={opponent.void} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${oppIdx}`)} isFlashing={state.voidFlash[oppIdx]} onClick={() => actions.setViewingVoidIdx(oppIdx)} />
+                  <Pile cards={opponent.discard} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${oppIdx}`)} isFlashing={state.discardFlash[oppIdx]} onClick={() => actions.setViewingDiscardIdx(oppIdx)} />
                 </div>
               </div>
             </div>
 
-            {/* Decorative divider between the two fields */}
-            <div aria-hidden="true" className="h-5 w-full max-w-5xl shrink-0 border-y border-white/10 bg-black/60 shadow-[0_0_18px_rgba(0,0,0,0.65)] backdrop-blur-md" />
+            <div className="phase-track" role="group" aria-label="Turn phases">
+              {[
+                [Phase.DRAW, 'Draw'],
+                [Phase.STANDBY, 'Standby'],
+                [Phase.MAIN1, 'Main 1'],
+                [Phase.BATTLE, 'Battle'],
+                [Phase.MAIN2, 'Main 2'],
+                [Phase.END, 'End'],
+              ].map(([phase, label]) => (
+                <span key={phase} className={`phase-track__step ${gameState.currentPhase === phase ? 'is-current' : ''}`} aria-current={gameState.currentPhase === phase ? 'step' : undefined}>
+                  {label}
+                </span>
+              ))}
+            </div>
 
             {/* Active Player Field View */}
             <div className="flex flex-col items-center space-y-4">
-              <div className="flex space-x-6 items-center">
-                <div className="flex space-x-6">
+              <div className="game-field-row game-field-row--pawns">
+                <div className="game-field-zones">
                   {activePlayer.pawnZones.map((z, i) => {
                     const selected = isSelectedZone('pawn', i);
                     const canChangePosition = canChangePawnPosition(gameState, viewIndex, i);
@@ -225,7 +237,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                         <ContextMenuButton label={selectedCard.level >= 5 ? 'Tribute Summon' : 'Normal Summon'} onClick={() => actions.handleSummon(selectedCard, 'normal', i)} disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.normalSummonUsed)} tone="gold" />
                         <ContextMenuButton label={selectedCard.level >= 5 ? 'Tribute Set' : 'Set Hidden'} onClick={() => actions.handleSummon(selectedCard, 'hidden', i)} disabled={actionsDisabled || (selectedCard.level <= 4 && activePlayer.hiddenSummonUsed)} />
                       </ContextMenu> : showFieldMenu ? <ContextMenu title={z!.card.name}>
-                        {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && <ContextMenuButton label={z!.position === Position.HIDDEN ? 'Flip Summon' : 'Change Position'} onClick={() => changePawnPosition(i)} disabled={actionsDisabled || !canChangePosition} />}
+                        {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && <ContextMenuButton label={z!.position === Position.HIDDEN ? 'Switch Summon' : 'Change Position'} onClick={() => changePawnPosition(i)} disabled={actionsDisabled || !canChangePosition} />}
                         {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && hasOnActivateEffect(z!.card) && <ContextMenuButton label="Activate Effect" onClick={() => actions.activateOnField(viewIndex, 'pawn', i)} disabled={actionsDisabled || !canActivateEffect} tone="purple" />}
                         {gameState.currentPhase === Phase.BATTLE && <ContextMenuButton label={attackReady ? 'Attack' : 'Cannot Attack'} onClick={() => actions.setTargetSelectMode('attack')} disabled={actionsDisabled || !attackReady} tone="red" />}
                       </ContextMenu> : null}
@@ -252,13 +264,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       }} />;
                   })}
                 </div>
-                <div className="flex space-x-6">
-                  <Pile count={activePlayer.discard.length} topCard={activePlayer.discard[activePlayer.discard.length - 1]} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${viewIndex}`)} isFlashing={state.discardFlash[viewIndex]} onClick={() => actions.setViewingDiscardIdx(viewIndex)} />
-                  <Pile count={activePlayer.void.length} topCard={activePlayer.void[activePlayer.void.length - 1]} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${viewIndex}`)} isFlashing={state.voidFlash[viewIndex]} onClick={() => actions.setViewingVoidIdx(viewIndex)} />
+                <div className="game-field-side game-field-side--piles">
+                  <Pile cards={activePlayer.void} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${viewIndex}`)} isFlashing={state.voidFlash[viewIndex]} onClick={() => actions.setViewingVoidIdx(viewIndex)} />
+                  <Pile cards={activePlayer.discard} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${viewIndex}`)} isFlashing={state.discardFlash[viewIndex]} onClick={() => actions.setViewingDiscardIdx(viewIndex)} />
                 </div>
               </div>
-              <div className="flex space-x-6 items-center">
-                <div className="flex space-x-6">
+              <div className="game-field-row">
+                <div className="game-field-zones">
                   {activePlayer.actionZones.map((z, i) => {
                     const selected = isSelectedZone('action', i);
                     const responseActivation = responseActivationAt('action', i);
@@ -293,7 +305,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       }} />;
                   })}
                 </div>
-                <div className="flex space-x-6 items-center">
+                <div className="game-field-side">
                   <DeckPile count={activePlayer.deck.length} label="Deck" domRef={actions.setRef(`deck-${viewIndex}`)} />
                 </div>
               </div>

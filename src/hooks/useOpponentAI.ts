@@ -1,13 +1,13 @@
 import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import { Card, GameState, Phase } from '../types';
-import { chooseAIAction, observeGame, simulateSummon, updateKnownCards } from '../game/opponentAI';
+import { chooseAIAction, hasWorthwhileAttack, observeGame, simulateSummon, updateKnownCards } from '../game/opponentAI';
 import { applyCommand } from '../game/engine';
 import { cardRegistry } from '../cards/CardRegistry';
 import type { useEffectResolution } from './useEffectResolution';
 
-export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhase, requestAttack, resolveEffect }: {
+export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhase, skipToEndPhase, requestAttack, resolveEffect }: {
     gameState: GameState | null; setGameState: Dispatch<SetStateAction<GameState | null>>; enabled: boolean; busy: boolean;
-    nextPhase: () => void; requestAttack: (index: number, target: number | 'direct') => void;
+    nextPhase: () => void; skipToEndPhase: () => void; requestAttack: (index: number, target: number | 'direct') => void;
     resolveEffect: ReturnType<typeof useEffectResolution>['resolveEffect'];
 }) {
     const pendingSummon = useRef<Card | undefined>(undefined);
@@ -33,6 +33,8 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
             if (action.kind === 'pass') {
                 if (gameState.response) setGameState(prev => prev ? applyCommand(prev, 1, { type: 'pass' }).state : prev);
                 else if (summon) setGameState(prev => prev ? { ...prev } : prev);
+                else if (gameState.currentPhase === Phase.BATTLE || gameState.currentPhase === Phase.MAIN1
+                    && !hasWorthwhileAttack(observeGame(gameState, 1, knownCards.current), 1)) skipToEndPhase();
                 else nextPhase();
             } else if (action.kind === 'attack') requestAttack(action.index, action.target);
             else if (action.kind === 'summon') {
@@ -57,5 +59,5 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
             }
         }, 650);
         return () => clearTimeout(timer);
-    }, [gameState, enabled, busy, nextPhase, requestAttack, resolveEffect, setGameState]);
+    }, [gameState, enabled, busy, nextPhase, skipToEndPhase, requestAttack, resolveEffect, setGameState]);
 }

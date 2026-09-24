@@ -3,6 +3,7 @@ import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
 import { applyCommand } from './engine';
 import { resolveCombat } from './combat';
+import { advancePhaseState } from './phases';
 
 export type AIDecision =
     | { kind: 'summon'; card: Card; hidden: boolean; tributes: number[] }
@@ -67,7 +68,7 @@ export function evaluatePosition(state: GameState, player: number): number {
     const opponentLP = opp.lp * .2;
     return ownLPSafety - opponentLP + field(player) - field(1 - player)
         + own.hand.reduce((n, c) => n + (c.type === CardType.PAWN ? (c.level <= 4 ? 24 : 12) : 18), 0)
-        - exposed(player) * (own.lp < 100 ? 1.6 : .1)
+        - exposed(player) * (own.lp < 100 ? 1.6 : .6)
         + combatControl
         // In Main 1, available attack power represents this turn's pressure. In
         // Battle it must not become a reason to pass: spending an attack removes
@@ -158,11 +159,25 @@ function planBattle(state: GameState, player: number): AIDecision {
     return decision;
 }
 
+/** Best score from one available battle attack, including the option to wait. */
+function immediateBattleScore(state: GameState, player: number): number {
+    const battle = state.currentPhase === Phase.MAIN1 ? advancePhaseState(state) : state;
+    if (battle.currentPhase !== Phase.BATTLE) return evaluatePosition(state, player);
+    return Math.max(evaluatePosition(battle, player), ...attackChoices(battle).map(action =>
+        evaluatePosition(simulateAttack(battle, action.index, action.target), player)));
+}
+
+export function hasWorthwhileAttack(state: GameState, player: number): boolean {
+    const battle = state.currentPhase === Phase.MAIN1 ? advancePhaseState(state) : state;
+    return battle.currentPhase === Phase.BATTLE && planBattle(battle, player).kind === 'attack';
+}
+
 export function chooseAIAction(observation: GameState, player: number, summonEffect?: Card): AIDecision {
     const state = observation, own = state.players[player];
     const response = !!state.response;
     if (!summonEffect && !response && state.currentPhase === Phase.BATTLE) return planBattle(state, player);
-    let bestScore = scoreAfterResponse(response ? resolveChain(state) : state, player) + .1;
+    const baseline = response ? resolveChain(state) : state;
+    let bestScore = scoreAfterResponse(baseline, player) + .1;
     let decision: AIDecision = { kind: 'pass' };
     const lowersOwnPawnAttack = (before: GameState, after: GameState) => {
         const originalAttack = new Map(before.players[player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
@@ -182,6 +197,38 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
     };
     const opponentLPDamage = (before: GameState, after: GameState) =>
         Math.max(0, before.players[1 - player].lp - after.players[1 - player].lp);
+    const visibleBlocker = !response && state.currentPhase === Phase.MAIN1
+        && state.players[1 - player].pawnZones.some(z => z && z.position !== Position.HIDDEN);
+    const currentBattleScore = visibleBlocker ? immediateBattleScore(state, player) : 0;
+    const raisedOwnAttack = (before: GameState, after: GameState) =>
+        after.players[player].pawnZones.some(z => z && z.card.atk > (before.players[player].pawnZones
+            .find(original => original?.card.instanceId === z.card.instanceId)?.card.atk ?? z.card.atk));
+    const boostedBattleScore = (start: GameState) => {
+        let best = immediateBattleScore(start, player);
+        let frontier = [start];
+        const seen = new Set<string>();
+        for (let depth = 0; depth < Math.min(6, start.players[player].hand.length) && frontier.length; depth++) {
+            const candidates: GameState[] = [];
+            for (const board of frontier) for (const activation of fieldActivations(board, player)) {
+                for (const choice of effectChoices(board, activation.card, activation.trigger, 8)) {
+                    const queued = addChainLink(board, choice, activation.trigger);
+                    if (queued === board) continue;
+                    const after = queued.response ? resolveChain(queued) : queued;
+                    if (!raisedOwnAttack(board, after)) continue;
+                    const key = after.players[player].pawnZones.map(z => z ? `${z.card.instanceId}:${z.card.atk}:${z.position}` : '').join('|')
+                        + '/' + after.players[player].hand.map(c => c.instanceId).sort().join('|');
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    best = Math.max(best, immediateBattleScore(after, player));
+                    candidates.push(after);
+                }
+            }
+            candidates.sort((a, b) => Math.max(...b.players[player].pawnZones.map(z => z?.card.atk ?? 0))
+                - Math.max(...a.players[player].pawnZones.map(z => z?.card.atk ?? 0)));
+            frontier = candidates.slice(0, 6);
+        }
+        return best;
+    };
     const considerEffect = (base: GameState, card: Card, trigger: EffectTrigger, fromHand = false) => {
         for (const context of effectChoices(base, card, trigger)) {
             const queued = addChainLink(base, context, trigger);
@@ -190,15 +237,17 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             // optional broad targeting must never turn an ATK reduction on the
             // AI's own Pawn just because no opponent target is available.
             if (lowersOwnPawnAttack(base, next) || raisesOpponentPawnAttack(base, next)) continue;
-            // Reward all forms of opposing field removal equally. It does not
-            // matter whether the effect destroys, voids, returns to hand, or
-            // otherwise moves the card away from the opponent's field.
-            const score = scoreAfterResponse(next, player)
-                + opponentFieldRemovals(base, next) * 45
+            // Credit only removals beyond those already queued in the chain,
+            // regardless of whether a card is destroyed, voided, or returned.
+            let score = scoreAfterResponse(next, player)
+                + opponentFieldRemovals(baseline, next) * 45
                 // Position evaluation deliberately gives non-lethal LP a light
                 // weight. Add effect-specific pressure so burn cards are still
                 // worth converting from hand instead of being held forever.
-                + opponentLPDamage(base, next) * .2;
+                + opponentLPDamage(baseline, next) * .2;
+            if (visibleBlocker && raisedOwnAttack(base, next)) {
+                score += Math.max(0, boostedBattleScore(next) - currentBattleScore);
+            }
             // Summon effects still fire when their benefit is intentionally not
             // represented by the score (for example, gaining LP while healthy).
             // Harmful self-ATK targets were filtered immediately above.
@@ -256,8 +305,13 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
         const next = applyCommand(state, player, { type: 'position', index }).state;
         if (next === state) return;
         const zone = next.players[player].pawnZones[index]!;
+        if (zone.position === Position.ATTACK && zone.card.atk <= 20
+            && !fieldActivations(next, player).some(a => a.card.instanceId === zone.card.instanceId
+                && !fieldActivations(state, player).some(previous => previous.card.instanceId === zone.card.instanceId))) return;
         if (zone.position === Position.ATTACK && zone.card.atk < biggestEnemy) return;
-        const score = evaluatePosition(next, player);
+        const score = evaluatePosition(next, player)
+            + (zone.position === Position.ATTACK && visibleBlocker
+                ? Math.max(0, immediateBattleScore(next, player) - currentBattleScore) : 0);
         if (score > bestScore) { bestScore = score; decision = { kind: 'position', index }; }
     });
     return decision;

@@ -243,9 +243,14 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
     game = state();
     game.currentPhase = Phase.BATTLE;
     const stolen = card('pawn_01', 1);
-    game.players[0].pawnZones[0] = placed(card('pawn_14'));
+    const attacker = card('pawn_14');
+    game.players[0].pawnZones[0] = placed(attacker);
     game.players[1].pawnZones[0] = placed(stolen, Position.DEFENSE);
-    game = resolveCombat(game, 0, 0);
+    game.response = { priority: 1, passes: 2, reason: 'battle', ready: true };
+    game.deferredAction = { kind: 'attack', attackerId: attacker.instanceId, targetId: stolen.instanceId };
+    const battle = applySystemCommand(game, { type: 'completeDeferred' });
+    expect(battle.events).toMatchObject([{ type: 'destroyed', playerIndex: 1, index: 0, card: stolen }]);
+    game = battle.state;
     expect(game.players[0].pawnZones.some(z => z?.card.instanceId === stolen.instanceId)).toBe(true);
     expect(game.players[1].discard).toHaveLength(0);
     game.currentPhase = Phase.END;
