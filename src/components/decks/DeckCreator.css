@@ -13,7 +13,7 @@
 .deck-library { max-width: 1200px; margin: auto; padding: 64px 40px; }
 .deck-library-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 30px; border-bottom: 1px solid #eab30855; }
 .deck-eyebrow { color: #64748b; font: 10px Orbitron, sans-serif; letter-spacing: .35em; }
-.deck-library h1 { color: #eab308; font: bold clamp(28px, 4vw, 50px) Orbitron, sans-serif; margin-top: 12px; letter-spacing: -.04em; }
+.deck-library h1 { color: #eab308; font: bold 50px Orbitron, sans-serif; margin-top: 12px; letter-spacing: -.04em; }
 .deck-library-actions { display: flex; gap: 12px; margin: 28px 0; }
 .deck-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
 .deck-library-tile, .deck-empty-library { border: 1px solid #33415588; border-radius: 6px; overflow: hidden; background: linear-gradient(135deg, #141b24, #07090d); text-align: left; }
@@ -30,7 +30,7 @@
 .deck-tile-caption span { display: flex; justify-content: space-between; margin-top: 12px; font-size: 12px; color: #94a3b8; }
 .deck-empty-library { min-height: 310px; border-style: dashed; display: flex; flex-direction: column; gap: 25px; justify-content: center; align-items: center; color: #94a3b8; font: 12px Orbitron, sans-serif; }
 .deck-empty-library > i:first-child { font-size: 46px; color: #ca8a04; }
-.deck-editor { display: grid; grid-template-columns: clamp(240px, 24vw, 350px) minmax(280px, 1fr) clamp(260px, 25vw, 340px); height: 100%; min-width: 820px; min-height: 480px; }
+.deck-editor { display: grid; grid-template-columns: 350px minmax(280px, 1fr) 340px; height: 100%; min-width: 820px; min-height: 480px; }
 .deck-preview { padding: 22px; border-right: 1px solid #eab30822; background: linear-gradient(180deg, #13150eaa, #07090ef5 60%); overflow-y: auto; }
 .deck-preview-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 34px; }
 .deck-preview-face { max-width: 300px; margin: auto; }
@@ -40,7 +40,7 @@
 .deck-quantity-button span { font-size: 17px; line-height: 1; }
 .deck-center { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: radial-gradient(ellipse at top, #1b233244, transparent 65%); }
 .deck-center-header { display: flex; align-items: center; gap: 8px; padding: 23px 24px 16px; }
-.deck-center-header input { background: transparent; border-bottom: 1px solid transparent; min-width: 0; width: 100%; color: #f8fafc; font: bold clamp(14px, 1.6vw, 23px) Orbitron, sans-serif; padding: 7px 0; }
+.deck-center-header input { background: transparent; border-bottom: 1px solid transparent; min-width: 0; width: 100%; color: #f8fafc; font: bold 23px Orbitron, sans-serif; padding: 7px 0; }
 .deck-center-header input:hover { border-color: #475569; }
 .deck-unsaved { color: #eab308; font-size: 8px; width: 7px; flex-shrink: 0; }
 .deck-counts { display: flex; gap: 22px; padding: 0 24px 19px; font: 11px Orbitron, sans-serif; color: #cbd5e1; border-bottom: 1px solid #ffffff0a; }
@@ -72,7 +72,7 @@
 .deck-empty-center { min-height: 320px; height: 80%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; color: #64748b; font: 11px Orbitron, sans-serif; }
 .deck-empty-center i { font-size: 50px; color: #334155; }
 .deck-no-results { padding: 40px 0; text-align: center; color: #64748b; font-size: 12px; }
-.deck-notice { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 18px; padding: 12px 16px; border: 1px solid #ca8a0488; border-radius: 5px; background: #111821; box-shadow: 0 10px 40px #000a; font-size: 12px; max-width: 90vw; }
+.deck-notice { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 18px; padding: 12px 16px; border: 1px solid #ca8a0488; border-radius: 5px; background: #111821; box-shadow: 0 10px 40px #000a; font-size: 12px; max-width: 1440px; }
 .deck-prompt-backdrop { position: fixed; inset: 0; z-index: 10001; display: grid; place-items: center; padding: 24px; background: #020617cc; }
 .deck-prompt { width: min(420px, 100%); padding: 28px; border: 1px solid #ca8a04; border-radius: 5px; background: linear-gradient(145deg, #19212c, #080b10); box-shadow: 0 20px 70px #000c, 0 0 30px #ca8a0422; color: #e2e8f0; }
 .deck-prompt h2 { margin: 12px 0 16px; color: #eab308; font: bold 18px Orbitron, sans-serif; }

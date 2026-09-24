@@ -28,7 +28,7 @@ export const PileViewModal: React.FC<{
     const cards = gameState.players[playerIndex][isVoid ? 'void' : 'discard'];
 
     return (
-        <aside ref={panelRef} aria-label={isVoid ? 'Void pile contents' : 'Discard pile contents'} className="pile-drawer absolute inset-y-0 right-0 z-[110] flex w-80 max-w-[90vw] flex-col border-l border-white/20 bg-slate-950 text-white shadow-2xl">
+        <aside ref={panelRef} aria-label={isVoid ? 'Void pile contents' : 'Discard pile contents'} className="pile-drawer absolute inset-y-0 right-0 z-[110] flex w-80 flex-col border-l border-white/20 bg-slate-950 text-white shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-white/15 p-5">
                 <div>
                     <p className="text-xs text-slate-400">{gameState.players[playerIndex].name}</p>

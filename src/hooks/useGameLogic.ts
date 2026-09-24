@@ -236,6 +236,13 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         return () => clearTimeout(timeout);
     }, [gameState]);
     const responseOptions = gameState?.response && !gameState.response.ready ? fieldActivations(gameState, gameState.response.priority, true) : [];
+    const visibleResponseRef = useRef<GameState['response']>();
+    if (!gameState?.response || gameState.response.ready) visibleResponseRef.current = undefined;
+    else if (activationPopupsEnabled && responseOptions.length > 0 && !pendingEffectCard && !triggeredEffect
+        && responseFieldMode !== 'activate' && !(opponentMode === 'ai' && gameState.response.priority === 1)) {
+        visibleResponseRef.current = gameState.response;
+    }
+    const showResponsePopup = activationPopupsEnabled || visibleResponseRef.current === gameState?.response;
     useEffect(() => {
         if (!gameState?.resolvingChain) return;
         const timeout = setTimeout(() => setGameState(previous => previous?.resolvingChain ? resolveChainStep(previous) : previous),
@@ -255,9 +262,13 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setGameState(prev => prev ? applyCommand(prev, 1, { type: 'activate', context: choices[0], trigger: 'switch' }).state : prev);
             return;
         }
+        if (pending.card.switchMandatory) {
+            resolveEffect(pending.card, undefined, undefined, undefined, undefined, 'switch');
+            return;
+        }
         setPendingTriggerType('switch');
         setTriggeredEffect(pending.card);
-    }, [gameState, opponentMode, triggeredEffect, pendingEffectCard]);
+    }, [gameState, opponentMode, triggeredEffect, pendingEffectCard, resolveEffect]);
     const respond = (instanceId: string) => {
         const activation = responseOptions.find(option => option.card.instanceId === instanceId);
         if (!activation || pendingEffectCard) return;
@@ -269,11 +280,11 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         setGameState(prev => prev ? applyCommand(prev, prev.response?.priority ?? prev.activePlayerIndex, { type: 'pass' }).state : prev);
     };
     useEffect(() => {
-        if (activationPopupsEnabled || !gameState?.response || gameState.response.ready || responseOptions.length === 0) return;
+        if (showResponsePopup || !gameState?.response || gameState.response.ready || responseOptions.length === 0) return;
         if (pendingEffectCard || triggeredEffect || responseFieldMode) return;
         if (opponentMode === 'ai' && gameState.response.priority === 1) return;
         setGameState(prev => prev ? applyCommand(prev, prev.response?.priority ?? prev.activePlayerIndex, { type: 'pass' }).state : prev);
-    }, [activationPopupsEnabled, gameState?.response, opponentMode, pendingEffectCard, responseFieldMode, responseOptions.length, triggeredEffect]);
+    }, [showResponsePopup, gameState?.response, opponentMode, pendingEffectCard, responseFieldMode, responseOptions.length, triggeredEffect]);
     useEffect(() => {
         if (!gameState?.response || gameState.response.ready || responseOptions.length === 0) setResponseFieldMode(null);
     }, [gameState?.response, responseOptions.length]);
@@ -321,7 +332,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             cardMotions: cardMotion.motions, finishMotion: cardMotion.finishMotion,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
-            isRightPanelOpen, isDeckViewerOpen, activationPopupsEnabled, effectTributeReq, shuffleSelectionReq,
+            isRightPanelOpen, isDeckViewerOpen, activationPopupsEnabled, showResponsePopup, effectTributeReq, shuffleSelectionReq,
         },
         actions: {
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,

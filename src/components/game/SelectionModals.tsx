@@ -54,6 +54,7 @@ const themes: Record<SelectionTheme, { frame: string; heading: string; ring: str
 
 interface CardSelectionModalProps {
     title: string;
+    prompt?: string;
     cards: Card[];
     selectedIndex: number | null;
     onSelect: (index: number | null) => void;
@@ -70,7 +71,7 @@ interface CardSelectionModalProps {
 }
 
 const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
-    title, cards, selectedIndex, onSelect, onCancel, onConfirm,
+    title, prompt, cards, selectedIndex, onSelect, onCancel, onConfirm,
     emptyLabel, confirmLabel, theme, filter, cancellable = true,
     selectedIndices, requiredCount, onConfirmMulti
 }) => {
@@ -81,9 +82,12 @@ const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center bg-black/80 p-8 backdrop-blur-sm animate-in fade-in">
-            <div className={`flex max-h-[80vh] w-full max-w-5xl flex-col rounded-lg border-2 bg-slate-900 p-8 ${colors.frame}`}>
+            <div className={`flex max-h-[720px] w-full max-w-5xl flex-col rounded-lg border-2 bg-slate-900 p-8 ${colors.frame}`}>
                 <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
-                    <h2 className={`font-orbitron text-2xl font-black uppercase tracking-widest ${colors.heading}`}>{title}</h2>
+                    <div className="min-w-0">
+                        <h2 className={`font-orbitron text-2xl font-black uppercase tracking-widest ${colors.heading}`}>{title}</h2>
+                        {prompt && <p className="mt-2 font-orbitron text-sm font-bold uppercase tracking-widest text-slate-300">{prompt}</p>}
+                    </div>
                     {cancellable && <button data-sound="cancellation" onClick={onCancel} className="border border-red-500/50 bg-red-900/40 px-6 py-2 font-orbitron text-xs font-bold uppercase tracking-widest text-white hover:bg-red-800">Cancel</button>}
                 </div>
                 <div className="mb-6 grid flex-1 grid-cols-2 gap-6 overflow-y-auto p-2 md:grid-cols-4 lg:grid-cols-5">
@@ -128,7 +132,7 @@ interface HandSelectionModalProps {
 
 export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, setHandSelectionReq, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel="Confirm discard" theme="red" filter={selectionReq.filter} />;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel="Confirm discard" theme="red" filter={selectionReq.filter} />;
 };
 
 export const PeekSelectionModal: React.FC<{
@@ -137,7 +141,7 @@ export const PeekSelectionModal: React.FC<{
     filter?: (card: Card) => boolean; confirmLabel?: string; cancellable?: boolean;
 }> = ({ selectionReq, gameState, selectedPeekIndex, setSelectedPeekIndex, cancelEffect, handlePeekSelection, filter, confirmLabel = 'Show this card', cancellable = false }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal title={selectionReq.title ?? 'Select a card to show'} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedPeekIndex} onSelect={setSelectedPeekIndex} onCancel={cancelEffect} onConfirm={handlePeekSelection} emptyLabel="No cards in hand" confirmLabel={confirmLabel} theme="indigo" cancellable={cancellable} filter={filter} />;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card to show'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedPeekIndex} onSelect={setSelectedPeekIndex} onCancel={cancelEffect} onConfirm={handlePeekSelection} emptyLabel="No cards in hand" confirmLabel={confirmLabel} theme="indigo" cancellable={cancellable} filter={filter} />;
 };
 
 export const DiscardSelectionModal: React.FC<{
@@ -145,7 +149,7 @@ export const DiscardSelectionModal: React.FC<{
     setSelectedDiscardIndex: (index: number | null) => void; setDiscardSelectionReq: (request: null) => void; handleDiscardSelection: (index: number) => void;
 }> = ({ selectionReq, gameState, selectedDiscardIndex, setSelectedDiscardIndex, setDiscardSelectionReq, handleDiscardSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} cards={gameState.players[selectionReq.playerIndex].discard} selectedIndex={selectedDiscardIndex} onSelect={setSelectedDiscardIndex} onCancel={() => setDiscardSelectionReq(null)} onConfirm={handleDiscardSelection} emptyLabel="No cards in discard pile" confirmLabel="Confirm selection" theme="yellow" filter={selectionReq.filter} />;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].discard} selectedIndex={selectedDiscardIndex} onSelect={setSelectedDiscardIndex} onCancel={() => setDiscardSelectionReq(null)} onConfirm={handleDiscardSelection} emptyLabel="No cards in discard pile" confirmLabel="Confirm selection" theme="yellow" filter={selectionReq.filter} />;
 };
 
 export const DeckSelectionModal: React.FC<{
@@ -153,5 +157,5 @@ export const DeckSelectionModal: React.FC<{
     setSelectedDeckIndex: (index: number | null) => void; setDeckSelectionReq: (request: null) => void; handleDeckSelection: (index: number) => void;
 }> = ({ selectionReq, gameState, selectedDeckIndex, setSelectedDeckIndex, setDeckSelectionReq, handleDeckSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} cards={gameState.players[selectionReq.playerIndex].deck} selectedIndex={selectedDeckIndex} onSelect={setSelectedDeckIndex} onCancel={() => setDeckSelectionReq(null)} onConfirm={handleDeckSelection} emptyLabel="No cards in deck" confirmLabel="Confirm selection" theme="indigo" filter={selectionReq.filter} />;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].deck} selectedIndex={selectedDeckIndex} onSelect={setSelectedDeckIndex} onCancel={() => setDeckSelectionReq(null)} onConfirm={handleDeckSelection} emptyLabel="No cards in deck" confirmLabel="Confirm selection" theme="indigo" filter={selectionReq.filter} />;
 };

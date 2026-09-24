@@ -12,6 +12,22 @@
 @tailwind components;
 @tailwind utilities;
 
+.game-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #020617;
+}
+
+.game-surface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2048px;
+  height: 1152px;
+  transform-origin: center;
+}
+
 :root {
   --scrollbar-track: #070a0f;
   --scrollbar-thumb: #475569;

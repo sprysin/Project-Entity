@@ -65,7 +65,7 @@ export const Zone: React.FC<{
         <div ref={domRef} onClick={onClick} className={`w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col relative hover:z-50 ${isSelected ? 'border-yellow-400 scale-105 z-40' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-40' : isSelectable ? 'border-red-500 animate-pulse z-40' : isDropTarget ? 'zone-drop-target z-40' : 'border-white/5 bg-black/40 hover:border-white/20'} ${isActivatable ? 'glow-activatable z-30' : 'z-10'}`}>
             {contextualActions && (
                 <div
-                    className="absolute bottom-[calc(100%+0.65rem)] left-1/2 z-[100] w-max max-w-64 -translate-x-1/2 cursor-default"
+                    className="field-context-menu absolute bottom-[calc(100%+0.65rem)] left-1/2 z-[100] w-max max-w-64 -translate-x-1/2 cursor-default"
                     onClick={(event) => event.stopPropagation()}
                 >
                     {contextualActions}

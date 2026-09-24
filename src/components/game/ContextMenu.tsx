@@ -11,7 +11,7 @@ const tones: Record<MenuTone, string> = {
 };
 
 export const ContextMenu: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="w-64 max-w-[calc(100vw-1rem)] rounded border border-yellow-400/60 bg-slate-950/95 p-2 text-white shadow-[0_0_28px_rgba(0,0,0,0.85)] backdrop-blur-md">
+    <div className="w-64 rounded border border-yellow-400/60 bg-slate-950/95 p-2 text-white shadow-[0_0_28px_rgba(0,0,0,0.85)] backdrop-blur-md">
         <div className="overflow-hidden whitespace-nowrap px-2 pb-2 text-center font-orbitron text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400">
             <span className="inline-block whitespace-nowrap" style={{ transform: `scaleX(${Math.max(.58, Math.min(1, 22 / title.length))})` }}>{title}</span>
         </div>

@@ -31,11 +31,11 @@ beforeEach(async () => {
 
 it('persists decks and settings together across a restart, even with concurrent writes', async () => {
   const deck = newDeck();
-  await Promise.all([saveDeckLibrary([deck]), saveActivationPopups(false), saveSettings({ username: '  Drake  ', volume: 35 })]);
+  await Promise.all([saveDeckLibrary([deck]), saveActivationPopups(false), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true })]);
   await initializeStorage();
   expect(getSavedDecks()).toEqual([deck]);
   expect(getActivationPopups()).toBe(false);
-  expect(getSettings()).toEqual({ activationPopupsEnabled: false, username: 'Drake', volume: 35 });
+  expect(getSettings()).toEqual({ activationPopupsEnabled: false, username: 'Drake', volume: 35, fannedOutPiles: true });
   expect(disk.files.has('save.json.tmp')).toBe(false);
 });
 
@@ -55,9 +55,9 @@ it('keeps the previous save and cached state when replacement fails, then suppor
 
 it('migrates legacy arrays and rejects future versions and duplicate IDs', () => {
   const deck = newDeck();
-  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupsEnabled: true, username: 'Player 1', volume: 80 } });
-  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false } }).settings).toEqual({ activationPopupsEnabled: false, username: 'Player 1', volume: 80 });
-  for (const settings of [{ username: ' ' }, { username: 'x'.repeat(25) }, { volume: -1 }, { volume: 101 }]) {
+  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupsEnabled: true, username: 'Player 1', volume: 80, fannedOutPiles: false } });
+  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false } }).settings).toEqual({ activationPopupsEnabled: false, username: 'Player 1', volume: 80, fannedOutPiles: false });
+  for (const settings of [{ username: ' ' }, { username: 'x'.repeat(25) }, { volume: -1 }, { volume: 101 }, { fannedOutPiles: 'yes' }]) {
     expect(() => migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: true, ...settings } })).toThrow('Invalid settings');
   }
   expect(() => migrateSave({ version: 2 })).toThrow('Unsupported');

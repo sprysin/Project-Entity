@@ -14,7 +14,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let config = app.config().app.windows[0].clone();
-            tauri::WebviewWindowBuilder::from_config(app, &config)?
+            let window = tauri::WebviewWindowBuilder::from_config(app, &config)?
                 .on_navigation(|url| {
                     if cfg!(debug_assertions) {
                         url.host_str() == Some("127.0.0.1") && url.port() == Some(3000)
@@ -23,6 +23,9 @@ fn main() {
                     }
                 })
                 .build()?;
+            // Tauri disables the maximize button when creating a fixed-size window.
+            // Re-enable it after creation so the normal window remains non-resizable.
+            window.set_maximizable(true)?;
             Ok(())
         })
         .run(tauri::generate_context!())

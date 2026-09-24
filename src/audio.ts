@@ -15,6 +15,7 @@ const soundUrls = {
   'card-destruction': new URL('./Sounds/CardDestruction.mp3', import.meta.url).href,
   'draw-tick': new URL('./Sounds/DrawTick.mp3', import.meta.url).href,
   'action-condition-destroyed': new URL('./Sounds/ActionConditionDestroyed.mp3', import.meta.url).href,
+  attach: new URL('./Sounds/Attach.mp3', import.meta.url).href,
   defeat: new URL('./Sounds/Defeat.mp3', import.meta.url).href,
 } as const;
 
@@ -22,8 +23,8 @@ export type SoundName = keyof typeof soundUrls;
 
 export const isSoundName = (value: string): value is SoundName => value in soundUrls;
 
-export function playSound(name: SoundName) {
-  const volume = getSettings().volume / 100;
+export function playSound(name: SoundName, volumePercent = getSettings().volume) {
+  const volume = Math.min(100, Math.max(0, volumePercent)) / 100;
   if (volume <= 0 || typeof Audio === 'undefined') return;
 
   const audio = new Audio(soundUrls[name]);

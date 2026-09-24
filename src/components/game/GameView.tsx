@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { CardType, Phase, Position, OpponentMode } from '../../types';
 import { useGameLogic } from '../../hooks/useGameLogic';
 import { checkActivationConditions, hasOnActivateEffect } from '../../game/cardHelpers';
@@ -16,6 +17,7 @@ import { SavedDeck } from '../../decks';
 import { fieldActivations } from '../../game/chains';
 import { canAttack, canChangePosition as canChangePawnPosition } from '../../game/engine';
 import { QuitDuelDialog } from './MatchModals';
+import { getSettings } from '../../desktop/storage';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -50,6 +52,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
+  const fannedOutPiles = getSettings().fannedOutPiles;
   const revealedOpponentCardId = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex && event.ownerPlayerIndex === oppIdx)?.card.instanceId;
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
@@ -63,6 +66,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
     state.selectedFieldSlot.index === index;
 
   const canPawnAttack = (index: number) => canAttack(gameState, viewIndex, index);
+
+  const pilePair = (player: typeof activePlayer, playerIndex: number) => (
+    <div className={`game-field-side game-field-side--piles ${fannedOutPiles ? '' : 'game-field-side--compact-piles'}`}>
+      <Pile cards={player.void} label="Void" color="purple" icon="fa-hurricane" fannedOut={fannedOutPiles} domRef={actions.setRef(`void-${playerIndex}`)} isFlashing={state.voidFlash[playerIndex]} onClick={() => actions.setViewingVoidIdx(playerIndex)} />
+      <Pile cards={player.discard} label="Discard" color="slate" icon="fa-skull" fannedOut={fannedOutPiles} domRef={actions.setRef(`discard-${playerIndex}`)} isFlashing={state.discardFlash[playerIndex]} onClick={() => actions.setViewingDiscardIdx(playerIndex)} />
+    </div>
+  );
 
   const changePawnPosition = (index: number) => {
     if (!actionsDisabled) actions.changePosition(index);
@@ -152,9 +162,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
             ))}
           </div>
 
-          <div className="relative z-10 flex flex-col space-y-4 transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20">
+          <div className={`game-board ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
             {/* Opponent Field View */}
-            <div className="flex flex-col items-center space-y-4 opacity-90">
+            <div className={`game-player-field flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} opacity-90`}>
               <div className="game-field-row">
                 <div className="game-field-zones">
                   {opponent.actionZones.map((z, i) => (<Zone key={i} card={z} type="action" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'action', oppIdx)} onClick={() => {
@@ -164,7 +174,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'action', index: i })
                   }} />))}
                 </div>
-                <div className="game-field-side"><DeckPile count={opponent.deck.length} label="Deck" domRef={actions.setRef(`deck-${oppIdx}`)} /></div>
+                <div className={`game-field-side ${fannedOutPiles ? '' : 'game-field-side--compact-deck'}`}>
+                  <DeckPile count={opponent.deck.length} label="Deck" domRef={actions.setRef(`deck-${oppIdx}`)} />
+                </div>
               </div>
               <div className="game-field-row game-field-row--pawns">
                 <div className="game-field-zones">
@@ -183,10 +195,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                     else actions.setSelectedFieldSlot({ playerIndex: oppIdx, type: 'pawn', index: i });
                   }} />))}
                 </div>
-                <div className="game-field-side game-field-side--piles">
-                  <Pile cards={opponent.void} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${oppIdx}`)} isFlashing={state.voidFlash[oppIdx]} onClick={() => actions.setViewingVoidIdx(oppIdx)} />
-                  <Pile cards={opponent.discard} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${oppIdx}`)} isFlashing={state.discardFlash[oppIdx]} onClick={() => actions.setViewingDiscardIdx(oppIdx)} />
-                </div>
+                {pilePair(opponent, oppIdx)}
               </div>
             </div>
 
@@ -206,7 +215,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
             </div>
 
             {/* Active Player Field View */}
-            <div className="flex flex-col items-center space-y-4">
+            <div className={`game-player-field flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'}`}>
               <div className="game-field-row game-field-row--pawns">
                 <div className="game-field-zones">
                   {activePlayer.pawnZones.map((z, i) => {
@@ -264,10 +273,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       }} />;
                   })}
                 </div>
-                <div className="game-field-side game-field-side--piles">
-                  <Pile cards={activePlayer.void} label="Void" color="purple" icon="fa-hurricane" domRef={actions.setRef(`void-${viewIndex}`)} isFlashing={state.voidFlash[viewIndex]} onClick={() => actions.setViewingVoidIdx(viewIndex)} />
-                  <Pile cards={activePlayer.discard} label="Discard" color="slate" icon="fa-skull" domRef={actions.setRef(`discard-${viewIndex}`)} isFlashing={state.discardFlash[viewIndex]} onClick={() => actions.setViewingDiscardIdx(viewIndex)} />
-                </div>
+                {pilePair(activePlayer, viewIndex)}
               </div>
               <div className="game-field-row">
                 <div className="game-field-zones">
@@ -305,7 +311,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       }} />;
                   })}
                 </div>
-                <div className="game-field-side">
+                <div className={`game-field-side ${fannedOutPiles ? '' : 'game-field-side--compact-deck'}`}>
                   <DeckPile count={activePlayer.deck.length} label="Deck" domRef={actions.setRef(`deck-${viewIndex}`)} />
                 </div>
               </div>
@@ -333,6 +339,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
           </div>
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
+          {createPortal(<>
           {state.cardMotions.map(motion => (
             <div key={motion.id} className={`card-travel ${motion.activation ? 'card-travel-activation' : ''}`}
               onAnimationEnd={event => { if (event.target === event.currentTarget && event.animationName === 'card-zone-travel') state.finishMotion(motion.id); }}
@@ -386,6 +393,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
               ))}
             </div>
           ))}
+          </>, document.body)}
 
           <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} viewerIndex={viewIndex} onQuit={onQuit} />
         </div>

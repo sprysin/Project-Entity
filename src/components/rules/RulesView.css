@@ -22,7 +22,7 @@
 .rulebook-breadcrumb button:hover { border-color:var(--gold); color:var(--gold); background:rgba(245,189,72,.06); }
 .rulebook-cover { min-height:460px; display:grid; grid-template-columns: 1fr 1fr; align-items:center; gap:50px; border-bottom:1px solid var(--line); }
 .rulebook-eyebrow { color:var(--gold); font-family:Orbitron,sans-serif; font-weight:700; font-size:10px; letter-spacing:.23em; text-transform:uppercase; }
-.rulebook-cover h1 { font-family:Orbitron,sans-serif; font-size:clamp(40px,6vw,76px); line-height:.98; letter-spacing:-.08em; margin:20px 0; }
+.rulebook-cover h1 { font-family:Orbitron,sans-serif; font-size:76px; line-height:.98; letter-spacing:-.08em; margin:20px 0; }
 .rulebook-cover h1 em { color:var(--gold); font-style:normal; }
 .rulebook-cover p { color:var(--muted); line-height:1.7; font-size:16px; }
 .rulebook-primary { margin-top:28px; padding:14px 18px; border:1px solid var(--gold); background:var(--gold); color:#14120d; font-family:Orbitron,sans-serif; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:.2s; }
@@ -53,7 +53,7 @@
 .rulebook-breadcrumb button { font-family:inherit; font-size:10px; letter-spacing:.12em; padding:8px 11px; }
 .rulebook-reading-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(270px,.75fr); gap:60px; align-items:start; }
 .rulebook-topic-heading { border-bottom:1px solid var(--line); padding-bottom:24px; }
-.rulebook-topic-heading h1 { font-family:Orbitron,sans-serif; font-size:clamp(31px,4vw,52px); letter-spacing:-.07em; margin:14px 0 0; }
+.rulebook-topic-heading h1 { font-family:Orbitron,sans-serif; font-size:52px; letter-spacing:-.07em; margin:14px 0 0; }
 .rulebook-page-tabs { display:flex; gap:6px; padding:16px 0; border-bottom:1px solid var(--line); overflow-x:auto; }
 .rulebook-page-tabs button { flex:none; padding:9px 12px; border:1px solid transparent; border-radius:3px; background:none; color:#858792; font-size:11px; cursor:pointer; }
 .rulebook-page-tabs button:hover, .rulebook-page-tabs button[aria-current="page"] { color:var(--gold); border-color:rgba(245,189,72,.4); background:rgba(245,189,72,.07); }

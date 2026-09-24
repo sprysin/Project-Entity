@@ -105,7 +105,7 @@ export const GameOverlays: React.FC<{
             </div>
         )}
 
-        {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && state.responseFieldMode !== 'activate' && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
+        {state.showResponsePopup && gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && !state.pendingEffectCard && !state.triggeredEffect && state.responseFieldMode !== 'activate' && !(state.opponentMode === 'ai' && gameState.response.priority === 1) && (
             <DuelPrompt
                 ariaLabel="Response window"
                 title={<span className="duel-prompt__response-title">{gameState.players[gameState.response.priority].name}: Respond?</span>}
@@ -128,7 +128,7 @@ export const GameOverlays: React.FC<{
         {gameState.pendingFrontline?.length && !state.frontlineCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
             && !(state.opponentMode === 'ai' && gameState.pendingFrontline[0].playerIndex === 1)
             && <PeekSelectionModal
-                selectionReq={{ playerIndex: gameState.pendingFrontline[0].playerIndex, viewerPlayerIndex: gameState.pendingFrontline[0].playerIndex, title: 'Orcustrated Frontline Unit: Choose a LIGHT Pawn' }}
+                selectionReq={{ playerIndex: gameState.pendingFrontline[0].playerIndex, viewerPlayerIndex: gameState.pendingFrontline[0].playerIndex, title: 'Orcustrated Frontline Unit', prompt: 'Choose a LIGHT Pawn' }}
                 gameState={gameState}
                 selectedPeekIndex={state.frontlineSelectedHandIndex}
                 setSelectedPeekIndex={actions.setFrontlineSelectedHandIndex}

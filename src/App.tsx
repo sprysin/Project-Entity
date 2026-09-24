@@ -14,6 +14,13 @@ import { useUiSounds } from './hooks/useUiSounds';
 // Define the possible screens/views in the application
 type View = 'HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS';
 
+const GAME_WIDTH = 2048;
+const GAME_HEIGHT = 1152;
+
+function viewportScale() {
+  return Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
+}
+
 /**
  * Main App Component
  * Handles high-level navigation between the Hub, the Game session, and the Card Gallery.
@@ -23,13 +30,20 @@ const App: React.FC = () => {
   const [opponentMode, setOpponentMode] = useState<OpponentMode>('self');
   const [currentView, setCurrentView] = useState<View>('HUB');
   const [playtestDecks, setPlaytestDecks] = useState<[SavedDeck | null, SavedDeck | null]>([null, null]);
+  const [scale, setScale] = useState(viewportScale);
+  useEffect(() => {
+    const resize = () => setScale(viewportScale());
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
   useEffect(() => {
     setCloseReason('match', currentView === 'GAME' ? 'The current match will be lost.' : null);
     return () => setCloseReason('match', null);
   }, [currentView]);
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col">
+    <div className="game-viewport">
+      <div className="game-surface overflow-hidden bg-slate-950 text-slate-100 flex flex-col" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
       {/* Main Menu / Hub View */}
       {currentView === 'HUB' && (
         <Hub
@@ -64,6 +78,7 @@ const App: React.FC = () => {
       {currentView === 'RULES' && (
         <RulesView onBack={() => setCurrentView('HUB')} />
       )}
+      </div>
     </div>
   );
 };

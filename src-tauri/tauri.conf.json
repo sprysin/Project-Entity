@@ -12,8 +12,8 @@
   "app": {
     "windows": [{
       "label": "main", "create": false, "title": "Project Entity",
-      "width": 1440, "height": 900, "minWidth": 1024, "minHeight": 640,
-      "center": true, "resizable": true, "backgroundColor": "#020617",
+      "width": 1728, "height": 972,
+      "center": true, "resizable": false, "maximizable": true, "backgroundColor": "#020617",
       "dragDropEnabled": false
     }],
     "security": {

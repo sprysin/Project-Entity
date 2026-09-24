@@ -49,6 +49,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         const batch: CardMotion[] = [];
         next.forEach((dest, id) => {
             const src = previous.current.get(id);
+            if (src && !src.attached && dest.attached) playSound('attach');
             if (suppressedCardIds.includes(id)) return;
             // A hand index changing is reflow, not a zone transfer.
             if (!src || src.key === dest.key || src.key.replace(/-hand-\d+$/, '-hand') === dest.key.replace(/-hand-\d+$/, '-hand')) return;

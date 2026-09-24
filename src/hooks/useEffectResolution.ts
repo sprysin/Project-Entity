@@ -128,14 +128,14 @@ export const useEffectResolution = (
         }
         if (peekResult?.requireDiscardSelection && actualDiscardIndex === undefined) {
             setPendingEffectCard(card);
-            setDiscardSelectionReq({ ...peekResult.requireDiscardSelection, title: `${card.name}: Select a card from the discard pile` });
+            setDiscardSelectionReq({ ...peekResult.requireDiscardSelection, title: card.name, prompt: 'Select a card from the discard pile' });
             setSelectedDiscardIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
         }
         if (peekResult?.requireHandSelection && actualHandIndex === undefined) {
             setPendingEffectCard(card);
-            setHandSelectionReq({ ...peekResult.requireHandSelection, title: `${card.name}: Select a card to discard` });
+            setHandSelectionReq({ ...peekResult.requireHandSelection, title: card.name, prompt: 'Select a card to discard' });
             setSelectedHandSelectionIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
@@ -151,7 +151,7 @@ export const useEffectResolution = (
                         actualTriggerType, actualTributeIndices, actualTargets, chosenIndex);
                     return;
                 }
-                setPeekSelectionReq({ ...peekResult.requirePeekSelection!, title: `${card.name}: Select a card in your hand to show` });
+                setPeekSelectionReq({ ...peekResult.requirePeekSelection!, title: card.name, prompt: 'Select a card in your hand to show' });
                 setSelectedPeekIndex(null);
             };
             if (selectionState.preparePeekSelection && !pendingContext.current.peekAnimationPlayed) {
@@ -164,7 +164,7 @@ export const useEffectResolution = (
         }
         if (peekResult?.requireDeckSelection && actualDeckIndex === undefined) {
             setPendingEffectCard(card);
-            setDeckSelectionReq({ ...peekResult.requireDeckSelection, title: `${card.name}: Select a card from the deck` });
+            setDeckSelectionReq({ ...peekResult.requireDeckSelection, title: card.name, prompt: 'Select a card from the deck' });
             setSelectedDeckIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;

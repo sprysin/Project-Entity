@@ -149,6 +149,7 @@ export type CardFilter = (card: Card) => boolean;
 export interface CardSelectionRequest {
   playerIndex: number;
   title?: string;
+  prompt?: string;
   filter: CardFilter;
 }
 
@@ -156,6 +157,7 @@ export interface HandSelectionRequest {
   filter?: CardFilter;
   playerIndex: number;
   title?: string;
+  prompt?: string;
 }
 
 export type ShuffleLocation = 'hand' | 'field' | 'discard';
@@ -173,6 +175,7 @@ export interface PeekSelectionRequest {
   /** The only player allowed to see the selected card. */
   viewerPlayerIndex: number;
   title?: string;
+  prompt?: string;
 }
 
 export interface PeekEvent {

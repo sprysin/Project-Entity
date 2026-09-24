@@ -4,9 +4,9 @@ import { parseDeck, SavedDeck } from '../decks';
 export interface SaveData {
   version: 1;
   decks: SavedDeck[];
-  settings: { activationPopupsEnabled: boolean; username: string; volume: number };
+  settings: { activationPopupsEnabled: boolean; username: string; volume: number; fannedOutPiles: boolean };
 }
-const empty = (): SaveData => ({ version: 1, decks: [], settings: { activationPopupsEnabled: true, username: 'Player 1', volume: 80 } });
+const empty = (): SaveData => ({ version: 1, decks: [], settings: { activationPopupsEnabled: true, username: 'Player 1', volume: 80, fannedOutPiles: false } });
 
 // Version 0 used an unversioned deck array. Keep excess copies editable on migration.
 export function migrateSave(raw: unknown): SaveData {
@@ -17,9 +17,11 @@ export function migrateSave(raw: unknown): SaveData {
   if (new Set(decks.map(deck => deck.id)).size !== decks.length) throw new Error('Duplicate deck IDs in save file.');
   const username = data.settings.username ?? 'Player 1';
   const volume = data.settings.volume ?? 80;
+  const fannedOutPiles = data.settings.fannedOutPiles ?? false;
   if (typeof username !== 'string' || !username.trim() || username.trim().length > 24 ||
-      typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 100) throw new Error('Invalid settings in save file.');
-  return { version: 1, decks, settings: { activationPopupsEnabled: data.settings.activationPopupsEnabled, username: username.trim(), volume } };
+      typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 100 ||
+      typeof fannedOutPiles !== 'boolean') throw new Error('Invalid settings in save file.');
+  return { version: 1, decks, settings: { activationPopupsEnabled: data.settings.activationPopupsEnabled, username: username.trim(), volume, fannedOutPiles } };
 }
 
 let current = empty();
@@ -36,9 +38,9 @@ export async function initializeStorage() {
 export const getSavedDecks = () => structuredClone(current.decks);
 export const getActivationPopups = () => current.settings.activationPopupsEnabled;
 export const getSettings = () => ({ ...current.settings });
-export const saveSettings = (settings: Pick<SaveData['settings'], 'username' | 'volume'>) => {
+export const saveSettings = (settings: Pick<SaveData['settings'], 'username' | 'volume' | 'fannedOutPiles'>) => {
   const validated = migrateSave({ ...current, settings: { ...current.settings, ...settings } }).settings;
-  return update(previous => ({ ...previous, settings: { ...previous.settings, username: validated.username, volume: validated.volume } }));
+  return update(previous => ({ ...previous, settings: { ...previous.settings, username: validated.username, volume: validated.volume, fannedOutPiles: validated.fannedOutPiles } }));
 };
 
 // Serialize writes and replace only after the complete temporary file is written.
