@@ -1,3 +1,4 @@
+import { isToken, shuffleDeck } from './game/cardHelpers';
 import { cardRegistry, CardDefinition } from './cards/CardRegistry';
 import { Card, CardType } from './types';
 import './cards/pawns';
@@ -15,10 +16,10 @@ export const MAX_COPIES = 3;
 export const MIN_DECK_SIZE = 40;
 export const MAX_DECK_SIZE = 60;
 export const deckSize = (deck: SavedDeck) => deck.cards.reduce((sum, entry) => sum + entry.quantity, 0);
-export const canAddCard = (deck: SavedDeck, cardId: string) => deckSize(deck) < MAX_DECK_SIZE && (deck.cards.find(e => e.cardId === cardId)?.quantity ?? 0) < MAX_COPIES;
-export const isDeckPlayable = (deck: SavedDeck) => deckSize(deck) >= MIN_DECK_SIZE && deckSize(deck) <= MAX_DECK_SIZE && deck.cards.every(e => e.quantity >= 1 && e.quantity <= MAX_COPIES);
+export const canAddCard = (deck: SavedDeck, cardId: string) => !isToken(cardRegistry.getCard(cardId) ?? {}) && deckSize(deck) < MAX_DECK_SIZE && (deck.cards.find(e => e.cardId === cardId)?.quantity ?? 0) < MAX_COPIES;
+export const isDeckPlayable = (deck: SavedDeck) => deckSize(deck) >= MIN_DECK_SIZE && deckSize(deck) <= MAX_DECK_SIZE && deck.cards.every(e => e.quantity >= 1 && e.quantity <= MAX_COPIES && !isToken(cardRegistry.getCard(e.cardId) ?? {}));
 const order = { [CardType.PAWN]: 0, [CardType.ACTION]: 1, [CardType.CONDITION]: 2 };
-export const sortedCards = (): CardDefinition[] => cardRegistry.getAllCards().sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name));
+export const sortedCards = (): CardDefinition[] => cardRegistry.getAllCards().filter(card => !isToken(card)).sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name));
 export const newDeck = (): SavedDeck => ({ version: 1, id: crypto.randomUUID(), name: 'Untitled deck', cards: [] });
 
 /** Expands stable saved-deck entries into shuffled runtime card instances. */
@@ -33,10 +34,7 @@ export function createRuntimeDeck(deck: SavedDeck, playerId: string): Card[] {
             ownerId: playerId,
         }));
     });
-    for (let i = cards.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [cards[i], cards[j]] = [cards[j], cards[i]];
-    }
+    shuffleDeck(cards);
     return cards;
 }
 

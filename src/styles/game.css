@@ -14,6 +14,11 @@ body {
   background: linear-gradient(145deg, #2a220a, #1a1505);
 }
 
+.card-token {
+  border: 3px solid #9ca3af;
+  background: linear-gradient(145deg, #30343b, #191c22);
+}
+
 .card-action {
   border: 3px solid #059669;
   background: linear-gradient(145deg, #0a2a1b, #051a10);
@@ -39,14 +44,13 @@ body {
 
 .card-artwork {
   position: relative;
-  z-index: 10;
+  z-index: 11;
   flex: 0 0 auto;
   width: 100%;
   aspect-ratio: 16 / 9;
   container-type: inline-size;
   display: grid;
   place-items: center;
-  overflow: hidden;
   border: 1px solid #ffffff26;
   background: #0006;
   box-shadow: inset 0 0 14px #0008;
@@ -129,6 +133,24 @@ body {
   white-space: nowrap;
 }
 
+.field-counter-overlay {
+  inset: auto -7px -7px auto;
+  display: grid;
+  gap: 4px;
+}
+
+.field-counter-overlay__count {
+  position: static;
+  align-items: center;
+  border: 1px solid #eab308;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
+  font-size: 29px;
+}
+
+.field-counter-overlay__count strong { font-size: inherit; }
+.field-counter-overlay__count i { color: #facc15; }
+
 .field-pawn-overlay--defense .field-pawn-overlay__level {
   bottom: 36px;
 }
@@ -202,6 +224,29 @@ body {
   z-index: 15;
   border-width: 3px !important;
   animation: glow-pulse-yellow 2s infinite ease-in-out;
+}
+
+.tribute-indicators {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  left: 50%;
+  display: flex;
+  gap: 0.4rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.tribute-indicator {
+  width: 2rem;
+  aspect-ratio: 2 / 3;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fbbf24;
+  border-radius: 0.25rem;
+  background: linear-gradient(145deg, #43310f, #17120b);
+  color: #fcd34d;
+  box-shadow: 0 0 12px #fbbf2480;
+  font-size: 0.9rem;
 }
 
 .retro-hash,
@@ -433,6 +478,13 @@ body {
   letter-spacing: .08em;
   text-transform: uppercase;
   transition: border-color .16s, background .16s;
+}
+
+.duel-prompt--effect-choice .duel-prompt__actions button:not(:last-child) {
+  padding: 9px 12px;
+  font: 600 12px/1.3 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .duel-prompt__primary {
@@ -674,14 +726,11 @@ body {
 .history-pile__counter {
   position: absolute;
   z-index: 6;
-  top: 0;
-  right: 0;
+  right: 4px;
+  bottom: 4px;
   display: flex;
-  width: 56px;
-  height: 100%;
-  flex-direction: column;
+  gap: 4px;
   align-items: center;
-  justify-content: center;
   pointer-events: none;
 }
 
@@ -722,10 +771,6 @@ body {
 }
 
 .history-pile__label {
-  position: absolute;
-  z-index: 6;
-  top: 4px;
-  left: 4px;
   padding: 2px 4px;
   background: #050507dc;
   font: 700 9px Orbitron, sans-serif;
@@ -734,11 +779,8 @@ body {
 }
 
 .history-pile--compact .history-pile__counter {
-  top: auto;
   right: 3px;
   bottom: 3px;
-  width: auto;
-  height: auto;
 }
 
 .history-pile--compact .history-pile__count {
@@ -946,7 +988,6 @@ body {
   text-align: left;
   text-shadow: 1px 0 #8b6b08, 0 2px 4px #000;
   text-transform: uppercase;
-  backdrop-filter: blur(12px);
   transition: box-shadow .16s, color .16s, filter .16s, transform .12s;
 }
 

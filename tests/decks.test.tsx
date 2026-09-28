@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable } from '../src/decks';
 
 it('caps copies at three and rejects imported fourth copies while keeping legacy decks editable', () => {
+    expect(sortedCards().every(card => card.pawnSubtype !== 'Token')).toBe(true);
     const cardId = sortedCards()[0].id;
     const deck = { ...newDeck(), cards: [{ cardId, quantity: 3 }] };
     expect(canAddCard(deck, cardId)).toBe(false);

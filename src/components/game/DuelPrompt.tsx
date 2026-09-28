@@ -8,6 +8,7 @@ export interface DuelPromptAction {
 }
 
 interface DuelPromptProps {
+    className?: string;
     ariaLabel: string;
     title: React.ReactNode;
     children?: React.ReactNode;
@@ -18,6 +19,7 @@ interface DuelPromptProps {
 }
 
 export const DuelPrompt: React.FC<DuelPromptProps> = ({
+    className = '',
     ariaLabel,
     title,
     children,
@@ -27,7 +29,7 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
     onBackdropClick,
 }) => (
     <div
-        className={`duel-prompt ${peeking ? 'duel-prompt--peeking' : ''}`}
+        className={`duel-prompt ${className} ${peeking ? 'duel-prompt--peeking' : ''}`}
         role="dialog"
         aria-modal={!peeking}
         aria-label={ariaLabel}

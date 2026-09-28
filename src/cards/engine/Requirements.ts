@@ -9,15 +9,16 @@ export const Require = {
         type: 'pawn' | 'action' | 'any' = 'pawn',
         set: 'hidden' | 'faceup' | 'both' = 'both',
         scope: TargetSelectScope = 'both',
-        targetIndex = 0
+        targetIndex = 0,
+        filter?: (card: Card) => boolean
     ): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context, targetIndex);
-        if (!target) return { requireTarget: type, requireTargetPosition: set, requireTargetScope: scope, requireTargetIndex: targetIndex };
+        if (!target) return { requireTarget: type, requireTargetPosition: set, requireTargetScope: scope, requireTargetIndex: targetIndex, requireTargetFilter: filter };
         if (type !== 'any' && target.type !== type) return { halt: true };
         const isOpponent = target.playerIndex !== context.playerIndex;
         if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return { halt: true };
         const zone = draftState.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
-        if (!zone || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
+        if (!zone || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
     /** Verifies the provided target relies on a specific player scope. */
@@ -62,6 +63,11 @@ export const Require = {
 };
 
 export const Condition = {
+    OnceWhileOnField: (): ConditionStep => (state, context) => {
+        const zone = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
+            .find(z => z?.card.instanceId === context.card.instanceId);
+        return !!zone && !zone.hasUsedWhileOnField;
+    },
     /** Generically checks if a numerical evaluation matches the required threshold. */
     CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): ConditionStep => (state, context) => {
         const val1 = resolveDynamic(valueFn, state, context);
@@ -104,10 +110,11 @@ export const Condition = {
     },
 
     /** Checks if this specific card instance has activated its effect this turn. */
-    SoftOncePerTurn: (): ConditionStep => (state, context) => {
+    SoftOncePerTurn: (effectId?: string): ConditionStep => (state, context) => {
         const p = state.players[context.playerIndex];
         const selfZone = p.pawnZones.find(z => z?.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z?.card.instanceId === context.card.instanceId);
-        return selfZone ? !selfZone.hasActivatedEffect : true;
+        if (!selfZone) return true;
+        return effectId ? selfZone.effectUsedTurn?.[effectId] !== state.turnNumber : !selfZone.hasActivatedEffect;
     },
 
     /** Checks if any card with this ID has activated its effect this turn globally. */

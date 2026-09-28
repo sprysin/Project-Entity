@@ -1,4 +1,5 @@
-import { GameState, Phase, Player } from '../types';
+import { GameState, Phase, Player, Position } from '../types';
+import { notifyAttachedActivation } from './attachments';
 import { cardRegistry } from '../cards/CardRegistry';
 import { formatEffectLog } from './effectLog';
 import { checkVictory } from './finishEffect';
@@ -7,7 +8,7 @@ import { sendToOwnerPile } from './cardOwnership';
 
 /** Applies one complete phase transition, including phase-entry maintenance. */
 export const advancePhaseState = (prev: GameState): GameState => {
-    if (prev.winner) return prev;
+    if (prev.winner || prev.pendingVoidSelections?.length) return prev;
     prev = structuredClone(prev);
     let nextPhase = prev.currentPhase;
     let activeIndex = prev.activePlayerIndex;
@@ -59,6 +60,17 @@ export const advancePhaseState = (prev: GameState): GameState => {
                 phaseState = { ...result.newState, log: [log, ...phaseState.log].slice(0, 50) };
             }
         }
+        const fieldEffects = phaseState.players.flatMap((player, playerIndex) => player.actionZones.flatMap(zone =>
+            zone && zone.position !== Position.HIDDEN && cardRegistry.getEffect(zone.card.id)?.onPhaseChange
+                ? [{ card: zone.card, playerIndex }] : []));
+        for (const context of fieldEffects) {
+            const result = cardRegistry.getEffect(context.card.id)!.onPhaseChange!(phaseState, context);
+            if (result.halted) continue;
+            const next = notifyAttachedActivation(phaseState, result.newState, context.card);
+            next.log = [formatEffectLog(phaseState, next, context.card, context, 'phase'), ...next.log].slice(0, 50);
+            phaseState = checkVictory(next);
+            if (phaseState.winner) return phaseState;
+        }
         prev = phaseState;
         currentPendingEffects = phaseState.pendingEffects;
         if (phaseState.winner) return phaseState;
@@ -108,7 +120,7 @@ export const advancePhaseState = (prev: GameState): GameState => {
 
 /** A host may step draws individually for presentation; rules own the remaining count. */
 export function stepDraw(state: GameState): GameState {
-    if (state.winner || state.currentPhase !== Phase.DRAW || state.response) return state;
+    if (state.winner || state.pendingVoidSelections?.length || state.currentPhase !== Phase.DRAW || state.response) return state;
     let next = state;
     if (next.drawProgress?.turn !== next.turnNumber) {
         next = structuredClone(state);

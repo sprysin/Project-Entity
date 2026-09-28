@@ -51,7 +51,7 @@ export enum PawnType {
 }
 
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-export enum PawnSubtype { SWITCH = 'Switch' }
+export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token' }
 
 export interface Card {
   instanceId: string;
@@ -73,9 +73,14 @@ export interface Card {
   effectText: string;
   ownerId: string;
   tributedByAction?: boolean;
+  cannotBeTributed?: boolean;
+  /** ATK lost to field-only reductions; restored when this card leaves the field. */
+  fieldAtkReduction?: number;
 }
 
 export interface PlacedCard {
+  counters?: Record<string, number>;
+  effectUsedTurn?: Record<string, number>;
   returnToOwnerEndPhase?: boolean;
   attachedToInstanceId?: string;
   attachmentStatBonuses?: { sourceInstanceId: string; atk: number; def: number }[];
@@ -86,6 +91,7 @@ export interface PlacedCard {
   summonedTurn: number;
   isSetTurn: boolean;
   hasActivatedEffect?: boolean;
+  hasUsedWhileOnField?: boolean;
   nextBattleAttacks?: number;
   attacksRemaining?: number;
 }
@@ -116,6 +122,7 @@ export interface PendingEffect {
 }
 
 export interface GameState {
+  pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
   pendingFrontline?: { sourceId: string; playerIndex: number }[];
   pendingSwitches?: { card: Card; playerIndex: number }[];
   drawProgress?: { turn: number; remaining: number };
@@ -154,6 +161,7 @@ export interface CardSelectionRequest {
 }
 
 export interface HandSelectionRequest {
+  purpose?: 'discard' | 'summon';
   filter?: CardFilter;
   playerIndex: number;
   title?: string;
@@ -165,7 +173,6 @@ export interface ShuffleSelectionRequest {
   playerIndex: number;
   location: ShuffleLocation;
   count: number;
-  target: boolean;
   filter: CardFilter;
 }
 
@@ -197,7 +204,9 @@ export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
 export type TargetSelectScope = 'active' | 'opponent' | 'both';
 
 export type EffectResult = {
+  requireEffectChoice?: { id: string; label: string; disabled: boolean }[];
   newState: GameState;
+  requirePawnPlacement?: { playerIndex: number };
   halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
@@ -213,6 +222,8 @@ export type EffectResult = {
 };
 
 export interface CardContext {
+  effectId?: string;
+  pawnPlacement?: { slot: number; position: Position };
   execution?: 'costs' | 'resolve';
   tributeCards?: Card[];
   card: Card;
@@ -224,10 +235,12 @@ export interface CardContext {
   peekIndex?: number;
   deckIndex?: number;
   tributeIndices?: number[];
-  shuffleIndices?: number[];
+  shuffleCardIds?: string[];
 }
 
 export interface IEffect {
+  /** A face-up attachment observes an activation announced by its attached card. */
+  onAttachedActivation?(state: GameState, context: CardContext & { activatedCard: Card }): EffectResult;
   /** Only explicitly quick Pawn effects may respond outside normal ignition timing. */
   timing?: 'main' | 'quick';
   /** Let an effect resolve its remaining instructions when one selected target has left the field. */
@@ -257,6 +270,7 @@ export interface IEffect {
 }
 
 export interface ChainLink {
+  handId?: string;
   context: CardContext;
   trigger: EffectTrigger;
   targetId?: string;

@@ -1,3 +1,4 @@
+import { canTribute } from '../game/cardHelpers';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     GameState, Card, CardType, Attribute, Position, Phase, CardSelectionRequest,
@@ -119,7 +120,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined, visuallyDestroyedCardIds,
         (key, source) => animations.triggerShatter(key, source, 'action-condition-destroyed'));
 
-    const { resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection, cancelEffect } = useEffectResolution(
+    const { effectChoiceReq, handleEffectChoice, pawnPlacementReq, handlePawnPlacement, resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection, cancelEffect } = useEffectResolution(
         gameState, setGameState, cardMotion.recordMovement,
         {
             setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
@@ -182,6 +183,16 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
 
     // === EFFECTS ===
 
+    useEffect(() => {
+        const pending = gameState?.pendingVoidSelections?.[0];
+        if (!pending || opponentMode !== 'ai' || pending.playerIndex !== 1 || gameState.winner) return;
+        const cards = gameState.players[pending.pilePlayerIndex].discard;
+        const direction = pending.pilePlayerIndex === pending.playerIndex ? -1 : 1;
+        const chosen = [...cards].sort((a, b) => direction * (b.level + b.atk + b.def - a.level - a.atk - a.def))[0];
+        if (chosen) setGameState(prev => prev ? applyCommand(prev, 1,
+            { type: 'voidSelection', sourceId: pending.source.instanceId, cardId: chosen.instanceId }).state : prev);
+    }, [gameState, opponentMode]);
+
     /** Initialization */
     useEffect(() => {
         const p1Deck = initialDecks[0] ? createRuntimeDeck(initialDecks[0], 'player1') : createDeck('player1');
@@ -210,7 +221,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         setGameState(prev => prev ? applyCommand(prev, prev.activePlayerIndex, { type: 'attack', attackerIndex, targetIndex }).state : prev);
     };
     useEffect(() => {
-        if (!gameState?.response?.ready || gameState.winner) return;
+        if (!gameState?.response?.ready || gameState.winner || gameState.pendingVoidSelections?.length) return;
         const action = gameState.deferredAction;
         const complete = () => {
             const result = applySystemCommand(gameState, { type: 'completeDeferred' });
@@ -244,14 +255,14 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     }
     const showResponsePopup = activationPopupsEnabled || visibleResponseRef.current === gameState?.response;
     useEffect(() => {
-        if (!gameState?.resolvingChain) return;
+        if (!gameState?.resolvingChain || gameState.pendingVoidSelections?.length) return;
         const timeout = setTimeout(() => setGameState(previous => previous?.resolvingChain ? resolveChainStep(previous) : previous),
             gameState.resolvingChain.current === 1 ? 500 : 1000);
         return () => clearTimeout(timeout);
-    }, [gameState?.resolvingChain, setGameState]);
+    }, [gameState?.resolvingChain, gameState?.pendingVoidSelections?.length, setGameState]);
     useEffect(() => {
         const pending = gameState?.pendingSwitches?.[0];
-        if (!pending || triggeredEffect || pendingEffectCard || gameState?.response || gameState?.winner) return;
+        if (!pending || triggeredEffect || pendingEffectCard || gameState?.response || gameState?.winner || gameState.pendingVoidSelections?.length) return;
         const choices = effectChoices(gameState, pending.card, 'switch', 1);
         if (!choices.length) {
             setGameState(prev => prev?.pendingSwitches?.[0]?.card.instanceId === pending.card.instanceId
@@ -316,7 +327,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     return {
         gameState, setGameState,
         state: {
-            opponentMode, responseOptions,
+            opponentMode, responseOptions, pawnPlacementReq, effectChoiceReq,
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition, targetSelectScope,
             targetSelectFilter,
             tributeSelection, pendingTributeCard, tributeSummonMode, pendingTributeSlot,
@@ -335,6 +346,9 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             isRightPanelOpen, isDeckViewerOpen, activationPopupsEnabled, showResponsePopup, effectTributeReq, shuffleSelectionReq,
         },
         actions: {
+            handleEffectChoice,
+            chooseVoidCard: (sourceId: string, cardId: string) => setGameState(prev => prev?.pendingVoidSelections?.length
+                ? applyCommand(prev, prev.pendingVoidSelections[0].playerIndex, { type: 'voidSelection', sourceId, cardId }).state : prev),
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
             setFrontlineSelectedHandIndex,
             setTributeSelection, setIsPeekingField, setResponseFieldMode,
@@ -353,7 +367,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             },
             setRef: animations.setRef,
             nextPhase, skipToEndPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
-            handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection,
+            handlePawnPlacement, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection,
             dismissPeek: (id: string) => setGameState(prev => prev ? { ...prev, peekEvents: (prev.peekEvents ?? []).filter(event => event.id !== id) } : prev),
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
                 cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
@@ -367,7 +381,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 
                 if (new Set(copiedSelection).size !== effectTributeReq.count || copiedSelection.some(idx => {
                     const zone = gameState.players[activeIndex].pawnZones[idx];
-                    return !zone || (effectTributeReq.filter && !effectTributeReq.filter(zone.card));
+                    return !zone || !canTribute(zone.card) || (effectTributeReq.filter && !effectTributeReq.filter(zone.card));
                 })) return;
                 setTargetSelectMode(null);
                 setEffectTributeReq(null);

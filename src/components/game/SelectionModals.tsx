@@ -1,18 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardSelectionRequest, GameState, HandSelectionRequest, PeekSelectionRequest, ShuffleSelectionRequest } from '../../types';
 import { CardDetail } from '../cards/CardDetail';
-import { shuffleCandidates } from '../../game/shuffleSelection';
+import { cardsAtLocation } from '../../game/cardHelpers';
+
+export const VoidSelectionModal: React.FC<{
+    gameState: GameState;
+    onConfirm: (sourceId: string, cardId: string) => void;
+}> = ({ gameState, onConfirm }) => {
+    const request = gameState.pendingVoidSelections?.[0];
+    const [selected, setSelected] = useState<number | null>(null);
+    useEffect(() => setSelected(null), [request]);
+    if (!request) return null;
+    const owner = gameState.players[request.playerIndex];
+    const pile = gameState.players[request.pilePlayerIndex];
+    return <CardSelectionModal title={request.source.name}
+        prompt={`${owner.name}: Choose 1 card from ${pile.name}'s Discard Pile to Void.`}
+        cards={pile.discard} selectedIndex={selected} onSelect={setSelected}
+        onCancel={() => {}} cancellable={false}
+        onConfirm={index => onConfirm(request.source.instanceId, pile.discard[index].instanceId)}
+        emptyLabel="No cards in discard pile" confirmLabel="Void selected card" theme="indigo" />;
+};
 
 export const ShuffleSelectionModal: React.FC<{
     request: ShuffleSelectionRequest | null;
     gameState: GameState;
-    onConfirm: (indices: number[]) => void;
+    onConfirm: (cardIds: string[]) => void;
     onCancel: () => void;
 }> = ({ request, gameState, onConfirm, onCancel }) => {
     const [selected, setSelected] = useState<number[]>([]);
     useEffect(() => setSelected([]), [request]);
     if (!request) return null;
-    const choices = shuffleCandidates(gameState, request.playerIndex, request.location).filter(entry => request.filter(entry.card));
+    const choices = cardsAtLocation(gameState.players[request.playerIndex], request.location).filter(entry => request.filter(entry.card));
     return <CardSelectionModal
         title={`Shuffle from ${request.location} (${selected.length}/${request.count})`}
         cards={choices.map(entry => entry.card)}
@@ -25,7 +43,7 @@ export const ShuffleSelectionModal: React.FC<{
                 : current.length < request.count ? [...current, index] : current);
         }}
         onCancel={onCancel}
-        onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].index))}
+        onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].card.instanceId))}
         emptyLabel={`No cards in ${request.location}`}
         confirmLabel="Confirm shuffle"
         theme="indigo"
@@ -132,7 +150,7 @@ interface HandSelectionModalProps {
 
 export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, setHandSelectionReq, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel="Confirm discard" theme="red" filter={selectionReq.filter} />;
+    return <CardSelectionModal title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} theme={selectionReq.purpose === 'summon' ? 'yellow' : 'red'} filter={selectionReq.filter} />;
 };
 
 export const PeekSelectionModal: React.FC<{

@@ -90,6 +90,7 @@ export const Zone: React.FC<{
                     ) : (
                         <CardDetail
                             card={visibleCard.card}
+                            counters={visibleCard.counters}
                             highlightAtk={popStats.atk}
                             highlightDef={popStats.def}
                             className="w-full h-full"

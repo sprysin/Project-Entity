@@ -19,5 +19,5 @@ cardRegistry.register({
     pawnType: PawnType.BUG,
     atk: 150,
     def: 150,
-    effectText: 'If this card is discarded: change all Pawns you control to DEF Position, and they gain 200 DEF until the end of the next turn.',
+    effectText: 'ON DISCARD: Change all Pawns you control to DEF Position, and they gain 200 DEF until the end of the next turn.',
 }, effect);

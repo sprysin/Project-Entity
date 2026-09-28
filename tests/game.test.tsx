@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useGameLogic } from '../src/hooks/useGameLogic';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, GameState, Phase, Position } from '../src/types';
+import { Zone } from '../src/components/game/Zone';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
@@ -62,6 +63,52 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     expect(game.gameState!.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
     expect(game.gameState!.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
     expect(game.state.frontlineCardId).toBeNull();
+
+    const tribunal = card('action_06');
+    const pawn = { ...card('pawn_01'), level: 5 as const };
+    setup(s => {
+        s.activePlayerIndex = 0;
+        s.pendingFrontline = [];
+        s.players[0].actionZones[0] = placed(tribunal);
+        s.players[0].hand = [pawn];
+    });
+    act(() => game.actions.activateOnField(0, 'action', 0));
+    expect(game.state.effectChoiceReq).toBeNull();
+    act(() => game.setGameState(s => {
+        const next = structuredClone(s!);
+        next.players[0].pawnZones[0] = placed(card('pawn_01'));
+        return next;
+    }));
+    act(() => game.actions.activateOnField(0, 'action', 0));
+    expect(game.state.effectChoiceReq).toMatchObject([{ disabled: false }, { disabled: true }]);
+    act(() => game.actions.handleEffectChoice('summon'));
+    expect(game.state.handSelectionReq).toBeNull();
+    act(() => game.actions.handleEffectChoice('tribute'));
+    act(() => game.actions.setTributeSelection([0]));
+    act(() => game.actions.handleEffectTribute());
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.gameState!.players[0].actionZones[0]?.counters).toEqual({ 'Tribute Counters': 1 });
+    act(() => game.actions.activateOnField(0, 'action', 0));
+    expect(game.state.effectChoiceReq).toMatchObject([{ disabled: true }, { disabled: false }]);
+    act(() => game.actions.handleEffectChoice('summon'));
+    expect(game.state.handSelectionReq).toMatchObject({ purpose: 'summon', prompt: 'Select a Pawn to special summon' });
+    act(() => game.actions.handleHandSelection(0));
+    expect(game.state.pawnPlacementReq).not.toBeNull();
+    act(() => game.actions.handlePawnPlacement(4, Position.ATTACK));
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.gameState!.players[0].pawnZones[4]?.card.instanceId).toBe(pawn.instanceId);
+    act(() => game.actions.activateOnField(0, 'action', 0));
+    expect(game.state.effectChoiceReq).toBeNull();
+
+    const fieldCard = game.gameState!.players[0].actionZones[0]!;
+    let overlay: ReturnType<typeof create>;
+    act(() => { overlay = create(<Zone card={fieldCard} type="action" />); });
+    expect(overlay!.root.findAllByProps({ 'aria-label': 'Tribute Counters: 1' })).toHaveLength(1);
+    for (const counters of [undefined, { 'Tribute Counters': 0 }]) {
+        act(() => overlay!.update(<Zone card={{ ...fieldCard, counters }} type="action" />));
+        expect(overlay!.root.findAllByProps({ className: 'field-pawn-overlay field-counter-overlay' })).toHaveLength(0);
+    }
+    act(() => overlay!.unmount());
 });
 
 it('holds a declared attack for 1.5 seconds before committing combat', () => {
@@ -86,7 +133,7 @@ it('holds a declared attack for 1.5 seconds before committing combat', () => {
     expect(game.gameState!.players[1].lp).toBe(780);
 });
 
-it('discard then target charges one card and applies the selected effect', () => {
+it('discard and tribute costs are paid once after all activation selections are complete', () => {
     const beast = card('pawn_06'); const cost = card('action_01');
     setup(s => { s.players[0].pawnZones[0] = placed(beast); s.players[0].hand = [cost]; s.players[1].pawnZones[0] = placed(card('pawn_01', 1)); });
     act(() => game.actions.activateOnField(0, 'pawn', 0));
@@ -99,9 +146,6 @@ it('discard then target charges one card and applies the selected effect', () =>
     expect(game.gameState!.players[0].hand).toHaveLength(0);
     expect(game.gameState!.players[0].discard).toHaveLength(1);
     expect(game.gameState!.players[1].pawnZones[0]?.position).toBe(Position.DEFENSE);
-});
-
-it('effect tributes are paid once after all activation selections are complete', () => {
     const maintenance = card('action_04'); const recovered = card('pawn_01');
     setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('pawn_01')); s.players[0].pawnZones[1] = placed(card('pawn_04')); });
     act(() => game.actions.handleActionFromHand(maintenance, 'activate', 0));

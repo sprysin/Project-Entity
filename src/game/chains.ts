@@ -2,11 +2,12 @@ import { Card, CardContext, CardTarget, CardType, ChainLink, EffectResult, Effec
 import { cardRegistry } from '../cards/CardRegistry';
 import { finishEffect, checkVictory } from './finishEffect';
 import { formatEffectLog } from './effectLog';
-import { shuffleCandidates } from './shuffleSelection';
+import { cardsAtLocation } from './cardHelpers';
+import { notifyAttachedActivation } from './attachments';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
     // Activating a set Action/Condition reveals it before targets and requirements are checked.
-    if (context.card.type !== CardType.PAWN) {
+    if (context.card.type !== CardType.PAWN && context.execution !== 'resolve') {
         state = structuredClone(state);
         const source = state.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
         if (source) source.position = Position.FACE_UP;
@@ -24,10 +25,10 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
 }
 
 export function needsChoice(result: EffectResult) {
-    return !!(result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection);
+    return !!(result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection);
 }
 
-export function combinations(values: number[], count: number): number[][] {
+export function combinations<T>(values: T[], count: number): T[][] {
     if (!count) return [[]];
     return values.flatMap((value, i) => combinations(values.slice(i + 1), count - 1).map(rest => [value, ...rest]));
 }
@@ -50,7 +51,13 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
         if (result.halted) return;
         const targetIndex = result.requireTargetIndex ?? 0;
         const selectedTarget = context.targets?.[targetIndex] ?? (targetIndex === 0 ? context.target : undefined);
-        if (result.requireTarget && !selectedTarget) {
+        if (result.requireEffectChoice && !context.effectId) {
+            result.requireEffectChoice.filter(choice => !choice.disabled).forEach(choice => visit({ ...context, effectId: choice.id }, depth + 1));
+        } else if (result.requirePawnPlacement && !context.pawnPlacement) {
+            state.players[result.requirePawnPlacement.playerIndex].pawnZones.forEach((zone, slot) => {
+                if (!zone) for (const position of [Position.ATTACK, Position.DEFENSE]) visit({ ...context, pawnPlacement: { slot, position } }, depth + 1);
+            });
+        } else if (result.requireTarget && !selectedTarget) {
             state.players.forEach((player, pi) => (['pawn', 'action'] as const).forEach(type => {
                 if (result.requireTarget !== 'any' && type !== result.requireTarget) return;
                 const isOpponent = pi !== playerIndex;
@@ -74,11 +81,11 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
         } else if (result.requirePeekSelection && context.peekIndex === undefined) {
             const req = result.requirePeekSelection;
             state.players[req.playerIndex].hand.forEach((_c, peekIndex) => visit({ ...context, peekIndex }, depth + 1));
-        } else if (result.requireShuffleSelection && !context.shuffleIndices) {
+        } else if (result.requireShuffleSelection && !context.shuffleCardIds) {
             const req = result.requireShuffleSelection;
-            const indices = shuffleCandidates(state, req.playerIndex, req.location)
-                .filter(entry => req.filter(entry.card)).map(entry => entry.index);
-            combinations(indices, req.count).forEach(shuffleIndices => visit({ ...context, shuffleIndices }, depth + 1));
+            const cardIds = cardsAtLocation(state.players[req.playerIndex], req.location)
+                .filter(entry => req.filter(entry.card)).map(entry => entry.card.instanceId);
+            combinations(cardIds, req.count).forEach(shuffleCardIds => visit({ ...context, shuffleCardIds }, depth + 1));
         } else if (result.requireEffectTribute && !context.tributeIndices) {
             const req = result.requireEffectTribute;
             const indices = state.players[req.playerIndex].pawnZones.flatMap((z, i) => z && (!req.filter || req.filter(z.card)) ? [i] : []);
@@ -102,7 +109,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
 export interface Activation { card: Card; trigger: EffectTrigger; slot: CardTarget }
 
 export function fieldActivations(state: GameState, playerIndex: number, responding = false): Activation[] {
-    if (state.winner || state.resolvingChain) return [];
+    if (state.winner || state.resolvingChain || state.pendingVoidSelections?.length) return [];
     const main = state.activePlayerIndex === playerIndex && [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase);
     const pending = new Set(state.chain?.map(link => link.context.card.instanceId));
     return (['pawn', 'action'] as const).flatMap(type => state.players[playerIndex][type === 'pawn' ? 'pawnZones' : 'actionZones'].flatMap((zone, index) => {
@@ -132,7 +139,7 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
 }
 
 function appendChainLink(state: GameState, context: CardContext, trigger: EffectTrigger, buildingTriggers: boolean): GameState {
-    if (state.winner || state.resolvingChain || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
+    if (state.winner || state.resolvingChain || state.pendingVoidSelections?.length || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
     if (trigger === 'summon' && !cardRegistry.getEffect(context.card.id)?.onSummon) return state;
     if (trigger === 'switch' && !state.pendingSwitches?.some(entry => entry.card.instanceId === context.card.instanceId && entry.playerIndex === context.playerIndex)) return state;
     if (!buildingTriggers && state.response && state.response.priority !== context.playerIndex) return state;
@@ -152,6 +159,8 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const targets = context.targets ?? (context.target ? [context.target] : []);
     const target = targets[0];
     const link: ChainLink = {
+        handId: context.handIndex !== undefined && p.hand.some(card => card.instanceId === state.players[context.playerIndex].hand[context.handIndex!]?.instanceId)
+            ? state.players[context.playerIndex].hand[context.handIndex]?.instanceId : undefined,
         context: { ...context, target, targets, tributeCards }, trigger,
         targetId: target ? state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]?.card.instanceId : undefined,
         targetIds: targets.map(selected => selected
@@ -171,7 +180,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
         next.log = [formatEffectLog(state, next, context.card, context, trigger, tributeCards), ...next.log].slice(0, 50);
     }
     next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated` };
-    next = checkVictory(next);
+    next = checkVictory(notifyAttachedActivation(state, next, context.card));
     return buildingTriggers ? next : autoPass(next);
 }
 
@@ -201,7 +210,8 @@ export function addSimultaneousTriggers(state: GameState, triggers: Simultaneous
 
 export function resolveChain(state: GameState): GameState {
     let next = state;
-    while (next.chain?.length && !next.winner) next = resolveChainStep(next);
+    while (next.chain?.length && !next.winner && !next.pendingVoidSelections?.length) next = resolveChainStep(next);
+    if (next.pendingVoidSelections?.length) return next;
     return next.chain?.length || next.response && !next.resolvingChain
         ? { ...next, chain: [], resolvingChain: undefined,
             response: state.deferredAction && !next.winner ? { ...state.response!, ready: true } : undefined }
@@ -210,6 +220,7 @@ export function resolveChain(state: GameState): GameState {
 
 /** Resolve one link so the host can display each resulting board state. */
 export function resolveChainStep(state: GameState): GameState {
+    if (state.pendingVoidSelections?.length) return state;
     const link = state.chain?.at(-1);
     if (!link) return state;
     let next = state;
@@ -217,6 +228,7 @@ export function resolveChainStep(state: GameState): GameState {
         const context = { ...link.context, handIndex: undefined, execution: 'resolve' as const };
         const p = next.players[context.playerIndex];
         let invalid = false;
+        if (link.handId) { context.handIndex = p.hand.findIndex(card => card.instanceId === link.handId); invalid ||= context.handIndex < 0; }
         const targets = context.targets ?? (context.target ? [context.target] : []);
         if (targets.length) {
             context.targets = targets.map((target, targetIndex) => {
@@ -253,13 +265,14 @@ function beginChainResolution(state: GameState): GameState {
 }
 
 export function passPriority(state: GameState): GameState {
-    if (!state.response || state.response.ready || state.winner || state.resolvingChain) return state;
+    if (!state.response || state.response.ready || state.winner || state.resolvingChain || state.pendingVoidSelections?.length) return state;
     const response = { ...state.response, passes: state.response.passes + 1, priority: 1 - state.response.priority };
     return response.passes >= 2 ? beginChainResolution({ ...state, response }) : autoPass({ ...state, response });
 }
 
 /** Empty windows never create a popup. Two consecutive passes close the chain. */
 export function autoPass(state: GameState): GameState {
+    if (state.pendingVoidSelections?.length) return state;
     let next = state;
     for (let i = 0; i < 2 && next.response && !next.response.ready && !next.winner && !next.resolvingChain; i++) {
         if (fieldActivations(next, next.response.priority, true).length) break;
@@ -270,6 +283,6 @@ export function autoPass(state: GameState): GameState {
 }
 
 export function openResponse(state: GameState, action: NonNullable<GameState['deferredAction']>, reason: string): GameState {
-    if (state.response || state.winner) return state;
+    if (state.response || state.winner || state.pendingVoidSelections?.length) return state;
     return autoPass({ ...state, deferredAction: action, chain: [], response: { priority: 1 - state.activePlayerIndex, passes: 0, reason } });
 }

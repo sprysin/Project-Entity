@@ -1,9 +1,10 @@
+import { isToken, shuffleDeck } from './game/cardHelpers';
 import { Card } from './types';
 import { cardRegistry } from './cards/CardRegistry';
 
 export const createDeck = (playerId: string): Card[] => {
   const deck: Card[] = [];
-  const baseCards = cardRegistry.getAllCards();
+  const baseCards = cardRegistry.getAllCards().filter(card => !isToken(card));
   if (baseCards.length === 0) return deck;
 
   const cardCounts: Record<string, number> = {};
@@ -19,5 +20,6 @@ export const createDeck = (playerId: string): Card[] => {
       cardCounts[base.id] = (cardCounts[base.id] || 0) + 1;
     }
   }
-  return deck.sort(() => Math.random() - 0.5);
+  shuffleDeck(deck);
+  return deck;
 };

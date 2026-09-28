@@ -1,7 +1,7 @@
-import { useCallback, Dispatch, SetStateAction, useRef } from 'react';
+import { useCallback, useState, Dispatch, SetStateAction, useRef } from 'react';
 import {
     GameState, Card, CardContext, CardSelectionRequest, CardTarget, CardType,
-    EffectTrigger, HandSelectionRequest, ShuffleSelectionRequest, TargetSelectMode, TargetSelectPosition,
+    EffectResult, EffectTrigger, HandSelectionRequest, ShuffleSelectionRequest, TargetSelectMode, TargetSelectPosition,
     TargetSelectType, TargetSelectScope, TributeSelectionRequest, PeekSelectionRequest
 } from '../types';
 import { applyCommand, previewEffect } from '../game/engine';
@@ -47,6 +47,8 @@ export const useEffectResolution = (
         showEffect?: (card: Card, target?: CardTarget) => void,
     }
 ) => {
+    const [effectChoiceReq, setEffectChoiceReq] = useState<EffectResult['requireEffectChoice'] | null>(null);
+    const [pawnPlacementReq, setPawnPlacementReq] = useState<{ playerIndex: number } | null>(null);
     const {
         setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
         setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
@@ -70,7 +72,9 @@ export const useEffectResolution = (
         tributeIndices?: number[],
         providedTargets?: CardTarget[],
         peekIndex?: number,
-        shuffleIndices?: number[]
+        shuffleCardIds?: string[],
+        pawnPlacement?: CardContext['pawnPlacement'],
+        effectId?: string
     ) => {
         if (!gameState || gameState.winner) return;
         const controllerIndex = gameState.players.findIndex((p, index) => p.pawnZones.some(z => z?.card.instanceId === card.instanceId)
@@ -89,12 +93,15 @@ export const useEffectResolution = (
         const actualPeekIndex = peekIndex ?? pendingContext.current.peekIndex;
         const actualTriggerType = pendingContext.current.triggerType ?? triggerType;
         const actualTributeIndices = tributeIndices ?? pendingContext.current.tributeIndices;
-        const actualShuffleIndices = shuffleIndices ?? pendingContext.current.shuffleIndices;
+        const actualPawnPlacement = pawnPlacement ?? pendingContext.current.pawnPlacement;
+        const actualShuffleCardIds = shuffleCardIds ?? pendingContext.current.shuffleCardIds;
+        const actualEffectId = effectId ?? pendingContext.current.effectId;
         const tributeCards = tributeIndices
             ? tributeIndices.flatMap(index => gameState.players[activeIndex].pawnZones[index]?.card ?? [])
             : pendingContext.current.tributeCards ?? [];
 
         pendingContext.current = {
+            effectId: actualEffectId,
             target: actualTarget,
             targets: actualTargets,
             discardIndex: actualDiscardIndex,
@@ -103,13 +110,32 @@ export const useEffectResolution = (
             peekIndex: actualPeekIndex,
             triggerType: actualTriggerType,
             tributeIndices: actualTributeIndices,
-            shuffleIndices: actualShuffleIndices,
+            shuffleCardIds: actualShuffleCardIds,
+            pawnPlacement: actualPawnPlacement,
             tributeCards
         };
 
         // Peek at the effect result to check if we need a selection mode
-        const contextForPeek: CardContext = { card, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, peekIndex: actualPeekIndex, tributeIndices: actualTributeIndices, shuffleIndices: actualShuffleIndices };
+        const contextForPeek: CardContext = { card, effectId: actualEffectId, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, peekIndex: actualPeekIndex, tributeIndices: actualTributeIndices, shuffleCardIds: actualShuffleCardIds, pawnPlacement: actualPawnPlacement };
         const peekResult = previewEffect(gameState, contextForPeek, actualTriggerType);
+
+        if (peekResult.requireEffectChoice) {
+            setTriggeredEffect(null);
+            setPendingEffectCard(card);
+            setPendingTriggerType(actualTriggerType);
+            setEffectChoiceReq(peekResult.requireEffectChoice);
+            return;
+        }
+        setEffectChoiceReq(null);
+
+        if (peekResult.requirePawnPlacement && !actualPawnPlacement) {
+            setTriggeredEffect(null);
+            setPendingEffectCard(card);
+            setPawnPlacementReq(peekResult.requirePawnPlacement);
+            setTargetSelectMode('place_pawn');
+            setPendingTriggerType(actualTriggerType);
+            return;
+        }
 
         // Enter selection mode if needed — return early without touching game state
         const requiredTargetIndex = peekResult?.requireTargetIndex ?? 0;
@@ -135,7 +161,7 @@ export const useEffectResolution = (
         }
         if (peekResult?.requireHandSelection && actualHandIndex === undefined) {
             setPendingEffectCard(card);
-            setHandSelectionReq({ ...peekResult.requireHandSelection, title: card.name, prompt: 'Select a card to discard' });
+            setHandSelectionReq({ ...peekResult.requireHandSelection, title: card.name, prompt: peekResult.requireHandSelection.prompt ?? 'Select a card to discard' });
             setSelectedHandSelectionIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
@@ -179,7 +205,7 @@ export const useEffectResolution = (
             setPendingTriggerType(actualTriggerType);
             return;
         }
-        if (peekResult?.requireShuffleSelection && actualShuffleIndices === undefined) {
+        if (peekResult?.requireShuffleSelection && actualShuffleCardIds === undefined) {
             setPendingEffectCard(card);
             setShuffleSelectionReq(peekResult.requireShuffleSelection);
             setPendingTriggerType(actualTriggerType);
@@ -193,6 +219,7 @@ export const useEffectResolution = (
             selectionState.setTargetSelectScope('both');
             setPendingTriggerType(null);
             pendingContext.current = {};
+        setPawnPlacementReq(null);
             return;
         }
 
@@ -202,8 +229,7 @@ export const useEffectResolution = (
         // Apply the effect to game state
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
-            const executionContext: CardContext = { card, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, peekIndex: actualPeekIndex, tributeIndices: actualTributeIndices, shuffleIndices: actualShuffleIndices };
-            return applyCommand(prev, activeIndex, { type: 'activate', context: executionContext, trigger: actualTriggerType }).state;
+            return applyCommand(prev, activeIndex, { type: 'activate', context: contextForPeek, trigger: actualTriggerType }).state;
         });
 
         // Cleanup selection modes
@@ -217,22 +243,30 @@ export const useEffectResolution = (
         setIsPeekingField(false);
         setPendingTriggerType(null);
         pendingContext.current = {};
+        setPawnPlacementReq(null);
         selectionState.clearPreparedPeek?.(card);
         if (actualDiscardIndex !== undefined) { setDiscardSelectionReq(null); setSelectedDiscardIndex(null); }
         if (actualHandIndex !== undefined) { setHandSelectionReq(null); setSelectedHandSelectionIndex(null); }
         if (actualPeekIndex !== undefined) { setPeekSelectionReq(null); setSelectedPeekIndex(null); }
         if (actualDeckIndex !== undefined) { setDeckSelectionReq(null); setSelectedDeckIndex(null); }
         if (actualTributeIndices !== undefined) { setEffectTributeReq(null); }
-        if (actualShuffleIndices !== undefined) setShuffleSelectionReq(null);
+        if (actualShuffleCardIds !== undefined) setShuffleSelectionReq(null);
     }, [gameState, setGameState, setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex, setPeekSelectionReq, setSelectedPeekIndex, setDeckSelectionReq, setSelectedDeckIndex, setEffectTributeReq, setShuffleSelectionReq]);
 
-    const handleShuffleSelection = (indices: number[]) => {
+    const handlePawnPlacement = (slot: number, position: NonNullable<CardContext['pawnPlacement']>['position']) => {
+        const card = selectionState.pendingEffectCard;
+        if (!card || !pawnPlacementReq || !gameState || gameState.players[pawnPlacementReq.playerIndex].pawnZones[slot]) return;
+        resolveEffect(card, undefined, undefined, undefined, undefined, selectionState.pendingTriggerType ?? 'activate',
+            undefined, undefined, undefined, undefined, { slot, position });
+    };
+
+    const handleShuffleSelection = (cardIds: string[]) => {
         const req = selectionState.shuffleSelectionReq;
         const pending = selectionState.pendingEffectCard;
-        if (!gameState || !req || !pending || indices.length !== req.count || new Set(indices).size !== req.count) return;
+        if (!gameState || !req || !pending || cardIds.length !== req.count || new Set(cardIds).size !== req.count) return;
         setShuffleSelectionReq(null);
         resolveEffect(pending, undefined, undefined, undefined, undefined,
-            selectionState.pendingTriggerType || 'activate', undefined, undefined, undefined, indices);
+            selectionState.pendingTriggerType || 'activate', undefined, undefined, undefined, cardIds);
     };
 
     /** Handles selection from the Discard Pile Modal. */
@@ -256,13 +290,15 @@ export const useEffectResolution = (
         if (!selectionState.discardSelectionReq && !selectionState.pendingEffectCard) return;
         if (!gameState || !selectionState.pendingEffectCard) return;
 
-        const pIdx = gameState.players.findIndex(p => p.id === selectionState.pendingEffectCard!.ownerId);
+        const pIdx = selectionState.handSelectionReq?.playerIndex ?? gameState.players.findIndex(p => p.id === selectionState.pendingEffectCard!.ownerId);
         const card = gameState.players[pIdx].hand[index];
         if (!card || (selectionState.handSelectionReq?.filter && !selectionState.handSelectionReq.filter(card))) return;
 
         setHandSelectionReq(null);
         setSelectedHandSelectionIndex(null);
-        triggerVisual(`${pIdx}-hand-${index}`, `discard-${pIdx}`, 'discard', card);
+        if (selectionState.handSelectionReq?.purpose !== 'summon') {
+            triggerVisual(`${pIdx}-hand-${index}`, `discard-${pIdx}`, 'discard', card);
+        }
 
         const pendingCard = selectionState.pendingEffectCard;
         const pendingTrigger = selectionState.pendingTriggerType || 'activate';
@@ -302,11 +338,13 @@ export const useEffectResolution = (
     }, [gameState, selectionState.deckSelectionReq, selectionState.pendingEffectCard, selectionState.pendingTriggerType, resolveEffect, triggerVisual, setDeckSelectionReq, setSelectedDeckIndex, setPendingEffectCard]);
 
     const cancelEffect = () => {
+        setEffectChoiceReq(null);
         const card = selectionState.pendingEffectCard;
         if (card && !card.switchMandatory) setGameState(prev => prev && !prev.response ? applyCommand(prev,
             prev.pendingSwitches?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? prev.players.findIndex(p => p.id === card.ownerId),
             { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
         pendingContext.current = {};
+        setPawnPlacementReq(null);
         if (card) selectionState.clearPreparedPeek?.(card);
         setTriggeredEffect(null);
         setPendingEffectCard(null);
@@ -326,5 +364,11 @@ export const useEffectResolution = (
         setSelectedPeekIndex(null);
         setSelectedDeckIndex(null);
     };
-    return { resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection, cancelEffect };
+    const handleEffectChoice = (id: string) => {
+        const card = selectionState.pendingEffectCard;
+        if (!card || !effectChoiceReq?.some(choice => choice.id === id && !choice.disabled)) return;
+        resolveEffect(card, undefined, undefined, undefined, undefined, selectionState.pendingTriggerType ?? 'field_activate',
+            undefined, undefined, undefined, undefined, undefined, id);
+    };
+    return { effectChoiceReq, handleEffectChoice, pawnPlacementReq, handlePawnPlacement, resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection, cancelEffect };
 };

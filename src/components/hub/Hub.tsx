@@ -68,7 +68,7 @@ const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDe
       {/* Footer / Version Info */}
       <div className="relative z-10 text-slate-600 text-[10px] tracking-widest font-orbitron flex space-x-4 items-center">
         <div className="w-12 h-[1px] bg-slate-800"></div>
-        <span>Version 0.8.5 · Alpha</span>
+        <span>Version 0.9.0 · Alpha</span>
         <div className="w-12 h-[1px] bg-slate-800"></div>
       </div>
     </div>

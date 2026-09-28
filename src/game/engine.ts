@@ -1,7 +1,8 @@
+import { canTribute, isToken } from './cardHelpers';
 import { Attribute, Card, CardContext, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { addChainLink, fieldActivations, openResponse, passPriority, runEffect } from './chains';
-import { destroyOrphanedAttachments } from './attachments';
+import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, runEffect } from './chains';
+import { destroyOrphanedAttachments, notifyAttachedActivation } from './attachments';
 import { finishEffect } from './finishEffect';
 import { formatSummonLog } from './effectLog';
 import { resolveCombat } from './combat';
@@ -13,6 +14,7 @@ import '../cards/actions';
 import '../cards/conditions';
 
 export type GameCommand =
+    | { type: 'voidSelection'; sourceId: string; cardId: string }
     | { type: 'summon'; cardId: string; hidden: boolean; slot: number; tributes?: number[] }
     | { type: 'play'; cardId: string; set: boolean; slot: number }
     | { type: 'position'; index: number }
@@ -43,7 +45,7 @@ export function createGame(players: [
         log: ['Turn 1', `Duel initialized. ${players[0].name}: ${players[0].deckName ?? 'Random test deck'}; ${players[1].name}: ${players[1].deckName ?? 'Random test deck'}.`] };
 }
 
-const isMain = (state: GameState, actor: number) => !state.winner && !state.response && !state.pendingSwitches?.length && !state.pendingFrontline?.length
+const isMain = (state: GameState, actor: number) => !state.winner && !state.response && !state.pendingVoidSelections?.length && !state.pendingSwitches?.length && !state.pendingFrontline?.length
     && actor === state.activePlayerIndex && [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase);
 const validSlot = (slot: number) => Number.isInteger(slot) && slot >= 0 && slot < 5;
 
@@ -54,7 +56,7 @@ export function canChangePosition(state: GameState, actor: number, index: number
 
 export function canAttack(state: GameState, actor: number, index: number): boolean {
     const zone = state.players[actor]?.pawnZones[index];
-    return !state.winner && !state.response && !state.pendingSwitches?.length && !state.pendingFrontline?.length && state.activePlayerIndex === actor && state.currentPhase === Phase.BATTLE
+    return !state.winner && !state.response && !state.pendingVoidSelections?.length && !state.pendingSwitches?.length && !state.pendingFrontline?.length && state.activePlayerIndex === actor && state.currentPhase === Phase.BATTLE
         && state.turnNumber > 1 && !!zone && zone.position === Position.ATTACK
         && (zone.attacksRemaining !== undefined ? zone.attacksRemaining > 0 : !zone.hasAttacked);
 }
@@ -64,7 +66,7 @@ export function canPlayCard(state: GameState, card: Card): boolean {
     if (!isMain(state, actor) || !player.hand.some(c => c.instanceId === card.instanceId)) return false;
     if (card.type === CardType.PAWN) return card.level <= 4
         ? player.pawnZones.includes(null) && (!player.normalSummonUsed || !player.hiddenSummonUsed)
-        : player.pawnZones.filter(Boolean).length >= (card.level <= 7 ? 1 : 2);
+        : player.pawnZones.filter(z => z && canTribute(z.card)).length >= (card.level <= 7 ? 1 : 2);
     const effect = cardRegistry.getEffect(card.id);
     return player.actionZones.includes(null) && (card.type === CardType.CONDITION || !effect?.canActivate || effect.canActivate(state, { card, playerIndex: actor }));
 }
@@ -73,9 +75,23 @@ export const previewEffect = runEffect;
 
 function reduceCommand(state: GameState, actor: number, command: GameCommand): GameState {
     if (state.winner || !state.players[actor]) return state;
-    if (state.pendingFrontline?.length && !['frontlineSummon', 'frontlineDecline', 'activate', 'pass', 'cancelEffect'].includes(command.type)) return state;
+    if (state.pendingVoidSelections?.length && command.type !== 'voidSelection') return state;
+    if (state.pendingFrontline?.length && !['frontlineSummon', 'frontlineDecline', 'activate', 'pass', 'cancelEffect', 'voidSelection'].includes(command.type)) return state;
     const player = state.players[actor];
     switch (command.type) {
+        case 'voidSelection': {
+            const pending = state.pendingVoidSelections?.[0];
+            if (!pending || pending.playerIndex !== actor || pending.source.instanceId !== command.sourceId) return state;
+            const index = state.players[pending.pilePlayerIndex].discard.findIndex(card => card.instanceId === command.cardId);
+            if (index < 0) return state;
+            const next = structuredClone(state);
+            const [card] = next.players[pending.pilePlayerIndex].discard.splice(index, 1);
+            sendToOwnerPile(next, card, 'void');
+            next.pendingVoidSelections = next.pendingVoidSelections!.slice(1)
+                .filter(request => next.players[request.pilePlayerIndex].discard.length);
+            next.log = [`"${pending.source.name}" sends "${card.name}" from the Discard Pile to the Void.`, ...next.log].slice(0, 50);
+            return autoPass(notifyAttachedActivation(state, next, pending.source));
+        }
         case 'frontlineDecline': {
             const pending = state.pendingFrontline?.[0];
             if (!pending || state.response || state.resolvingChain || pending.playerIndex !== actor || pending.sourceId !== command.sourceId) return state;
@@ -96,7 +112,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
                 hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
             next.pendingFrontline = next.pendingFrontline!.slice(1);
             next.log = [`"${card.name}" was special summoned by "${source.card.name}".`, ...next.log].slice(0, 50);
-            return next;
+            return notifyAttachedActivation(state, next, source.card);
         }
         case 'summon': {
             if (!isMain(state, actor) || !validSlot(command.slot)) return state;
@@ -104,7 +120,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (!card || card.type !== CardType.PAWN) return state;
             const tributes = command.tributes ?? [];
             const required = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
-            if (tributes.length !== required || new Set(tributes).size !== required || tributes.some(i => !validSlot(i) || !player.pawnZones[i])) return state;
+            if (tributes.length !== required || new Set(tributes).size !== required || tributes.some(i => !validSlot(i) || !player.pawnZones[i] || !canTribute(player.pawnZones[i]!.card))) return state;
             if (!required && (command.hidden ? player.hiddenSummonUsed : player.normalSummonUsed)) return state;
             if (player.pawnZones[command.slot] && !tributes.includes(command.slot)) return state;
             const next = structuredClone(state), p = next.players[actor];
@@ -198,7 +214,7 @@ export function applyCommand(state: GameState, actor: number, command: GameComma
 
 /** A local adapter or server drives these steps; animation delay is entirely its choice. */
 export function applySystemCommand(state: GameState, command: SystemCommand): Transition {
-    if (state.winner) return { state, events: [] };
+    if (state.winner || state.pendingVoidSelections?.length) return { state, events: [] };
     if (command.type === 'draw') return { state: stepDraw(state), events: [] };
     if (!state.response?.ready || !state.deferredAction) return { state, events: [] };
     const action = state.deferredAction;
@@ -215,7 +231,7 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
     const events: GameEvent[] = [];
     if (action.kind === 'attack') state.players.forEach((p, playerIndex) => p.pawnZones.forEach((zone, index) => {
         if (zone && next.players[playerIndex].pawnZones[index]?.card.instanceId !== zone.card.instanceId
-            && (next.players.some(player => player.discard.some(c => c.instanceId === zone.card.instanceId))
+            && (isToken(zone.card) || next.players.some(player => player.discard.some(c => c.instanceId === zone.card.instanceId))
                 || next.players.some(player => player.pawnZones.some(z => z?.card.instanceId === zone.card.instanceId)))) {
             events.push({ type: 'destroyed', playerIndex, index, card: zone.card });
         }

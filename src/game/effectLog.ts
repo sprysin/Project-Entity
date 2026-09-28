@@ -1,3 +1,4 @@
+import { isToken } from './cardHelpers';
 import { Card, CardContext, EffectTrigger, GameState, PlacedCard, Position } from '../types';
 
 type LocatedCard = { playerIndex: number; zone: 'pawn' | 'action'; placed: PlacedCard };
@@ -74,11 +75,16 @@ export function formatEffectLog(
         const changed = afterField.get(instanceId);
         if (!changed) {
             const wasBanished = after.players[located.playerIndex].void.some(c => c.instanceId === instanceId);
-            if (wasBanished) details.push(`sends ${quote(located.placed.card.name)} to the Void`);
+            if (isToken(located.placed.card)) details.push(`removes ${quote(located.placed.card.name)} from the game`);
+            else if (wasBanished) details.push(`sends ${quote(located.placed.card.name)} to the Void`);
             else if (after.players[located.playerIndex].discard.some(c => c.instanceId === instanceId)) details.push(`destroys ${quote(located.placed.card.name)}`);
             continue;
         }
         const atkDelta = changed.placed.card.atk - located.placed.card.atk;
+        for (const name of new Set([...Object.keys(located.placed.counters ?? {}), ...Object.keys(changed.placed.counters ?? {})])) {
+            const delta = (changed.placed.counters?.[name] ?? 0) - (located.placed.counters?.[name] ?? 0);
+            if (delta) details.push(`${quote(changed.placed.card.name)} ${delta > 0 ? '+' : ''}${delta} ${name}`);
+        }
         const defDelta = changed.placed.card.def - located.placed.card.def;
         if (atkDelta) details.push(`${quote(changed.placed.card.name)} ${atkDelta > 0 ? '+' : ''}${atkDelta} ATK`);
         if (defDelta) details.push(`${quote(changed.placed.card.name)} ${defDelta > 0 ? '+' : ''}${defDelta} DEF`);

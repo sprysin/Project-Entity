@@ -423,3 +423,17 @@ Successful attachments stay face-up and store the target instance ID on the plac
 Use only one subtype flag: neither flag means Normal, `isLingering: true` means Lingering, and `isAttached: true` means Attach. Pawns do not use these subtypes. The internal `isAttached` and `attachedToInstanceId` names describe attachment state; the displayed subtype is **Attach**. Use `cardSubtype`, `cardTypeLabel`, and `matchesCardCatalog` from `src/cards/CardRegistry.ts` for labels and catalog search rather than duplicating subtype logic. Both the deck editor and database support subtype searches such as “Attach Action” or “Attach Condition”.
 
 Reinforcement retains the stable ID `condition_01` and remains a Condition, so existing saved decks need no migration.
+
+### Tokens and once-while-on-field effects
+
+Pawns default to ignition timing during their controller's Main Phase unless their effect explicitly declares another timing. `Condition.OnceWhileOnField()` and `Effect.SetOnceWhileOnField()` reserve a use at activation, including failed resolutions. `setPawnPosition()` resets this restriction when a card turns face-down; control changes preserve it. New field entries start with fresh placement state. Face-down changes retain the existing stat behavior.
+
+Register tokens as Pawns with `pawnSubtype: PawnSubtype.TOKEN`. They use grey frames and are excluded from the database, deck building, and random decks. `Effect.SummonToken(id)` requests an empty zone and Attack/Defense position through `CardContext.pawnPlacement`; both the player interface and AI supply this choice. Tokens follow normal Pawn combat rules and remain independently of their summoner.
+
+Use `sendToOwnerPile` for field departures (including hand/deck returns): tokens vanish instead of entering a pile, and field-only ATK reductions are cleared. Use `canSetPawn` to filter face-down targets/selections and `setPawnPosition` for position changes; mass face-down effects skip tokens. Tribute restrictions are card-specific: Golem Token sets `cannotBeTributed`, enforced through `canTribute` for both summon tributes and effect costs.
+
+Named counters live on field placements. Use `Effect.ModulateCounter(name, amount)` to add or remove them and `Effect.CounterCount(name)` to read them; counters clear when a card leaves the field or turns face-down. `buildEffectChoice()` exposes multiple effects through one generic choice prompt, using the card's effect text for option labels. Pass an effect ID to `Effect.SetSoftOncePerTurn(id)` and `Condition.SoftOncePerTurn(id)` when each choice has its own per-copy turn limit.
+
+### Attachment activation reactions
+
+`onAttachedActivation` observes subsequent activations of an attachment's target using the field snapshot at announcement. Call `notifyAttachedActivation` for automatic activations outside the chain; chain announcements already do this. Face-up Actions/Conditions also receive `onPhaseChange` on each Standby Phase. Conflicted Mind Madness uses these hooks and the existing discard-selection UI; its mandatory Void choice pauses game progress and belongs to its owner, even if control changes. Keep card effect text verbatim from the supplied design.

@@ -7,7 +7,7 @@ import { Effect } from '../engine/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Cost.ShuffleFrom('discard', 1, false, card => card.type === CardType.PAWN && card.attribute === Attribute.AIR),
+        Cost.ShuffleFrom('discard', 1, card => card.type === CardType.PAWN && card.attribute === Attribute.AIR),
         Require.Target('action', 'both', 'opponent'),
         Effect.DestroyTarget()
     ]),

@@ -1,3 +1,4 @@
+import { canTribute } from '../../game/cardHelpers';
 import { IEffect, CardType, PawnType, Card, Position } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
@@ -54,7 +55,7 @@ const effect: IEffect = {
         // Count Mechanical Pawns on field
         let mechanicalCount = 0;
         for (const zone of p.pawnZones) {
-            if (zone && zone.card.pawnType === PawnType.MECHANICAL) mechanicalCount++;
+            if (zone && canTribute(zone.card) && zone.card.pawnType === PawnType.MECHANICAL) mechanicalCount++;
         }
         if (mechanicalCount < 2) return false;
         return p.discard.some(c => c.pawnType === PawnType.MECHANICAL);

@@ -1,17 +1,20 @@
+import { isToken } from '../../game/cardHelpers';
 import { Attribute, CardType, IEffect, PawnType, Position } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 
 const effect: IEffect = {
     onBattleDestroy: (state, context) => {
+        if (isToken(context.destroyedCard)) return { newState: state };
         const next = structuredClone(state);
         const own = next.players[context.playerIndex];
         const slot = own.pawnZones.indexOf(null);
         if (slot < 0 || !own.pawnZones.some(z => z?.card.instanceId === context.card.instanceId)) return { newState: next };
+        let revived = context.destroyedCard;
         for (const player of next.players) {
             const index = player.discard.findIndex(card => card.instanceId === context.destroyedCard.instanceId);
-            if (index >= 0) { player.discard.splice(index, 1); break; }
+            if (index >= 0) { [revived] = player.discard.splice(index, 1); break; }
         }
-        own.pawnZones[slot] = { card: context.destroyedCard, position: Position.DEFENSE, hasAttacked: false,
+        own.pawnZones[slot] = { card: revived, position: Position.DEFENSE, hasAttacked: false,
             hasChangedPosition: false, summonedTurn: next.turnNumber, isSetTurn: false,
             returnToOwnerEndPhase: true };
         return { newState: next };

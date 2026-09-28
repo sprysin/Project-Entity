@@ -103,7 +103,7 @@ export const useGameAnimationEffects = (
         if (previousTurn.current !== null && previousTurn.current !== gameState.turnNumber) playSound('turn-change');
         previousTurn.current = gameState.turnNumber;
 
-        if (gameState.winner) return;
+        if (gameState.winner || gameState.pendingVoidSelections?.length) return;
         const timers: ReturnType<typeof setTimeout>[] = [];
         const later = (callback: () => void, delay: number) => timers.push(setTimeout(callback, delay));
         const turn = gameState.turnNumber;
@@ -128,5 +128,5 @@ export const useGameAnimationEffects = (
             animations.setPhaseFlash(phase);
         }
         return () => timers.forEach(clearTimeout);
-    }, [gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, nextPhase, setGameState]);
+    }, [gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, gameState?.pendingVoidSelections?.length, nextPhase, setGameState]);
 };

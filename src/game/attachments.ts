@@ -1,5 +1,17 @@
-import { GameState, Position } from '../types';
+import { Card, GameState, Position } from '../types';
+import { cardRegistry } from '../cards/CardRegistry';
 import { sendToOwnerPile } from './cardOwnership';
+
+/** Use the announcement snapshot so later attachments cannot catch an earlier activation. */
+export function notifyAttachedActivation(before: GameState, after: GameState, activatedCard: Card): GameState {
+    let next = after;
+    before.players.forEach((player, playerIndex) => player.actionZones.forEach(zone => {
+        if (!zone || zone.position === Position.HIDDEN || zone.attachedToInstanceId !== activatedCard.instanceId) return;
+        const result = cardRegistry.getEffect(zone.card.id)?.onAttachedActivation?.(next, { card: zone.card, playerIndex, activatedCard });
+        if (result && !result.halted) next = result.newState;
+    }));
+    return next;
+}
 
 /** Destroy Attach cards whose target left the field or turned face-down. */
 export function destroyOrphanedAttachments(state: GameState): GameState {

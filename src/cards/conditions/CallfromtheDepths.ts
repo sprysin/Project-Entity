@@ -1,3 +1,4 @@
+import { canSetPawn } from '../../game/cardHelpers';
 import { Attribute, CardType, IEffect, Position } from '../../types';
 import { cardRegistry } from '../CardRegistry';
 import { buildCondition, buildEffect } from '../engine/Builder';
@@ -8,13 +9,13 @@ import { Cost } from '../engine/Costs';
 const effect: IEffect = {
     onActivate: buildEffect([
         Cost.ChangePawnPosition(Position.HIDDEN, 'faceup', 0, 'active'),
-        Require.Target('pawn', 'faceup', 'opponent', 1),
+        Require.Target('pawn', 'faceup', 'opponent', 1, canSetPawn),
         Effect.ChangeTargetPosition(Position.HIDDEN, 1)
     ]),
     canActivate: buildCondition([
-        Condition.PawnMatchesFilter('active', zone => zone.position !== Position.HIDDEN
+        Condition.PawnMatchesFilter('active', zone => canSetPawn(zone.card) && zone.position !== Position.HIDDEN
             && (zone.card.attribute === Attribute.DARK || zone.card.attribute === Attribute.WATER)),
-        Condition.PawnMatchesFilter('opponent', zone => zone.position !== Position.HIDDEN)
+        Condition.PawnMatchesFilter('opponent', zone => canSetPawn(zone.card) && zone.position !== Position.HIDDEN)
     ])
 };
 

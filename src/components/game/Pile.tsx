@@ -37,8 +37,8 @@ export const Pile: React.FC<{
                 </span>
             ))}
         </span>
-        {!fannedOut && <span className="history-pile__label" aria-hidden="true">{label}</span>}
         <span className="history-pile__counter" aria-hidden="true">
+            <span className="history-pile__label">{label}</span>
             <span className="history-pile__count"><i className={`fa-solid ${icon}`} />{cards.length}</span>
         </span>
     </button>

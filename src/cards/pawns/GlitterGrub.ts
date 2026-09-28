@@ -24,5 +24,5 @@ cardRegistry.register({
     pawnSubtype: PawnSubtype.SWITCH,
     atk: 10,
     def: 120,
-    effectText: 'Switch: You can discard 1 Light Pawn to draw 1 card. You can only use this effect of “Glitter Grub” once per turn.'
+    effectText: 'SWITCH: You can discard 1 Light Pawn to draw 1 card. You can only use this effect of “Glitter Grub” once per turn.'
 }, effect);

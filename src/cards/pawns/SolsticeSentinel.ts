@@ -18,5 +18,5 @@ cardRegistry.register({
     pawnType: PawnType.MECHANICAL,
     atk: 120,
     def: 110,
-    effectText: 'On normal summon: Gain 100 LP.',
+    effectText: 'NORMAL SUMMON: Gain 100 LP.',
 }, effect);

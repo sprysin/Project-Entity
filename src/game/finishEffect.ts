@@ -20,6 +20,9 @@ export function finishEffect(state: GameState, card: Card, log?: string): GameSt
 }
 
 export function checkVictory(state: GameState): GameState {
+    for (const player of state.players) for (const zone of [...player.pawnZones, ...player.actionZones]) {
+        if (zone?.position === 'HIDDEN') delete zone.counters;
+    }
     destroyOrphanedAttachments(state);
     if (state.winner) return state;
     if (state.players.every(player => player.lp <= 0)) {

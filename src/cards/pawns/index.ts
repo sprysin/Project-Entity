@@ -13,3 +13,4 @@ import './CurseGivingGhost';
 import './GlitterGrub';
 import './ZombieNecromancer';
 import './TurnadosTheWindConstruct';
+import './SplitGolem';

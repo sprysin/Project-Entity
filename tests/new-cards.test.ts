@@ -3,7 +3,9 @@ import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { addChainLink, effectChoices, resolveChain, runEffect } from '../src/game/chains';
+import { addChainLink, effectChoices, fieldActivations, resolveChain, runEffect } from '../src/game/chains';
+import { checkVictory } from '../src/game/finishEffect';
+import { sendToOwnerPile } from '../src/game/cardOwnership';
 import { applyCommand, applySystemCommand } from '../src/game/engine';
 import { resolveCombat } from '../src/game/combat';
 import { advancePhaseState } from '../src/game/phases';
@@ -93,7 +95,7 @@ it('new Conditions and Turnados resolve their selected effects', () => {
     windGame.players[1].actionZones[0] = placed(enemyAction, Position.HIDDEN);
     const windChoices = effectChoices(windGame, turnados, 'summon');
     expect(windChoices).toHaveLength(1);
-    expect(windChoices[0]).toMatchObject({ shuffleIndices: [0], target: { playerIndex: 1, type: 'action', index: 0 } });
+    expect(windChoices[0]).toMatchObject({ shuffleCardIds: [airCost.instanceId], target: { playerIndex: 1, type: 'action', index: 0 } });
     const windResolved = resolveChain(addChainLink(windGame, windChoices[0], 'summon'));
     expect(windResolved.players[0].deck.some(value => value.instanceId === airCost.instanceId)).toBe(true);
     expect(windResolved.players[1].actionZones[0]).toBeNull();
@@ -106,12 +108,18 @@ it('new Conditions and Turnados resolve their selected effects', () => {
         if (location === 'hand') costGame.players[0].hand = [first, second];
         else if (location === 'discard') costGame.players[0].discard = [first, second];
         else { costGame.players[0].pawnZones[0] = placed(first); costGame.players[0].pawnZones[1] = placed(second); }
-        const shuffle = Cost.ShuffleFrom(location, 2, true);
+        const shuffle = Cost.ShuffleFrom(location, 2);
         expect(shuffle(costGame, { card: turnados, playerIndex: 0 })).toMatchObject({
-            requireShuffleSelection: { location, count: 2, target: true }
+            requireShuffleSelection: { location, count: 2 }
         });
-        shuffle(costGame, { card: turnados, playerIndex: 0, shuffleIndices: [0, 1] });
+        shuffle(costGame, { card: turnados, playerIndex: 0, shuffleCardIds: [first.instanceId, second.instanceId] });
         expect(costGame.players[0].deck.map(value => value.instanceId).sort()).toEqual([first.instanceId, second.instanceId].sort());
+        const effectGame = state();
+        effectGame.players[0].discard = [first, second];
+        effectGame.players[0].discard.reverse();
+        Effect.ShuffleFrom('discard', 1)(effectGame, { card: turnados, playerIndex: 0, shuffleCardIds: [first.instanceId] });
+        expect(effectGame.players[0].deck[0].instanceId).toBe(first.instanceId);
+        expect(effectGame.players[0].discard[0].instanceId).toBe(second.instanceId);
     }
 
     const attackGame = state();
@@ -146,6 +154,88 @@ it('new Conditions and Turnados resolve their selected effects', () => {
     expect(special.players[1].pawnZones[0]).toBeNull();
     expect(special.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
     expect(special.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
+});
+
+it('Tribunal tracks counters, separate soft uses, summon choices and interrupted activations', () => {
+    const counterCount = (zone: GameState['players'][number]['actionZones'][number]) => zone?.counters?.['Tribute Counters'] ?? 0;
+    let game = state();
+    const tribunal = card('action_06');
+    const second = card('action_06');
+    const low = { ...card('pawn_01'), level: 4 as const };
+    const one = { ...card('pawn_01'), level: 5 as const };
+    const two = { ...card('pawn_01'), level: 8 as const };
+    game.players[0].actionZones[0] = placed(tribunal, Position.FACE_UP);
+    game.players[0].actionZones[1] = placed(second, Position.FACE_UP);
+    expect(fieldActivations(game, 0)).toEqual([]);
+    expect(runEffect(game, { card: tribunal, playerIndex: 0 }, 'field_activate').halted).toBe(true);
+    game.players[0].hand = [low, one, two];
+    game.players[0].pawnZones[0] = placed(card('pawn_01'));
+    expect(runEffect(game, { card: tribunal, playerIndex: 0 }, 'field_activate').requireEffectChoice)
+        .toMatchObject([{ id: 'tribute', disabled: false }, { id: 'summon', disabled: true }]);
+    const tribute = effectChoices(game, tribunal, 'field_activate')[0];
+    expect(tribute.effectId).toBe('tribute');
+    const paid = addChainLink(game, tribute, 'field_activate');
+    expect(paid.players[0].pawnZones[0]).toBeNull();
+    expect(paid.players[0].discard).toHaveLength(1);
+    expect(counterCount(paid.players[0].actionZones[0])).toBe(0);
+    for (const interruption of ['removed', 'hidden'] as const) {
+        const interrupted = structuredClone(paid);
+        if (interruption === 'removed') interrupted.players[0].actionZones[0] = null;
+        else interrupted.players[0].actionZones[0]!.position = Position.HIDDEN;
+        const fizzled = resolveChain(interrupted);
+        expect(fizzled.players[0].discard).toHaveLength(1);
+        expect(counterCount(fizzled.players[0].actionZones[0])).toBe(0);
+        if (interruption === 'hidden') expect(fizzled.players[0].actionZones[0]?.position).toBe(Position.HIDDEN);
+    }
+    game = resolveChain(paid);
+    expect(counterCount(game.players[0].actionZones[0])).toBe(1);
+    expect(game.log[0]).toContain('+1 Tribute Counters');
+    const summons = effectChoices(game, tribunal, 'field_activate');
+    expect(summons).toHaveLength(10); // five slots, both face-up positions
+    expect(summons.every(choice => choice.effectId === 'summon' && choice.handIndex === 1)).toBe(true);
+    const summon = summons.find(choice => choice.pawnPlacement?.slot === 3 && choice.pawnPlacement.position === Position.DEFENSE)!;
+    const queuedSummon = addChainLink(game, summon, 'field_activate');
+    for (const interruption of ['source removed', 'source hidden', 'hand removed', 'slot filled'] as const) {
+        const interrupted = structuredClone(queuedSummon);
+        if (interruption === 'source removed') interrupted.players[0].actionZones[0] = null;
+        if (interruption === 'source hidden') interrupted.players[0].actionZones[0]!.position = Position.HIDDEN;
+        if (interruption === 'hand removed') interrupted.players[0].hand.splice(1, 1);
+        if (interruption === 'slot filled') interrupted.players[0].pawnZones[3] = placed(low);
+        const fizzled = resolveChain(interrupted);
+        expect(fizzled.players[0].pawnZones.every(zone => zone?.card.instanceId !== one.instanceId)).toBe(true);
+    }
+    queuedSummon.players[0].hand.reverse();
+    game = resolveChain(queuedSummon);
+    expect(game.players[0].pawnZones[3]).toMatchObject({ card: { instanceId: one.instanceId }, position: Position.DEFENSE });
+    expect(game.players[0].normalSummonUsed).toBe(false);
+    expect(counterCount(game.players[0].actionZones[0])).toBe(1);
+    expect(effectChoices(game, tribunal, 'field_activate')).toEqual([]);
+    expect(effectChoices(game, second, 'field_activate').some(choice => choice.effectId === 'tribute')).toBe(true);
+    game.turnNumber += 2;
+    Effect.ModulateCounter('Tribute Counters', 6)(game, { card: tribunal, playerIndex: 0 });
+    game.players[0].hand = [low, one, two];
+    const later = effectChoices(game, tribunal, 'field_activate');
+    expect(new Set(later.filter(choice => choice.effectId === 'summon').map(choice => choice.handIndex))).toEqual(new Set([1, 2]));
+    expect(counterCount(game.players[0].actionZones[0])).toBe(7);
+    game.currentPhase = Phase.BATTLE;
+    expect(fieldActivations(game, 0)).toEqual([]);
+    game.currentPhase = Phase.MAIN2;
+    game.activePlayerIndex = 1;
+    expect(fieldActivations(game, 0)).toEqual([]);
+    game.activePlayerIndex = 0;
+    const zone = game.players[0].actionZones[0]!;
+    game.players[0].actionZones[0] = null;
+    game.players[1].actionZones[0] = zone;
+    expect(counterCount(zone)).toBe(7);
+    zone.position = Position.HIDDEN;
+    checkVictory(game);
+    expect(zone.counters).toBeUndefined();
+    zone.position = Position.FACE_UP;
+    Effect.ModulateCounter('Tribute Counters', 1)(game, { card: tribunal, playerIndex: 1 });
+    sendToOwnerPile(game, zone.card, 'hand');
+    game.players[1].actionZones[0] = null;
+    game.players[0].actionZones[0] = placed(game.players[0].hand.at(-1)!, Position.FACE_UP);
+    expect(counterCount(game.players[0].actionZones[0])).toBe(0);
 });
 
 it('Glass Witch destroys itself and privately reveals the opponent-selected hand card', () => {

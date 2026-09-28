@@ -1,3 +1,4 @@
+import { canTribute } from '../game/cardHelpers';
 import { Dispatch, SetStateAction, useRef } from 'react';
 import { Card, CardTarget, EffectTrigger, GameState, TargetSelectMode } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
@@ -58,7 +59,7 @@ export function useCardActions(
         pendingTributes.current = null;
         if (card.level >= 5) {
             const requiredTributes = card.level <= 7 ? 1 : 2;
-            const availableTributes = gameState.players[gameState.activePlayerIndex].pawnZones.filter(Boolean).length;
+            const availableTributes = gameState.players[gameState.activePlayerIndex].pawnZones.filter(z => z && canTribute(z.card)).length;
             if (availableTributes < requiredTributes) return;
             selection.setPendingTributeCard(card);
             selection.setTributeSummonMode(mode === 'hidden' ? 'hidden' : 'normal');
@@ -98,7 +99,9 @@ export function useCardActions(
         if (!commit({ type: 'play', cardId: card.instanceId, set: mode === 'set', slot })) return false;
         const actor = gameState!.activePlayerIndex;
         triggerVisual(`${actor}-hand-container`, `${actor}-action-${slot}`, 'discard', card);
-        if (mode === 'activate') resolveEffect(card, undefined, undefined, undefined, undefined, 'activate');
+        if (mode === 'activate' && cardRegistry.getEffect(card.id)?.onActivate) {
+            resolveEffect(card, undefined, undefined, undefined, undefined, 'activate');
+        }
         setSelectedHandIndex(null);
         return true;
     };

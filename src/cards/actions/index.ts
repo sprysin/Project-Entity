@@ -3,3 +3,4 @@ import './QuickRecovery';
 import './MarkOfTheForestHunter';
 import './MechanicalMaintenance';
 import './SacrificialLamb';
+import './TributeTribunal';

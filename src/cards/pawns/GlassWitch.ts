@@ -29,5 +29,5 @@ cardRegistry.register({
     pawnType: PawnType.MAGICIAN,
     atk: 0,
     def: 110,
-    effectText: 'During either player\'s Main Phase: You can destroy this card; then your opponent selects 1 card in their hand for you to view. You can only activate the effect of "Glass Witch" once per turn.'
+    effectText: 'EITHER PLAYER\'S MAIN PHASE: You can destroy this card; then your opponent selects 1 card in their hand for you to view. You can only activate the effect of "Glass Witch" once per turn.'
 }, effect);

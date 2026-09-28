@@ -1,3 +1,4 @@
+import { isToken } from '../../game/cardHelpers';
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
@@ -98,6 +99,7 @@ const FittedEffect = ({ text }: { text: string }) => {
 
 interface CardDetailProps {
     card: Card;
+    counters?: Record<string, number>;
     isSet?: boolean;
     className?: string;
     onClick?: () => void;
@@ -112,7 +114,8 @@ interface CardDetailProps {
  * CardDetail Sub-component: A high-fidelity representation of a card.
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
-export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className = '', onClick, highlightAtk, highlightDef, showOriginalStats, domRef }) => {
+export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, className = '', onClick, highlightAtk, highlightDef, showOriginalStats, domRef }) => {
+    const visibleCounters = Object.entries<number>(counters ?? {}).filter(([, count]) => count > 0);
     const originalCard = cardRegistry.getCard(card.id);
     const displayedAtk = showOriginalStats ? originalCard?.atk ?? card.atk : card.atk;
     const displayedDef = showOriginalStats ? originalCard?.def ?? card.def : card.def;
@@ -137,7 +140,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
     return (
         <ScaledCard className={className} onClick={onClick} domRef={domRef}>
         <div
-            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''}`}
+            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${isToken(card) ? 'card-token' : card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''}`}
         >
             {/* Header: Name + Level */}
             <div className="card-inner-border"></div>
@@ -174,8 +177,8 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
             </div>
 
             {/* Artwork placeholder: shared symbols keep the classification recognizable. */}
-            <div className="card-artwork" aria-hidden="true">
-                <div className="card-artwork-symbol">
+            <div className="card-artwork">
+                <div className="card-artwork-symbol" aria-hidden="true">
                     {card.type === CardType.PAWN ? (
                         <AttributeSymbol attribute={card.attribute} />
                     ) : card.type === CardType.ACTION ? (
@@ -184,6 +187,11 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, isSet, className =
                         <i className="fa-solid fa-hourglass-half" />
                     )}
                 </div>
+                {visibleCounters.length > 0 && <div className="field-pawn-overlay field-counter-overlay">
+                    {visibleCounters.map(([name, count]) => <div key={name} className="field-pawn-overlay__level field-counter-overlay__count" title={name} aria-label={`${name}: ${count}`}>
+                        <i className="fa-solid fa-circle-dot" aria-hidden="true" /><strong>{count}</strong>
+                    </div>)}
+                </div>}
             </div>
 
             {/* Body: Effect Text */}

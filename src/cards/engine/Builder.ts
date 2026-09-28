@@ -16,21 +16,8 @@ export const buildEffect = (steps: EffectStep[]) => {
             if (context.execution === 'resolve' && step.activationCost) continue;
             const result = step(draftState, context);
             if (result) {
-                if (result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection) {
-                    return {
-                        newState: draftState,
-                        requireTarget: result.requireTarget,
-                        requireTargetPosition: result.requireTargetPosition,
-                        requireTargetScope: result.requireTargetScope,
-                        requireTargetFilter: result.requireTargetFilter,
-                        requireTargetIndex: result.requireTargetIndex,
-                        requireDiscardSelection: result.requireDiscardSelection,
-                        requireHandSelection: result.requireHandSelection,
-                        requirePeekSelection: result.requirePeekSelection,
-                        requireDeckSelection: result.requireDeckSelection,
-                        requireEffectTribute: result.requireEffectTribute,
-                        requireShuffleSelection: result.requireShuffleSelection
-                    };
+                if (result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection) {
+                    return { ...result, newState: draftState };
                 }
 
                 if (result.halt) {
@@ -54,3 +41,24 @@ export const buildCondition = (steps: ConditionStep[]) => {
         return steps.every(step => step(state, context));
     };
 };
+
+/** Multiple activated effects share one choice request for the UI and AI. */
+export const buildEffectChoice = (options: {
+    id: string;
+    unavailable: (state: GameState, context: CardContext) => boolean;
+    execute: ReturnType<typeof buildEffect>;
+}[]) => Object.assign((state: GameState, context: CardContext): EffectResult => {
+    const selected = options.find(option => option.id === context.effectId);
+    if (context.effectId !== undefined) {
+        if (!selected || context.execution !== 'resolve' && selected.unavailable(state, context)) {
+            return { newState: state, halted: true };
+        }
+        return selected.execute(state, context);
+    }
+    const descriptions = context.card.effectText.split(/\s+-\s*/).slice(1);
+    const choices = options.map((option, index) => ({
+        id: option.id, label: descriptions[index]?.trim() || `Effect ${index + 1}`, disabled: option.unavailable(state, context)
+    }));
+    return choices.every(choice => choice.disabled) ? { newState: state, halted: true }
+        : { newState: state, requireEffectChoice: choices };
+}, { staged: true });

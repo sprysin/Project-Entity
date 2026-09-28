@@ -1,3 +1,4 @@
+import { canTribute } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
@@ -265,7 +266,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
     own.hand.forEach(card => {
         if (card.type === CardType.PAWN) {
             const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
-            const tributes = combinations(own.pawnZones.flatMap((z, i) => z ? [i] : []), count);
+            const tributes = combinations(own.pawnZones.flatMap((z, i) => z && canTribute(z.card) ? [i] : []), count);
             for (const tribute of tributes) for (const hidden of [false, true]) {
                 const next = simulateSummon(state, card, hidden, tribute);
                 if (next === state) continue;

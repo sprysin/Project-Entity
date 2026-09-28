@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { Attribute, CardType, GameState, Player } from '../../types';
-import { ShuffleSelectionModal } from './SelectionModals';
+import { ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
 import { DuelPrompt } from './DuelPrompt';
@@ -124,6 +124,9 @@ export const GameOverlays: React.FC<{
         )}
         {state.opponentMode === 'ai' && !gameState.resolvingChain && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
+        {!gameState.winner && gameState.pendingVoidSelections?.length
+            && !(state.opponentMode === 'ai' && gameState.pendingVoidSelections[0].playerIndex === 1)
+            ? <VoidSelectionModal gameState={gameState} onConfirm={actions.chooseVoidCard} /> : null}
         <ShuffleSelectionModal request={state.shuffleSelectionReq} gameState={gameState} onConfirm={actions.handleShuffleSelection} onCancel={actions.cancelEffect} />
         {gameState.pendingFrontline?.length && !state.frontlineCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
             && !(state.opponentMode === 'ai' && gameState.pendingFrontline[0].playerIndex === 1)
@@ -144,6 +147,16 @@ export const GameOverlays: React.FC<{
         <DiscardSelectionModal selectionReq={state.discardSelectionReq} gameState={gameState} selectedDiscardIndex={state.selectedDiscardIndex} setSelectedDiscardIndex={actions.setSelectedDiscardIndex} setDiscardSelectionReq={actions.cancelEffect} handleDiscardSelection={actions.handleDiscardSelection} />
         <DeckSelectionModal selectionReq={state.deckSelectionReq} gameState={gameState} selectedDeckIndex={state.selectedDeckIndex} setSelectedDeckIndex={actions.setSelectedDeckIndex} setDeckSelectionReq={actions.cancelEffect} handleDeckSelection={actions.handleDeckSelection} />
         <EffectModal triggeredEffect={state.triggeredEffect} gameState={gameState} isPeekingField={state.isPeekingField} resolveEffect={card => actions.resolveEffect(card, undefined, undefined, undefined, undefined, state.pendingTriggerType || 'activate')} checkActivationConditions={checkActivationConditions} setIsPeekingField={actions.setIsPeekingField} setTriggeredEffect={actions.setTriggeredEffect} setPendingEffectCard={actions.setPendingEffectCard} declineSwitch={actions.declineSwitch} />
+        {state.effectChoiceReq?.some(choice => !choice.disabled) && (
+            <DuelPrompt className="duel-prompt--effect-choice" ariaLabel="Choose card effect" title={state.pendingEffectCard?.name}
+                peeking={state.isPeekingField} setPeeking={actions.setIsPeekingField}
+                onBackdropClick={actions.cancelEffect}
+                actions={[
+                    ...state.effectChoiceReq.map(choice => ({ label: choice.label, disabled: choice.disabled,
+                        variant: 'primary' as const, onClick: () => actions.handleEffectChoice(choice.id) })),
+                    { label: 'Cancel', onClick: actions.cancelEffect }
+                ]} />
+        )}
 
         {state.phaseFlash && (
             <div className="pointer-events-none absolute inset-0 z-[60] flex items-center justify-center overflow-hidden">
