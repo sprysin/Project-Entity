@@ -1,15 +1,8 @@
 import { Attribute, CardType, IEffect, PawnSubtype, PawnType, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 import { Condition } from '../engine/Requirements';
-
-cardRegistry.register({
-    id: 'token_golem', name: 'Golem Token', type: CardType.PAWN,
-    pawnSubtype: PawnSubtype.TOKEN, level: 3, attribute: Attribute.EARTH,
-    pawnType: PawnType.ELEMENTAL, atk: 60, def: 70, cannotBeTributed: true,
-    effectText: 'This Token cannot be tributed.'
-}, {});
 
 const effect: IEffect = {
     canActivate: (state, context) => Condition.OnceWhileOnField()(state, context)
@@ -28,8 +21,16 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
+    id: 'token_golem', name: 'Golem Token', type: CardType.PAWN,
+    pawnSubtype: PawnSubtype.TOKEN, level: 3, attribute: Attribute.EARTH,
+    pawnType: PawnType.ELEMENTAL, atk: 60, def: 70, cannotBeTributed: true,
+    effectText: 'This Token cannot be tributed.'
+}, effect: {} },
+{ cardData: {
     id: 'pawn_16', name: 'Split Golem', type: CardType.PAWN,
     level: 3, attribute: Attribute.EARTH, pawnType: PawnType.ELEMENTAL, atk: 120, def: 140,
     effectText: 'Once while on the field: Halve this Pawn’s current ATK, then Special Summon 1 “Golem Token” (Elemental/EARTH/Level 3/ATK 60/DEF 70). This Token cannot be tributed.'
-}, effect);
+}, effect }
+] satisfies CardModule;

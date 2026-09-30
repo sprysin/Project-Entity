@@ -1,5 +1,5 @@
 import { CardType, IEffect, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Require } from '../engine/Requirements';
 import { Effect } from '../engine/Effects';
@@ -34,8 +34,10 @@ const effect: IEffect = {
     }
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'condition_07', name: 'Conflicted Mind Madness', type: CardType.CONDITION,
     isAttached: true, level: 0, atk: 0, def: 0,
     effectText: 'Target 1 face-up Action/Condition, during each standy phase deal 10 damage to the owner of the target. If the target activates an additional effect Void 1 card from the owners Discard pile.'
-}, effect);
+}, effect }
+] satisfies CardModule;

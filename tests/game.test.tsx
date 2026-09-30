@@ -4,8 +4,13 @@ import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useGameLogic } from '../src/hooks/useGameLogic';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card, GameState, Phase, Position } from '../src/types';
+import { Card, GameState, Phase, Position, OpponentMode, PlaytestDebugSettings } from '../src/types';
 import { Zone } from '../src/components/game/Zone';
+import PlaytestSetup from '../src/components/decks/PlaytestSetup';
+import { DeckPile } from '../src/components/game/Pile';
+import { XrayOverlay } from '../src/components/game/XrayOverlay';
+import { GameSidebar } from '../src/components/game/GameSidebar';
+import { CardDetail } from '../src/components/cards/CardDetail';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
@@ -18,6 +23,7 @@ function setup(edit: (s: GameState) => void) {
     act(() => game.setGameState(prev => {
         const s = structuredClone(prev!);
         s.turnNumber = 2; s.currentPhase = Phase.MAIN1;
+        s.openingCoin = undefined;
         for (const p of s.players) {
             p.hand = []; p.deck = []; p.discard = []; p.pawnZones.fill(null); p.actionZones.fill(null);
             p.normalSummonUsed = false; p.hiddenSummonUsed = false; p.activatedHardOncePerTurns = [];
@@ -47,28 +53,28 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(eligibleCaster.instanceId);
 
-    const frontline = card('condition_06', 1);
+    const handSummon = card('condition_06', 1);
     const light = card('pawn_01', 1);
     setup(s => {
         s.activePlayerIndex = 0;
-        s.players[1].actionZones[0] = placed(frontline);
+        s.players[1].actionZones[0] = placed(handSummon);
         s.players[1].hand = [light];
-        s.pendingFrontline = [{ sourceId: frontline.instanceId, playerIndex: 1 }];
+        s.pendingHandSummons = [{ sourceId: handSummon.instanceId, playerIndex: 1 }];
     });
     act(() => game.actions.setTriggeredEffect(null));
-    act(() => game.actions.frontlineChooseCard(0));
-    expect(game.state.frontlineCardId).toBe(light.instanceId);
-    act(() => game.actions.frontlineSummon(3, Position.DEFENSE));
+    act(() => game.actions.handSummonChooseCard(0));
+    expect(game.state.handSummonCardId).toBe(light.instanceId);
+    act(() => game.actions.confirmHandSummon(3, Position.DEFENSE));
     expect(game.gameState!.players[1].pawnZones[0]).toBeNull();
     expect(game.gameState!.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
     expect(game.gameState!.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
-    expect(game.state.frontlineCardId).toBeNull();
+    expect(game.state.handSummonCardId).toBeNull();
 
     const tribunal = card('action_06');
     const pawn = { ...card('pawn_01'), level: 5 as const };
     setup(s => {
         s.activePlayerIndex = 0;
-        s.pendingFrontline = [];
+        s.pendingHandSummons = [];
         s.players[0].actionZones[0] = placed(tribunal);
         s.players[0].hand = [pawn];
     });
@@ -89,6 +95,13 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     act(() => vi.advanceTimersByTime(500));
     expect(game.gameState!.players[0].actionZones[0]?.counters).toEqual({ 'Tribute Counters': 1 });
     act(() => game.actions.activateOnField(0, 'action', 0));
+    expect(game.state.effectChoiceReq).toBeNull();
+    act(() => game.setGameState(s => {
+        const next = structuredClone(s!);
+        next.players[0].actionZones[0]!.counters = { 'Tribute Counters': 2 };
+        return next;
+    }));
+    act(() => game.actions.activateOnField(0, 'action', 0));
     expect(game.state.effectChoiceReq).toMatchObject([{ disabled: true }, { disabled: false }]);
     act(() => game.actions.handleEffectChoice('summon'));
     expect(game.state.handSelectionReq).toMatchObject({ purpose: 'summon', prompt: 'Select a Pawn to special summon' });
@@ -103,7 +116,7 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     const fieldCard = game.gameState!.players[0].actionZones[0]!;
     let overlay: ReturnType<typeof create>;
     act(() => { overlay = create(<Zone card={fieldCard} type="action" />); });
-    expect(overlay!.root.findAllByProps({ 'aria-label': 'Tribute Counters: 1' })).toHaveLength(1);
+    expect(overlay!.root.findAllByProps({ 'aria-label': 'Tribute Counters: 2' })).toHaveLength(1);
     for (const counters of [undefined, { 'Tribute Counters': 0 }]) {
         act(() => overlay!.update(<Zone card={{ ...fieldCard, counters }} type="action" />));
         expect(overlay!.root.findAllByProps({ className: 'field-pawn-overlay field-counter-overlay' })).toHaveLength(0);
@@ -165,7 +178,28 @@ it('discard and tribute costs are paid once after all activation selections are 
     expect(game.gameState!.log[0]).toContain('special summons "Solstice Sentinel"');
 });
 
-it('automated drawing refills to five and advances exactly one turn under StrictMode', () => {
+it('opening turns, AI-only debug setup, and automated drawing preserve hands and hidden card rules', () => {
+    const winner = game.gameState!.openingCoin!.winnerIndex;
+    act(() => { game.actions.chooseTurnOrder('first'); game.actions.nextPhase(); vi.advanceTimersByTime(2399); });
+    expect(game.gameState!.openingCoin?.stage).toBe('flipping');
+    expect(game.gameState!.drawProgress).toBeUndefined();
+    act(() => vi.advanceTimersByTime(1));
+    expect(game.gameState!.openingCoin?.stage).toBe('choosing');
+    act(() => vi.advanceTimersByTime(5000));
+    expect(game.gameState!.currentPhase).toBe(Phase.DRAW);
+    act(() => game.actions.chooseTurnOrder('second'));
+    expect(game.gameState!.openingCoin).toBeUndefined();
+    expect(game.gameState!.activePlayerIndex).toBe(1 - winner);
+    act(() => vi.advanceTimersByTime(1700));
+    expect(game.gameState!.currentPhase).toBe(Phase.STANDBY);
+    expect(game.gameState!.players[1 - winner].hand).toHaveLength(5);
+    act(() => vi.advanceTimersByTime(1200));
+    expect(game.gameState!.currentPhase).toBe(Phase.MAIN1);
+    act(() => game.actions.nextPhase());
+    act(() => vi.advanceTimersByTime(1200));
+    expect(game.gameState!.activePlayerIndex).toBe(winner);
+    expect(game.gameState!.turnNumber).toBe(2);
+    act(() => game.setGameState(prev => ({ ...prev!, activePlayerIndex: 0, currentPhase: Phase.MAIN1, drawProgress: undefined })));
     setup(s => { s.currentPhase = Phase.DRAW; s.players[0].hand = [card('action_01')]; s.players[0].deck = Array.from({ length: 10 }, () => card('pawn_01')); });
     act(() => vi.advanceTimersByTime(1700));
     expect(game.gameState!.players[0].hand).toHaveLength(5);
@@ -173,4 +207,60 @@ it('automated drawing refills to five and advances exactly one turn under Strict
     act(() => vi.advanceTimersByTime(1200));
     expect(game.gameState!.currentPhase).toBe(Phase.MAIN1);
     expect(game.gameState!.turnNumber).toBe(2);
+    const debug: PlaytestDebugSettings = { alwaysGoFirst: true, chooseStartingHand: true, xray: true };
+    function DebugHarness({ mode }: { mode: OpponentMode }) { game = useGameLogic(undefined, mode, debug); return null; }
+    act(() => root.update(<React.StrictMode><DebugHarness mode="ai" /></React.StrictMode>));
+    expect(game.gameState).toBeNull();
+    const choices = game.state.startingHandCards!;
+    expect(choices).toHaveLength(40);
+    act(() => vi.advanceTimersByTime(10000));
+    expect(game.gameState).toBeNull();
+    for (const invalid of [[0, 1], [0, 0, 1, 2, 3], [0, 1, 2, 3, 40]]) {
+        act(() => game.actions.chooseStartingHand(invalid));
+        expect(game.gameState).toBeNull();
+    }
+    const indices = [7, 9, 12, 20, 31];
+    act(() => game.actions.chooseStartingHand(indices));
+    expect(game.state.startingHandCards).toBeNull();
+    expect(game.gameState!.openingCoin).toBeUndefined();
+    expect(game.gameState!.activePlayerIndex).toBe(0);
+    expect(game.gameState!.players[0].hand).toEqual(indices.map(index => choices[index]));
+    expect(game.gameState!.players[0].deck).toEqual(choices.filter((_, index) => !indices.includes(index)));
+    expect(game.gameState!.players[1].hand).toHaveLength(5);
+    const debugGame = game.gameState!;
+    // Remount self-play with the same settings to verify they are ignored at the boundary.
+    act(() => root.update(null));
+    act(() => root.update(<React.StrictMode><DebugHarness mode="self" /></React.StrictMode>));
+    expect(game.state.startingHandCards).toBeNull();
+    expect(game.gameState!.openingCoin).toBeDefined();
+
+    const started = vi.fn();
+    act(() => root.update(<PlaytestSetup onBack={() => {}} onStart={started} />));
+    act(() => root.root.findByProps({ 'aria-label': 'Debug settings' }).props.onClick());
+    const toggles = () => root.root.findAllByProps({ type: 'checkbox' });
+    expect(toggles().every(toggle => toggle.props.disabled)).toBe(true);
+    expect(toggles().every(toggle => toggle.props['data-sound'] === 'toggle')).toBe(true);
+    act(() => root.root.findAllByProps({ type: 'radio' })[1].props.onChange());
+    act(() => toggles().forEach(toggle => toggle.props.onChange({ target: { checked: true } })));
+    act(() => root.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
+    expect(started).toHaveBeenLastCalledWith([null, null], 'ai', debug);
+    act(() => root.root.findAllByProps({ type: 'radio' })[0].props.onChange());
+    act(() => root.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
+    expect(started).toHaveBeenLastCalledWith([null, null]);
+
+    const hidden = { ...placed(card('pawn_01', 1)), position: Position.HIDDEN };
+    debugGame.players[1].pawnZones[0] = hidden;
+    const inspect = vi.fn();
+    act(() => root.update(<><Zone card={hidden} type="pawn" xray /><DeckPile count={35} label="Deck" xrayCard={choices[0]} onInspect={inspect} /><GameSidebar gameState={debugGame} viewerIndex={0} xray selectedCard={null} selectedFieldSlot={{ playerIndex: 1, type: 'pawn', index: 0 }} isOpen setIsOpen={() => {}} /></>));
+    expect(root.root.findAllByType(XrayOverlay)).toHaveLength(2);
+    const fieldOverlay = root.root.findByType(Zone).findByType(XrayOverlay);
+    expect(fieldOverlay.parent.props.className).toContain('rotate-90');
+    expect(fieldOverlay.parent.props['data-field-card-id']).toBe(hidden.card.instanceId);
+    expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(false);
+    act(() => root.root.findByProps({ 'aria-label': 'Deck: 35 cards. Inspect top card' }).props.onClick());
+    expect(inspect).toHaveBeenCalledOnce();
+    expect(hidden.position).toBe(Position.HIDDEN);
+    act(() => root.update(<><Zone card={hidden} type="pawn" /><DeckPile count={0} label="Deck" /><GameSidebar gameState={debugGame} viewerIndex={0} selectedCard={null} selectedFieldSlot={{ playerIndex: 1, type: 'pawn', index: 0 }} isOpen setIsOpen={() => {}} /></>));
+    expect(root.root.findAllByType(XrayOverlay)).toHaveLength(0);
+    expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(true);
 });

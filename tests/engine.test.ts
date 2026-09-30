@@ -23,6 +23,22 @@ const command = (state: GameState, value: GameCommand, actor = state.activePlaye
 const nextPhase = (state: GameState) => applySystemCommand(command(state, { type: 'phase' }), { type: 'completeDeferred' }).state;
 
 it('runs opening turns, summons, and a winning attack with no React or timers', () => {
+    for (const winnerIndex of [0, 1] as const) for (const order of ['first', 'second'] as const) {
+        const pending = freeze({ ...game(), openingCoin: { winnerIndex, stage: 'flipping' as const } });
+        expect(command(pending, { type: 'chooseTurnOrder', order }, winnerIndex)).toBe(pending);
+        expect(nextPhase(pending)).toBe(pending);
+        expect(applySystemCommand(pending, { type: 'draw' }).state).toBe(pending);
+        const landed = applySystemCommand(pending, { type: 'landCoin' }).state;
+        expect(command(landed, { type: 'chooseTurnOrder', order }, 1 - winnerIndex)).toBe(landed);
+        const chosen = command(landed, { type: 'chooseTurnOrder', order }, winnerIndex);
+        expect(chosen.openingCoin).toBeUndefined();
+        expect(chosen.activePlayerIndex).toBe(order === 'first' ? winnerIndex : 1 - winnerIndex);
+        expect(command(chosen, { type: 'chooseTurnOrder', order }, winnerIndex)).toBe(chosen);
+        const main = nextPhase(nextPhase(applySystemCommand(chosen, { type: 'draw' }).state));
+        expect(main.players[chosen.activePlayerIndex].hand).toHaveLength(5);
+        expect(nextPhase(main).currentPhase).toBe(Phase.END);
+        expect(nextPhase(nextPhase(main)).activePlayerIndex).toBe(1 - chosen.activePlayerIndex);
+    }
     let state = freeze(game());
     expect(state.players[0].hand).toHaveLength(5);
     state = applySystemCommand(state, { type: 'draw' }).state;

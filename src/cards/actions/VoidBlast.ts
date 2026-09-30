@@ -1,5 +1,5 @@
 import { IEffect, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 
@@ -9,7 +9,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'action_01',
     name: 'Void Blast',
     type: CardType.ACTION,
@@ -17,4 +18,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'Deal 50 damage to your opponent.',
-}, effect);
+}, effect }
+] satisfies CardModule;

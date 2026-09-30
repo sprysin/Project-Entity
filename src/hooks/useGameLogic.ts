@@ -1,7 +1,8 @@
+import { handSummonCandidates } from '../game/summonReactions';
 import { canTribute } from '../game/cardHelpers';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    GameState, Card, CardType, Attribute, Position, Phase, CardSelectionRequest,
+    GameState, Card, Position, Phase, CardSelectionRequest, PlaytestDebugSettings,
     EffectTrigger, HandSelectionRequest, OpponentMode, TargetSelectMode, TargetSelectPosition,
     TargetSelectScope, TargetSelectType, TributeSelectionRequest, PeekSelectionRequest, ShuffleSelectionRequest
 } from '../types';
@@ -22,19 +23,10 @@ import { useManagedTimeout } from './useManagedTimeout';
 import { getActivationPopups, getSettings, saveActivationPopups } from '../desktop/storage';
 import { showMessage } from '../desktop/files';
 
-export const ACTIVATION_POPUPS_STORAGE_KEY = 'project-entity.activation-popups-enabled';
-
-const loadActivationPopupPreference = () => {
-    try {
-        return getActivationPopups();
-    } catch {
-        return true;
-    }
-};
-
-export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null], opponentMode: OpponentMode = 'self') => {
+export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null], opponentMode: OpponentMode = 'self', debugSettings: PlaytestDebugSettings = {}) => {
     // Core Game State
     const [gameState, setGameState] = useState<GameState | null>(null);
+    const [startingHandGame, setStartingHandGame] = useState<GameState | null>(null);
 
     // Selection States
     const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
@@ -47,15 +39,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Card Play (Manual Placement)
     const [pendingPlayCard, setPendingPlayCard] = useState<Card | null>(null);
     const [playMode, setPlayMode] = useState<'normal' | 'hidden' | 'activate' | 'set' | null>(null);
-    const [frontlineCardId, setFrontlineCardId] = useState<string | null>(null);
-    const [frontlineSelectedHandIndex, setFrontlineSelectedHandIndex] = useState<number | null>(null);
+    const [handSummonCardId, setHandSummonCardId] = useState<string | null>(null);
+    const [handSummonSelectedHandIndex, setHandSummonSelectedHandIndex] = useState<number | null>(null);
     useEffect(() => {
-        if (!frontlineCardId) return;
-        const pending = gameState?.pendingFrontline?.[0];
-        if (pending && gameState.players[pending.playerIndex].hand.some(card => card.instanceId === frontlineCardId)) return;
-        setFrontlineCardId(null);
+        if (!handSummonCardId) return;
+        const pending = gameState?.pendingHandSummons?.[0];
+        if (pending && gameState.players[pending.playerIndex].hand.some(card => card.instanceId === handSummonCardId)) return;
+        setHandSummonCardId(null);
         setSelectedFieldSlot(null);
-    }, [gameState, frontlineCardId]);
+    }, [gameState, handSummonCardId]);
 
     // Tribute
     const [tributeSelection, setTributeSelection] = useState<number[]>([]);
@@ -92,7 +84,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Layout
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
     const [isDeckViewerOpen, setIsDeckViewerOpen] = useState(false);
-    const [activationPopupsEnabled, setActivationPopupsEnabled] = useState(loadActivationPopupPreference);
+    const [activationPopupsEnabled, setActivationPopupsEnabled] = useState(getActivationPopups);
     const previousPopupPreference = useRef(activationPopupsEnabled);
 
     useEffect(() => {
@@ -198,11 +190,25 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         const p1Deck = initialDecks[0] ? createRuntimeDeck(initialDecks[0], 'player1') : createDeck('player1');
         const p2Deck = initialDecks[1] ? createRuntimeDeck(initialDecks[1], 'player2') : createDeck('player2');
         animations.lastLp.current = [800, 800];
-        setGameState(createGame([
+        const initialGame = createGame([
             { id: 'player1', name: getSettings().username, deck: p1Deck, deckName: initialDecks[0]?.name ?? 'Random test deck' },
             { id: 'player2', name: opponentMode === 'ai' ? 'AI' : 'Player 2', deck: p2Deck, deckName: initialDecks[1]?.name ?? 'Random test deck' }
-        ]));
+        ], opponentMode === 'ai' && debugSettings.alwaysGoFirst ? undefined : Math.random() < 0.5 ? 0 : 1);
+        if (opponentMode === 'ai' && debugSettings.chooseStartingHand) setStartingHandGame(initialGame);
+        else setGameState(initialGame);
     }, []);
+
+    useEffect(() => {
+        const coin = gameState?.openingCoin;
+        if (!coin) return;
+        if (coin.stage === 'choosing' && (opponentMode !== 'ai' || coin.winnerIndex !== 1)) return;
+        const timer = setTimeout(() => setGameState(prev => {
+            if (!prev) return prev;
+            return coin.stage === 'flipping' ? applySystemCommand(prev, { type: 'landCoin' }).state
+                : applyCommand(prev, 1, { type: 'chooseTurnOrder', order: 'first' }).state;
+        }), coin.stage === 'flipping' ? 2400 : 1400);
+        return () => clearTimeout(timer);
+    }, [gameState?.openingCoin, opponentMode]);
 
     const nextPhase = useCallback(() => {
         if (pendingEffectCard || triggeredEffect || targetSelectMode) return;
@@ -299,18 +305,18 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     useEffect(() => {
         if (!gameState?.response || gameState.response.ready || responseOptions.length === 0) setResponseFieldMode(null);
     }, [gameState?.response, responseOptions.length]);
-    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!gameState?.pendingFrontline?.length || !!gameState?.peekEvents?.some(event => event.viewerPlayerIndex === 0),
+    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!gameState?.pendingHandSummons?.length || !!gameState?.peekEvents?.some(event => event.viewerPlayerIndex === 0),
         nextPhase, skipToEndPhase, requestAttack, resolveEffect });
 
     useEffect(() => {
-        const pending = gameState?.pendingFrontline?.[0];
+        const pending = gameState?.pendingHandSummons?.[0];
         if (opponentMode !== 'ai' || pending?.playerIndex !== 1 || triggeredEffect || pendingEffectCard
             || gameState?.response || gameState?.resolvingChain) return;
         const own = gameState.players[1];
-        const card = own.hand.find(candidate => candidate.type === CardType.PAWN && candidate.attribute === Attribute.LIGHT && candidate.level <= 4);
+        const card = handSummonCandidates(gameState, pending)[0];
         setGameState(prev => prev ? applyCommand(prev, 1, card
-            ? { type: 'frontlineSummon', sourceId: pending.sourceId, cardId: card.instanceId, slot: own.pawnZones.indexOf(null), position: Position.ATTACK }
-            : { type: 'frontlineDecline', sourceId: pending.sourceId }).state : prev);
+            ? { type: 'confirmHandSummon', sourceId: pending.sourceId, cardId: card.instanceId, slot: own.pawnZones.indexOf(null), position: Position.ATTACK }
+            : { type: 'declineHandSummon', sourceId: pending.sourceId }).state : prev);
     }, [gameState, opponentMode, triggeredEffect, pendingEffectCard]);
 
     // AI-only reveals are private information for the AI, so they never open a
@@ -328,10 +334,11 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         gameState, setGameState,
         state: {
             opponentMode, responseOptions, pawnPlacementReq, effectChoiceReq,
+            startingHandCards: startingHandGame?.players[0].initialDeck ?? null,
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition, targetSelectScope,
             targetSelectFilter,
             tributeSelection, pendingTributeCard, tributeSummonMode, pendingTributeSlot,
-            pendingPlayCard, playMode, frontlineCardId, frontlineSelectedHandIndex,
+            pendingPlayCard, playMode, handSummonCardId, handSummonSelectedHandIndex,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
             visuallyDestroyedCardIds,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
@@ -346,11 +353,25 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             isRightPanelOpen, isDeckViewerOpen, activationPopupsEnabled, showResponsePopup, effectTributeReq, shuffleSelectionReq,
         },
         actions: {
+            chooseStartingHand: (indices: number[]) => {
+                if (!startingHandGame || indices.length !== 5 || new Set(indices).size !== 5) return;
+                const player = startingHandGame.players[0];
+                if (indices.some(index => !Number.isInteger(index) || !player.initialDeck[index])) return;
+                setGameState({ ...startingHandGame, players: [
+                    { ...player, hand: indices.map(index => player.initialDeck[index]),
+                        deck: player.initialDeck.filter((_, index) => !indices.includes(index)) },
+                    startingHandGame.players[1],
+                ] });
+                setStartingHandGame(null);
+            },
+            chooseTurnOrder: (order: 'first' | 'second') => setGameState(prev => prev?.openingCoin
+                && !(opponentMode === 'ai' && prev.openingCoin.winnerIndex === 1)
+                ? applyCommand(prev, prev.openingCoin.winnerIndex, { type: 'chooseTurnOrder', order }).state : prev),
             handleEffectChoice,
             chooseVoidCard: (sourceId: string, cardId: string) => setGameState(prev => prev?.pendingVoidSelections?.length
                 ? applyCommand(prev, prev.pendingVoidSelections[0].playerIndex, { type: 'voidSelection', sourceId, cardId }).state : prev),
             setSelectedHandIndex, setSelectedFieldSlot, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
-            setFrontlineSelectedHandIndex,
+            setHandSummonSelectedHandIndex,
             setTributeSelection, setIsPeekingField, setResponseFieldMode,
             setDiscardSelectionReq, setSelectedDiscardIndex, setHandSelectionReq, setSelectedHandSelectionIndex,
             setPeekSelectionReq, setSelectedPeekIndex,
@@ -402,28 +423,28 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 prev.pendingSwitches?.find(entry => entry.card.instanceId === cardId)?.playerIndex ?? prev.activePlayerIndex,
                 { type: 'cancelEffect', cardId }).state : prev),
             handleAttack: requestAttack,
-            frontlineChooseCard: (index: number) => {
-                const pending = gameState?.pendingFrontline?.[0];
+            handSummonChooseCard: (index: number) => {
+                const pending = gameState?.pendingHandSummons?.[0];
                 const chosen = pending && gameState.players[pending.playerIndex].hand[index];
-                if (!chosen || chosen.type !== CardType.PAWN || chosen.attribute !== Attribute.LIGHT || chosen.level > 4) return;
-                setFrontlineCardId(chosen.instanceId);
-                setFrontlineSelectedHandIndex(null);
+                if (!chosen || !handSummonCandidates(gameState, pending).some(card => card.instanceId === chosen.instanceId)) return;
+                setHandSummonCardId(chosen.instanceId);
+                setHandSummonSelectedHandIndex(null);
                 setSelectedHandIndex(null);
                 setSelectedFieldSlot(null);
             },
-            frontlineSummon: (slot: number, position: Position) => {
-                const pending = gameState?.pendingFrontline?.[0];
-                if (!pending || !frontlineCardId) return;
+            confirmHandSummon: (slot: number, position: Position) => {
+                const pending = gameState?.pendingHandSummons?.[0];
+                if (!pending || !handSummonCardId) return;
                 setGameState(prev => prev ? applyCommand(prev, pending.playerIndex,
-                    { type: 'frontlineSummon', sourceId: pending.sourceId, cardId: frontlineCardId, slot, position }).state : prev);
-                setFrontlineCardId(null);
+                    { type: 'confirmHandSummon', sourceId: pending.sourceId, cardId: handSummonCardId, slot, position }).state : prev);
+                setHandSummonCardId(null);
                 setSelectedFieldSlot(null);
             },
-            frontlineDecline: (sourceId: string) => {
-                setGameState(prev => prev ? applyCommand(prev, prev.pendingFrontline?.[0]?.playerIndex ?? prev.activePlayerIndex,
-                    { type: 'frontlineDecline', sourceId }).state : prev);
-                setFrontlineCardId(null);
-                setFrontlineSelectedHandIndex(null);
+            declineHandSummon: (sourceId: string) => {
+                setGameState(prev => prev ? applyCommand(prev, prev.pendingHandSummons?.[0]?.playerIndex ?? prev.activePlayerIndex,
+                    { type: 'declineHandSummon', sourceId }).state : prev);
+                setHandSummonCardId(null);
+                setHandSummonSelectedHandIndex(null);
                 setSelectedFieldSlot(null);
             },
         }

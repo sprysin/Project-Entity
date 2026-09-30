@@ -1,5 +1,5 @@
 import { Attribute, CardType, IEffect, PawnSubtype, PawnType, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Require } from '../engine/Requirements';
 import { getEffectTarget } from '../engine/Targets';
@@ -44,9 +44,11 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_12', name: 'Curse Giving Ghost', type: CardType.PAWN,
     level: 1, attribute: Attribute.DARK, pawnType: PawnType.UNDEAD, pawnSubtype: PawnSubtype.SWITCH, switchMandatory: true,
     atk: 15, def: 0,
     effectText: 'SWITCH: Target 1 Pawn your opponent controls; it loses 30 ATK. Then if this card is still on the field, target another Undead Pawn you control; it gains ATK equal to that Pawn’s ATK until the End Phase.'
-}, effect);
+}, effect }
+] satisfies CardModule;

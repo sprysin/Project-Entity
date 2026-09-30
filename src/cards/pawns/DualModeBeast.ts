@@ -1,5 +1,5 @@
 import { IEffect, Position, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Require, Condition } from '../engine/Requirements';
 import { Cost } from '../engine/Costs';
@@ -19,7 +19,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_06',
     name: 'Dual-Mode Beast',
     type: CardType.PAWN,
@@ -29,4 +30,5 @@ cardRegistry.register({
     atk: 240,
     def: 170,
     effectText: 'Discard 1 card; Target 1 attack position Pawn on your opponents field, switch it to defense position.',
-}, effect);
+}, effect }
+] satisfies CardModule;

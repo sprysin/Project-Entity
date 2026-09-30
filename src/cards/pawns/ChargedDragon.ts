@@ -1,5 +1,5 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Condition } from '../engine/Requirements';
 import { Cost } from '../engine/Costs';
@@ -16,7 +16,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_05',
     name: 'High Voltage - Charged Dragon',
     type: CardType.PAWN,
@@ -26,4 +27,5 @@ cardRegistry.register({
     atk: 250,
     def: 190,
     effectText: 'ON FIELD: Discard 1 card; this card gains 10 ATK.',
-}, effect);
+}, effect }
+] satisfies CardModule;

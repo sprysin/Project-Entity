@@ -1,13 +1,15 @@
 import React from 'react';
 import { Card } from '../../types';
 import { CardDetail } from '../cards/CardDetail';
+import { XrayOverlay } from './XrayOverlay';
 
 /**
  * DeckPile Sub-component: Visualizes the deck with a card count.
  */
-export const DeckPile: React.FC<{ count: number, label: string, domRef?: (el: HTMLElement | null) => void }> = ({ count, label, domRef }) => (
+export const DeckPile: React.FC<{ count: number, label: string, domRef?: (el: HTMLElement | null) => void, xrayCard?: Card, onInspect?: () => void }> = ({ count, label, domRef, xrayCard, onInspect }) => (
     <div className="flex flex-col items-center group relative">
-        <div ref={domRef} aria-label={`${label}: ${count} cards`} className={`deck-pile w-32 aspect-[2/3] rounded flex items-center justify-center relative ${count > 0 ? 'card-back border-2 border-slate-400 shadow-xl transition-transform group-hover:scale-105' : 'deck-pile--empty'}`}>
+        <div ref={domRef} role={xrayCard ? 'button' : undefined} tabIndex={xrayCard ? 0 : undefined} onClick={xrayCard ? onInspect : undefined} onKeyDown={event => { if (xrayCard && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onInspect?.(); } }} aria-label={`${label}: ${count} cards${xrayCard ? '. Inspect top card' : ''}`} className={`deck-pile w-32 aspect-[2/3] rounded flex items-center justify-center relative ${count > 0 ? 'card-back border-2 border-slate-400 shadow-xl transition-transform group-hover:scale-105' : 'deck-pile--empty'}`}>
+            {xrayCard && <XrayOverlay card={xrayCard} />}
             {count > 0
                 ? <span className="font-black text-white text-3xl font-orbitron drop-shadow-md z-20 pointer-events-none">{count}</span>
                 : <span className="deck-pile__empty-label">EMPTY</span>}

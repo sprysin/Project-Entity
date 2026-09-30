@@ -350,6 +350,65 @@ body {
   }
 }
 
+/* Opening chess coin shares the duel decision controls. */
+.duel-prompt.opening-coin {
+  align-items: center;
+  padding: 20px;
+  background: radial-gradient(ellipse at center, #161923bb, #020409ed);
+  backdrop-filter: blur(7px);
+}
+.opening-coin .duel-prompt__peek-tab { display: none; }
+.opening-coin .duel-prompt__panel {
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  border: 1px solid #eab308;
+  border-radius: 18px 3px 18px 3px;
+  background: linear-gradient(135deg, #1e222d, #090b11 60%);
+  box-shadow: 0 0 0 5px #eab30808, 0 0 55px #eab30824;
+  text-align: center;
+}
+.opening-coin .duel-prompt__title { color: #facc15; }
+.opening-coin__eyebrow { margin-top: 8px; color: #9ba8bd; font: 10px Orbitron, sans-serif; letter-spacing: .25em; text-transform: uppercase; }
+.opening-coin__stage { position: relative; display: grid; place-items: center; height: 260px; perspective: 850px; }
+.opening-coin__orbit { position: absolute; width: 240px; height: 240px; border: 1px dashed #ffffff24; border-radius: 50%; transform: rotateX(65deg) translateY(80px); box-shadow: 0 0 30px #ffffff09; }
+.opening-coin__lift { position: relative; z-index: 1; transform-style: preserve-3d; }
+.opening-coin__token { position: relative; width: 164px; height: 164px; transform-style: preserve-3d; transform: rotateY(var(--coin-landing)); }
+.opening-coin__face {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  border: 7px ridge #b9bdc8; border-radius: 50%; backface-visibility: hidden;
+  box-shadow: inset 0 0 0 3px #ffffff25, inset 0 0 0 9px #00000022, 0 0 28px #ffffff25;
+}
+.opening-coin__face::after { content: ''; position: absolute; inset: 14px; border: 1px dashed currentColor; border-radius: 50%; opacity: .35; }
+.opening-coin__face--black { color: #f1f5f9; background: radial-gradient(circle at 30% 20%, #414753, #090b10 70%); transform: translateZ(4px); }
+.opening-coin__face--white { color: #171b24; background: radial-gradient(circle at 30% 20%, #fff, #c1c8d4 75%); transform: rotateY(180deg) translateZ(4px); }
+.opening-coin__face i { font-size: 57px; filter: drop-shadow(0 2px 2px #0005); }
+.opening-coin__engraving, .opening-coin__seal { font: 8px Orbitron, sans-serif; letter-spacing: .12em; }
+.opening-coin__shadow { position: absolute; bottom: 27px; width: 145px; height: 18px; border-radius: 50%; background: #000b; filter: blur(8px); }
+.opening-coin__token.is-flipping { animation: opening-coin-spin 2.4s cubic-bezier(.12,.4,.25,1) both; }
+.opening-coin__lift.is-flipping { animation: opening-coin-toss 2.4s ease-in-out both; }
+.opening-coin__shadow.is-flipping { animation: opening-coin-shadow 2.4s ease-in-out both; }
+.opening-coin__sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.opening-coin__side { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; min-width: 0; border: 1px solid #ffffff20; border-radius: 6px; color: #b6bfce; }
+.opening-coin__side > span:last-child { overflow-wrap: anywhere; }
+.opening-coin__side small { display: block; margin-top: 4px; color: #8995a9; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+.opening-coin__side.is-winner { border-color: #eab308; color: #facc15; background: #eab30809; box-shadow: 0 0 15px #eab30820; }
+.opening-coin__swatch { width: 18px; height: 18px; flex-shrink: 0; border: 1px solid #94a3b8; transform: rotate(45deg); }
+.opening-coin__swatch--black { background: #05070c; }
+.opening-coin__swatch--white { background: #f1f5f9; }
+.opening-coin__status { margin-top: 18px; color: #e2e8f0; }
+.opening-coin__hint { margin-top: 8px; color: #96a2b7; font-size: 12px; line-height: 1.7; }
+.opening-coin .duel-prompt__primary { background: #eab308; color: #080b12; }
+.opening-coin .duel-prompt__primary:hover:not(:disabled) { background: #facc15; }
+.opening-coin .duel-prompt__secondary { border: 1px solid #eab308; background: #11151e; color: #facc15; }
+.opening-coin .duel-prompt__actions:empty { display: none; }
+@keyframes opening-coin-spin { from { transform: rotateY(0deg) rotateZ(-12deg); } to { transform: rotateY(var(--coin-landing)) rotateZ(0deg); } }
+@keyframes opening-coin-toss { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-48px) scale(1.16); } 85% { transform: translateY(8px) scale(.98); } }
+@keyframes opening-coin-shadow { 0%, 100% { transform: scale(1); opacity: .8; } 40% { transform: scale(.55); opacity: .25; } }
+@media (max-height: 640px) { .opening-coin__stage { height: 190px; } .opening-coin__orbit { width: 190px; height: 190px; } }
+@media (prefers-reduced-motion: reduce) {
+  .opening-coin__token.is-flipping, .opening-coin__lift.is-flipping, .opening-coin__shadow.is-flipping { animation: none; }
+}
+
 /* Shared card-decision prompt used by summon effects and response windows. */
 .duel-prompt {
   position: fixed;
@@ -1393,18 +1452,28 @@ body {
   stroke-width: 1;
 }
 
+.health-hud__lp {
+  display: flex;
+  align-items: baseline;
+  gap: .3em;
+}
+
 .health-hud__lp-label,
 .health-hud__lp-value {
   position: relative;
   z-index: 1;
-  font-size: 64px;
   line-height: 1;
   font-weight: 700;
   letter-spacing: .035em;
   text-shadow: 2px 0 #c99700, -1px 0 #c99700, 0 3px 8px #000;
 }
 
+.health-hud__lp-label {
+  font-size: 32px;
+}
+
 .health-hud__lp-value {
+  font-size: 72px;
   display: inline-block;
   transition: color .2s ease;
 }
@@ -1427,9 +1496,12 @@ body {
     height: 62px;
   }
 
-  .health-hud__lp-label,
+  .health-hud__lp-label {
+    font-size: 16px;
+  }
+
   .health-hud__lp-value {
-    font-size: 32px;
+    font-size: 36px;
   }
 
   .health-hud__name {
@@ -1460,9 +1532,12 @@ body {
     height: 60px;
   }
 
-  .health-hud__lp-label,
+  .health-hud__lp-label {
+    font-size: 15px;
+  }
+
   .health-hud__lp-value {
-    font-size: 29px;
+    font-size: 34px;
   }
 
   .health-hud__name {
@@ -2300,4 +2375,21 @@ body {
   .deck-view-collection {
     min-height: 100%;
   }
+}
+.xray-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  border-radius: inherit;
+  animation: xray-reveal 3s ease-in-out infinite;
+}
+
+@keyframes xray-reveal {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xray-overlay { animation: none; opacity: 0.8; }
 }

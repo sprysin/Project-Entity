@@ -1,5 +1,5 @@
 import { IEffect, CardType, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, EffectStep, activationCost } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 import { Condition } from '../engine/Requirements';
@@ -24,7 +24,8 @@ const effect: IEffect = {
     }
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'action_03',
     name: 'Mark of the Forest Hunter',
     type: CardType.ACTION,
@@ -33,4 +34,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'Once per turn: pay half your LP, then add 1 level 5 or higher Beast type Pawn from your deck to your hand.',
-}, effect);
+}, effect }
+] satisfies CardModule;

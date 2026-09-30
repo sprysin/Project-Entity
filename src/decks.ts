@@ -19,7 +19,16 @@ export const deckSize = (deck: SavedDeck) => deck.cards.reduce((sum, entry) => s
 export const canAddCard = (deck: SavedDeck, cardId: string) => !isToken(cardRegistry.getCard(cardId) ?? {}) && deckSize(deck) < MAX_DECK_SIZE && (deck.cards.find(e => e.cardId === cardId)?.quantity ?? 0) < MAX_COPIES;
 export const isDeckPlayable = (deck: SavedDeck) => deckSize(deck) >= MIN_DECK_SIZE && deckSize(deck) <= MAX_DECK_SIZE && deck.cards.every(e => e.quantity >= 1 && e.quantity <= MAX_COPIES && !isToken(cardRegistry.getCard(e.cardId) ?? {}));
 const order = { [CardType.PAWN]: 0, [CardType.ACTION]: 1, [CardType.CONDITION]: 2 };
-export const sortedCards = (): CardDefinition[] => cardRegistry.getAllCards().filter(card => !isToken(card)).sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name));
+let catalogSize = -1;
+let catalog: readonly CardDefinition[] = [];
+export function sortedCards(): readonly CardDefinition[] {
+    if (catalogSize !== cardRegistry.size) {
+        catalog = Object.freeze(cardRegistry.getAllCards().filter(card => !isToken(card))
+            .sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name)));
+        catalogSize = cardRegistry.size;
+    }
+    return catalog;
+}
 export const newDeck = (): SavedDeck => ({ version: 1, id: crypto.randomUUID(), name: 'Untitled deck', cards: [] });
 
 /** Expands stable saved-deck entries into shuffled runtime card instances. */

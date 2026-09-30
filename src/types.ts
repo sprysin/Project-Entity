@@ -123,7 +123,7 @@ export interface PendingEffect {
 
 export interface GameState {
   pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
-  pendingFrontline?: { sourceId: string; playerIndex: number }[];
+  pendingHandSummons?: { sourceId: string; playerIndex: number }[];
   pendingSwitches?: { card: Card; playerIndex: number }[];
   drawProgress?: { turn: number; remaining: number };
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
@@ -132,6 +132,7 @@ export interface GameState {
   deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };
   players: [Player, Player];
   activePlayerIndex: number;
+  openingCoin?: { winnerIndex: 0 | 1; stage: 'flipping' | 'choosing' };
   currentPhase: Phase;
   turnNumber: number;
   damageEvents?: { card: Card; playerIndex: number; amount: number; kind: 'battle' | 'effect' }[];
@@ -239,6 +240,11 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Observes a face-up normal/tribute summon while this source is face-up. */
+  onPawnSummoned?(state: GameState, context: CardContext & { summonedCard: Card; summoningPlayerIndex: number; tributeCount: number }): EffectResult;
+  /** Shared hand-summon eligibility, rechecked when the command executes. */
+  handSummonFilter?: CardFilter;
+  handSummonPrompt?: string;
   /** A face-up attachment observes an activation announced by its attached card. */
   onAttachedActivation?(state: GameState, context: CardContext & { activatedCard: Card }): EffectResult;
   /** Only explicitly quick Pawn effects may respond outside normal ignition timing. */
@@ -281,3 +287,9 @@ export interface ChainLink {
 }
 
 export type OpponentMode = 'self' | 'ai';
+/** Temporary controls for AI playtests; never part of core match rules. */
+export interface PlaytestDebugSettings {
+  alwaysGoFirst?: boolean;
+  chooseStartingHand?: boolean;
+  xray?: boolean;
+}

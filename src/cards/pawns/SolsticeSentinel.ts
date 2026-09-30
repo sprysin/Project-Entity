@@ -1,5 +1,5 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 
@@ -9,7 +9,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_01',
     name: 'Solstice Sentinel',
     type: CardType.PAWN,
@@ -19,4 +20,5 @@ cardRegistry.register({
     atk: 120,
     def: 110,
     effectText: 'NORMAL SUMMON: Gain 100 LP.',
-}, effect);
+}, effect }
+] satisfies CardModule;

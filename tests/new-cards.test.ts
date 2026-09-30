@@ -139,21 +139,36 @@ it('new Conditions and Turnados resolve their selected effects', () => {
     expect(negated.players[1].discard.some(value => value.instanceId === discarded.instanceId)).toBe(true);
     expect(applySystemCommand(negated, { type: 'completeDeferred' }).state.players[1].lp).toBe(800);
 
+    // The same behavior must work under an unrelated ID with no engine edits.
+    cardRegistry.register({ ...cardRegistry.getCard('condition_06')!, id: 'test-summon-observer' }, cardRegistry.getEffect('condition_06')!);
+    for (const sourceId of ['condition_06', 'test-summon-observer']) {
     const tributeGame = state();
-    const frontline = card('condition_06', 1);
+    const handSummon = card(sourceId, 1);
     const light = card('pawn_01', 1);
     const king = card('pawn_02');
     tributeGame.players[0].pawnZones[0] = placed(card('pawn_03'));
     tributeGame.players[0].hand = [king];
-    tributeGame.players[1].actionZones[0] = placed(frontline);
+    tributeGame.players[1].actionZones[0] = placed(handSummon);
     tributeGame.players[1].hand = [light];
     const summoned = applyCommand(tributeGame, 0, { type: 'summon', cardId: king.instanceId, hidden: false, slot: 0, tributes: [0] }).state;
-    expect(summoned.pendingFrontline).toEqual([{ sourceId: frontline.instanceId, playerIndex: 1 }]);
-    const special = applyCommand(summoned, 1, { type: 'frontlineSummon', sourceId: frontline.instanceId, cardId: light.instanceId, slot: 3, position: Position.DEFENSE }).state;
-    expect(special.pendingFrontline).toEqual([]);
+    expect(summoned.pendingHandSummons).toEqual([{ sourceId: handSummon.instanceId, playerIndex: 1 }]);
+    const special = applyCommand(summoned, 1, { type: 'confirmHandSummon', sourceId: handSummon.instanceId, cardId: light.instanceId, slot: 3, position: Position.DEFENSE }).state;
+    expect(special.pendingHandSummons).toEqual([]);
     expect(special.players[1].pawnZones[0]).toBeNull();
     expect(special.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
     expect(special.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
+    const invalid = card('pawn_03', 1);
+    summoned.players[1].hand.push(invalid);
+    expect(applyCommand(summoned, 1, { type: 'confirmHandSummon', sourceId: handSummon.instanceId, cardId: invalid.instanceId, slot: 3, position: Position.DEFENSE }).state).toBe(summoned);
+    const hiddenSource = structuredClone(summoned);
+    hiddenSource.players[1].actionZones[0]!.position = Position.HIDDEN;
+    expect(applyCommand(hiddenSource, 1, { type: 'confirmHandSummon', sourceId: handSummon.instanceId, cardId: light.instanceId, slot: 3, position: Position.DEFENSE }).state).toBe(hiddenSource);
+    const hiddenSummon = applyCommand(tributeGame, 0, { type: 'summon', cardId: king.instanceId, hidden: true, slot: 0, tributes: [0] }).state;
+    expect(hiddenSummon.pendingHandSummons).toBeUndefined();
+    const absentSource = structuredClone(tributeGame);
+    absentSource.players[1].actionZones[0] = null;
+    expect(applyCommand(absentSource, 0, { type: 'summon', cardId: king.instanceId, hidden: false, slot: 0, tributes: [0] }).state.pendingHandSummons).toBeUndefined();
+    }
 });
 
 it('Tribunal tracks counters, separate soft uses, summon choices and interrupted activations', () => {
@@ -190,6 +205,8 @@ it('Tribunal tracks counters, separate soft uses, summon choices and interrupted
     game = resolveChain(paid);
     expect(counterCount(game.players[0].actionZones[0])).toBe(1);
     expect(game.log[0]).toContain('+1 Tribute Counters');
+    expect(effectChoices(game, tribunal, 'field_activate').some(choice => choice.effectId === 'summon')).toBe(false);
+    Effect.ModulateCounter('Tribute Counters', 1)(game, { card: tribunal, playerIndex: 0 });
     const summons = effectChoices(game, tribunal, 'field_activate');
     expect(summons).toHaveLength(10); // five slots, both face-up positions
     expect(summons.every(choice => choice.effectId === 'summon' && choice.handIndex === 1)).toBe(true);
@@ -208,14 +225,17 @@ it('Tribunal tracks counters, separate soft uses, summon choices and interrupted
     game = resolveChain(queuedSummon);
     expect(game.players[0].pawnZones[3]).toMatchObject({ card: { instanceId: one.instanceId }, position: Position.DEFENSE });
     expect(game.players[0].normalSummonUsed).toBe(false);
-    expect(counterCount(game.players[0].actionZones[0])).toBe(1);
+    expect(counterCount(game.players[0].actionZones[0])).toBe(2);
     expect(effectChoices(game, tribunal, 'field_activate')).toEqual([]);
     expect(effectChoices(game, second, 'field_activate').some(choice => choice.effectId === 'tribute')).toBe(true);
     game.turnNumber += 2;
-    Effect.ModulateCounter('Tribute Counters', 6)(game, { card: tribunal, playerIndex: 0 });
     game.players[0].hand = [low, one, two];
+    expect(new Set(effectChoices(game, tribunal, 'field_activate')
+        .filter(choice => choice.effectId === 'summon').map(choice => choice.handIndex))).toEqual(new Set([1]));
+    Effect.ModulateCounter('Tribute Counters', 1)(game, { card: tribunal, playerIndex: 0 });
     const later = effectChoices(game, tribunal, 'field_activate');
     expect(new Set(later.filter(choice => choice.effectId === 'summon').map(choice => choice.handIndex))).toEqual(new Set([1, 2]));
+    Effect.ModulateCounter('Tribute Counters', 4)(game, { card: tribunal, playerIndex: 0 });
     expect(counterCount(game.players[0].actionZones[0])).toBe(7);
     game.currentPhase = Phase.BATTLE;
     expect(fieldActivations(game, 0)).toEqual([]);

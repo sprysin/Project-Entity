@@ -1,5 +1,5 @@
 import { IEffect, CardType, Attribute, PawnType, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 
 const effect: IEffect = {
     onPhaseChange: (state, context) => {
@@ -23,7 +23,8 @@ const effect: IEffect = {
     }
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_09',
     name: 'Lingering Lamb',
     type: CardType.PAWN,
@@ -33,4 +34,5 @@ cardRegistry.register({
     atk: 20,
     def: 50,
     effectText: 'During your Standby Phase if this card was tributed by an Action effect, special summon this card from the discard pile.',
-}, effect);
+}, effect }
+] satisfies CardModule;

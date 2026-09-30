@@ -59,6 +59,8 @@ const ScaledCard: React.FC<React.PropsWithChildren<{
 };
 
 const FittedEffect = ({ text }: { text: string }) => {
+    const lines = text.split('\n');
+    const bulletStart = lines.findIndex(line => line.startsWith('- '));
     const box = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
@@ -93,7 +95,14 @@ const FittedEffect = ({ text }: { text: string }) => {
         return () => { disposed = true; };
     }, [text]);
     return <div className="card-effect-frame flex-1 min-h-0 p-2 font-medium text-white/90 bg-black/40 border border-white/10 relative z-10 font-mono shadow-inner">
-        <div ref={box} className="h-full overflow-hidden"><div ref={content} className="card-effect-content">{text}</div></div>
+        <div ref={box} className="h-full overflow-hidden"><div ref={content} className="card-effect-content">
+            {bulletStart < 0 ? text : <>
+                {lines.slice(0, bulletStart).join(' ')}
+                <ul className="list-disc pl-4">
+                    {lines.slice(bulletStart).map((line, index) => <li key={index}>{line.replace(/^-\s*/, '')}</li>)}
+                </ul>
+            </>}
+        </div></div>
     </div>;
 };
 
@@ -150,7 +159,10 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                 </div>
                 {card.type === CardType.PAWN && (
                     <div className={`card-title-box w-8 flex-shrink-0 flex items-center justify-center border-b-[1px] border-white/10`}>
-                        <span className={`text-[8px] font-orbitron font-black text-yellow-500 leading-tight`}>Lv.{card.level}</span>
+                        <span className="flex items-baseline gap-[1px] font-orbitron font-black text-yellow-500 leading-none" aria-label={`Level ${card.level}`}>
+                            <span className="text-[6px]">Lv.</span>
+                            <span className="text-[12px]">{card.level}</span>
+                        </span>
                     </div>
                 )}
             </div>

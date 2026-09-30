@@ -1,6 +1,6 @@
 import { isToken } from '../../game/cardHelpers';
 import { Attribute, CardType, IEffect, PawnType, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 
 const effect: IEffect = {
     onBattleDestroy: (state, context) => {
@@ -21,8 +21,10 @@ const effect: IEffect = {
     }
 };
 
-cardRegistry.register({ id: 'pawn_14', name: 'Zombie Necromancer', type: CardType.PAWN,
+export default [
+{ cardData: { id: 'pawn_14', name: 'Zombie Necromancer', type: CardType.PAWN,
     level: 4, attribute: Attribute.DARK, pawnType: PawnType.UNDEAD,
     atk: 145, def: 0,
     effectText: 'If this Pawn destroys a Pawn by battle, Special Summon that Pawn to your field in Defense Position. Send it to its owner’s Discard Pile during the End Phase.'
-}, effect);
+}, effect }
+] satisfies CardModule;

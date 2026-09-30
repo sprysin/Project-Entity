@@ -1,6 +1,6 @@
 import { canSetPawn } from '../../game/cardHelpers';
 import { Attribute, CardType, IEffect, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildCondition, buildEffect } from '../engine/Builder';
 import { Condition, Require } from '../engine/Requirements';
 import { Effect } from '../engine/Effects';
@@ -19,7 +19,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'condition_04',
     name: 'Call from the Depths',
     type: CardType.CONDITION,
@@ -28,4 +29,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'If you control a DARK or WATER Pawn: flip 1 face-up Pawn you control face-down, then target 1 face-up Pawn your opponent controls; flip it face-down.',
-}, effect);
+}, effect }
+] satisfies CardModule;

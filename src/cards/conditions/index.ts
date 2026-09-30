@@ -1,7 +1,3 @@
-import './Reinforcement';
-import './VoidCall';
-import './DarkDraw';
-import './CallfromtheDepths';
-import './EscapePlan';
-import './OrcustratedFrontlineUnit';
-import './ConflictedMindMadness';
+import { registerCardModules, CardModule } from '../CardRegistry';
+
+registerCardModules(import.meta.glob<{ default: CardModule }>(['./**/*.ts', '!./index.ts'], { eager: true }));

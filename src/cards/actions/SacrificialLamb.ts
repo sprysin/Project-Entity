@@ -1,5 +1,5 @@
 import { IEffect, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, EffectStep } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
 import { sendToOwnerPile } from '../../game/cardOwnership';
@@ -27,7 +27,8 @@ const effect: IEffect = {
     canActivate: (state, context) => state.players[context.playerIndex].pawnZones.some(zone => zone?.card.type === CardType.PAWN && zone.card.level <= 3)
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'action_05',
     name: 'Sacrificial Lamb',
     type: CardType.ACTION,
@@ -35,4 +36,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: "Tribute 1 Level 3 or lower Pawn you control and gain its ATK as Lifepoints.",
-}, effect);
+}, effect }
+] satisfies CardModule;

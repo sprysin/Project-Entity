@@ -28,6 +28,7 @@ const topics: Topic[] = [
     id: 'drawing', title: 'Setup & drawing', subtitle: 'Start with five. Keep your hand moving.', icon: 'fa-layer-group',
     rules: [
       'Each player shuffles their deck and draws 5 cards as their opening hand.',
+      'Before the first turn, flip a coin: black belongs to Player 1 and white to Player 2. The winner chooses to go first or second.',
       'If you must draw a card from an empty deck, you lose immediately. This applies to the Draw Phase and card effects. Drawing your last card does not itself cause a loss.',
       'If both players reach 0 LP or below at the same time, the duel is a draw.',
     ],

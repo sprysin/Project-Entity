@@ -1,6 +1,8 @@
+import { handSummonCandidates, handSummonSource } from '../../game/summonReactions';
+import { cardRegistry } from '../../cards/CardRegistry';
 import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
-import { Attribute, CardType, GameState, Player } from '../../types';
+import { GameState, Player } from '../../types';
 import { ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
@@ -128,16 +130,21 @@ export const GameOverlays: React.FC<{
             && !(state.opponentMode === 'ai' && gameState.pendingVoidSelections[0].playerIndex === 1)
             ? <VoidSelectionModal gameState={gameState} onConfirm={actions.chooseVoidCard} /> : null}
         <ShuffleSelectionModal request={state.shuffleSelectionReq} gameState={gameState} onConfirm={actions.handleShuffleSelection} onCancel={actions.cancelEffect} />
-        {gameState.pendingFrontline?.length && !state.frontlineCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
-            && !(state.opponentMode === 'ai' && gameState.pendingFrontline[0].playerIndex === 1)
+        {gameState.pendingHandSummons?.length && !state.handSummonCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
+            && !(state.opponentMode === 'ai' && gameState.pendingHandSummons[0].playerIndex === 1)
             && <PeekSelectionModal
-                selectionReq={{ playerIndex: gameState.pendingFrontline[0].playerIndex, viewerPlayerIndex: gameState.pendingFrontline[0].playerIndex, title: 'Orcustrated Frontline Unit', prompt: 'Choose a LIGHT Pawn' }}
+                selectionReq={{
+                    playerIndex: gameState.pendingHandSummons[0].playerIndex,
+                    viewerPlayerIndex: gameState.pendingHandSummons[0].playerIndex,
+                    title: handSummonSource(gameState, gameState.pendingHandSummons[0])?.card.name ?? 'Special Summon',
+                    prompt: cardRegistry.getEffect(handSummonSource(gameState, gameState.pendingHandSummons[0])?.card.id ?? '')?.handSummonPrompt ?? 'Choose a Pawn'
+                }}
                 gameState={gameState}
-                selectedPeekIndex={state.frontlineSelectedHandIndex}
-                setSelectedPeekIndex={actions.setFrontlineSelectedHandIndex}
-                cancelEffect={() => actions.frontlineDecline(gameState.pendingFrontline![0].sourceId)}
-                handlePeekSelection={actions.frontlineChooseCard}
-                filter={card => card.type === CardType.PAWN && card.attribute === Attribute.LIGHT && card.level <= 4}
+                selectedPeekIndex={state.handSummonSelectedHandIndex}
+                setSelectedPeekIndex={actions.setHandSummonSelectedHandIndex}
+                cancelEffect={() => actions.declineHandSummon(gameState.pendingHandSummons![0].sourceId)}
+                handlePeekSelection={actions.handSummonChooseCard}
+                filter={card => handSummonCandidates(gameState, gameState.pendingHandSummons[0]).some(candidate => candidate.instanceId === card.instanceId)}
                 confirmLabel="Choose Pawn"
                 cancellable
             />}
@@ -179,10 +186,10 @@ export const GameOverlays: React.FC<{
                 <div className="mt-1 font-orbitron text-[10px] font-bold uppercase tracking-widest text-yellow-500">{gameState.players[gameState.activePlayerIndex].name}'s turn</div>
             </div>
             <PhaseAdvanceButton disabled={actionsDisabled || state.targetSelectMode !== null} phase={gameState.currentPhase} nextPhase={actions.nextPhase} skipToEndPhase={actions.skipToEndPhase} />
-            {state.frontlineCardId && gameState.pendingFrontline?.[0] && (
+            {state.handSummonCardId && gameState.pendingHandSummons?.[0] && (
                 <div className="w-44 border border-yellow-500 bg-slate-950 p-2 text-right shadow-lg" role="status">
                     <div className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-400">Select an empty Pawn slot</div>
-                    <button data-sound="cancellation" onClick={() => actions.frontlineDecline(gameState.pendingFrontline![0].sourceId)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase text-slate-200 hover:bg-slate-700">Decline</button>
+                    <button data-sound="cancellation" onClick={() => actions.declineHandSummon(gameState.pendingHandSummons![0].sourceId)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase text-slate-200 hover:bg-slate-700">Decline</button>
                 </div>
             )}
             {gameState.response && !gameState.response.ready && state.responseOptions.length > 0 && state.responseFieldMode === 'activate' && !state.pendingEffectCard && !state.triggeredEffect && (

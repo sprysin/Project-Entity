@@ -1,5 +1,5 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 import { Query } from '../engine/Queries';
@@ -13,7 +13,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_03',
     name: 'Force Fire Sparker',
     type: CardType.PAWN,
@@ -23,4 +24,5 @@ cardRegistry.register({
     atk: 30,
     def: 150,
     effectText: 'ON NORMAL SUMMON: Deal 10 damage for each set Action/Condition on opponent\'s field.',
-}, effect);
+}, effect }
+] satisfies CardModule;

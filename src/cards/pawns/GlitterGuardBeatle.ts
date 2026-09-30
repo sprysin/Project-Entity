@@ -1,5 +1,5 @@
 import { Attribute, CardType, IEffect, PawnType, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Effect } from '../engine/Effects';
 
@@ -10,7 +10,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_10',
     name: 'Glitter Guard Beatle',
     type: CardType.PAWN,
@@ -20,4 +21,5 @@ cardRegistry.register({
     atk: 150,
     def: 150,
     effectText: 'ON DISCARD: Change all Pawns you control to DEF Position, and they gain 200 DEF until the end of the next turn.',
-}, effect);
+}, effect }
+] satisfies CardModule;

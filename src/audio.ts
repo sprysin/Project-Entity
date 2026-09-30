@@ -8,6 +8,7 @@ const soundUrls = {
   'minor-card-effect': new URL('./Sounds/MinorCardEffect.mp3', import.meta.url).href,
   'to-the-void': new URL('./Sounds/ToTheVoid.mp3', import.meta.url).href,
   'lp-gain': new URL('./Sounds/LPGain.mp3', import.meta.url).href,
+  'lp-loss': new URL('./Sounds/LPDecrease.mp3', import.meta.url).href,
   'turn-change': new URL('./Sounds/TurnChange.mp3', import.meta.url).href,
   'gain-stat': new URL('./Sounds/GainStat.mp3', import.meta.url).href,
   'hide-card': new URL('./Sounds/HideCard.mp3', import.meta.url).href,

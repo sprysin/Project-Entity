@@ -1,5 +1,5 @@
 import { Attribute, CardType, IEffect, PawnSubtype, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
 import { Effect } from '../engine/Effects';
@@ -14,7 +14,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_13',
     name: 'Glitter Grub',
     type: CardType.PAWN,
@@ -25,4 +26,5 @@ cardRegistry.register({
     atk: 10,
     def: 120,
     effectText: 'SWITCH: You can discard 1 Light Pawn to draw 1 card. You can only use this effect of “Glitter Grub” once per turn.'
-}, effect);
+}, effect }
+] satisfies CardModule;

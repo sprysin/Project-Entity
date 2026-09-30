@@ -1,5 +1,5 @@
 import { IEffect, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Condition } from '../engine/Requirements';
 import { Cost } from '../engine/Costs';
@@ -17,7 +17,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'action_02',
     name: 'Quick recovery',
     type: CardType.ACTION,
@@ -25,4 +26,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'If opponent has Pawn: Return Lv 3 or lower Pawn from Discard to hand, gain 20 LP.',
-}, effect);
+}, effect }
+] satisfies CardModule;

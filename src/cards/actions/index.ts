@@ -1,6 +1,3 @@
-import './VoidBlast';
-import './QuickRecovery';
-import './MarkOfTheForestHunter';
-import './MechanicalMaintenance';
-import './SacrificialLamb';
-import './TributeTribunal';
+import { registerCardModules, CardModule } from '../CardRegistry';
+
+registerCardModules(import.meta.glob<{ default: CardModule }>(['./**/*.ts', '!./index.ts'], { eager: true }));

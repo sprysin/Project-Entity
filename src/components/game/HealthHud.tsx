@@ -29,10 +29,12 @@ export const HealthHud: React.FC<HealthHudProps> = ({ player, displayedLp, flash
             <div className="health-hud__rule" />
             <div className="health-hud__frame">
                 <div className="health-hud__plate">
+                    <div className="health-hud__lp">
                     <span className="health-hud__lp-label">LP</span>
                     <span className={`health-hud__lp-value ${flash ? `health-hud__lp-value--${flash} lp-active` : ''}`}>
                         {Math.floor(displayedLp)}
                     </span>
+                    </div>
                 </div>
                 <svg className="health-hud__outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                     <defs>

@@ -1,5 +1,5 @@
 import { IEffect, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
 
@@ -23,7 +23,8 @@ const effect: IEffect = {
         && state.players[context.playerIndex].hand.length > 0
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'condition_05',
     name: 'Escape Plan',
     type: CardType.CONDITION,
@@ -31,4 +32,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'When your Opponent declares a direct attack, discard 1 card then negate that attack.',
-}, effect);
+}, effect }
+] satisfies CardModule;

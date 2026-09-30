@@ -1,5 +1,5 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Condition } from '../engine/Requirements';
 import { Cost } from '../engine/Costs';
@@ -15,7 +15,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_04',
     name: 'Void Caster',
     type: CardType.PAWN,
@@ -25,4 +26,5 @@ cardRegistry.register({
     atk: 100,
     def: 80,
     effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',
-}, effect);
+}, effect }
+] satisfies CardModule;

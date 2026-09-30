@@ -1,439 +1,138 @@
-# How To Add a New Card
+# Adding cards
 
-This guide walks through **every step** needed to add a single card to the game, covering all three card types (Pawn, Action, Condition), their subtypes, and common edge cases.
+Keep card metadata and behavior together in a TypeScript module under
+`src/cards/pawns`, `src/cards/actions`, or `src/cards/conditions`. Nested set folders
+are supported, for example `src/cards/pawns/core/YourCard.ts`. Adjust relative
+imports when using nested folders.
 
----
+The three type entry points eagerly discover modules with Vite's `import.meta.glob`.
+Do not add manual imports or call `cardRegistry.register` inside card files.
+Each module exports an array of definitions and effects; a card and its associated
+tokens may share a module. Loading is synchronous, so the full catalog is available
+before deck creation and gameplay. The loader runs in both Vite and Vitest.
 
-## Table of Contents
-1. [Overview: The Card Pipeline](#1-overview-the-card-pipeline)
-2. [Step 1 — Create the Card File](#2-step-1--create-the-card-file)
-3. [Step 2 — Define the Card's Stats](#3-step-2--define-the-cards-stats)
-4. [Step 3 — Build the Effect Logic](#4-step-3--build-the-effect-logic)
-5. [Step 4 — Register and Export](#5-step-4--register-and-export)
-6. [Step 5 — Verify](#6-step-5--verify)
-7. [Available Libraries Quick Reference](#7-available-libraries-quick-reference)
-8. [Common Edge Cases & Gotchas](#8-common-edge-cases--gotchas)
-
----
-
-## 1. Overview: The Card Pipeline
-
-```
-[Card File] ──register()──> [CardRegistry] <──import── [index.ts]
-                                  │
-                     createDeck() reads from here
-                                  │
-                          [Game Engine]
-```
-
-| File | Purpose |
-|------|---------|
-| `src/cards/pawns/YourCard.ts` | Card definition + effect logic |
-| `src/cards/pawns/index.ts` | Barrel import (triggers registration) |
-| `src/cards/CardRegistry.ts` | Singleton that stores all cards and effects |
-| `constants.ts` | `createDeck()` pulls from the registry to build a 40-card deck |
-
-> [!IMPORTANT]
-> Cards auto-register themselves when their file is imported. If you forget the `index.ts` import, the card **will not exist** in the game even though the file compiles fine.
-
----
-
-## 2. Step 1 — Create the Card File
-
-Create a new `.ts` file in the correct folder based on card type:
-
-| Card Type | Folder |
-|-----------|--------|
-| Pawn | `src/cards/pawns/` |
-| Action | `src/cards/actions/` |
-| Condition | `src/cards/conditions/` |
-
-Use **PascalCase** naming matching the card name (e.g., `ForceFireSparker.ts`).
-
-### Starter Template
-
-```typescript
-import { IEffect, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+```ts
+import { Attribute, CardType, IEffect, PawnType } from '../../types';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
-// Import ONLY the engine helpers you actually need:
-// import { Effect } from '../engine/Effects';
-// import { Cost } from '../engine/Costs';
-// import { Require, Condition } from '../engine/Requirements';
-// import { Query } from '../engine/Queries';
+import { Effect } from '../engine/Effects';
+import { Query } from '../engine/Queries';
 
-const effect: IEffect = {
-    // Fill in effect hooks (see Step 3)
-};
-
-cardRegistry.register({
-    // Fill in stats (see Step 2)
-}, effect);
-```
-
----
-
-## 3. Step 2 — Define the Card's Stats
-
-All stats are passed to `cardRegistry.register()` as the first argument.
-
-### Required Fields (ALL Cards)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string` | Unique ID. Convention: `pawn_XX`, `action_XX`, `condition_XX` |
-| `name` | `string` | Display name |
-| `type` | `CardType` | `CardType.PAWN`, `CardType.ACTION`, or `CardType.CONDITION` |
-| `level` | `Level` (0-10) | Actions/Conditions use `0` |
-| `atk` | `number` | Attack stat. Actions/Conditions use `0` |
-| `def` | `number` | Defense stat. Actions/Conditions use `0` |
-| `effectText` | `string` | card effect text shown on the card |
-
-### Pawn-Only Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `attribute` | `Attribute` | `FIRE`, `WATER`, `EARTH`, `AIR`, `ELECTRIC`, `NORMAL`, `DARK`, `LIGHT` |
-| `pawnType` | `PawnType` | `WARRIOR`, `MAGICIAN`, `DRAGON`, `MECHANICAL`, `DEMON`, `ANGEL`, `PLANT`, `AQUATIC`, `BEAST`, `ELEMENTAL`, `PRIMAL`, `AVION`, `UNDEAD`, `BUG` |
-
-### Optional Fields (Actions & Conditions)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `isAttached` | `boolean` | Declares the Attach subtype; use `Effect.AttachToTarget()` to keep the source on the field linked to a target after successful resolution |
-| `isLingering` | `boolean` | If `true`, the card stays on the field after activation instead of going to discard |
-
-### Summoning Rules by Level
-
-| Level | Requirement |
-|-------|------------|
-| 1–4 | Normal summon (no tribute) |
-| 5–7 | Tribute 1 pawn |
-| 8–10 | Tribute 2 pawns |
-
----
-
-## 4. Step 3 — Build the Effect Logic
-
-The `IEffect` interface has **5 possible hooks**. Use only the ones your card needs:
-
-```typescript
-const effect: IEffect = {
-    onSummon?:        // When a Pawn is Normal Summoned or Set
-    onActivate?:      // When played from hand (Actions, Conditions, Pawn ignition)
-    onFieldActivate?: // When a Lingering Action is activated while ALREADY face-up on the field
-    onPhaseChange?:   // Triggered during phase transitions (e.g. End Phase maintenance)
-    canActivate?:     // Static check — return false to block activation entirely
-};
-```
-
-### Which Hook Do I Use?
-
-| Scenario | Hook |
-|----------|------|
-| Pawn enters the field | `onSummon` |
-| Pawn has an ignition effect (player presses ACTIVATE) | `onActivate` |
-| Normal Action played from hand (use and discard) | `onActivate` |
-| Attach Action played from hand or flipped from set; Attach Condition flipped from set | `onActivate` with `Effect.AttachToTarget()` |
-| Condition flipped face-up | `onActivate` |
-| Lingering Action activated while sitting face-up | `onFieldActivate` |
-| End-of-turn cleanup or stat resets | `onPhaseChange` |
-| Card has activation restrictions | `canActivate` |
-
-> [!WARNING]
-> **`onActivate` vs `onFieldActivate`**: If a lingering card has a manual effect the player triggers from the board (like Mark of the Forest Hunter's search), that effect goes in `onFieldActivate`, **NOT** `onActivate`. `onActivate` fires when the card is first played from hand. If you put the effect in `onActivate`, it will fire immediately when the card is placed, not when the player manually clicks ACTIVATE later.
-
-### Using `buildEffect()` and `buildCondition()`
-
-Effects are built by chaining **EffectSteps** in order:
-
-```typescript
-import { buildEffect, buildCondition } from '../engine/Builder';
-
-const effect: IEffect = {
-    onActivate: buildEffect([
-        Cost.PayLP(100),                    // Step 1: Pay cost
-        Require.Target('pawn'),             // Step 2: Pick a target
-        Effect.ModifyTargetStats(20, 0)     // Step 3: Apply effect
-    ]),
-    canActivate: buildCondition([
-        Condition.CompareValue(
-            (s, c) => s.players[c.playerIndex].lp,
-            '>=', 100
-        )
-    ])
-};
-```
-
-> [!NOTE]
-> The Builder runs steps **sequentially**. If any step returns a `requireX` (target, discard, hand, deck, tribute), the engine **suspends** execution, waits for the player's UI input, then **re-runs the entire chain from the beginning** with the selected value injected into the context. This means earlier steps (like LP costs) will re-execute — but only the final pass's state is committed.
-
-### Writing Custom EffectSteps
-
-If no library function fits, write a custom step:
-
-```typescript
-const myCustomStep: EffectStep = (draftState, context) => {
-    // draftState is a deep-cloned mutable copy of GameState
-    // context.card = the card being activated
-    // context.playerIndex = who activated it
-    // context.target = selected target (if any)
-    // context.discardIndex, handIndex, deckIndex, tributeIndices = selection results
-
-    const p = draftState.players[context.playerIndex];
-    p.lp += 50;
-
-    // The engine derives the log entry from the state change.
-    return;
-    // Return { halt: true } to stop the chain
-    // Return { requireTarget: 'pawn' } to prompt for target selection
-};
-```
-
----
-
-## 5. Step 4 — Register and Export
-
-### 4a. Registration (already in your card file)
-
-```typescript
-cardRegistry.register({
-    id: 'pawn_08',
-    name: 'My New Pawn',
-    type: CardType.PAWN,
-    level: 4,
-    attribute: Attribute.FIRE,
-    pawnType: PawnType.WARRIOR,
-    atk: 180,
-    def: 100,
-    effectText: 'ON SUMMON: Gain 20 LP.',
-}, effect);
-```
-
-### 4b. Add to Index File
-
-Open the relevant `index.ts` and add the import:
-
-| Card Type | File to Edit |
-|-----------|-------------|
-| Pawn | `src/cards/pawns/index.ts` |
-| Action | `src/cards/actions/index.ts` |
-| Condition | `src/cards/conditions/index.ts` |
-
-```typescript
-import './MyNewPawn';  // Just a side-effect import — triggers registration
-```
-
----
-
-## 6. Available Libraries Quick Reference
-
-### Effects (`src/cards/engine/Effects.ts`)
-
-| Function | Description |
-|----------|-------------|
-| `Effect.ChangeTargetPosition(pos, targetIndex?)` | Switch a selected target between ATK/DEF/HIDDEN |
-| `Effect.ModifyTargetStats(atk, def, targetIndex?)` | Add/subtract ATK and/or DEF from a selected target |
-| `Effect.AttachToTarget(targetIndex?)` | Link an Attach Action/Condition to the selected field card by instance ID; place after target requirements |
-| `Effect.ChangeSelfPosition(pos)` | Change the activating pawn's position |
-| `Effect.ModifySelfStats(atk, def)` | Modify the activating pawn's own stats |
-| `Effect.DrawCards(amount)` | Draw cards (amount can be Dynamic) |
-| `Effect.DealDamage(playerIdx, amount)` | Deal LP damage |
-| `Effect.RestoreLP(playerIdx, amount)` | Heal LP |
-| `Effect.BanishTargetToVoid()` | Send target to the Void zone |
-| `Effect.RecoverFromDiscardToHand()` | Move selected discard card to hand |
-| `Effect.ChangeAllPawnPositions(scope, position)` | Change every Pawn in a reusable player scope (`active`, `opponent`, or `both`) |
-| `Effect.ModifyAllPawnStats(scope, atk, def, duration?)` | Modify scoped Pawns permanently, through this turn (`end_of_turn`), or through the opponent's turn (`end_of_next_turn`) |
-| `Effect.RegisterPendingEffect(type, instanceId, value)` | Schedule a stat reset |
-| `Effect.RegisterSelfPendingEffect(type, value, durationTurns)` | Schedule self stat reset |
-| `Effect.SetSoftOncePerTurn()` | Mark this card instance's effect as used (resets per copy) |
-| `Effect.SetHardOncePerTurn(cardId)` | Mark this card ID as used globally for the turn |
-| `Effect.SearchDeck(filter)` | Open deck UI, player picks a card matching filter, add to hand, shuffle |
-
-### Costs (`src/cards/engine/Costs.ts`)
-
-| Function | Description |
-|----------|-------------|
-| `Cost.PayLP(amount)` | Deduct LP (amount can be Dynamic) |
-| `Cost.TributePawns(count, filter?)` | Prompt sacrifice of field pawns matching an optional filter |
-| `Cost.DiscardCardFilter(filter?)` | Prompt discard of a hand card matching a filter |
-| `Cost.ChangePawnPosition(position, fromPosition?, targetIndex?, scope?)` | Select an applicable Pawn through the shared field-target UI, then change its position as a cost |
-| `Cost.SelectDiscardRecovery(filter)` | Prompt selection from discard pile |
-
-### Requirements (`src/cards/engine/Requirements.ts`)
-
-**EffectStep Requirements** (halt the effect if not met):
-
-| Function | Description |
-|----------|-------------|
-| `Require.Target(type, position?, scope?, targetIndex?)` | Prompt for a flashing applicable target through the shared field UI |
-| `Require.TargetIsPlayerScope(scope)` | Verify target belongs to active/opponent |
-| `Require.TargetMatchesPosition(pos, invert?)` | Verify target position state |
-| `Require.CompareValue(valueFn, op, compareTo)` | Generic numerical check |
-
-**canActivate Conditions** (return boolean):
-
-| Function | Description |
-|----------|-------------|
-| `Condition.CompareValue(valueFn, op, compareTo)` | Generic numerical check |
-| `Condition.PawnMatchesFilter(scope, filter)` | Check if any pawn matches |
-| `Condition.DiscardMatchesFilter(scope, filter)` | Check discard for matches |
-| `Condition.ActionMatchesFilter(scope, filter)` | Check action zones for matches |
-| `Condition.SoftOncePerTurn()` | Has this card instance activated this turn? |
-| `Condition.HardOncePerTurn(cardId)` | Has ANY copy of this card activated this turn? |
-
-For effects that select more than one field card, give each shared target step a zero-based target index. For example, `Cost.ChangePawnPosition(Position.HIDDEN, 'faceup', 0, 'active')` followed by `Require.Target('pawn', 'faceup', 'opponent', 1)` asks for two sequential selections using the same flashing-card UI. Pass the same index to target effects such as `Effect.ChangeTargetPosition(Position.HIDDEN, 1)`. Card files should compose these library operations rather than add card-specific selection state, labels, or UI.
-
-### Queries (`src/cards/engine/Queries.ts`)
-
-| Function | Description |
-|----------|-------------|
-| `Query.CountPawnAttribute(attribute)` | Count face-up pawns with attribute |
-| `Query.CountSetActions(scope)` | Count hidden actions/conditions |
-| `Query.TargetPlayerIndex()` | Get target's player index |
-| `Query.ActiveOpponent()` | Get opponent's index |
-| `Query.TargetZoneIndex()` | Get target's zone index |
-| `Query.Multiply(valueFn, multiplier)` | Multiply a dynamic value |
-
-### Dynamic Values
-
-Any parameter typed as `Dynamic<number>` accepts either a **static number** or a **function**:
-```typescript
-Cost.PayLP(100)                                       // Static: always 100
-Cost.PayLP((s, c) => Math.floor(s.players[c.playerIndex].lp / 2))  // Dynamic: half current LP
-```
-
----
-
-## 8. Common Edge Cases & Gotchas
-
-### Activation vs Field Activation
-If your card is `isLingering: true` and has an effect the player triggers manually from the board, use `onFieldActivate`. Using `onActivate` will fire it the moment the card is played from hand.
-
-### Once Per Turn — Soft vs Hard
-- **Soft**: Add `Effect.SetSoftOncePerTurn()` to your effect chain AND `Condition.SoftOncePerTurn()` to `canActivate`. Resets when the card leaves/re-enters the field or a different copy is played.
-- **Hard**: Add `Effect.SetHardOncePerTurn('your_card_id')` AND `Condition.HardOncePerTurn('your_card_id')` to `canActivate`. Blocks ALL copies of this card for the rest of the turn.
-
-### Pre-Activation Requirements
-If a card should be **unplayable** unless conditions are met (e.g., need 2 Mechanical Pawns on field), use `canActivate`:
-```typescript
-canActivate: (state, context) => {
-    const p = state.players[context.playerIndex];
-    return p.pawnZones.filter(z => z && z.card.pawnType === PawnType.MECHANICAL).length >= 2;
-}
-```
-
-### Costs That Require UI Interaction
-`Cost.TributePawns` and `Cost.DiscardCardFilter` suspend the effect chain to wait for player input. The engine re-runs the entire chain after the player makes their selection. Keep this in mind when writing custom steps — they should be **idempotent** or use context checks like `if (context.tributeIndices === undefined)`.
-
-### Effect Step Execution Order with Suspensions
-The Builder re-runs the **entire chain** each time a suspension resolves. For example:
-
-```
-Pass 1: [PayLP] → [SearchDeck → SUSPEND]     ← LP deduction thrown away (peek only)
-Pass 2: [PayLP] → [SearchDeck → processes]    ← LP deduction committed this time
-```
-
-This means costs always re-execute. The final pass is the only one that commits to game state.
-
-### Intermediate State Commits
-Selection previews do not commit their draft state, including deck searches. Costs and results are committed together on the final pass, so LP and discard costs are paid once. Tribute selections are removed by the tribute handler before continuing; `Cost.TributePawns` recognizes the supplied tribute indices and does not remove them again. Disposable Actions and Conditions move to discard on completion or cancellation, located by instance ID rather than a timed slot cleanup.
-
-### Unique Card IDs
-Every card MUST have a unique `id`. The convention is:
-- Pawns: `pawn_01`, `pawn_02`, etc.
-- Actions: `action_01`, `action_02`, etc.
-- Conditions: `condition_01`, `condition_02`, etc.
-
-Check existing IDs before choosing yours. If you reuse an ID, the registry will overwrite the old card.
-
----
-
-## Full Examples
-
-### Simple Pawn (On-Summon Effect)
-```typescript
-// src/cards/pawns/ForceFireSparker.ts
 const effect: IEffect = {
     onSummon: buildEffect([
-        Effect.DealDamage(Query.ActiveOpponent(), Query.Multiply(Query.CountSetActions('opponent'), 10))
+        Effect.DealDamage(Query.ActiveOpponent(), 10)
     ])
 };
-cardRegistry.register({ id: 'pawn_03', name: 'Force Fire Sparker', type: CardType.PAWN, level: 2, attribute: Attribute.FIRE, pawnType: PawnType.DEMON, atk: 30, def: 150, effectText: '...' }, effect);
+
+export default [{
+    cardData: {
+        id: 'core_example_pawn',
+        name: 'Example Pawn',
+        type: CardType.PAWN,
+        level: 2,
+        attribute: Attribute.FIRE,
+        pawnType: PawnType.DEMON,
+        atk: 30,
+        def: 150,
+        effectText: 'ON NORMAL SUMMON: Deal 10 damage.'
+    },
+    effect
+}] satisfies CardModule;
 ```
 
-### Attach Condition (Targets a Pawn)
-```typescript
-// src/cards/conditions/Reinforcement.ts
-const effect: IEffect = {
-    onActivate: buildEffect([
-        Require.Target('pawn'),
-        Require.TargetMatchesPosition(Position.HIDDEN, true),
-        Effect.AttachToTarget(),
-        Effect.ModifyTargetStats(20, 0)
-    ]),
-    canActivate: buildCondition([Condition.PawnMatchesFilter('both', (z) => z.position !== Position.HIDDEN)])
-};
-cardRegistry.register({ id: 'condition_01', name: 'Reinforcement', type: CardType.CONDITION, isAttached: true, level: 0, atk: 0, def: 0, effectText: '...' }, effect);
-```
+## Definitions and IDs
 
-### Lingering Action (Manual Field Activation + Deck Search)
-```typescript
-// src/cards/actions/MarkOfTheForestHunter.ts
-const effect: IEffect = {
-    onFieldActivate: buildEffect([
-        payHalfLp,                                    // Custom step: deducts half LP
-        Effect.SetSoftOncePerTurn(),                  // Marks as used this turn
-        Effect.SearchDeck((c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
-    ]),
-    canActivate: (state, context) => {
-        if (!Condition.SoftOncePerTurn()(state, context)) return false;
-        if (state.players[context.playerIndex].lp <= 1) return false;
-        return true;
-    }
-};
-cardRegistry.register({ id: 'action_03', name: 'Mark of the Forest Hunter', type: CardType.ACTION, isLingering: true, level: 0, atk: 0, def: 0, effectText: '...' }, effect);
-```
+- IDs are permanent save-file identifiers. Existing `pawn_XX`, `action_XX`, and
+  `condition_XX` IDs remain valid. New IDs may use a set prefix and descriptive name.
+  Never rename an existing ID just because its display name or file changes.
+- Duplicate IDs throw an error; they cannot overwrite another card.
+- Definitions are copied and frozen at registration. Match cards are separate
+  mutable instances. Do not put owner IDs, instance IDs, or temporary match state
+  in definitions.
+- Levels must be integers from 0 through 10 and stats must be finite numbers.
+  Actions and Conditions use level, ATK, and DEF of zero.
+- `isAttached` and `isLingering` are mutually exclusive and apply only to Actions
+  and Conditions. Neither flag means Normal.
+- Tokens use `pawnSubtype: PawnSubtype.TOKEN`; they are excluded from playable
+  catalogs and decks. Use `Effect.SummonToken(id)` to place them.
 
-### Normal Action (Tribute Cost + Discard Selection)
-```typescript
-// src/cards/actions/MechanicalMaintenance.ts
-const effect: IEffect = {
-    onActivate: buildEffect([
-        Cost.TributePawns(2, c => c.pawnType === PawnType.MECHANICAL),
-        selectFromDiscard,        // Custom step: requireDiscardSelection
-        specialSummonFromDiscard  // Custom step: moves card to pawn zone
-    ]),
-    canActivate: (state, context) => {
-        const p = state.players[context.playerIndex];
-        const mechCount = p.pawnZones.filter(z => z && z.card.pawnType === PawnType.MECHANICAL).length;
-        if (mechCount < 2) return false;
-        return p.discard.some(c => c.pawnType === PawnType.MECHANICAL);
-    }
-};
-cardRegistry.register({ id: 'action_04', name: 'Mechanical Maintenance', type: CardType.ACTION, level: 0, atk: 0, def: 0, effectText: '...' }, effect);
-```
+## Compose shared mechanics
 
+Search `src/cards/engine` before writing custom state manipulation:
 
-### Attach Actions and Attach Conditions
-Set `isAttached: true` on an Action or Condition and use `Effect.AttachToTarget()` after target requirements in its `onActivate` builder. Use `Require.Target('pawn')`, `Require.Target('action')` (Actions and Conditions), or `Require.Target('any')` to restrict eligible cards. `AttachToTarget(index)` also supports an indexed target.
+| Module | Responsibility |
+| --- | --- |
+| `Builder.ts` | Ordered effects, activation costs, conditions, multiple effect choices |
+| `Effects.ts` | Damage, healing, draw, search, movement, stat changes, tokens, counters |
+| `Costs.ts` | LP, discard, tribute, position and recovery costs |
+| `Requirements.ts` | Target prompts and activation eligibility |
+| `Queries.ts` | Shared state queries and dynamic values |
+| `Targets.ts` | Indexed target access |
 
-Successful attachments stay face-up and store the target instance ID on the placed card. Hovering the source shows yellow outlines, a connecting line, and hollow beads traveling to its target. Missing targets are not visualized, and failed activations are discarded. Attach cards keep their base Action or Condition timing. Reinforcement retains its existing permanent +20 ATK effect; attachment tracking does not itself reverse stat changes or discard a source when its target leaves the field.
+`buildEffect` works on a cloned draft. Selection requests suspend execution;
+the effect may be replayed with supplied choices. Mark activation costs through
+the existing cost helpers or `activationCost`; do not perform external side effects
+in effect steps. Follow the staged cost/resolution behavior in `Builder.ts` and
+`src/game/chains.ts` rather than manually committing selection drafts.
 
-Use only one subtype flag: neither flag means Normal, `isLingering: true` means Lingering, and `isAttached: true` means Attach. Pawns do not use these subtypes. The internal `isAttached` and `attachedToInstanceId` names describe attachment state; the displayed subtype is **Attach**. Use `cardSubtype`, `cardTypeLabel`, and `matchesCardCatalog` from `src/cards/CardRegistry.ts` for labels and catalog search rather than duplicating subtype logic. Both the deck editor and database support subtype searches such as “Attach Action” or “Attach Condition”.
+For multiple targets, assign each requirement a zero-based target index and pass
+that index to the matching effect operation. Reuse the existing selection UI.
 
-Reinforcement retains the stable ID `condition_01` and remains a Condition, so existing saved decks need no migration.
+## Hooks and timing
 
-### Tokens and once-while-on-field effects
+The complete contract is `IEffect` in `src/types.ts`.
 
-Pawns default to ignition timing during their controller's Main Phase unless their effect explicitly declares another timing. `Condition.OnceWhileOnField()` and `Effect.SetOnceWhileOnField()` reserve a use at activation, including failed resolutions. `setPawnPosition()` resets this restriction when a card turns face-down; control changes preserve it. New field entries start with fresh placement state. Face-down changes retain the existing stat behavior.
+- `onSummon`: the source Pawn's normal summon effect.
+- `onActivate`: initial Action/Condition activation or Pawn ignition effect.
+- `onFieldActivate`: an existing face-up Lingering Action's manual effect.
+- `onPhaseChange`: automatic phase effects; check the relevant phase as needed.
+- `onSwitch`, `onDiscard`, `onTribute`, `onBattleDestroy`: specialized existing events.
+- `onAttachedActivation`: an attachment observes activation by its target.
+- `canActivate`: shared player/AI activation eligibility.
+- `onPawnSummoned`: a face-up field source observes a successful face-up normal
+  or tribute summon. Context includes `summonedCard`, `summoningPlayerIndex`, and
+  `tributeCount`. Face-down tribute sets do not emit this event. This observer
+  returns state changes or queues a request; it is not a suspended `buildEffect`
+  selection handler. Special summons do not currently emit this event.
 
-Register tokens as Pawns with `pawnSubtype: PawnSubtype.TOKEN`. They use grey frames and are excluded from the database, deck building, and random decks. `Effect.SummonToken(id)` requests an empty zone and Attack/Defense position through `CardContext.pawnPlacement`; both the player interface and AI supply this choice. Tokens follow normal Pawn combat rules and remain independently of their summoner.
+Pawn ignition timing defaults to the controller's Main Phase. Declare
+`timing: 'quick'` only when the design explicitly allows response timing.
 
-Use `sendToOwnerPile` for field departures (including hand/deck returns): tokens vanish instead of entering a pile, and field-only ATK reductions are cleared. Use `canSetPawn` to filter face-down targets/selections and `setPawnPosition` for position changes; mass face-down effects skip tokens. Tribute restrictions are card-specific: Golem Token sets `cannotBeTributed`, enforced through `canTribute` for both summon tributes and effect costs.
+## Shared queued hand summons
 
-Named counters live on field placements. Use `Effect.ModulateCounter(name, amount)` to add or remove them and `Effect.CounterCount(name)` to read them; counters clear when a card leaves the field or turns face-down. `buildEffectChoice()` exposes multiple effects through one generic choice prompt, using the card's effect text for option labels. Pass an effect ID to `Effect.SetSoftOncePerTurn(id)` and `Condition.SoftOncePerTurn(id)` when each choice has its own per-copy turn limit.
+Orcustrated Frontline Unit demonstrates a reusable summon reaction:
 
-### Attachment activation reactions
+1. The card's `onPawnSummoned` hook checks the event and queues
+   `{ sourceId: context.card.instanceId, playerIndex: context.playerIndex }`
+   in `pendingHandSummons`.
+2. Its `handSummonFilter` defines eligible Pawns. The engine, human selection UI,
+   and AI all use `handSummonCandidates` from `src/game/summonReactions.ts`.
+3. `confirmHandSummon` revalidates the source, selected card, empty zone and
+   Attack/Defense position. `declineHandSummon` dismisses the request.
 
-`onAttachedActivation` observes subsequent activations of an attachment's target using the field snapshot at announcement. Call `notifyAttachedActivation` for automatic activations outside the chain; chain announcements already do this. Face-up Actions/Conditions also receive `onPhaseChange` on each Standby Phase. Conflicted Mind Madness uses these hooks and the existing discard-selection UI; its mandatory Void choice pauses game progress and belongs to its owner, even if control changes. Keep card effect text verbatim from the supplied design.
+Put card-specific timing and restrictions in the card module. Do not add card IDs,
+card names, or individual card eligibility rules to the engine, UI, or AI.
+If another card needs a new mechanic, extend the shared event or operation contract.
+
+## Other invariants
+
+- Soft once-per-turn restrictions belong to a field copy; hard restrictions belong
+  to a card ID. Pair the shared `Condition` checks with the corresponding `Effect`
+  markers. Pass effect IDs when different choices have separate limits.
+- `Condition.OnceWhileOnField` and `Effect.SetOnceWhileOnField` track use until a
+  new field entry or face-down reset.
+- Use `sendToOwnerPile` for departures, including hand/deck returns, so tokens
+  vanish and field-only reductions are cleared correctly.
+- Use `canTribute`, `canSetPawn`, and `setPawnPosition` for their existing invariants.
+- Attach cards use `Effect.AttachToTarget` after target selection. Use the shared
+  attachment helpers for bonuses and departures.
+- Counters live on field placements and clear on departure or a face-down reset.
+- Use `cardSubtype`, `cardTypeLabel`, and `matchesCardCatalog` for catalog labels
+  and search. Catalog views paginate at 60 cards while searching the entire pool.
+
+## Validation
+
+Extend existing behavior coverage rather than adding one test per card. Preserve
+regressions for new mechanics, costs, timing, interrupted selections and interactions.
+Run targeted Vitest tests while iterating, then `npm test`, `npm run typecheck`, and
+`npm run build`. Native validation is needed only for changes involving native behavior.

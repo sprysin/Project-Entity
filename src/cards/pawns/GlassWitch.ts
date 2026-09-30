@@ -1,5 +1,5 @@
 import { Attribute, CardType, IEffect, PawnType, Phase } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
 import { Effect } from '../engine/Effects';
@@ -20,7 +20,8 @@ const effect: IEffect = {
         && Condition.HardOncePerTurn(CARD_ID)(state, context)
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: CARD_ID,
     name: 'Glass Witch',
     type: CardType.PAWN,
@@ -30,4 +31,5 @@ cardRegistry.register({
     atk: 0,
     def: 110,
     effectText: 'EITHER PLAYER\'S MAIN PHASE: You can destroy this card; then your opponent selects 1 card in their hand for you to view. You can only activate the effect of "Glass Witch" once per turn.'
-}, effect);
+}, effect }
+] satisfies CardModule;

@@ -1,3 +1,4 @@
+import CatalogPagination, { useCatalogPage } from '../catalog/CatalogPagination';
 import BackToHubButton from '../common/BackToHubButton';
 import { matchesCardCatalog } from '../../cards/CardRegistry';
 import React, { useEffect, useState } from 'react';
@@ -109,6 +110,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not open this file.'); }
     };
     const filtered = cards.filter(c => matchesCardCatalog(c, search));
+    const pagination = useCatalogPage(filtered, search);
     const quantity = (card: CardDefinition) => deck?.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
 
     return <div className="deck-workspace retro-hash" inert={busy}>
@@ -160,10 +162,11 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             </main>
             <aside className="deck-catalog" aria-label="All cards">
                 <label className="deck-search"><i className="fa-solid fa-search" aria-hidden="true" /><input aria-label="Search cards" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} /></label>
+                <CatalogPagination {...pagination} />
                 <div className="deck-catalog-scroll">
                     {!filtered.length && <p className="deck-no-results">No cards found</p>}
                     {types.map((type, i) => {
-                        const entries = filtered.filter(c => c.type === type);
+                        const entries = pagination.entries.filter(c => c.type === type);
                         return entries.length > 0 && <section key={type} aria-label={type} className={`deck-card-section deck-type-${type}`}>
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>

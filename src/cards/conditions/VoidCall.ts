@@ -1,5 +1,5 @@
 import { IEffect, Position, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Require, Condition } from '../engine/Requirements';
 import { Effect } from '../engine/Effects';
@@ -15,7 +15,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'condition_02',
     name: 'Void Call',
     type: CardType.CONDITION,
@@ -24,4 +25,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'Target 1 Set Action/Condition card; send it to the Void.',
-}, effect);
+}, effect }
+] satisfies CardModule;

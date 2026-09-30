@@ -5,6 +5,7 @@ import { CardDetail } from '../cards/CardDetail';
 
 interface GameSidebarProps {
     viewerIndex?: number;
+    xray?: boolean;
     gameState: GameState;
     selectedCard: Card | null;
     inspectedCard?: Card | null;
@@ -13,7 +14,7 @@ interface GameSidebarProps {
     setIsOpen: (open: boolean) => void;
 }
 
-export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, selectedCard, inspectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
+export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, xray, selectedCard, inspectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
     const [logCard, setLogCard] = useState<Card | null>(null);
     const cardsByName = useMemo(() => new Map(cardRegistry.getAllCards().map(card => [card.name, card])), []);
     const selectedZone = selectedFieldSlot
@@ -52,7 +53,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                                 </div>
                             ) : selectedZone && selectedFieldSlot ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={selectedZone.card} isSet={selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex} showOriginalStats={selectedFieldSlot.type === 'pawn'} />
+                                    <CardDetail card={selectedZone.card} isSet={!xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex} showOriginalStats={selectedFieldSlot.type === 'pawn'} />
                                 </div>
                             ) : selectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">

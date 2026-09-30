@@ -1,64 +1,49 @@
 import { IEffect, Card, CardType } from '../types';
 
-export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId'>;
+export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId' | 'tributedByAction' | 'fieldAtkReduction'>;
 
 interface RegisteredCard {
     cardData: CardDefinition;
     effect: IEffect;
 }
 
-class CardRegistry {
-    private static instance: CardRegistry;
+export type CardModule = RegisteredCard[];
+
+export class CardRegistry {
     private cards: Map<string, RegisteredCard> = new Map();
 
-    private constructor() { }
-
-    public static getInstance(): CardRegistry {
-        if (!CardRegistry.instance) {
-            CardRegistry.instance = new CardRegistry();
-        }
-        return CardRegistry.instance;
-    }
-
-    /**
-     * Register a card's data and its effect logic.
-     * @param cardData The card definition (stats, type, text, etc.)
-     * @param effect The effect implementation
-     */
     public register(cardData: CardDefinition, effect: IEffect): void {
         const id = cardData.id;
         if (this.cards.has(id)) {
-            console.warn(`CardRegistry: Overwriting effect for card ${id}`);
+            throw new Error(`Duplicate card ID: ${id}`);
         }
-        this.cards.set(id, { cardData, effect });
+        if (!id.trim() || !cardData.name.trim() || !Object.values(CardType).includes(cardData.type)
+            || !Number.isInteger(cardData.level) || cardData.level < 0 || cardData.level > 10
+            || !Number.isFinite(cardData.atk) || !Number.isFinite(cardData.def)
+            || cardData.isAttached && cardData.isLingering
+            || cardData.type === CardType.PAWN && (cardData.isAttached || cardData.isLingering)
+            || cardData.type !== CardType.PAWN && (cardData.level !== 0 || cardData.atk !== 0 || cardData.def !== 0)) {
+            throw new Error(`Invalid card definition: ${id}`);
+        }
+        this.cards.set(id, { cardData: Object.freeze({ ...cardData }), effect });
     }
 
-    /**
-     * Retrieve a card's effect logic.
-     * @param id The unique card ID
-     */
+    public get size(): number { return this.cards.size; }
+
     public getEffect(id: string): IEffect | undefined {
         return this.cards.get(id)?.effect;
     }
 
-    /** Retrieve one registered card without allocating and searching an array. */
     public getCard(id: string): CardDefinition | undefined {
         return this.cards.get(id)?.cardData;
     }
 
-    /**
-     * Retrieve all registered cards' base data.
-     * Useful for building decks from the entire available card pool.
-     */
     public getAllCards(): CardDefinition[] {
         return Array.from(this.cards.values()).map(r => r.cardData);
     }
 }
 
-export const cardRegistry = CardRegistry.getInstance();
-
-
-
+export const cardRegistry = new CardRegistry();
 type Metadata = Pick<Card, 'type' | 'isAttached' | 'isLingering' | 'name' | 'effectText' | 'attribute' | 'pawnType' | 'pawnSubtype'>;
 type CardSubtype = 'Normal' | 'Lingering' | 'Attach';
 
@@ -72,4 +57,12 @@ export function cardTypeLabel(card: Pick<Metadata, 'type' | 'isAttached' | 'isLi
 
 export function matchesCardCatalog(card: Metadata, query: string): boolean {
     return `${card.name} ${card.effectText} ${cardTypeLabel(card)} ${card.attribute ?? ''} ${card.pawnType ?? ''}`.toLowerCase().includes(query.trim().toLowerCase());
+}
+
+/** Includes nested set folders without manually maintaining imports. */
+export function registerCardModules(modules: Record<string, { default: CardModule }>): void {
+    for (const [path, module] of Object.entries(modules).sort(([a], [b]) => a.localeCompare(b))) {
+        if (!Array.isArray(module.default) || !module.default.length) throw new Error(`Invalid card module: ${path}`);
+        for (const { cardData, effect } of module.default) cardRegistry.register(cardData, effect);
+    }
 }

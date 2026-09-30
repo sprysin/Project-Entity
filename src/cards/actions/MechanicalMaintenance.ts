@@ -1,6 +1,6 @@
 import { canTribute } from '../../game/cardHelpers';
 import { IEffect, CardType, PawnType, Card, Position } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { EffectStep } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
@@ -62,7 +62,8 @@ const effect: IEffect = {
     }
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'action_04',
     name: 'Mechanical Maintenance',
     type: CardType.ACTION,
@@ -70,4 +71,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'Tribute 2 Mechanical Pawns you control, special summon 1 Mechanical Pawn from the Discard Pile.',
-}, effect);
+}, effect }
+] satisfies CardModule;

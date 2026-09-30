@@ -58,7 +58,7 @@ export const useGameAnimationEffects = (
             const previousLp = animations.lastLp.current[index];
             if (player.lp !== previousLp) {
                 const difference = player.lp - previousLp;
-                if (difference > 0) playSound('lp-gain');
+                playSound(difference > 0 ? 'lp-gain' : 'lp-loss');
                 const id = crypto.randomUUID();
                 animations.setFloatingTexts(previous => [...previous, { id, text: difference > 0 ? `+${difference}` : `${difference}`, type: difference > 0 ? 'heal' : 'damage', x: 50, y: 50 }]);
                 schedule(() => animations.setFloatingTexts(previous => previous.filter(text => text.id !== id)), 2500);
@@ -103,7 +103,7 @@ export const useGameAnimationEffects = (
         if (previousTurn.current !== null && previousTurn.current !== gameState.turnNumber) playSound('turn-change');
         previousTurn.current = gameState.turnNumber;
 
-        if (gameState.winner || gameState.pendingVoidSelections?.length) return;
+        if (gameState.openingCoin || gameState.winner || gameState.pendingVoidSelections?.length) return;
         const timers: ReturnType<typeof setTimeout>[] = [];
         const later = (callback: () => void, delay: number) => timers.push(setTimeout(callback, delay));
         const turn = gameState.turnNumber;
@@ -128,5 +128,5 @@ export const useGameAnimationEffects = (
             animations.setPhaseFlash(phase);
         }
         return () => timers.forEach(clearTimeout);
-    }, [gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, gameState?.pendingVoidSelections?.length, nextPhase, setGameState]);
+    }, [gameState?.openingCoin, gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, gameState?.pendingVoidSelections?.length, nextPhase, setGameState]);
 };

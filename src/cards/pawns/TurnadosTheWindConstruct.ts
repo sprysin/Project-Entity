@@ -1,5 +1,5 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Require } from '../engine/Requirements';
 import { Cost } from '../engine/Costs';
@@ -15,7 +15,8 @@ const effect: IEffect = {
         && state.players[1 - context.playerIndex].actionZones.some(Boolean)
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_15',
     name: 'Turnados The Wind Construct',
     type: CardType.PAWN,
@@ -24,5 +25,6 @@ cardRegistry.register({
     pawnType: PawnType.ELEMENTAL,
     atk: 180,
     def: 100,
-    effectText: 'ON SUMMON: You can shuffle an Air Pawn into the deck from your Discard Pile, target 1 Action/Condition on your opponents field; destroy it.',
-}, effect);
+    effectText: 'ON SUMMON: You can shuffle an AIR Pawn into the deck from your Discard Pile, target 1 Action/Condition on your opponents field; destroy it.',
+}, effect }
+] satisfies CardModule;

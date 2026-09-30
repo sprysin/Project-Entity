@@ -1,16 +1,3 @@
-import './SolsticeSentinel';
-import './HighKing';
-import './ForceFireSparker';
-import './VoidCaster';
-import './ChargedDragon';
-import './DualModeBeast';
-import './BigBearBeastKing';
-import './QuickstrikeSerpent';
-import './LingeringLamb';
-import './GlitterGuardBeatle';
-import './GlassWitch';
-import './CurseGivingGhost';
-import './GlitterGrub';
-import './ZombieNecromancer';
-import './TurnadosTheWindConstruct';
-import './SplitGolem';
+import { registerCardModules, CardModule } from '../CardRegistry';
+
+registerCardModules(import.meta.glob<{ default: CardModule }>(['./**/*.ts', '!./index.ts'], { eager: true }));

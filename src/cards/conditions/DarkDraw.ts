@@ -1,5 +1,5 @@
 import { IEffect, Attribute, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Require, Condition } from '../engine/Requirements';
 import { Cost } from '../engine/Costs';
@@ -18,7 +18,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'condition_03',
     name: 'Dark Draw',
     type: CardType.CONDITION,
@@ -27,4 +28,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'Pay 200 life points, draw 1 card for every face up DARK Pawn on the field.',
-}, effect);
+}, effect }
+] satisfies CardModule;

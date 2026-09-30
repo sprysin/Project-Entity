@@ -88,7 +88,7 @@ interface CardSelectionModalProps {
     onConfirmMulti?: (indices: number[]) => void;
 }
 
-const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
+export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
     title, prompt, cards, selectedIndex, onSelect, onCancel, onConfirm,
     emptyLabel, confirmLabel, theme, filter, cancellable = true,
     selectedIndices, requiredCount, onConfirmMulti

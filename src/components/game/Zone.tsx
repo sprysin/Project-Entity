@@ -5,6 +5,7 @@ import { useManagedTimeout } from '../../hooks/useManagedTimeout';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { playSound } from '../../audio';
 import { cardRegistry } from '../../cards/CardRegistry';
+import { XrayOverlay } from './XrayOverlay';
 
 /**
  * Zone Sub-component: A single slot on the field. Handles display of cards in Attack/Defense/Hidden positions.
@@ -19,9 +20,10 @@ export const Zone: React.FC<{
     isDropTarget?: boolean;
     isActivatable?: boolean;
     isVisuallyHidden?: boolean;
+    xray?: boolean;
     contextualActions?: React.ReactNode;
     domRef?: (el: HTMLElement | null) => void;
-}> = ({ card, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, isVisuallyHidden, contextualActions, domRef }) => {
+}> = ({ card, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, isVisuallyHidden, xray, contextualActions, domRef }) => {
     const schedule = useManagedTimeout();
     const visibleCard = isVisuallyHidden ? null : card;
     const originalCard = visibleCard?.card.type === CardType.PAWN ? cardRegistry.getCard(visibleCard.card.id) : undefined;
@@ -98,6 +100,7 @@ export const Zone: React.FC<{
                             showOriginalStats={type === 'pawn'}
                         />
                     )}
+                {xray && visibleCard.position === Position.HIDDEN && <XrayOverlay card={visibleCard.card} />}
                 </div>
                 {type === 'pawn' && visibleCard.position !== Position.HIDDEN && (
                     <div className={`field-pawn-overlay ${visibleCard.position === Position.DEFENSE ? 'field-pawn-overlay--defense' : 'field-pawn-overlay--attack'}`} aria-label={`Level ${visibleCard.card.level}, attack ${visibleCard.card.atk}, defense ${visibleCard.card.def}`}>

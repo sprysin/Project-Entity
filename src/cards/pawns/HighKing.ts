@@ -1,5 +1,5 @@
 import { IEffect, Position, CardType, Attribute, PawnType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Require } from '../engine/Requirements';
 import { Effect } from '../engine/Effects';
@@ -12,7 +12,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_02',
     name: 'High King',
     type: CardType.PAWN,
@@ -22,4 +23,5 @@ cardRegistry.register({
     atk: 170,
     def: 50,
     effectText: 'ON SUMMON: Target 1 face-up Pawn on the field; it loses 20 ATK.',
-}, effect);
+}, effect }
+] satisfies CardModule;

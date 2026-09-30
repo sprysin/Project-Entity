@@ -1,6 +1,6 @@
 import { IEffect, CardType, Attribute, PawnType } from '../../types';
 import { Effect } from '../engine/Effects';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, EffectStep } from '../engine/Builder';
 import { Cost } from '../engine/Costs';
 import { Condition } from '../engine/Requirements';
@@ -24,7 +24,8 @@ const effect: IEffect = {
         && state.players[context.playerIndex].hand.length > 0
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'pawn_08',
     name: 'Quickstrike Serpent',
     type: CardType.PAWN,
@@ -34,4 +35,5 @@ cardRegistry.register({
     atk: 130,
     def: 80,
     effectText: 'Once per turn you can discard 1 card; this turn, Quickstrike Serpent can do 2 attacks this battle phase.',
-}, effect);
+}, effect }
+] satisfies CardModule;

@@ -1,5 +1,5 @@
 import { IEffect, Position, CardType } from '../../types';
-import { cardRegistry } from '../CardRegistry';
+import { CardModule } from '../CardRegistry';
 import { buildEffect, buildCondition } from '../engine/Builder';
 import { Require, Condition } from '../engine/Requirements';
 import { Effect } from '../engine/Effects';
@@ -16,7 +16,8 @@ const effect: IEffect = {
     ])
 };
 
-cardRegistry.register({
+export default [
+{ cardData: {
     id: 'condition_01',
     name: 'Reinforcement',
     type: CardType.CONDITION,
@@ -25,4 +26,5 @@ cardRegistry.register({
     atk: 0,
     def: 0,
     effectText: 'Target 1 Pawn on the field; it gains +20 ATK.',
-}, effect);
+}, effect }
+] satisfies CardModule;

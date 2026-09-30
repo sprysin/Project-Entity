@@ -1,3 +1,4 @@
+import CatalogPagination, { useCatalogPage } from './CatalogPagination';
 import BackToHubButton from '../common/BackToHubButton';
 import { matchesCardCatalog, cardSubtype } from '../../cards/CardRegistry';
 import React, { useState } from 'react';
@@ -16,9 +17,10 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
 
     const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery));
 
-    const pawns = filteredCards.filter(c => c.type === CardType.PAWN);
-    const actions = filteredCards.filter(c => c.type === CardType.ACTION);
-    const conditions = filteredCards.filter(c => c.type === CardType.CONDITION);
+    const pagination = useCatalogPage(filteredCards, searchQuery);
+    const pawns = pagination.entries.filter(c => c.type === CardType.PAWN);
+    const actions = pagination.entries.filter(c => c.type === CardType.ACTION);
+    const conditions = pagination.entries.filter(c => c.type === CardType.CONDITION);
 
     return (
         <div className="flex-1 flex overflow-hidden retro-hash bg-[#050505] text-slate-100 font-roboto">
@@ -45,6 +47,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                         </div>
                     </div>
 
+                    <CatalogPagination {...pagination} />
                     {/* Card Sections */}
                     <div className="space-y-12 pb-12">
                         {pawns.length > 0 && (
