@@ -20,6 +20,7 @@ export default [
     id: 'pawn_04',
     name: 'Void Caster',
     type: CardType.PAWN,
+    rarity: 'Uncommon',
     level: 3,
     attribute: Attribute.DARK,
     pawnType: PawnType.MECHANICAL,

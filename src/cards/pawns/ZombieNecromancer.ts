@@ -22,7 +22,7 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: { id: 'pawn_14', name: 'Zombie Necromancer', type: CardType.PAWN,
+{ cardData: { id: 'pawn_14', name: 'Zombie Necromancer', type: CardType.PAWN, rarity: 'Epic',
     level: 4, attribute: Attribute.DARK, pawnType: PawnType.UNDEAD,
     atk: 145, def: 0,
     effectText: 'If this Pawn destroys a Pawn by battle, Special Summon that Pawn to your field in Defense Position. Send it to its owner’s Discard Pile during the End Phase.'

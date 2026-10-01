@@ -14,7 +14,7 @@ const effect: IEffect = {
         (state, context) => {
             const zones = state.players.flatMap(player => player.actionZones);
             const source = zones.find(zone => zone?.card.instanceId === context.card.instanceId);
-            const target = zones.find(zone => zone?.card.instanceId === source?.attachedToInstanceId);
+            const target = zones.find(zone => zone?.card.instanceId === source?.attachedToInstanceIds?.[0]);
             if (!source || source.position === Position.HIDDEN || !target || target.position === Position.HIDDEN) return { halt: true };
             const owner = state.players.findIndex(player => player.id === target.card.ownerId);
             if (owner < 0) return { halt: true };
@@ -36,7 +36,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'condition_07', name: 'Conflicted Mind Madness', type: CardType.CONDITION,
+    id: 'condition_07', name: 'Conflicted Mind Madness', type: CardType.CONDITION, rarity: 'Rare',
     isAttached: true, level: 0, atk: 0, def: 0,
     effectText: 'Target 1 face-up Action/Condition, during each standy phase deal 10 damage to the owner of the target. If the target activates an additional effect Void 1 card from the owners Discard pile.'
 }, effect }

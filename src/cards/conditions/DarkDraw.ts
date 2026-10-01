@@ -23,6 +23,7 @@ export default [
     id: 'condition_03',
     name: 'Dark Draw',
     type: CardType.CONDITION,
+    rarity: 'Rare',
     isLingering: false,
     level: 0,
     atk: 0,

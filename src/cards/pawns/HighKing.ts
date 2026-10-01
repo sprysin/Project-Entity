@@ -17,6 +17,7 @@ export default [
     id: 'pawn_02',
     name: 'High King',
     type: CardType.PAWN,
+    rarity: 'Uncommon',
     level: 5,
     attribute: Attribute.NORMAL,
     pawnType: PawnType.WARRIOR,

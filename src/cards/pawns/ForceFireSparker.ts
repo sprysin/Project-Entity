@@ -18,6 +18,7 @@ export default [
     id: 'pawn_03',
     name: 'Force Fire Sparker',
     type: CardType.PAWN,
+    rarity: 'Common',
     level: 2,
     attribute: Attribute.FIRE,
     pawnType: PawnType.DEMON,

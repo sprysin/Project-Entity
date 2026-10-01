@@ -42,22 +42,24 @@ export function LinkGraphic({ link, kind, outlineTarget = true }: { link: FieldL
 
 /** Follow actual card faces, including defense rotation, scrolling and layout changes. */
 export function AttachmentOverlay() {
-    const [link, setLink] = useState<FieldLink | null>(null);
+    const [links, setLinks] = useState<FieldLink[]>([]);
     useEffect(() => {
         let source: HTMLElement | null = null;
         let frame = 0;
-        const clear = () => { source = null; cancelAnimationFrame(frame); setLink(null); };
+        const clear = () => { source = null; cancelAnimationFrame(frame); setLinks([]); };
         const update = () => {
-            const targetId = source?.dataset.attachedTo;
-            const target = targetId && Array.from(document.querySelectorAll<HTMLElement>('[data-field-card-id]'))
-                .find(element => element.dataset.fieldCardId === targetId);
-            if (!source?.isConnected || !target) { clear(); return; }
+            if (!source?.isConnected) { clear(); return; }
+            const targetIds: string[] = JSON.parse(source.dataset.attachedTo ?? '[]');
+            const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-field-card-id]'))
+                .filter(element => targetIds.includes(element.dataset.fieldCardId ?? ''));
+            if (!targets.length) { clear(); return; }
             const bounds = (element: HTMLElement): Bounds => {
                 const rect = element.getBoundingClientRect();
                 return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
             };
-            const next = { source: bounds(source), target: bounds(target) };
-            setLink(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+            const sourceBounds = bounds(source);
+            const next = targets.map(target => ({ source: sourceBounds, target: bounds(target) }));
+            setLinks(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
             frame = requestAnimationFrame(update);
         };
         const hover = (event: PointerEvent) => {
@@ -76,6 +78,5 @@ export function AttachmentOverlay() {
             window.removeEventListener('blur', clear);
         };
     }, []);
-    if (!link) return null;
-    return <LinkGraphic link={link} kind="attachment" />;
+    return <>{links.map((link, index) => <React.Fragment key={index}><LinkGraphic link={link} kind="attachment" /></React.Fragment>)}</>;
 }

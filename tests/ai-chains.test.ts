@@ -235,7 +235,7 @@ describe('fair general AI', () => {
     });
 
     it('chooses a quick defensive response that stops lethal damage', () => {
-        cardRegistry.register({ id: 'test-quick-defense', name: 'Quick defense', type: CardType.PAWN, level: 1, atk: 10, def: 20, effectText: 'Quick: switch an attacker to Defense.' }, {
+        cardRegistry.register({ id: 'test-quick-defense', name: 'Quick defense', type: CardType.PAWN, rarity: 'Common', level: 1, atk: 10, def: 20, effectText: 'Quick: switch an attacker to Defense.' }, {
             timing: 'quick', onActivate: buildEffect([Require.Target('pawn'), Require.TargetMatchesPosition(Position.ATTACK), Effect.ChangeTargetPosition(Position.DEFENSE)])
         });
         const s = game(), defender = card('test-quick-defense', 1), attacker = card('pawn_05');

@@ -58,7 +58,6 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                             ) : selectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
                                     <CardDetail card={selectedCard} />
-                                    <p className="text-center font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500">Select an open zone to choose how to play this card.</p>
                                 </div>
                             ) : inspectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">

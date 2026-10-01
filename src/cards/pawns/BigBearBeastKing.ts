@@ -20,15 +20,18 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'pawn_07',
-    name: 'Big Bear Beast King',
-    type: CardType.PAWN,
-    level: 8,
-    attribute: Attribute.EARTH,
-    pawnType: PawnType.BEAST,
-    atk: 220,
-    def: 200,
-    effectText: 'ON FIELD: you can Gain 20 LP then switch this Pawn from ATK to DEF, and if you do that, this card gains 60 DEF until the end of your opponents next turn.',
-}, effect }
+    {
+        cardData: {
+            id: 'pawn_07',
+            name: 'Big Bear Beast King',
+            type: CardType.PAWN,
+            rarity: 'Legendary',
+            level: 8,
+            attribute: Attribute.EARTH,
+            pawnType: PawnType.BEAST,
+            atk: 220,
+            def: 200,
+            effectText: 'ON FIELD: you can Gain 20 LP then switch this Pawn from ATK to DEF, and if you do that, this card gains 60 DEF until the end of your opponents next turn.',
+        }, effect
+    }
 ] satisfies CardModule;

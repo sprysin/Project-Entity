@@ -21,6 +21,7 @@ export default [
     id: 'pawn_05',
     name: 'High Voltage - Charged Dragon',
     type: CardType.PAWN,
+    rarity: 'Legendary',
     level: 10,
     attribute: Attribute.ELECTRIC,
     pawnType: PawnType.DRAGON,

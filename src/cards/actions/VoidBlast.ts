@@ -14,6 +14,7 @@ export default [
     id: 'action_01',
     name: 'Void Blast',
     type: CardType.ACTION,
+    rarity: 'Common',
     level: 0,
     atk: 0,
     def: 0,

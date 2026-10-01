@@ -3,10 +3,13 @@ import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
+import { Card, CardType, GameState, Phase, Player, Position, PawnType } from '../src/types';
 import { addChainLink, fieldActivations, resolveChain } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
 import { advancePhaseState } from '../src/game/phases';
+import { Effect } from '../src/cards/engine/Effects';
+import { buildEffect } from '../src/cards/engine/Builder';
+import { resolveCombat } from '../src/game/combat';
 
 const card = (id: string): Card => ({ ...cardRegistry.getCard(id)!, instanceId: id, ownerId: 'p0' });
 const zone = (card: Card) => ({ card, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: 1, isSetTurn: false });
@@ -23,10 +26,10 @@ it('Reinforcement grants ATK only while attached and normally falls off a face-d
     const { state, source, target } = setup();
     expect(source).toMatchObject({ type: CardType.CONDITION, isAttached: true });
     const next = resolveChain(addChainLink(state, { card: source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate'));
-    expect(next.players[0].actionZones[0]?.attachedToInstanceId).toBe(target.instanceId);
+    expect(next.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([target.instanceId]);
     expect(next.players[0].pawnZones[0]?.card.atk).toBe(target.atk + 20);
     expect(fieldActivations(next, 0)).toHaveLength(0);
-    expect(state.players[0].actionZones[0]?.attachedToInstanceId).toBeUndefined();
+    expect(state.players[0].actionZones[0]?.attachedToInstanceIds).toBeUndefined();
     next.players[0].pawnZones[0]!.position = Position.HIDDEN;
     checkVictory(next);
     expect(next.players[0].actionZones[0]).toBeNull();
@@ -53,7 +56,7 @@ it('Reinforcement grants ATK only while attached and normally falls off a face-d
     activated.currentPhase = Phase.END;
     const expired = advancePhaseState(activated);
     expect(expired.players[0].pawnZones[0]?.card.atk).toBe(270);
-    expect(expired.players[0].actionZones[0]?.attachedToInstanceId).toBe(dragon.instanceId);
+    expect(expired.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([dragon.instanceId]);
 });
 
 it('discards an attachment that fizzles instead of linking to a replacement target', () => {
@@ -69,12 +72,55 @@ it('discards an attachment that fizzles instead of linking to a replacement targ
 it('destroys chained Attach cards when an attached target leaves the field', () => {
     const { state, source, target } = setup();
     const secondSource = { ...source, instanceId: 'second-attachment' };
-    state.players[0].actionZones[0]!.attachedToInstanceId = target.instanceId;
-    state.players[0].actionZones[1] = { ...zone(secondSource), attachedToInstanceId: source.instanceId };
+    state.players[0].actionZones[0]!.attachedToInstanceIds = [target.instanceId];
+    state.players[0].actionZones[1] = { ...zone(secondSource), attachedToInstanceIds: [source.instanceId] };
     state.players[0].pawnZones[0] = null;
 
     const next = checkVictory(state);
 
     expect(next.players[0].actionZones.slice(0, 2)).toEqual([null, null]);
     expect(next.players[0].discard.map(discarded => discarded.instanceId)).toEqual([source.instanceId, secondSource.instanceId]);
+
+    // Two-target links distinguish destruction from other ways of leaving the field.
+    for (const pawnType of [PawnType.UNDEAD, PawnType.ELEMENTAL]) {
+        for (const removal of ['own-effect', 'opponent-effect', 'battle', 'void', 'flip', 'source'] as const) {
+            const scenario = setup();
+            const link = card('condition_08');
+            scenario.state.players[0].actionZones[0] = zone(link);
+            scenario.state.players[0].pawnZones[0]!.card.pawnType = pawnType;
+            const opposing = { ...card('pawn_02'), ownerId: 'p1', atk: 0, def: 0 };
+            scenario.state.players[1].pawnZones[0] = zone(opposing);
+            const context = { card: link, playerIndex: 0, targets: [
+                { playerIndex: 0, type: 'pawn' as const, index: 0 },
+                { playerIndex: 1, type: 'pawn' as const, index: 0 }
+            ] };
+            const effect = cardRegistry.getEffect(link.id)!;
+            expect(effect.canActivate!(scenario.state, context)).toBe(true);
+            scenario.state.players[1].pawnZones[0]!.position = Position.HIDDEN;
+            expect(effect.onActivate!(scenario.state, context).halted).toBe(true);
+            scenario.state.players[1].pawnZones[0]!.position = Position.ATTACK;
+            let linked = resolveChain(addChainLink(scenario.state, context, 'activate'));
+            expect(linked.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([scenario.target.instanceId, opposing.instanceId]);
+            if (removal === 'battle') {
+                linked.currentPhase = Phase.BATTLE;
+                linked = resolveCombat(linked, 0, 0);
+            } else if (removal === 'flip') {
+                linked.players[1].pawnZones[0]!.position = Position.HIDDEN;
+            } else {
+                const target = removal === 'source' ? { playerIndex: 0, type: 'action' as const, index: 0 }
+                    : { playerIndex: removal === 'own-effect' ? 0 : 1, type: 'pawn' as const, index: 0 };
+                linked = buildEffect([removal === 'void' ? Effect.BanishTargetToVoid() : Effect.DestroyTarget()])(linked, { card: link, playerIndex: 0, target }).newState;
+            }
+            checkVictory(linked);
+            expect(linked.players[0].actionZones[0]).toBeNull();
+            if (['own-effect', 'opponent-effect', 'battle'].includes(removal)) {
+                expect(linked.players.map(player => player.pawnZones[0])).toEqual([null, null]);
+                expect(linked.players[0].discard.filter(c => c.instanceId === link.instanceId)).toHaveLength(1);
+                expect(linked.players[1].discard.map(c => c.instanceId)).toContain(opposing.instanceId);
+            } else {
+                expect(linked.players[0].pawnZones[0]).not.toBeNull();
+                if (removal !== 'void') expect(linked.players[1].pawnZones[0]).not.toBeNull();
+            }
+        }
+    }
 });

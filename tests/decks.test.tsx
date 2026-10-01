@@ -4,9 +4,13 @@ import { act, create } from 'react-test-renderer';
 import CatalogPagination, { useCatalogPage } from '../src/components/catalog/CatalogPagination';
 import { expect, it } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable } from '../src/decks';
+import { CARD_RARITIES, CARD_RARITY_TIERS } from '../src/types';
 
 it('validates a 1000-card catalog, paginates full search results, and preserves deck copy limits', () => {
     expect(sortedCards().every(card => card.pawnSubtype !== 'Token')).toBe(true);
+    expect(sortedCards().every(card => CARD_RARITIES.includes(card.rarity))).toBe(true);
+    expect(CARD_RARITY_TIERS.Legendary).toBe(CARD_RARITY_TIERS.Mythic);
+    expect(CARD_RARITY_TIERS.Legendary).toBe(CARD_RARITY_TIERS.Relic);
     const registry = new CardRegistry();
     const definition = sortedCards()[0];
     for (let i = 0; i < 1000; i++) registry.register({ ...definition, id: `scale-${i}` }, {});
@@ -34,7 +38,7 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     act(() => { root.update(<Catalog query="missing" />); });
     expect(page.entries).toEqual([]);
     act(() => root.unmount());
-    for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }]) {
+    for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }, { rarity: 'Unknown' }]) {
         expect(() => registry.register({ ...definition, ...invalid, id: 'invalid' } as typeof definition, {})).toThrow('Invalid');
     }
     expect(registry.size).toBe(1000);

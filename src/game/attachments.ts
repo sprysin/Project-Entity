@@ -2,11 +2,32 @@ import { Card, GameState, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { sendToOwnerPile } from './cardOwnership';
 
+/** Destroy a field identity and notify its face-up attachments before orphan cleanup. */
+export function destroyFieldCard(state: GameState, instanceId: string): void {
+    for (const player of state.players) for (const zones of [player.pawnZones, player.actionZones]) {
+        const index = zones.findIndex(zone => zone?.card.instanceId === instanceId);
+        if (index < 0) continue;
+        const card = zones[index]!.card;
+        zones[index] = null;
+        sendToOwnerPile(state, card, 'discard');
+        const observers = state.players.flatMap((controller, playerIndex) => controller.actionZones.flatMap(attachment =>
+            attachment && attachment.position !== Position.HIDDEN && attachment.attachedToInstanceIds?.includes(instanceId)
+                ? [{ attachment, playerIndex, attachedInstanceIds: [...attachment.attachedToInstanceIds] }] : []));
+        for (const { attachment, playerIndex, attachedInstanceIds } of observers) {
+            if (!state.players[playerIndex].actionZones.some(zone => zone?.card.instanceId === attachment.card.instanceId)) continue;
+            cardRegistry.getEffect(attachment.card.id)?.onAttachedDestroyed?.(state, {
+                card: attachment.card, playerIndex, destroyedCard: card, attachedInstanceIds
+            });
+        }
+        return;
+    }
+}
+
 /** Use the announcement snapshot so later attachments cannot catch an earlier activation. */
 export function notifyAttachedActivation(before: GameState, after: GameState, activatedCard: Card): GameState {
     let next = after;
     before.players.forEach((player, playerIndex) => player.actionZones.forEach(zone => {
-        if (!zone || zone.position === Position.HIDDEN || zone.attachedToInstanceId !== activatedCard.instanceId) return;
+        if (!zone || zone.position === Position.HIDDEN || !zone.attachedToInstanceIds?.includes(activatedCard.instanceId)) return;
         const result = cardRegistry.getEffect(zone.card.id)?.onAttachedActivation?.(next, { card: zone.card, playerIndex, activatedCard });
         if (result && !result.halted) next = result.newState;
     }));
@@ -24,19 +45,20 @@ export function destroyOrphanedAttachments(state: GameState): GameState {
         destroyed = false;
         const fieldCards = field();
         for (const player of state.players) {
-            player.actionZones.forEach((zone, index) => {
-                if (!zone?.attachedToInstanceId) return;
-                const target = fieldCards.get(zone.attachedToInstanceId);
-                if (target && (target.position !== Position.HIDDEN || zone.card.survivesTargetFlip)) return;
-                sendToOwnerPile(state, zone.card, 'discard');
-                player.actionZones[index] = null;
+            player.actionZones.forEach(zone => {
+                if (!zone?.attachedToInstanceIds?.length) return;
+                if (zone.attachedToInstanceIds.every(id => {
+                    const target = fieldCards.get(id);
+                    return target && (target.position !== Position.HIDDEN || zone.card.survivesTargetFlip);
+                })) return;
+                destroyFieldCard(state, zone.card.instanceId);
                 destroyed = true;
             });
         }
     }
 
     const activeAttachments = new Set(state.players.flatMap(player => player.actionZones.flatMap(zone =>
-        zone?.attachedToInstanceId ? [zone.card.instanceId] : [])));
+        zone?.attachedToInstanceIds?.length ? [zone.card.instanceId] : [])));
     for (const player of state.players) for (const zone of [...player.pawnZones, ...player.actionZones]) {
         if (!zone?.attachmentStatBonuses) continue;
         for (const bonus of zone.attachmentStatBonuses.filter(b => !activeAttachments.has(b.sourceInstanceId))) {

@@ -5,6 +5,18 @@ export const isToken = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSu
 export const canTribute = (card: Card): boolean => !card.cannotBeTributed;
 export const canSetPawn = (card: Card): boolean => !isToken(card);
 
+/** Current combat stats, including a card's continuous field modifier. */
+export function fieldStats(state: GameState, placement: PlacedCard): { atk: number; def: number } {
+    const { card } = placement;
+    if (placement.position === Position.HIDDEN) return { atk: card.atk, def: card.def };
+    const modifier = cardRegistry.getEffect(card.id)?.fieldStatModifier;
+    if (!modifier) return { atk: card.atk, def: card.def };
+    const playerIndex = state.players.findIndex(player => player.pawnZones.some(zone => zone?.card.instanceId === card.instanceId));
+    if (playerIndex < 0) return { atk: card.atk, def: card.def };
+    const bonus = modifier(state, { card, playerIndex }, placement);
+    return { atk: Math.max(0, card.atk + (bonus.atk ?? 0)), def: Math.max(0, card.def + (bonus.def ?? 0)) };
+}
+
 export function cardsAtLocation(player: Player, location: ShuffleLocation): { card: Card; index: number }[] {
     if (location === 'hand') return player.hand.map((card, index) => ({ card, index }));
     if (location === 'discard') return player.discard.map((card, index) => ({ card, index }));

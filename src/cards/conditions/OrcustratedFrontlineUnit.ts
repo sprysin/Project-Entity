@@ -22,6 +22,7 @@ export default [
     id: 'condition_06',
     name: 'Orcustrated Frontline Unit',
     type: CardType.CONDITION,
+    rarity: 'Epic',
     isLingering: true,
     level: 0,
     atk: 0,

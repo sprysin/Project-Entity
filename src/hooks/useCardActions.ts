@@ -78,7 +78,11 @@ export function useCardActions(
     const handleTributeSummon = (card: Card | null, tributes: number[], mode: 'normal' | 'hidden',
         slot: number | null, selection: TributeSelection) => {
         if (!gameState || !card || blocked) return;
-        if (slot === null) {
+        const requiredTributes = card.level <= 7 ? 1 : 2;
+        const zones = gameState.players[gameState.activePlayerIndex].pawnZones;
+        if (tributes.length !== requiredTributes || new Set(tributes).size !== requiredTributes
+            || tributes.some(index => !zones[index] || !canTribute(zones[index]!.card))) return;
+        if (slot === null || (zones[slot] && !tributes.includes(slot))) {
             // Keep choices local until placement; sacrifice and summon commit together.
             pendingTributes.current = { cardId: card.instanceId, indices: [...tributes] };
             selection.setPendingPlayCard(card);

@@ -18,7 +18,7 @@ function state(): GameState {
         turnNumber: 2, log: [], winner: null, pendingEffects: [] };
 }
 const card = (id = 'rules-card', owner = 0): Card => ({ id, instanceId: id, ownerId: `p${owner}`,
-    name: id, type: CardType.PAWN, level: 1, atk: 100, def: 100, effectText: '' });
+    name: id, type: CardType.PAWN, rarity: 'Common', level: 1, atk: 100, def: 100, effectText: '' });
 
 it('loses only on a required missing draw, including partially fulfilled draws', () => {
     const game = state();

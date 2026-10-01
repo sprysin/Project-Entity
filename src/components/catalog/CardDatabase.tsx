@@ -11,6 +11,11 @@ interface CardDatabaseProps {
     onBack: () => void;
 }
 
+const rarityCodes: Record<Card['rarity'], string> = {
+    Common: 'C', Uncommon: 'U', Rare: 'R', Epic: 'E',
+    Legendary: 'Le', Mythic: 'My', Relic: 'Re',
+};
+
 const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -114,7 +119,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                             <div className="font-orbitron text-xs text-yellow-500 uppercase font-bold tracking-widest border-b border-yellow-500/30 pb-2 mb-2 flex items-center gap-2">
                                 <i className="fa-solid fa-database"></i> Card Data
                             </div>
-                            <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TAG:</span> <span className="text-white">{selectedCard.id.toUpperCase()}</span></div>
+                            <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">RARITY:</span> <span className="text-white">({rarityCodes[selectedCard.rarity]}) {selectedCard.rarity}</span></div>
                             <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">CLASS:</span> <span className="text-white">{selectedCard.type}</span></div>
                             {selectedCard.type !== CardType.PAWN && <div className="text-xs text-slate-400 font-mono flex justify-between"><span>SUBTYPE:</span><span className="text-white">{cardSubtype(selectedCard)}</span></div>}
                             {selectedCard.type === CardType.PAWN && (

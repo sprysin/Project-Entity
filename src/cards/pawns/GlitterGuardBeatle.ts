@@ -15,6 +15,7 @@ export default [
     id: 'pawn_10',
     name: 'Glitter Guard Beatle',
     type: CardType.PAWN,
+    rarity: 'Uncommon',
     level: 5,
     attribute: Attribute.LIGHT,
     pawnType: PawnType.BUG,

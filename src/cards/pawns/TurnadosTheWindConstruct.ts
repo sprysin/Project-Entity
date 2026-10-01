@@ -16,15 +16,18 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'pawn_15',
-    name: 'Turnados The Wind Construct',
-    type: CardType.PAWN,
-    level: 7,
-    attribute: Attribute.AIR,
-    pawnType: PawnType.ELEMENTAL,
-    atk: 180,
-    def: 100,
-    effectText: 'ON SUMMON: You can shuffle an AIR Pawn into the deck from your Discard Pile, target 1 Action/Condition on your opponents field; destroy it.',
-}, effect }
+    {
+        cardData: {
+            id: 'pawn_15',
+            name: 'Turnados The Wind Construct',
+            type: CardType.PAWN,
+            rarity: 'Uncommon',
+            level: 7,
+            attribute: Attribute.AIR,
+            pawnType: PawnType.ELEMENTAL,
+            atk: 180,
+            def: 100,
+            effectText: 'ON SUMMON: You can shuffle an AIR Pawn into the deck from your Discard Pile, target 1 Action/Condition on your opponents field; destroy it.',
+        }, effect
+    }
 ] satisfies CardModule;

@@ -53,6 +53,22 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(eligibleCaster.instanceId);
 
+    const tributeSummon: Card = { ...card('pawn_01'), level: 5 };
+    setup(s => {
+        s.players[0].hand = [tributeSummon];
+        s.players[0].pawnZones = s.players[0].pawnZones.map(() => placed(card('pawn_01')));
+    });
+    act(() => game.actions.setTriggeredEffect(null));
+    act(() => game.actions.handleSummon(tributeSummon, 'normal', 0));
+    act(() => game.actions.setTributeSelection([1]));
+    act(() => game.actions.handleTributeSummon());
+    expect(game.state.targetSelectMode).toBe('place_pawn');
+    expect(game.gameState!.players[0].pawnZones[1]).not.toBeNull();
+    act(() => game.actions.handlePlacement(1));
+    expect(game.gameState!.players[0].pawnZones[1]?.card.instanceId).toBe(tributeSummon.instanceId);
+    expect(game.gameState!.players[0].pawnZones[0]).not.toBeNull();
+    expect(game.state.targetSelectMode).toBeNull();
+
     const handSummon = card('condition_06', 1);
     const light = card('pawn_01', 1);
     setup(s => {

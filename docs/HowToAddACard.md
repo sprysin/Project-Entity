@@ -69,6 +69,11 @@ Search `src/cards/engine` before writing custom state manipulation:
 | `Queries.ts` | Shared state queries and dynamic values |
 | `Targets.ts` | Indexed target access |
 
+For continuous field-only stat bonuses, define `fieldStatModifier` in the card's
+effect object. Return ATK and/or DEF deltas from the current board. Shared combat,
+AI, and field display read them through `fieldStats`; do not add card-specific
+checks to those consumers or mutate the card's printed stats.
+
 `buildEffect` works on a cloned draft. Selection requests suspend execution;
 the effect may be replayed with supplied choices. Mark activation costs through
 the existing cost helpers or `activationCost`; do not perform external side effects

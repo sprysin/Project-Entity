@@ -67,6 +67,7 @@ export default [
     id: 'action_04',
     name: 'Mechanical Maintenance',
     type: CardType.ACTION,
+    rarity: 'Uncommon',
     level: 0,
     atk: 0,
     def: 0,

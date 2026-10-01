@@ -43,7 +43,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             p.void.forEach(c => add(c, `void-${pi}`));
             (['pawn', 'action'] as const).forEach(type => p[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((z, i) => {
                 if (z) add(z.card, `${pi}-${type}-${i}`, z.position === Position.HIDDEN,
-                    z.position === Position.DEFENSE || (z.position === Position.HIDDEN && z.card.type === CardType.PAWN) ? 90 : 0, !!z.attachedToInstanceId);
+                    z.position === Position.DEFENSE || (z.position === Position.HIDDEN && z.card.type === CardType.PAWN) ? 90 : 0, !!z.attachedToInstanceIds?.length);
             }));
         });
         const batch: CardMotion[] = [];

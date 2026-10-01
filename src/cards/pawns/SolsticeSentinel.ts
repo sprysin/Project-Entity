@@ -14,6 +14,7 @@ export default [
     id: 'pawn_01',
     name: 'Solstice Sentinel',
     type: CardType.PAWN,
+    rarity: 'Common',
     level: 4,
     attribute: Attribute.LIGHT,
     pawnType: PawnType.MECHANICAL,

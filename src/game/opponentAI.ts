@@ -1,4 +1,4 @@
-import { canTribute } from './cardHelpers';
+import { canTribute, fieldStats } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
@@ -17,7 +17,7 @@ export type AIDecision =
 /** The planner receives only this observation. Hidden identities, stats, hands and draw order are stripped. */
 export function observeGame(state: GameState, viewer: number, knownCards: ReadonlyMap<string, Card> = new Map()): GameState {
     const view = structuredClone(state);
-    const unknown = (card: Card, type: CardType): Card => ({ instanceId: card.instanceId, ownerId: card.ownerId, id: 'unknown', name: 'Unknown card', type, level: 0, atk: 0, def: 0, effectText: '' });
+    const unknown = (card: Card, type: CardType): Card => ({ instanceId: card.instanceId, ownerId: card.ownerId, id: 'unknown', name: 'Unknown card', type, rarity: 'Common', level: 0, atk: 0, def: 0, effectText: '' });
     view.players.forEach((p, index) => {
         p.initialDeck = [];
         if (index === viewer) {
@@ -37,7 +37,7 @@ export function observeGame(state: GameState, viewer: number, knownCards: Readon
 // Establishing a board is the AI's primary non-lethal objective. The sizeable
 // base value also means low-ATK utility Pawns are worth summoning for their
 // effects instead of being judged almost entirely by their combat stats.
-const pawnValue = (c: Card) => c.id === 'unknown' ? 120 : 100 + Math.max(c.atk, c.def * .65) * .45;
+const pawnValue = (c: Card, atk = c.atk, def = c.def) => c.id === 'unknown' ? 120 : 100 + Math.max(atk, def * .65) * .45;
 
 export function evaluatePosition(state: GameState, player: number): number {
     if (state.isDraw || state.players.every(p => p.lp <= 0)) return 0;
@@ -45,18 +45,22 @@ export function evaluatePosition(state: GameState, player: number): number {
     const own = state.players[player], opp = state.players[1 - player];
     if (own.lp <= 0) return -1000000;
     if (opp.lp <= 0) return 1000000;
-    const field = (index: number) => state.players[index].pawnZones.reduce((n, z) => n + (z ? pawnValue(z.card) : 0), 0);
+    const field = (index: number) => state.players[index].pawnZones.reduce((n, z) => {
+        if (!z) return n;
+        const stats = fieldStats(state, z);
+        return n + pawnValue(z.card, stats.atk, stats.def);
+    }, 0);
     const exposed = (index: number) => {
         const p = state.players[index], enemy = state.players[1 - index];
-        const threats = enemy.pawnZones.filter(z => z && z.position !== Position.HIDDEN).map(z => z!.card.atk);
+        const threats = enemy.pawnZones.filter(z => z && z.position !== Position.HIDDEN).map(z => fieldStats(state, z!).atk);
         const largest = Math.max(0, ...threats);
         const zones = p.pawnZones.filter(Boolean);
         if (!zones.length) return threats.reduce((a, b) => a + b, 0);
-        return Math.max(0, ...zones.map(z => z!.position === Position.ATTACK ? largest - z!.card.atk : 0));
+        return Math.max(0, ...zones.map(z => z!.position === Position.ATTACK ? largest - fieldStats(state, z!).atk : 0));
     };
-    const attackPower = own.pawnZones.reduce((n, z) => n + (z?.position === Position.ATTACK ? z.card.atk * (z.nextBattleAttacks ?? z.attacksRemaining ?? 1) : 0), 0);
+    const attackPower = own.pawnZones.reduce((n, z) => n + (z?.position === Position.ATTACK ? fieldStats(state, z).atk * (z.nextBattleAttacks ?? z.attacksRemaining ?? 1) : 0), 0);
     const unblocked = !opp.pawnZones.some(Boolean);
-    const strongestVisibleAttack = (index: number) => Math.max(0, ...state.players[index].pawnZones.map(z => z && z.position !== Position.HIDDEN ? z.card.atk : 0));
+    const strongestVisibleAttack = (index: number) => Math.max(0, ...state.players[index].pawnZones.map(z => z && z.position !== Position.HIDDEN ? fieldStats(state, z).atk : 0));
     const ownStrongest = strongestVisibleAttack(player), enemyStrongest = strongestVisibleAttack(1 - player);
     const combatControl = enemyStrongest === 0 ? 0
         : ownStrongest > enemyStrongest ? 50 + Math.min(100, ownStrongest - enemyStrongest) * .5
@@ -132,12 +136,12 @@ function breakthroughTradeBonus(state: GameState, action: Extract<AIDecision, { 
     if (action.target === 'direct') return 0;
     const own = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
     const attacker = own.pawnZones[action.index], defender = opp.pawnZones[action.target];
-    if (!attacker || !defender || defender.position !== Position.ATTACK || attacker.card.atk !== defender.card.atk) return 0;
+    if (!attacker || !defender || defender.position !== Position.ATTACK || fieldStats(state, attacker).atk !== fieldStats(state, defender).atk) return 0;
     const ownCount = own.pawnZones.filter(Boolean).length, opposingCount = opp.pawnZones.filter(Boolean).length;
     if (opposingCount !== 1 || ownCount <= opposingCount) return 0;
     const followUpPower = own.pawnZones.reduce((total, zone, index) => total + (
         index !== action.index && zone?.position === Position.ATTACK
-        && (zone.attacksRemaining ?? (zone.hasAttacked ? 0 : 1)) > 0 ? zone.card.atk : 0
+        && (zone.attacksRemaining ?? (zone.hasAttacked ? 0 : 1)) > 0 ? fieldStats(state, zone).atk : 0
     ), 0);
     return followUpPower * .25;
 }
@@ -262,7 +266,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
     fieldActivations(state, player, response).forEach(a => considerEffect(state, a.card, a.trigger));
     if (response) return decision;
     if (![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)) return { kind: 'pass' };
-    const biggestEnemy = Math.max(0, ...state.players[1 - player].pawnZones.map(z => z?.position !== Position.HIDDEN ? z?.card.atk ?? 0 : 0));
+    const biggestEnemy = Math.max(0, ...state.players[1 - player].pawnZones.map(z => z && z.position !== Position.HIDDEN ? fieldStats(state, z).atk : 0));
     own.hand.forEach(card => {
         if (card.type === CardType.PAWN) {
             const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
@@ -306,10 +310,10 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
         const next = applyCommand(state, player, { type: 'position', index }).state;
         if (next === state) return;
         const zone = next.players[player].pawnZones[index]!;
-        if (zone.position === Position.ATTACK && zone.card.atk <= 20
+        if (zone.position === Position.ATTACK && fieldStats(next, zone).atk <= 20
             && !fieldActivations(next, player).some(a => a.card.instanceId === zone.card.instanceId
                 && !fieldActivations(state, player).some(previous => previous.card.instanceId === zone.card.instanceId))) return;
-        if (zone.position === Position.ATTACK && zone.card.atk < biggestEnemy) return;
+        if (zone.position === Position.ATTACK && fieldStats(next, zone).atk < biggestEnemy) return;
         const score = evaluatePosition(next, player)
             + (zone.position === Position.ATTACK && visibleBlocker
                 ? Math.max(0, immediateBattleScore(next, player) - currentBattleScore) : 0);

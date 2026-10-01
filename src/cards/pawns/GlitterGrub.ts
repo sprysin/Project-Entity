@@ -19,6 +19,7 @@ export default [
     id: 'pawn_13',
     name: 'Glitter Grub',
     type: CardType.PAWN,
+    rarity: 'Common',
     level: 2,
     attribute: Attribute.LIGHT,
     pawnType: PawnType.BUG,

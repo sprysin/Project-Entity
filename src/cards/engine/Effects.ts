@@ -6,7 +6,7 @@ import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
 import { drawCards } from '../../game/draw';
 import { sendToOwnerPile } from '../../game/cardOwnership';
-import { destroyOrphanedAttachments } from '../../game/attachments';
+import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Effect = {
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
@@ -104,8 +104,7 @@ export const Effect = {
         const zones = draftState.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'];
         const zone = zones[target.index];
         if (!zone) return { halt: true };
-        sendToOwnerPile(draftState, zone.card, 'discard');
-        zones[target.index] = null;
+        destroyFieldCard(draftState, zone.card.instanceId);
     },
     /** Has the opponent choose one card in their hand to reveal privately to this effect's controller. */
     PeekOpponentHand: (): EffectStep => (draftState, context) => {
@@ -136,7 +135,7 @@ export const Effect = {
         if (!context.card.isAttached || !destination || source === destination) return { halt: true };
         // AI previews legal hand plays before a field slot is chosen.
         if (!source) return context.execution !== 'resolve' && state.players[context.playerIndex].hand.some(c => c.instanceId === context.card.instanceId) ? undefined : { halt: true };
-        source.attachedToInstanceId = destination.card.instanceId;
+        source.attachedToInstanceIds = [...new Set([...(source.attachedToInstanceIds ?? []), destination.card.instanceId])];
     },
     /** Changes every Pawn in a player scope to the requested position. */
     ChangeAllPawnPositions: (scope: TargetSelectScope, newPosition: Position): EffectStep => (draftState, context) => {
@@ -203,7 +202,7 @@ export const Effect = {
                 tE.card.atk = Math.max(0, previousAtk + atkChange);
                 tE.card.def = Math.max(0, previousDef + defChange);
                 const source = draftState.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
-                if (context.card.isAttached && source?.attachedToInstanceId === tE.card.instanceId) {
+                if (context.card.isAttached && source?.attachedToInstanceIds?.includes(tE.card.instanceId)) {
                     tE.attachmentStatBonuses ??= [];
                     tE.attachmentStatBonuses.push({
                         sourceInstanceId: context.card.instanceId,

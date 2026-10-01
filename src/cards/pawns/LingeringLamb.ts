@@ -28,6 +28,7 @@ export default [
     id: 'pawn_09',
     name: 'Lingering Lamb',
     type: CardType.PAWN,
+    rarity: 'Common',
     level: 1,
     attribute: Attribute.EARTH,
     pawnType: PawnType.BEAST,

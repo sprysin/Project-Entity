@@ -25,6 +25,7 @@ export default [
     id: CARD_ID,
     name: 'Glass Witch',
     type: CardType.PAWN,
+    rarity: 'Rare',
     level: 4,
     attribute: Attribute.AIR,
     pawnType: PawnType.MAGICIAN,

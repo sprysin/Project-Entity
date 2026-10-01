@@ -40,6 +40,16 @@ depends on the packaged application.
 
 ## Working style
 
+### Card architecture for a large catalog
+
+- Keep individual card rules in their card modules. Do not add card IDs, names, or
+  one-card branches to shared combat, AI, UI, or game-flow files.
+- When a card needs behavior the engine cannot express, add one reusable mechanic
+  with a narrow contract. Make combat, AI, and display consume that contract, then
+  implement the card through it. Avoid a second path for the same mechanic.
+- Before finishing a new card, verify that another card with the same kind of effect
+  could be added by editing only its card module and focused tests.
+
 - Keep searches and commands scoped; do not inspect generated dependency or build
   directories unless the task requires it.
 - Keep implementations focused and avoid parallel abstractions that solve the same

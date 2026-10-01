@@ -24,6 +24,7 @@ export default [
     id: 'condition_04',
     name: 'Call from the Depths',
     type: CardType.CONDITION,
+    rarity: 'Uncommon',
     isLingering: false,
     level: 0,
     atk: 0,

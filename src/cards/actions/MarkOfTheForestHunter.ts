@@ -25,14 +25,17 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'action_03',
-    name: 'Mark of the Forest Hunter',
-    type: CardType.ACTION,
-    isLingering: true,
-    level: 0,
-    atk: 0,
-    def: 0,
-    effectText: 'Once per turn: pay half your LP, then add 1 level 5 or higher Beast type Pawn from your deck to your hand.',
-}, effect }
+    {
+        cardData: {
+            id: 'action_03',
+            name: 'Mark of the Forest Hunter',
+            type: CardType.ACTION,
+            rarity: 'Epic',
+            isLingering: true,
+            level: 0,
+            atk: 0,
+            def: 0,
+            effectText: 'Once per turn: pay half your LP, then add 1 level 5 or higher Beast type Pawn from your deck to your hand.',
+        }, effect
+    }
 ] satisfies CardModule;

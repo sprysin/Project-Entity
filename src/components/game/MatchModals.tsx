@@ -74,9 +74,9 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
                 <p className="duel-result-eyebrow">Duel complete · Turn {gameState.turnNumber}</p>
                 <h2 id="duel-result-title">{gameState.isDraw ? 'Draw' : isDefeat ? 'Defeat' : 'Victory'}</h2>
                 <p className="duel-result-winner">{gameState.isDraw ? 'Both players reached 0 LP at the same time.' : `${gameState.winner} is victorious`}</p>
-                {gameState.resultReason === 'empty_deck' && <p>A required draw could not be completed: the deck was empty.</p>}
+                {gameState.resultReason === 'empty_deck' && <p className="duel-result-reason">A required draw could not be completed: the deck was empty.</p>}
                 {mvp ? <>
-                    <p className="duel-result-label">-MVP-</p>
+                    <p className="duel-result-label">MVP</p>
                     <div className="duel-mvp-stage">
                         <div className={`duel-mvp-card ${revealed ? 'is-revealed' : ''}`}>
                             <div className="duel-mvp-face duel-mvp-back card-back" aria-hidden="true" />
@@ -84,7 +84,7 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
                         </div>
                     </div>
                     <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
-                        {revealed && <><h3>{mvp.card.name}</h3><p>{mvp.total.toLocaleString()} damage dealt</p></>}
+                        {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
                     </div>
                 </> : !gameState.isDraw && <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
                 <button data-sound="select" ref={button} onClick={onQuit} className="duel-result-button">Continue</button>

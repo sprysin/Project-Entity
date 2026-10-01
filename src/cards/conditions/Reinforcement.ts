@@ -21,6 +21,7 @@ export default [
     id: 'condition_01',
     name: 'Reinforcement',
     type: CardType.CONDITION,
+    rarity: 'Common',
     isAttached: true,
     level: 0,
     atk: 0,

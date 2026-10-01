@@ -29,6 +29,7 @@ export default [
     id: 'pawn_08',
     name: 'Quickstrike Serpent',
     type: CardType.PAWN,
+    rarity: 'Rare',
     level: 4,
     attribute: Attribute.WATER,
     pawnType: PawnType.AQUATIC,

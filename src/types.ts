@@ -5,6 +5,14 @@ export enum CardType {
   CONDITION = 'CONDITION'
 }
 
+export const CARD_RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Relic'] as const;
+export type CardRarity = typeof CARD_RARITIES[number];
+/** Legendary, Mythic, and Relic are equivalent top-tier rarities. */
+export const CARD_RARITY_TIERS: Record<CardRarity, number> = {
+  Common: 0, Uncommon: 1, Rare: 2, Epic: 3,
+  Legendary: 4, Mythic: 4, Relic: 4,
+};
+
 export enum Phase {
   DRAW = 'DRAW',
   STANDBY = 'STANDBY',
@@ -58,6 +66,7 @@ export interface Card {
   id: string;
   name: string;
   type: CardType;
+  rarity: CardRarity;
   level: Level;
   attribute?: Attribute;
   pawnType?: PawnType;
@@ -82,7 +91,8 @@ export interface PlacedCard {
   counters?: Record<string, number>;
   effectUsedTurn?: Record<string, number>;
   returnToOwnerEndPhase?: boolean;
-  attachedToInstanceId?: string;
+  /** Field identities tracked by an Attach card. */
+  attachedToInstanceIds?: string[];
   attachmentStatBonuses?: { sourceInstanceId: string; atk: number; def: number }[];
   card: Card;
   position: Position;
@@ -240,6 +250,8 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Continuous field-only stat changes; evaluated from the current board without mutating printed stats. */
+  fieldStatModifier?(state: GameState, context: CardContext, placement: PlacedCard): { atk?: number; def?: number };
   /** Observes a face-up normal/tribute summon while this source is face-up. */
   onPawnSummoned?(state: GameState, context: CardContext & { summonedCard: Card; summoningPlayerIndex: number; tributeCount: number }): EffectResult;
   /** Shared hand-summon eligibility, rechecked when the command executes. */
@@ -247,6 +259,8 @@ export interface IEffect {
   handSummonPrompt?: string;
   /** A face-up attachment observes an activation announced by its attached card. */
   onAttachedActivation?(state: GameState, context: CardContext & { activatedCard: Card }): EffectResult;
+  /** Immediate destruction response; mutates state without opening a selection window. */
+  onAttachedDestroyed?(state: GameState, context: CardContext & { destroyedCard: Card; attachedInstanceIds: readonly string[] }): void;
   /** Only explicitly quick Pawn effects may respond outside normal ignition timing. */
   timing?: 'main' | 'quick';
   /** Let an effect resolve its remaining instructions when one selected target has left the field. */

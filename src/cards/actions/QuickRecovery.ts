@@ -22,6 +22,7 @@ export default [
     id: 'action_02',
     name: 'Quick recovery',
     type: CardType.ACTION,
+    rarity: 'Common',
     level: 0,
     atk: 0,
     def: 0,

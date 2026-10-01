@@ -8,6 +8,7 @@ import { checkVictory } from '../src/game/finishEffect';
 import { sendToOwnerPile } from '../src/game/cardOwnership';
 import { applyCommand, applySystemCommand } from '../src/game/engine';
 import { resolveCombat } from '../src/game/combat';
+import { fieldStats } from '../src/game/cardHelpers';
 import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
@@ -85,6 +86,23 @@ it('new Conditions and Turnados resolve their selected effects', () => {
     expect(resolved.players[0].pawnZones[1]?.position).toBe(Position.HIDDEN);
     expect(resolved.players[1].pawnZones[0]?.position).toBe(Position.HIDDEN);
     expect(resolved.players[0].discard.some(value => value.instanceId === call.instanceId)).toBe(true);
+
+    const routGame = state();
+    const rout = card('action_07');
+    routGame.players[0].actionZones[0] = placed(rout, Position.HIDDEN);
+    routGame.players[0].pawnZones[0] = placed(card('pawn_01'));
+    routGame.players[1].pawnZones[0] = placed(card('pawn_02', 1));
+    expect(effectChoices(routGame, rout, 'activate')).toEqual([]);
+    routGame.players[1].pawnZones[1] = placed(card('pawn_03', 1), Position.HIDDEN);
+    routGame.players[1].pawnZones[2] = placed(card('pawn_04', 1), Position.DEFENSE);
+    routGame.players[1].pawnZones[3] = placed(card('pawn_05', 1));
+    const routed = resolveChain(addChainLink(routGame, effectChoices(routGame, rout, 'activate')[0], 'activate'));
+    expect(routed.players[0].lp).toBe(840);
+    expect(routed.players[0].pawnZones[0]?.position).toBe(Position.ATTACK);
+    expect(routed.players[1].pawnZones.map(zone => zone?.position)).toEqual([
+        Position.DEFENSE, Position.HIDDEN, Position.DEFENSE, Position.DEFENSE, undefined
+    ]);
+    expect(routed.players[0].discard.some(value => value.instanceId === rout.instanceId)).toBe(true);
 
     const windGame = state();
     const turnados = card('pawn_15');
@@ -372,4 +390,28 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
     game.players[0].pawnZones[0] = placed(stolen);
     Effect.BanishTargetToVoid()(game, { card: necromancer, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } });
     expect(game.players[1].void.some(c => c.instanceId === stolen.instanceId)).toBe(true);
+
+    game = state();
+    game.currentPhase = Phase.BATTLE;
+    const infantry = card('pawn_infantry_soldier');
+    game.players[0].pawnZones[0] = placed(infantry);
+    game.players[0].pawnZones[1] = placed(card('pawn_infantry_soldier'));
+    game.players[1].pawnZones[0] = placed(card('pawn_01', 1));
+    expect(resolveCombat(game, 0, 0).players[1].lp).toBe(780);
+    game.players[0].pawnZones[1] = placed(card('pawn_infantry_soldier'), Position.HIDDEN);
+    expect(resolveCombat(game, 0, 0).players[0].pawnZones[0]).toBeNull();
+
+    // A second card can supply a continuous ATK/DEF rule without shared-code changes.
+    cardRegistry.register({ ...cardRegistry.getCard('pawn_01')!, id: 'test_field_stat_modifier', name: 'Test Field Modifier' }, {
+        fieldStatModifier: current => ({ atk: current.players[0].pawnZones[1] ? 70 : 0, def: 25 })
+    });
+    game = state();
+    const adaptive = placed(card('test_field_stat_modifier'));
+    game.players[0].pawnZones[0] = adaptive;
+    expect(fieldStats(game, adaptive)).toEqual({ atk: adaptive.card.atk, def: adaptive.card.def + 25 });
+    game.players[0].pawnZones[1] = placed(card('pawn_01'));
+    expect(fieldStats(game, adaptive)).toEqual({ atk: adaptive.card.atk + 70, def: adaptive.card.def + 25 });
+    game.currentPhase = Phase.BATTLE;
+    game.players[1].pawnZones[0] = placed(card('pawn_01', 1));
+    expect(resolveCombat(game, 0, 0).players[1].lp).toBe(730);
 });

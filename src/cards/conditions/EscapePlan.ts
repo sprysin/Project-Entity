@@ -28,6 +28,7 @@ export default [
     id: 'condition_05',
     name: 'Escape Plan',
     type: CardType.CONDITION,
+    rarity: 'Common',
     level: 0,
     atk: 0,
     def: 0,

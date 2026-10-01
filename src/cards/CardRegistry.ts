@@ -1,4 +1,4 @@
-import { IEffect, Card, CardType } from '../types';
+import { IEffect, Card, CardType, CARD_RARITIES } from '../types';
 
 export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId' | 'tributedByAction' | 'fieldAtkReduction'>;
 
@@ -18,6 +18,7 @@ export class CardRegistry {
             throw new Error(`Duplicate card ID: ${id}`);
         }
         if (!id.trim() || !cardData.name.trim() || !Object.values(CardType).includes(cardData.type)
+            || !CARD_RARITIES.includes(cardData.rarity)
             || !Number.isInteger(cardData.level) || cardData.level < 0 || cardData.level > 10
             || !Number.isFinite(cardData.atk) || !Number.isFinite(cardData.def)
             || cardData.isAttached && cardData.isLingering

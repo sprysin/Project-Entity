@@ -32,6 +32,7 @@ export default [
     id: 'action_05',
     name: 'Sacrificial Lamb',
     type: CardType.ACTION,
+    rarity: 'Common',
     level: 0,
     atk: 0,
     def: 0,

@@ -22,6 +22,7 @@ import { getSettings } from '../../desktop/storage';
 import { OpeningCoin } from './OpeningCoin';
 import { CardSelectionModal } from './SelectionModals';
 import { XrayOverlay } from './XrayOverlay';
+import { fieldStats } from '../../game/cardHelpers';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -200,7 +201,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
               </div>
               <div className="game-field-row game-field-row--pawns">
                 <div className="game-field-zones">
-                  {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} xray={xray} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
+                  {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} fieldStats={z ? fieldStats(gameState, z) : undefined} xray={xray} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
                     if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                     if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
                       const hasMonsters = opponent.pawnZones.some(mz => mz !== null);
@@ -255,7 +256,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       ((gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (canChangePosition || hasOnActivateEffect(z.card))) ||
                       gameState.currentPhase === Phase.BATTLE
                     );
-                    return <Zone key={i} card={z} type="pawn" domRef={actions.setRef(`${viewIndex}-pawn-${i}`)}
+                    return <Zone key={i} card={z} fieldStats={z ? fieldStats(gameState, z) : undefined} type="pawn" domRef={actions.setRef(`${viewIndex}-pawn-${i}`)}
                       isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)}
                       isSelected={selected}
                       isTributeSelected={state.tributeSelection.includes(i)}

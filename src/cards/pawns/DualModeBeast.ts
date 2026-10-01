@@ -24,6 +24,7 @@ export default [
     id: 'pawn_06',
     name: 'Dual-Mode Beast',
     type: CardType.PAWN,
+    rarity: 'Epic',
     level: 9,
     attribute: Attribute.DARK,
     pawnType: PawnType.BEAST,

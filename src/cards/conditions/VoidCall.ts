@@ -20,6 +20,7 @@ export default [
     id: 'condition_02',
     name: 'Void Call',
     type: CardType.CONDITION,
+    rarity: 'Uncommon',
     isLingering: false,
     level: 0,
     atk: 0,
