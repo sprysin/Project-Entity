@@ -122,3 +122,55 @@
   .rulebook-pawn-fields > div, .rulebook-attribute-grid { grid-template-columns:1fr; }
   .rulebook-type-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* The chapter index retains its colored rulebook cues within the new home language. */
+.rulebook.entity-page {
+  flex: 1;
+  min-height: 0;
+  --gold: #f3c562;
+  --line: #c6a05b44;
+  background-color: #06080c;
+  background-image:
+    radial-gradient(circle at 78% 14%, #d2a34835, transparent 37rem),
+    radial-gradient(circle at 8% 63%, #4668a02a, transparent 34rem),
+    repeating-linear-gradient(0deg, transparent 0 68px, #eab30812 69px),
+    repeating-linear-gradient(90deg, transparent 0 68px, #eab30810 69px);
+}
+.rulebook-topbar.entity-topbar { position: sticky; top: 0; z-index: 20; height: 96px; min-height: 96px; }
+.rulebook-brand { color: inherit; }
+.rulebook-brand:hover .page-brand__mark, .rulebook-brand:focus-visible .page-brand__mark { box-shadow: 0 0 24px #eab308aa; }
+.rulebook-brand:focus-visible, .rulebook button:focus-visible { outline: 2px solid #fbd77e; outline-offset: 4px; }
+.rulebook-shell { max-width: 1500px; padding-inline: 56px; }
+.rulebook-cover { min-height: 570px; gap: 90px; border-bottom-color: #d5a65477; }
+.rulebook-eyebrow { color: #f0bd61; letter-spacing: .3em; }
+.rulebook-cover h1 { max-width: 850px; color: #fff; font-size: 83px; letter-spacing: -.075em; text-shadow: 0 12px 32px #000c; }
+.rulebook-cover h1 em { display: block; color: #facc15; text-shadow: 0 0 36px #eab30859; }
+.rulebook-cover p { max-width: 530px; color: #b7bdc8; font-size: 17px; }
+.rulebook-primary { padding: 17px 24px; clip-path: polygon(0 0, calc(100% - 17px) 0, 100% 17px, 100% 100%, 17px 100%, 0 calc(100% - 17px)); background: linear-gradient(110deg, #fbe084, #dfab2d); color: #14120d; }
+.rulebook-card-fan { height: 390px; background: radial-gradient(circle, #e3b34a1c, transparent 60%); }
+.rulebook-card-fan::before { content: ''; position: absolute; width: 335px; height: 335px; border: 1px solid #d5ae6266; border-radius: 50%; box-shadow: 0 0 0 33px #c3922a0a, 0 0 45px #d5a44420; }
+.rulebook-chapter-label { color: #c7a66e; padding-top: 35px; }
+.rulebook-chapters { gap: 12px; }
+.rulebook-chapter { position: relative; min-height: 94px; border-color: #c69b545c; border-radius: 0; clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); background: linear-gradient(110deg, #1c222acc, #0d1118e8); }
+.rulebook-chapter::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--chapter-color, var(--gold)); }
+.rulebook-chapter:hover { border-color: var(--chapter-color, var(--gold)); background: linear-gradient(110deg, #292820, #111820); box-shadow: 0 12px 28px #0007; }
+.rulebook-chapter-number { color: #c0a36f; }
+.rulebook-chapter-copy strong { color: #f7f7f8; font-size: 13px; }
+.rulebook-chapter-copy small { color: #aeb4bf; }
+.rulebook-chapter-arrow { color: #d0aa69; }
+.rulebook-breadcrumb { color: #c7a66e; padding: 32px 0; }
+.rulebook-breadcrumb button { border-radius: 0; }
+.rulebook-topic-heading { border-bottom-color: #c99a4e99; }
+.rulebook-topic-heading h1 { color: #fff; font-size: 57px; text-shadow: 0 10px 30px #000b; }
+.rulebook-page-tabs button { border-radius: 0; font-family: Orbitron, sans-serif; letter-spacing: .07em; }
+.rulebook-pawn-fields article, .rulebook-type-grid div { background: #111a22bb; }
+.rulebook-table-wrap { border-radius: 0; }
+.rulebook-example { border-left-color: #c99a4e66; }
+.rulebook-example-tabs button { border-radius: 0; }
+.rulebook-example-stage { background: radial-gradient(circle, color-mix(in srgb, var(--example-color) 16%, transparent), #0b1018 75%); }
+@media (max-width: 800px) {
+  .rulebook-shell { padding-inline: 24px; }
+  .rulebook-cover { min-height: 0; gap: 0; }
+  .rulebook-cover h1 { font-size: 54px; }
+  .rulebook-example { border-left: 0; border-top-color: #c99a4e66; }
+}

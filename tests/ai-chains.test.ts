@@ -1,16 +1,20 @@
 import './fixtures/attachedCondition';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { act, create } from 'react-test-renderer';
+import { useOpponentAI } from '../src/hooks/useOpponentAI';
 import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
+import { Attribute, Card, CardType, GameState, Phase, Player, Position } from '../src/types';
 import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority, resolveChain, resolveChainStep } from '../src/game/chains';
 import { applyCommand } from '../src/game/engine';
-import { chooseAIAction, hasWorthwhileAttack, observeGame, updateKnownCards } from '../src/game/opponentAI';
+import { chooseAIAction, chooseAIHandSummon, hasWorthwhileAttack, observeGame, updateKnownCards } from '../src/game/opponentAI';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { Require } from '../src/cards/engine/Requirements';
+import { Cost } from '../src/cards/engine/Costs';
 
 let serial = 0;
 const card = (id: string, pi = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `card-${serial++}`, ownerId: `player${pi + 1}` });
@@ -225,7 +229,95 @@ describe('fair general AI', () => {
         expect(advantage.players[1].pawnZones[2]?.position).toBe(Position.DEFENSE);
     });
 
-    it('finds lethal attack order by saving the stronger attacker for direct damage', () => {
+    it('uses setup and search payoffs, hostile debuffs, and lethal attack order', () => {
+        // Delayed setup and search payoffs use the same generic planner.
+        const tribunal = game();
+        tribunal.activePlayerIndex = 1;
+        tribunal.currentPhase = Phase.MAIN2;
+        tribunal.players[1].normalSummonUsed = tribunal.players[1].hiddenSummonUsed = true;
+        tribunal.players[1].actionZones[0] = zone(card('action_06', 1), Position.FACE_UP);
+        tribunal.players[1].pawnZones[0] = zone({ ...card('pawn_01', 1), atk: 20, def: 20 });
+        tribunal.players[1].hand = [card('pawn_07', 1)];
+        const investment = chooseAIAction(observeGame(tribunal, 1), 1);
+        expect(investment).toMatchObject({ kind: 'effect', context: { effectId: 'tribute', tributeIndices: [0] } });
+        if (investment.kind === 'effect') {
+            const invested = resolveChain(addChainLink(tribunal, investment.context, investment.trigger));
+            expect(invested.players[1].actionZones[0]?.counters).toEqual({ 'Tribute Counters': 1 });
+        }
+        // The live hook must preserve the mode picked by the planner.
+        globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+        vi.useFakeTimers();
+        const resolveEffect = vi.fn();
+        let root: ReturnType<typeof create> | undefined;
+        function AIHarness() {
+            useOpponentAI({ gameState: tribunal, enabled: true, busy: false,
+                setGameState: vi.fn(), nextPhase: vi.fn(), skipToEndPhase: vi.fn(), requestAttack: vi.fn(), resolveEffect });
+            return null;
+        }
+        try {
+            act(() => { root = create(React.createElement(AIHarness)); });
+            act(() => vi.advanceTimersByTime(650));
+            expect(resolveEffect.mock.calls[0]?.[11]).toBe('tribute');
+        } finally {
+            act(() => root?.unmount());
+            vi.useRealTimers();
+        }
+        cardRegistry.register({ ...cardRegistry.getCard('action_06')!, id: 'test-counter-setup', name: 'Generic charge engine' }, {
+            counterSummon: { counter: 'Charge', requiredCounters: c => c.type === CardType.PAWN && c.level >= 5 ? 4 : undefined },
+            onFieldActivate: buildEffect([Cost.TributePawns(1), Effect.ModulateCounter('Charge', 1)])
+        });
+        const genericSetup = structuredClone(tribunal);
+        genericSetup.players[1].actionZones[0] = zone(card('test-counter-setup', 1), Position.FACE_UP);
+        expect(chooseAIAction(observeGame(genericSetup, 1), 1)).toMatchObject({ kind: 'effect', context: { card: { id: 'test-counter-setup' } } });
+        tribunal.players[1].actionZones[0]!.counters = { 'Tribute Counters': 3 };
+        tribunal.players[1].pawnZones[0] = null;
+        const deployment = chooseAIAction(observeGame(tribunal, 1), 1);
+        expect(deployment).toMatchObject({ kind: 'effect', context: { effectId: 'summon', handIndex: 0 } });
+        if (deployment.kind === 'effect') {
+            const deployed = resolveChain(addChainLink(tribunal, deployment.context, deployment.trigger));
+            expect(deployed.players[1].pawnZones.some(z => z?.card.id === 'pawn_07')).toBe(true);
+        }
+
+        const frontline = game();
+        frontline.activePlayerIndex = 1;
+        frontline.players[1].normalSummonUsed = frontline.players[1].hiddenSummonUsed = true;
+        frontline.players[1].actionZones[0] = zone(card('condition_06', 1), Position.HIDDEN);
+        frontline.players[1].hand = [{ ...card('pawn_01', 1), attribute: Attribute.LIGHT }];
+        expect(chooseAIAction(observeGame(frontline, 1), 1)).toMatchObject({ kind: 'effect', context: { card: { id: 'condition_06' } } });
+        frontline.players[1].hand = [];
+        expect(chooseAIAction(observeGame(frontline, 1), 1)).toEqual({ kind: 'pass' });
+        frontline.players[1].actionZones[0]!.position = Position.FACE_UP;
+        frontline.pendingHandSummons = [{ sourceId: frontline.players[1].actionZones[0]!.card.instanceId, playerIndex: 1 }];
+        const recruit = { ...card('pawn_01', 1), attribute: Attribute.LIGHT, atk: 150, def: 200 };
+        frontline.players[1].hand = [{ ...recruit, instanceId: 'weak-recruit', atk: 10, def: 10 }, recruit];
+        frontline.activePlayerIndex = 0;
+        frontline.players[0].pawnZones[0] = zone({ ...card('pawn_01'), atk: 180 });
+        expect(chooseAIHandSummon(observeGame(frontline, 1), 1)).toMatchObject({ type: 'confirmHandSummon', cardId: recruit.instanceId, position: Position.DEFENSE });
+        frontline.players[1].hand = [];
+        expect(chooseAIHandSummon(observeGame(frontline, 1), 1)).toMatchObject({ type: 'declineHandSummon' });
+
+        const search = game();
+        search.activePlayerIndex = 1;
+        search.players[1].actionZones[0] = zone(card('action_03', 1), Position.FACE_UP);
+        search.players[1].pawnZones[0] = zone({ ...card('pawn_01', 1), atk: 20, def: 20 });
+        search.players[1].pawnZones[1] = zone({ ...card('pawn_01', 1), atk: 20, def: 20 });
+        search.players[1].deck = [card('pawn_07', 1), { ...card('pawn_07', 1), atk: 10, def: 10 }];
+        const searched = chooseAIAction(observeGame(search, 1), 1);
+        expect(searched).toMatchObject({ kind: 'effect', context: { deckIndex: 0 } });
+        if (searched.kind === 'effect') {
+            const retrieved = resolveChain(addChainLink(search, searched.context, searched.trigger));
+            expect(chooseAIAction(observeGame(retrieved, 1), 1)).toMatchObject({ kind: 'summon', card: { id: 'pawn_07', atk: 220 }, tributes: [0, 1] });
+        }
+        search.players[1].pawnZones.fill(null);
+        expect(chooseAIAction(observeGame(search, 1), 1)).toEqual({ kind: 'pass' });
+
+        const summonDebuff = game();
+        summonDebuff.activePlayerIndex = 1;
+        const king = card('pawn_02', 1);
+        summonDebuff.players[1].pawnZones[0] = zone(king);
+        summonDebuff.players[0].pawnZones[0] = zone(card('pawn_01'));
+        expect(chooseAIAction(observeGame(summonDebuff, 1), 1, king)).toMatchObject({ kind: 'effect', context: { target: { playerIndex: 0 } } });
+
         const s = game(); s.activePlayerIndex = 1; s.currentPhase = Phase.BATTLE;
         s.players[0].lp = 250;
         s.players[0].pawnZones[0] = zone(card('pawn_01'), Position.DEFENSE);

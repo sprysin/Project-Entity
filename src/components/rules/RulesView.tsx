@@ -1,7 +1,9 @@
 import BackToHubButton from '../common/BackToHubButton';
+import PageBrand from '../common/PageBrand';
 import React, { useRef, useState } from 'react';
 import { CardDetail } from '../cards/CardDetail';
 import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
+import { attributeColors } from '../cards/attributeColors';
 import { cardRegistry } from '../../cards/CardRegistry';
 import { Attribute, Card, PawnType } from '../../types';
 import '../../cards/pawns';
@@ -18,7 +20,7 @@ type Topic = {
 
 const topics: Topic[] = [
   {
-    id: 'basics', title: 'The essentials', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
+    id: 'basics', title: 'Starting Info', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
       'Start with 800 Life Points (LP). Reduce your opponent’s LP to 0 or below to win, through combat or card effects.',
       'A deck contains 40–60 cards, with no more than 3 copies of any one card.',
       'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes.',
@@ -177,14 +179,14 @@ const pawnCardFields = [
 const pawnTypes = Object.values(PawnType);
 
 const attributes: { value: Attribute; icon?: string; glyph?: string; color: string; description: string }[] = [
-  { value: Attribute.FIRE, icon: 'fa-fire', color: '#ef5b4f', description: 'Fire-aligned Pawns.' },
-  { value: Attribute.WATER, icon: 'fa-droplet', color: '#4d9cff', description: 'Water-aligned Pawns.' },
-  { value: Attribute.EARTH, icon: 'fa-mountain', color: '#b7793f', description: 'Earth-aligned Pawns.' },
-  { value: Attribute.AIR, icon: 'fa-wind', color: '#8bdcf5', description: 'Air-aligned Pawns.' },
-  { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: '#f4d44d', description: 'Electric-aligned Pawns.' },
-  { value: Attribute.NORMAL, glyph: <NormalAttributeIcon />, color: '#cbd0d8', description: 'Pawns without an elemental alignment.' },
-  { value: Attribute.DARK, icon: 'fa-moon', color: '#9a6ad8', description: 'Dark-aligned Pawns.' },
-  { value: Attribute.LIGHT, icon: 'fa-sun', color: '#ffe89a', description: 'Light-aligned Pawns.' },
+  { value: Attribute.FIRE, icon: 'fa-fire', color: attributeColors[Attribute.FIRE], description: 'Fire-aligned Pawns.' },
+  { value: Attribute.WATER, icon: 'fa-droplet', color: attributeColors[Attribute.WATER], description: 'Water-aligned Pawns.' },
+  { value: Attribute.EARTH, icon: 'fa-mountain', color: attributeColors[Attribute.EARTH], description: 'Earth-aligned Pawns.' },
+  { value: Attribute.AIR, icon: 'fa-wind', color: attributeColors[Attribute.AIR], description: 'Air-aligned Pawns.' },
+  { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: attributeColors[Attribute.ELECTRIC], description: 'Electric-aligned Pawns.' },
+  { value: Attribute.NORMAL, glyph: <NormalAttributeIcon />, color: attributeColors[Attribute.NORMAL], description: 'Pawns without an elemental alignment.' },
+  { value: Attribute.DARK, icon: 'fa-moon', color: attributeColors[Attribute.DARK], description: 'Dark-aligned Pawns.' },
+  { value: Attribute.LIGHT, icon: 'fa-sun', color: attributeColors[Attribute.LIGHT], description: 'Light-aligned Pawns.' },
 ];
 
 const pawnInfoTabs = ['Pawn card', 'Types', 'Attributes', 'Changing position'];
@@ -234,20 +236,20 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
   return (
-    <div ref={scroller} className="rulebook">
+    <div ref={scroller} className="rulebook entity-page">
+      <header className="rulebook-topbar entity-topbar">
+        <button data-sound="select-small" onClick={() => { setSelected(null); setPage(0); resetPosition(); }} className="rulebook-brand" aria-label="Rulebook home">
+          <PageBrand section="THE RULEBOOK" />
+        </button>
+        <BackToHubButton onClick={onBack} />
+      </header>
       <div className="rulebook-shell">
-        <header className="rulebook-topbar">
-          <button data-sound="select-small" onClick={() => { setSelected(null); setPage(0); resetPosition(); }} className="rulebook-brand" aria-label="Rulebook home">
-            <i className="fa-solid fa-chess-knight" aria-hidden="true" /><span>PROJECT ENTITY<small>THE RULEBOOK</small></span>
-          </button>
-          <BackToHubButton onClick={onBack} />
-        </header>
 
         {topic === null ? <>
           <section className="rulebook-cover">
             <div className="rulebook-cover-copy">
               <span className="rulebook-eyebrow">LEARN THE GAME</span>
-              <h1 ref={heading} tabIndex={-1}>PROJECT<br /><em>ENTITY</em></h1>
+              <h1 ref={heading} tabIndex={-1}>THE <em>RULEBOOK</em></h1>
               <p>Covers all the major rules and mechanics of standard play.<br />These are subject to change as the game receives balance updates.</p>
               <button data-sound="select-small" className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
             </div>

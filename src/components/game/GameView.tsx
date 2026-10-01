@@ -23,6 +23,8 @@ import { OpeningCoin } from './OpeningCoin';
 import { CardSelectionModal } from './SelectionModals';
 import { XrayOverlay } from './XrayOverlay';
 import { fieldStats } from '../../game/cardHelpers';
+import { SummonReverb, useSummonReverb } from './SummonReverb';
+import './GameView.css';
 
 interface GameViewProps {
   onQuit: () => void;
@@ -37,6 +39,7 @@ interface GameViewProps {
  */
 const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode = 'self' as OpponentMode, debugSettings = {} as PlaytestDebugSettings }) => {
   const { gameState, state, actions } = useGameLogic(initialDecks, opponentMode, debugSettings);
+  const summonReverbs = useSummonReverb(gameState);
   const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
   const [startingHandIndices, setStartingHandIndices] = React.useState<number[]>([]);
   const xray = opponentMode === 'ai' && !!debugSettings.xray;
@@ -69,7 +72,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
-  const fannedOutPiles = getSettings().fannedOutPiles;
+  const { fannedOutPiles, profileImage } = getSettings();
   const revealedOpponentCardId = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex && event.ownerPlayerIndex === oppIdx)?.card.instanceId;
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
@@ -115,7 +118,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   };
 
   return (
-    <div className={`flex-1 flex flex-col relative overflow-hidden font-roboto select-none transition-colors duration-1000 ${isLightTheme ? 'bg-slate-200 text-slate-900 retro-hash-light' : 'bg-[#050505] text-slate-100 retro-hash'}`}>
+    <div className={`duel-screen ${isLightTheme ? 'duel-screen--light' : 'duel-screen--dark'} flex-1 flex flex-col relative overflow-hidden font-roboto select-none transition-colors duration-1000`}>
       {/* HUD: Exit Control */}
       <OpeningCoin gameState={gameState} opponentMode={opponentMode} onChoose={actions.chooseTurnOrder} />
       <AttachmentOverlay />
@@ -156,22 +159,24 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
 
       <div className="flex-1 flex relative overflow-hidden">
         {/* Main Play Area */}
-        <div className="flex-1 flex flex-col items-center justify-between p-4 relative overflow-hidden">
+        <div className="duel-arena flex-1 flex flex-col items-center justify-between p-4 relative overflow-hidden">
           <HealthHud
             player={opponent}
+            profileImage={opponent.id === 'player1' ? profileImage : null}
             displayedLp={state.displayedLp[oppIdx]}
             flash={state.lpFlash[oppIdx]}
             position="opponent"
           />
           <HealthHud
             player={activePlayer}
+            profileImage={activePlayer.id === 'player1' ? profileImage : null}
             displayedLp={state.displayedLp[viewIndex]}
             flash={state.lpFlash[viewIndex]}
             position="active"
           />
 
           {/* Opponent Hand (Semi-Visible) */}
-          <div data-player-hand-target={opponent.id} className="absolute top-0 w-full flex justify-center space-x-[-10px] z-20 pointer-events-none">
+          <div data-player-hand-target={opponent.id} className="duel-opponent-hand absolute top-0 w-full flex justify-center space-x-[-10px] z-20 pointer-events-none">
             {opponent.hand.map((card, i) => (
               <div ref={actions.setRef(`${oppIdx}-hand-${i}`)} key={card.instanceId} role={xray ? 'button' : undefined} tabIndex={xray ? 0 : undefined} aria-label={xray ? `Inspect AI hand card ${i + 1}` : undefined} onClick={() => { if (xray) actions.inspectPileCard(card); }} onKeyDown={event => { if (xray && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); actions.inspectPileCard(card); } }} className="opponent-hand-slot w-28 aspect-[2/3] transform -translate-y-[60%] hover:translate-y-[-10%] transition-transform duration-300 cursor-pointer pointer-events-auto">
                 <div className={`opponent-hand-card ${revealedOpponentCardId === card.instanceId ? 'is-revealing' : ''}`}>
@@ -182,11 +187,11 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
             ))}
           </div>
 
-          <div className={`game-board ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
+          <div className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
             {/* Opponent Field View */}
-            <div className={`game-player-field flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} opacity-90`}>
+            <div className={`game-player-field duel-player-field--opponent flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} opacity-90`}>
               <div className="game-field-row">
-                <div className="game-field-zones">
+                <div className="game-field-zones game-field-zones--actions">
                   {opponent.actionZones.map((z, i) => (<Zone key={i} card={z} xray={xray} type="action" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'action', oppIdx)} onClick={() => {
                     if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                     if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
@@ -200,7 +205,8 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                 </div>
               </div>
               <div className="game-field-row game-field-row--pawns">
-                <div className="game-field-zones">
+                <div className="game-field-zones game-field-zones--pawns">
+                  <SummonReverb reverbs={summonReverbs.filter(event => event.playerIndex === oppIdx)} />
                   {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} fieldStats={z ? fieldStats(gameState, z) : undefined} xray={xray} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
                     if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                     if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
@@ -237,9 +243,10 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
             </div>
 
             {/* Active Player Field View */}
-            <div className={`game-player-field flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'}`}>
+            <div className={`game-player-field duel-player-field--active flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'}`}>
               <div className="game-field-row game-field-row--pawns">
-                <div className="game-field-zones">
+                <div className="game-field-zones game-field-zones--pawns">
+                  <SummonReverb reverbs={summonReverbs.filter(event => event.playerIndex === viewIndex)} />
                   {activePlayer.pawnZones.map((z, i) => {
                     const selected = isSelectedZone('pawn', i);
                     const canChangePosition = canChangePawnPosition(gameState, viewIndex, i);
@@ -303,7 +310,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                 {pilePair(activePlayer, viewIndex)}
               </div>
               <div className="game-field-row">
-                <div className="game-field-zones">
+                <div className="game-field-zones game-field-zones--actions">
                   {activePlayer.actionZones.map((z, i) => {
                     const selected = isSelectedZone('action', i);
                     const responseActivation = responseActivationAt('action', i);
@@ -345,7 +352,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
           </div>
 
           {/* Active Player Hand Display (Bottom) */}
-          <div data-player-hand-target={activePlayer.id} className="health-hud-safe-hand absolute bottom-0 w-full flex justify-center space-x-[-10px] z-50 pointer-events-none pb-0" ref={actions.setRef(`${viewIndex}-hand-container`)}>
+          <div data-player-hand-target={activePlayer.id} className="health-hud-safe-hand duel-active-hand absolute bottom-0 w-full flex justify-center space-x-[-10px] z-50 pointer-events-none pb-0" ref={actions.setRef(`${viewIndex}-hand-container`)}>
             {activePlayer.hand.map((card, i) => {
               const isActivatable = !actionsDisabled && actions.canPlayCard(card);
               return (

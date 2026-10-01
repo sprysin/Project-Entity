@@ -1,11 +1,13 @@
+import React, { useState } from 'react';
 import CatalogPagination, { useCatalogPage } from './CatalogPagination';
 import BackToHubButton from '../common/BackToHubButton';
+import PageBrand from '../common/PageBrand';
 import { matchesCardCatalog, cardSubtype } from '../../cards/CardRegistry';
-import React, { useState } from 'react';
 import { sortedCards } from '../../decks';
 import { CardDetail } from '../cards/CardDetail';
 import { CardType, Card } from '../../types';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
+import './CardDatabase.css';
 
 interface CardDatabaseProps {
     onBack: () => void;
@@ -16,135 +18,85 @@ const rarityCodes: Record<Card['rarity'], string> = {
     Legendary: 'Le', Mythic: 'My', Relic: 'Re',
 };
 
+const catalogTypes = [
+    { type: CardType.PAWN, label: 'Pawns', icon: <i className="fa-solid fa-chess-pawn" aria-hidden="true" />, tone: 'pawn' },
+    { type: CardType.ACTION, label: 'Actions', icon: <ActionCardIcon />, tone: 'action' },
+    { type: CardType.CONDITION, label: 'Conditions', icon: <i className="fa-solid fa-hourglass-half" aria-hidden="true" />, tone: 'condition' },
+] as const;
+
 const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-
     const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery));
-
     const pagination = useCatalogPage(filteredCards, searchQuery);
-    const pawns = pagination.entries.filter(c => c.type === CardType.PAWN);
-    const actions = pagination.entries.filter(c => c.type === CardType.ACTION);
-    const conditions = pagination.entries.filter(c => c.type === CardType.CONDITION);
 
-    return (
-        <div className="flex-1 flex overflow-hidden retro-hash bg-[#050505] text-slate-100 font-roboto">
-            <div className="flex-1 flex flex-col p-8 overflow-y-auto">
-                <div className="max-w-7xl mx-auto space-y-8 w-full">
-                    {/* Header Section */}
-                    <div className="flex flex-col md:flex-row justify-between md:items-center border-b-4 border-yellow-500/50 pb-6 gap-6">
-                        <div className="space-y-1">
-                            <h2 className="text-6xl font-orbitron font-bold text-yellow-500 tracking-tighter drop-shadow-[0_0_20px_rgba(234,179,8,0.3)] uppercase">Database</h2>
-                            <p className="text-slate-400 font-orbitron text-xs tracking-[0.4em] uppercase">Card Index</p>
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-6">
-                            <div className="relative">
-                                <i className="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500"></i>
-                                <input
-                                    type="text"
-                                    placeholder="Search Database..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-10 pr-4 py-3 bg-slate-900 border border-yellow-500/30 text-yellow-500 font-orbitron outline-none focus:ring-2 focus:ring-yellow-500 placeholder-slate-600 rounded-sm w-64 md:w-80 shadow-inner"
-                                />
-                            </div>
-                            <BackToHubButton onClick={onBack} />
-                        </div>
+    return <div className="card-database entity-page">
+        <header className="entity-topbar database-topbar">
+            <PageBrand section="CARD DATABASE / INDEX" />
+            <BackToHubButton onClick={onBack} />
+        </header>
+
+        <div className="database-body">
+            <main className="database-main">
+                <div className="database-intro">
+                    <div>
+                        <h1>CARD <em>DATABASE</em></h1>
                     </div>
-
-                    <CatalogPagination {...pagination} />
-                    {/* Card Sections */}
-                    <div className="space-y-12 pb-12">
-                        {pawns.length > 0 && (
-                            <div className="space-y-4 bg-black/40 p-6 rounded-lg border border-white/5 shadow-2xl">
-                                <h3 className="text-3xl font-orbitron font-bold text-slate-200 border-b border-slate-700/50 pb-3 flex items-center gap-3">
-                                    <i className="fa-solid fa-chess-pawn text-yellow-500 text-2xl"></i> Pawns
-                                </h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                                    {pawns.map(card => (
-                                        <div data-sound="select-small" key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-yellow-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
-                                            <CardDetail card={card} compact={true} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {actions.length > 0 && (
-                            <div className="space-y-4 bg-black/40 p-6 rounded-lg border border-white/5 shadow-2xl">
-                                <h3 className="text-3xl font-orbitron font-bold text-slate-200 border-b border-slate-700/50 pb-3 flex items-center gap-3">
-                                    <ActionCardIcon className="h-8 w-8 text-green-400" /> Actions
-                                </h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                                    {actions.map(card => (
-                                        <div data-sound="select-small" key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-green-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
-                                            <CardDetail card={card} compact={true} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {conditions.length > 0 && (
-                            <div className="space-y-4 bg-black/40 p-6 rounded-lg border border-white/5 shadow-2xl">
-                                <h3 className="text-3xl font-orbitron font-bold text-slate-200 border-b border-slate-700/50 pb-3 flex items-center gap-3">
-                                    <i className="fa-solid fa-hourglass-half text-purple-400 text-2xl"></i> Conditions
-                                </h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                                    {conditions.map(card => (
-                                        <div data-sound="select-small" key={card.id} className={`cursor-pointer transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${selectedCard?.id === card.id ? 'ring-4 ring-purple-500 rounded' : 'opacity-90 hover:opacity-100'}`} onClick={() => setSelectedCard(card)}>
-                                            <CardDetail card={card} compact={true} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {filteredCards.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-4">
-                                <i className="fa-solid fa-ghost text-6xl opacity-50"></i>
-                                <p className="font-orbitron tracking-widest uppercase font-bold">No Cards Found</p>
-                            </div>
-                        )}
-                    </div>
+                    <span className="database-total">{String(filteredCards.length).padStart(2, '0')}<small>{searchQuery ? 'MATCHING CARDS' : 'CARDS IN GAME'}</small></span>
                 </div>
-            </div>
 
-            {/* Side Panel (Similar to GameView) */}
-            <div className="w-80 border-l border-white/10 bg-black/80 backdrop-blur-2xl z-40 flex flex-col p-6 overflow-y-auto shadow-[-20px_0_30px_-15px_rgba(0,0,0,0.5)]">
-                {selectedCard ? (
-                    <div className="animate-in slide-in-from-right-4 duration-300">
-                        <CardDetail card={selectedCard} />
-                        <div className="mt-8 flex flex-col space-y-3 bg-black/50 p-4 rounded border border-white/5">
-                            <div className="font-orbitron text-xs text-yellow-500 uppercase font-bold tracking-widest border-b border-yellow-500/30 pb-2 mb-2 flex items-center gap-2">
-                                <i className="fa-solid fa-database"></i> Card Data
-                            </div>
-                            <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">RARITY:</span> <span className="text-white">({rarityCodes[selectedCard.rarity]}) {selectedCard.rarity}</span></div>
-                            <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">CLASS:</span> <span className="text-white">{selectedCard.type}</span></div>
-                            {selectedCard.type !== CardType.PAWN && <div className="text-xs text-slate-400 font-mono flex justify-between"><span>SUBTYPE:</span><span className="text-white">{cardSubtype(selectedCard)}</span></div>}
-                            {selectedCard.type === CardType.PAWN && (
-                                <>
-                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">LEVEL:</span> <span className="text-white">{selectedCard.level}</span></div>
-                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">ATTR:</span> <span className="text-white">{selectedCard.attribute || 'N/A'}</span></div>
-                                    <div className="text-xs text-slate-400 font-mono flex justify-between"><span className="text-slate-500">TYPE:</span> <span className="text-white">{selectedCard.pawnType || 'N/A'}</span></div>
-                                    {selectedCard.pawnSubtype && <div className="text-xs text-slate-400 font-mono flex justify-between"><span>SUBTYPE:</span><span className="text-white">{selectedCard.pawnSubtype}</span></div>}
-                                </>
-                            )}
-                        </div>
+                <div className="database-tools">
+                    <label className="database-search">
+                        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+                        <input type="search" aria-label="Search cards" placeholder="Search cards by name or text" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} />
+                    </label>
+
+                </div>
+
+                <div className="database-pagination"><CatalogPagination {...pagination} /></div>
+                <div className="database-sections">
+                    {catalogTypes.map(({ type, label, icon, tone }) => {
+                        const entries = pagination.entries.filter(card => card.type === type);
+                        if (!entries.length) return null;
+                        return <section key={type} className={`database-section database-section--${tone}`} aria-label={label}>
+                            <h2><span className="database-section__icon">{icon}</span>{label}<small>{String(entries.length).padStart(2, '0')} - Number of Cards</small></h2>
+                            <div className="database-card-grid">{entries.map(card => <button
+                                key={card.id}
+                                type="button"
+                                data-sound="select-small"
+                                className="database-card"
+                                aria-label={`View ${card.name}`}
+                                aria-pressed={selectedCard?.id === card.id}
+                                onClick={() => setSelectedCard(card)}
+                            ><CardDetail card={card} compact /></button>)}</div>
+                        </section>;
+                    })}
+                    {!filteredCards.length && <div className="database-empty" role="status"><i className="fa-solid fa-magnifying-glass" aria-hidden="true" /><strong>No cards found</strong><span>Try a different search.</span></div>}
+                </div>
+            </main>
+
+            <aside className="database-inspector" aria-label="Card details">
+                <div className="database-inspector__heading"><span>CARD INSPECTOR</span><i className="fa-solid fa-diamond" aria-hidden="true" /></div>
+                {selectedCard ? <>
+                    <div className="database-inspector__card"><CardDetail card={selectedCard} /></div>
+                    <div className="database-card-data">
+                        <h2><i className="fa-solid fa-database" aria-hidden="true" /> Card data</h2>
+                        <dl>
+                            <div><dt>Rarity</dt><dd>({rarityCodes[selectedCard.rarity]}) {selectedCard.rarity}</dd></div>
+                            <div><dt>Class</dt><dd>{selectedCard.type}</dd></div>
+                            {selectedCard.type !== CardType.PAWN && <div><dt>Subtype</dt><dd>{cardSubtype(selectedCard)}</dd></div>}
+                            {selectedCard.type === CardType.PAWN && <>
+                                <div><dt>Level</dt><dd>{selectedCard.level}</dd></div>
+                                <div><dt>Attribute</dt><dd>{selectedCard.attribute || 'N/A'}</dd></div>
+                                <div><dt>Type</dt><dd>{selectedCard.pawnType || 'N/A'}</dd></div>
+                                {selectedCard.pawnSubtype && <div><dt>Subtype</dt><dd>{selectedCard.pawnSubtype}</dd></div>}
+                            </>}
+                        </dl>
                     </div>
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center opacity-40 space-y-6 grayscale transition-all">
-                        <div className="w-32 h-32 border-4 border-dashed border-slate-600 rounded-full flex items-center justify-center animate-[spin_10s_linear_infinite]">
-                            <i className="fa-solid fa-crosshairs text-5xl text-slate-500 animate-[spin_10s_linear_infinite_reverse]"></i>
-                        </div>
-                        <span className="text-[10px] font-orbitron tracking-widest text-center uppercase font-bold text-slate-400 tracking-[0.2em] leading-relaxed max-w-[200px]">
-                            Select Card to View Details...
-                        </span>
-                    </div>
-                )}
-            </div>
+                </> : <div className="database-inspector__empty"><span><i className="fa-solid fa-crosshairs" aria-hidden="true" /></span></div>}
+            </aside>
         </div>
-    );
+    </div>;
 };
 
 export default CardDatabase;

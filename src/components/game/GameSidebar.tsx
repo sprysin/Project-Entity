@@ -34,7 +34,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
     };
 
     return (
-        <aside className={`relative z-40 flex flex-col border-l border-white/10 bg-black/80 backdrop-blur-2xl transition-all duration-300 ease-in-out ${isOpen ? 'w-80' : 'w-10'}`}>
+        <aside className={`game-data-sidebar relative z-40 flex flex-col border-l border-white/10 bg-black/80 backdrop-blur-2xl transition-all duration-300 ease-in-out ${isOpen ? 'w-80' : 'w-10'}`}>
             <button aria-label={isOpen ? 'Collapse system data' : 'Expand system data'} onClick={() => setIsOpen(!isOpen)} className="absolute -left-3 top-1/2 z-50 flex h-12 w-6 items-center justify-center rounded-l-md border-l border-y border-yellow-400 bg-yellow-600 text-black shadow-lg transition-colors hover:bg-yellow-500">
                 <i className={`fa-solid ${isOpen ? 'fa-chevron-right' : 'fa-chevron-left'}`} />
             </button>

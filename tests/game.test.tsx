@@ -4,13 +4,14 @@ import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useGameLogic } from '../src/hooks/useGameLogic';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card, GameState, Phase, Position, OpponentMode, PlaytestDebugSettings } from '../src/types';
+import { Attribute, Card, GameState, Phase, Position, OpponentMode, PlaytestDebugSettings } from '../src/types';
 import { Zone } from '../src/components/game/Zone';
 import PlaytestSetup from '../src/components/decks/PlaytestSetup';
 import { DeckPile } from '../src/components/game/Pile';
 import { XrayOverlay } from '../src/components/game/XrayOverlay';
 import { GameSidebar } from '../src/components/game/GameSidebar';
 import { CardDetail } from '../src/components/cards/CardDetail';
+import { detectSummonReverbs } from '../src/components/game/SummonReverb';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
@@ -138,6 +139,23 @@ it('prompts only for available effects and honors a chosen special-summon slot',
         expect(overlay!.root.findAllByProps({ className: 'field-pawn-overlay field-counter-overlay' })).toHaveLength(0);
     }
     act(() => overlay!.unmount());
+
+    const beforeReverb = structuredClone(game.gameState!);
+    beforeReverb.players.forEach(player => player.pawnZones.fill(null));
+    const boss = { ...card('pawn_01', 1), level: 8 as const, attribute: Attribute.WATER };
+    const ordinary = { ...card('pawn_01'), level: 7 as const };
+    const afterReverb = structuredClone(beforeReverb);
+    afterReverb.players[1].pawnZones[3] = placed(boss);
+    afterReverb.players[0].pawnZones[0] = placed(ordinary);
+    expect(detectSummonReverbs(beforeReverb, afterReverb)).toEqual([{ playerIndex: 1, slot: 3, color: '#4d9cff', instanceId: boss.instanceId }]);
+    const hidden = structuredClone(beforeReverb);
+    hidden.players[1].pawnZones[3] = { ...placed(boss), position: Position.HIDDEN };
+    expect(detectSummonReverbs(beforeReverb, hidden)).toEqual([]);
+    expect(detectSummonReverbs(hidden, afterReverb)).toEqual([]);
+    const moved = structuredClone(afterReverb);
+    moved.players[1].pawnZones[4] = moved.players[1].pawnZones[3];
+    moved.players[1].pawnZones[3] = null;
+    expect(detectSummonReverbs(afterReverb, moved)).toEqual([]);
 });
 
 it('holds a declared attack for 1.5 seconds before committing combat', () => {
@@ -254,15 +272,11 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => root.update(<PlaytestSetup onBack={() => {}} onStart={started} />));
     act(() => root.root.findByProps({ 'aria-label': 'Debug settings' }).props.onClick());
     const toggles = () => root.root.findAllByProps({ type: 'checkbox' });
-    expect(toggles().every(toggle => toggle.props.disabled)).toBe(true);
+    expect(root.root.findAllByProps({ type: 'radio' })).toHaveLength(0);
     expect(toggles().every(toggle => toggle.props['data-sound'] === 'toggle')).toBe(true);
-    act(() => root.root.findAllByProps({ type: 'radio' })[1].props.onChange());
     act(() => toggles().forEach(toggle => toggle.props.onChange({ target: { checked: true } })));
     act(() => root.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
     expect(started).toHaveBeenLastCalledWith([null, null], 'ai', debug);
-    act(() => root.root.findAllByProps({ type: 'radio' })[0].props.onChange());
-    act(() => root.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
-    expect(started).toHaveBeenLastCalledWith([null, null]);
 
     const hidden = { ...placed(card('pawn_01', 1)), position: Position.HIDDEN };
     debugGame.players[1].pawnZones[0] = hidden;

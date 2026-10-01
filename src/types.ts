@@ -250,6 +250,8 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Reusable counter-gated hand summon; shared by card legality and AI planning. */
+  counterSummon?: { counter: string; requiredCounters(card: Card): number | undefined };
   /** Continuous field-only stat changes; evaluated from the current board without mutating printed stats. */
   fieldStatModifier?(state: GameState, context: CardContext, placement: PlacedCard): { atk?: number; def?: number };
   /** Observes a face-up normal/tribute summon while this source is face-up. */

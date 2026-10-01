@@ -31,6 +31,8 @@ Legal effect choices come from the registered effect's own selection requests. A
 
 This is a heuristic opponent, not an exhaustive solver: effect-choice exploration and battle search are bounded. A per-turn action budget prevents pathological effect loops from hanging the match. Tests cover hidden-information invariance, legal timing/counts, costs, LIFO order, invalidated targets, and complete React-driven AI turns.
 
+Searches compare legal follow-up summons and their combat value, and account for LP spent acquiring cards. Tribute upgrades receive credit for breaking through the current board. Summon reactions compare eligible hand cards and both face-up positions. Arming a summon reaction uses the existing `onPawnSummoned` / `handSummonFilter` contract. Counter-gated hand summons expose `IEffect.counterSummon` with a counter name and a pure required-counter function, reused by the card's summon eligibility. The AI values progress toward eligible Pawns and stops crediting surplus counters. All scoring weights stay in the shared planner; legality still comes from the normal effect requests. Multi-mode decisions retain `context.effectId` through execution.
+
 ## Attach subtypes
 
 Attach Actions retain Action timing (the controller’s Main Phases); Attach Conditions retain Condition timing (set on an earlier turn, eligible to respond). Remaining face-up does not repeat an attachment’s initial activation. `Effect.AttachToTarget()` records the target instance ID only during successful resolution, after choices and costs. AI previews may evaluate an Attach Action in hand before choosing a zone. The source must still be on the field when it attaches. Invalidated targets cause the Attach card to be discarded without linking to a replacement.

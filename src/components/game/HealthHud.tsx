@@ -1,5 +1,6 @@
 import React from 'react';
 import { Player } from '../../types';
+import ProfileAvatar from '../common/ProfileAvatar';
 
 type LpFlash = 'damage' | 'heal' | null;
 
@@ -8,9 +9,10 @@ interface HealthHudProps {
     displayedLp: number;
     flash: LpFlash;
     position: 'active' | 'opponent';
+    profileImage?: string | null;
 }
 
-export const HealthHud: React.FC<HealthHudProps> = ({ player, displayedLp, flash, position }) => {
+export const HealthHud: React.FC<HealthHudProps> = ({ player, displayedLp, flash, position, profileImage }) => {
     const isActive = position === 'active';
     const frameGradientId = `health-frame-${player.id}-${position}`;
     const framePath = isActive ? 'M 0 0 H 72 L 100 100 H 0 Z' : 'M 0 0 H 100 V 100 H 28 Z';
@@ -23,7 +25,9 @@ export const HealthHud: React.FC<HealthHudProps> = ({ player, displayedLp, flash
             data-player-id={player.id}
         >
             <div className="health-hud__identity">
-                <span className="health-hud__emblem" aria-hidden="true"><span /></span>
+                <span className={`health-hud__emblem${profileImage ? ' health-hud__emblem--profile' : ''}`} aria-hidden="true">
+                    {profileImage ? <ProfileAvatar image={profileImage} /> : <span />}
+                </span>
                 <span className="health-hud__name">{player.name}</span>
             </div>
             <div className="health-hud__rule" />

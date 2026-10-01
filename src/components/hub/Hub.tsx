@@ -6,13 +6,14 @@ interface HubProps {
   onRules: () => void;
   onCreateDeck: () => void;
   onSettings: () => void;
+  onExit: () => void;
 }
 
 /**
  * Hub Component
- * The landing page of the game. Features navigation buttons and the game title.
+ * The debug room with navigation to game tools.
  */
-const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDeck, onSettings }) => {
+const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDeck, onSettings, onExit }) => {
   return (
     <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center space-y-8 retro-hash relative">
       {/* Decorative gradient overlay */}
@@ -24,7 +25,7 @@ const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDe
           PROJECT ENTITY
         </h1>
         <p className="text-xl text-slate-400 font-light tracking-[0.3em] uppercase">
-          SIMULATION CARD GAME
+          DEBUG ROOM
         </p>
       </div>
 
@@ -61,7 +62,10 @@ const Hub: React.FC<HubProps> = ({ onStartGame, onViewCards, onRules, onCreateDe
           GAME RULES
         </button>
         <button data-sound="select" onClick={onSettings} className="py-4 px-8 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-slate-700/50 backdrop-blur-md">
-          <i className="fa-solid fa-gear mr-2" aria-hidden="true" /> SETTINGS
+          SETTINGS
+        </button>
+        <button data-sound="cancellation" onClick={onExit} className="py-4 px-8 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-sm font-orbitron font-bold transition-all transform active:scale-95 border border-slate-700/50 backdrop-blur-md">
+          EXIT TO MAIN PAGE
         </button>
       </div>
 

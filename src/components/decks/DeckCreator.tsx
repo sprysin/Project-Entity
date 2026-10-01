@@ -1,5 +1,6 @@
 import CatalogPagination, { useCatalogPage } from '../catalog/CatalogPagination';
 import BackToHubButton from '../common/BackToHubButton';
+import PageBrand from '../common/PageBrand';
 import { matchesCardCatalog } from '../../cards/CardRegistry';
 import React, { useEffect, useState } from 'react';
 import { CardDetail } from '../cards/CardDetail';
@@ -113,13 +114,18 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const pagination = useCatalogPage(filtered, search);
     const quantity = (card: CardDefinition) => deck?.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
 
-    return <div className="deck-workspace retro-hash" inert={busy}>
+    return <div className="deck-workspace entity-page" inert={busy}>
         {busy && <div role="status" style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', background: '#020617aa' }}>Saving deck…</div>}
         {!deck ? <main className="deck-library">
-            <header className="deck-library-header">
-                <div><span className="deck-eyebrow">PROJECT ENTITY</span><h1>YOUR DECKS</h1></div>
+            <header className="entity-topbar deck-library-topbar">
+                <PageBrand section="DECK EDITOR / LIBRARY" />
                 <BackToHubButton onClick={onBack} />
             </header>
+            <div className="deck-library-main">
+            <div className="deck-library-header">
+                <div><span className="deck-eyebrow">BUILD YOUR STRATEGY / 01</span><h1>YOUR <em>DECKS</em></h1><p>Create a deck, open a saved build, or bring in a JSON file.</p></div>
+                <span className="deck-library-total">{String(library.length).padStart(2, '0')} <small>SAVED DECKS</small></span>
+            </div>
             <div className="deck-library-actions">
                 <button data-sound="select" className="deck-primary" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-plus" aria-hidden="true" /> New deck</button>
                 <button data-sound="select-small" className="deck-secondary" onClick={importFile}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
@@ -134,9 +140,14 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                 </div>)}
                 {!library.length && <button data-sound="select" className="deck-empty-library" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Build your first deck</span><i className="fa-solid fa-plus" aria-hidden="true" /></button>}
             </div>
+            </div>
         </main> : <div className="deck-editor">
+            <header className="entity-topbar deck-editor-topbar">
+                <PageBrand section="DECK EDITOR / WORKSPACE" />
+                <div className="deck-editor-topbar__actions"><span>BUILD / {total(deck)} CARDS</span><button data-sound="cancellation" type="button" className="page-back-button" onClick={leave}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back to decks</button></div>
+            </header>
             <aside className="deck-preview" aria-label="Card viewer">
-                <div className="deck-preview-nav"><IconButton sound="cancellation" label="Back to decks" icon="fa-arrow-left" onClick={leave} /><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
+                <div className="deck-preview-nav"><span>CARD VIEWER</span><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
                 {selected && <div className="deck-preview-face">{face(selected)}</div>}
                 {selected && <div className="deck-preview-controls">
                     <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Remove ${selected.name}`} onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)}>Remove card <span aria-hidden="true">−</span></button>

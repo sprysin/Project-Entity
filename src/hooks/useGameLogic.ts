@@ -1,4 +1,5 @@
 import { handSummonCandidates } from '../game/summonReactions';
+import { chooseAIHandSummon, observeGame } from '../game/opponentAI';
 import { canTribute } from '../game/cardHelpers';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -312,11 +313,8 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         const pending = gameState?.pendingHandSummons?.[0];
         if (opponentMode !== 'ai' || pending?.playerIndex !== 1 || triggeredEffect || pendingEffectCard
             || gameState?.response || gameState?.resolvingChain) return;
-        const own = gameState.players[1];
-        const card = handSummonCandidates(gameState, pending)[0];
-        setGameState(prev => prev ? applyCommand(prev, 1, card
-            ? { type: 'confirmHandSummon', sourceId: pending.sourceId, cardId: card.instanceId, slot: own.pawnZones.indexOf(null), position: Position.ATTACK }
-            : { type: 'declineHandSummon', sourceId: pending.sourceId }).state : prev);
+        const command = chooseAIHandSummon(observeGame(gameState, 1), 1);
+        if (command) setGameState(prev => prev ? applyCommand(prev, 1, command).state : prev);
     }, [gameState, opponentMode, triggeredEffect, pendingEffectCard]);
 
     // AI-only reveals are private information for the AI, so they never open a

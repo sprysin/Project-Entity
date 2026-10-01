@@ -15,7 +15,7 @@ export const OpeningCoin: React.FC<{
     return <DuelPrompt
         className="opening-coin"
         ariaLabel="Opening coin flip"
-        title={flipping ? 'Fate is in the air' : `${winner.name} wins the flip`}
+        title={<><span className="opening-coin__eyebrow">DUEL INITIATION / 01</span>{flipping ? 'OPENING FLIP' : `${winner.name} wins the flip`}</>}
         peeking={false}
         setPeeking={() => { }}
         actions={flipping || aiChoosing ? [] : [
@@ -42,7 +42,6 @@ export const OpeningCoin: React.FC<{
             </span>)}
         </div>
         <p className="opening-coin__status" role="status" aria-live="polite">
-            <span><br /></span>
             {flipping ? 'The winning side chooses the turn order.' : aiChoosing ? 'AI is choosing the turn order…' : 'Choose your opening move.'}
         </p>
     </DuelPrompt>;

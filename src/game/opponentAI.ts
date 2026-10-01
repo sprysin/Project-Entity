@@ -2,7 +2,8 @@ import { canTribute, fieldStats } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
-import { applyCommand } from './engine';
+import { applyCommand, GameCommand } from './engine';
+import { handSummonCandidates } from './summonReactions';
 import { resolveCombat } from './combat';
 import { advancePhaseState } from './phases';
 
@@ -71,7 +72,28 @@ export function evaluatePosition(state: GameState, player: number): number {
     // while lethal outcomes are handled by the terminal scores above.
     const ownLPSafety = Math.min(own.lp, 100);
     const opponentLP = opp.lp * .2;
+    const setupValue = (index: number) => {
+        const controller = state.players[index];
+        return [...controller.pawnZones, ...controller.actionZones].reduce((total, zone) => {
+            if (!zone || zone.position === Position.HIDDEN) return total;
+            const effect = cardRegistry.getEffect(zone.card.id);
+            const reactionValue = effect?.onPawnSummoned && effect.handSummonFilter && controller.pawnZones.includes(null)
+                ? Math.max(0, ...controller.hand.filter(effect.handSummonFilter).map(c => pawnValue(c) * .3)) : 0;
+            const summon = effect?.counterSummon;
+            // Reusable counters retain value after deployment. Known candidates
+            // bound the useful threshold; surplus counters receive no credit.
+            const counterValue = !summon ? 0 : Math.max(0, ...[
+                ...controller.hand, ...controller.deck, ...controller.pawnZones.flatMap(pawn => pawn ? [pawn.card] : [])
+            ].map(card => {
+                const required = summon.requiredCounters(card);
+                return required === undefined ? 0
+                    : Math.min(zone.counters?.[summon.counter] ?? 0, required) * pawnValue(card) * .9;
+            }));
+            return total + reactionValue + counterValue;
+        }, 0);
+    };
     return ownLPSafety - opponentLP + field(player) - field(1 - player)
+        + setupValue(player) - setupValue(1 - player)
         + own.hand.reduce((n, c) => n + (c.type === CardType.PAWN ? (c.level <= 4 ? 24 : 12) : 18), 0)
         - exposed(player) * (own.lp < 100 ? 1.6 : .6)
         + combatControl
@@ -177,6 +199,45 @@ export function hasWorthwhileAttack(state: GameState, player: number): boolean {
     return battle.currentPhase === Phase.BATTLE && planBattle(battle, player).kind === 'attack';
 }
 
+/** Compare a tribute upgrade with the same combat opportunity before summoning. */
+function summonScore(state: GameState, next: GameState, player: number): number {
+    return evaluatePosition(next, player) + (state.currentPhase === Phase.MAIN1
+        ? Math.max(0, immediateBattleScore(next, player) - immediateBattleScore(state, player)) : 0);
+}
+
+/** Searches should favor cards that can become useful board presence immediately. */
+function handFollowUpScore(state: GameState, player: number): number {
+    let best = evaluatePosition(state, player);
+    const own = state.players[player];
+    for (const card of own.hand) {
+        if (card.type !== CardType.PAWN) continue;
+        const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
+        for (const tributes of combinations(own.pawnZones.flatMap((z, i) => z && canTribute(z.card) ? [i] : []), count)) {
+            const next = simulateSummon(state, card, false, tributes);
+            if (next !== state) best = Math.max(best, summonScore(state, next, player));
+        }
+    }
+    return best;
+}
+
+/** Triggered special summons choose both a useful Pawn and a safe position. */
+export function chooseAIHandSummon(state: GameState, player: number): GameCommand | undefined {
+    const request = state.pendingHandSummons?.[0];
+    if (!request || request.playerIndex !== player || state.response || state.resolvingChain) return;
+    let command: GameCommand = { type: 'declineHandSummon', sourceId: request.sourceId };
+    let best = evaluatePosition(state, player);
+    const slot = state.players[player].pawnZones.indexOf(null);
+    if (slot < 0) return command;
+    for (const card of handSummonCandidates(state, request)) for (const position of [Position.ATTACK, Position.DEFENSE]) {
+        const candidate: GameCommand = { type: 'confirmHandSummon', sourceId: request.sourceId, cardId: card.instanceId, slot, position };
+        const next = applyCommand(state, player, candidate).state;
+        if (next === state) continue;
+        const score = evaluatePosition(next, player);
+        if (score > best) { best = score; command = candidate; }
+    }
+    return command;
+}
+
 export function chooseAIAction(observation: GameState, player: number, summonEffect?: Card): AIDecision {
     const state = observation, own = state.players[player];
     const response = !!state.response;
@@ -250,6 +311,12 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
                 // weight. Add effect-specific pressure so burn cards are still
                 // worth converting from hand instead of being held forever.
                 + opponentLPDamage(baseline, next) * .2;
+            if (!response && next.players[player].hand.some(c => !base.players[player].hand.some(previous => previous.instanceId === c.instanceId))) {
+                score += Math.max(0, handFollowUpScore(next, player) - evaluatePosition(next, player));
+                // Avoid paying substantial LP merely to stockpile unplayable
+                // searches. A real deployment or card advantage can justify it.
+                score -= Math.max(0, base.players[player].lp - next.players[player].lp) * .05;
+            }
             if (visibleBlocker && raisedOwnAttack(base, next)) {
                 score += Math.max(0, boostedBattleScore(next) - currentBattleScore);
             }
@@ -274,7 +341,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             for (const tribute of tributes) for (const hidden of [false, true]) {
                 const next = simulateSummon(state, card, hidden, tribute);
                 if (next === state) continue;
-                let score = evaluatePosition(next, player);
+                let score = summonScore(state, next, player);
                 if (!hidden && cardRegistry.getEffect(card.id)?.onSummon) {
                     for (const context of effectChoices(next, card, 'summon')) {
                         const resolved = resolveChain(addChainLink(next, context, 'summon'));

@@ -9,8 +9,15 @@ import { canTribute } from '../../game/cardHelpers';
 const COUNTER = 'Tribute Counters';
 const source = (state: GameState, context: CardContext) =>
     state.players[context.playerIndex].actionZones.find(zone => zone?.card.instanceId === context.card.instanceId);
-const canSummon = (card: Card, count: number) => card.type === CardType.PAWN
-    && card.level >= 5 && count >= (card.level <= 7 ? 2 : 3);
+const counterSummon = {
+    counter: COUNTER,
+    requiredCounters: (card: Card) => card.type === CardType.PAWN && card.level >= 5
+        ? (card.level <= 7 ? 2 : 3) : undefined
+};
+const canSummon = (card: Card, count: number) => {
+    const required = counterSummon.requiredCounters(card);
+    return required !== undefined && count >= required;
+};
 const unavailable = (id: string) => (state: GameState, context: CardContext): boolean => {
     const zone = source(state, context);
     if (!zone || zone.position === Position.HIDDEN
@@ -23,6 +30,7 @@ const unavailable = (id: string) => (state: GameState, context: CardContext): bo
 };
 
 const effect: IEffect = {
+    counterSummon,
     onFieldActivate: buildEffectChoice([
         {
             id: 'tribute', unavailable: unavailable('tribute'),
