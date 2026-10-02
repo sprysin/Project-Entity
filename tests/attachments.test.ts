@@ -81,6 +81,30 @@ it('destroys chained Attach cards when an attached target leaves the field', () 
     expect(next.players[0].actionZones.slice(0, 2)).toEqual([null, null]);
     expect(next.players[0].discard.map(discarded => discarded.instanceId)).toEqual([source.instanceId, secondSource.instanceId]);
 
+    // Leaving and returning during the same battle still breaks every attachment.
+    const revival = setup();
+    const victim = { ...card('pawn_13'), ownerId: 'p1' };
+    const necromancer = card('pawn_14');
+    revival.state.players[0].pawnZones[0] = zone(necromancer);
+    revival.state.players[1].pawnZones[0] = { ...zone(victim), position: Position.DEFENSE };
+    revival.state.players[0].actionZones[1] = zone(secondSource);
+    let attachedVictim = resolveChain(addChainLink(revival.state, {
+        card: revival.source, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 }
+    }, 'activate'));
+    attachedVictim.players[0].actionZones[1]!.attachedToInstanceIds = [revival.source.instanceId];
+    expect(attachedVictim.players[1].pawnZones[0]!.card.atk).toBe(victim.atk + 20);
+    attachedVictim.currentPhase = Phase.BATTLE;
+    const revived = resolveCombat(attachedVictim, 0, 0);
+    expect(revived.players[0].actionZones.slice(0, 2)).toEqual([null, null]);
+    expect(revived.players[0].discard.map(c => c.instanceId)).toEqual([revival.source.instanceId, secondSource.instanceId]);
+    expect(revived.players[0].pawnZones[1]?.card).toMatchObject({ instanceId: victim.instanceId, atk: victim.atk });
+    expect(revived.players[1].discard).toEqual([]);
+    expect(attachedVictim.players[0].actionZones[0]).not.toBeNull();
+    const failedRevival = cardRegistry.getEffect(necromancer.id)!.onBattleDestroy!(revival.state, {
+        card: necromancer, playerIndex: 0, destroyedCard: victim
+    }).newState;
+    expect(failedRevival.players[0].pawnZones[1]).toBeNull();
+
     // Two-target links distinguish destruction from other ways of leaving the field.
     for (const pawnType of [PawnType.UNDEAD, PawnType.ELEMENTAL]) {
         for (const removal of ['own-effect', 'opponent-effect', 'battle', 'void', 'flip', 'source'] as const) {

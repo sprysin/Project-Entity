@@ -55,10 +55,6 @@
 .deck-section-rule span { height: 1px; background: currentColor; opacity: .2; flex: 1; }
 .deck-owned-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; align-items: start; }
 .deck-owned-card { min-width: 0; max-width: 160px; }
-.deck-card-add { animation: deck-card-add .32s cubic-bezier(.2, .8, .25, 1.3); }
-.deck-card-remove { animation: deck-card-remove .3s cubic-bezier(.2, .8, .25, 1.2); }
-@keyframes deck-card-add { 0% { transform: translateY(12px) scale(.88); opacity: .6; } 65% { transform: translateY(-5px) scale(1.05); opacity: 1; } 100% { transform: translateY(0) scale(1); } }
-@keyframes deck-card-remove { 0% { transform: translateY(-7px) scale(1.04); } 55% { transform: translateY(3px) scale(.97); } 100% { transform: translateY(0) scale(1); } }
 .deck-card-select { display: block; width: 100%; text-align: left; border-radius: 4px; }
 .deck-card-select > div { box-shadow: 0 4px 12px #0008; }
 .deck-card-select:hover > div { filter: brightness(1.18); }
@@ -78,7 +74,6 @@
 .deck-prompt h2 { margin: 12px 0 16px; color: #eab308; font: bold 18px Orbitron, sans-serif; }
 .deck-prompt p { margin: 0; font-size: 13px; line-height: 1.6; white-space: pre-line; }
 .deck-prompt-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 28px; }
-@media (prefers-reduced-motion: reduce) { .deck-card-add, .deck-card-remove { animation: none; } }
 @media (max-width: 1000px) { .deck-preview { padding: 16px; } .deck-center-header { padding: 23px 16px 16px; } .deck-content-scroll { padding-inline: 16px; } .deck-counts { padding-inline: 16px; gap: 12px; } .deck-primary { padding: 10px 12px; } }
 
 /* The library and workbench use the home screen's framing while retaining card-type color. */

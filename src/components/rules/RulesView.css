@@ -15,9 +15,6 @@
 
 .rulebook-shell { max-width: 1260px; margin: 0 auto; padding: 0 32px 56px; }
 .rulebook-topbar { height: 76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
-.rulebook-brand { display:flex; align-items:center; gap:12px; color:var(--gold); background:none; border:0; padding:0; cursor:pointer; text-align:left; font-family:Orbitron,sans-serif; font-size:12px; letter-spacing:.18em; font-weight:700; }
-.rulebook-brand i { font-size:22px; }
-.rulebook-brand small { display:block; color:#777985; font-family:Roboto,sans-serif; letter-spacing:.3em; font-size:9px; margin-top:5px; }
 .rulebook-breadcrumb button { background:transparent; border:1px solid var(--line); color:#cacbd0; border-radius:4px; padding:10px 15px; cursor:pointer; font-size:12px; transition:.2s; }
 .rulebook-breadcrumb button:hover { border-color:var(--gold); color:var(--gold); background:rgba(245,189,72,.06); }
 .rulebook-cover { min-height:460px; display:grid; grid-template-columns: 1fr 1fr; align-items:center; gap:50px; border-bottom:1px solid var(--line); }
@@ -116,7 +113,6 @@
 }
 @media (max-width:480px) {
   .rulebook-topbar { height:65px; }
-  .rulebook-brand { letter-spacing:.1em; font-size:10px; }
   .rulebook-cover h1 { font-size:38px; }
   .rulebook-rule-list p { font-size:15px; }
   .rulebook-pawn-fields > div, .rulebook-attribute-grid { grid-template-columns:1fr; }
@@ -137,9 +133,7 @@
     repeating-linear-gradient(90deg, transparent 0 68px, #eab30810 69px);
 }
 .rulebook-topbar.entity-topbar { position: sticky; top: 0; z-index: 20; height: 96px; min-height: 96px; }
-.rulebook-brand { color: inherit; }
-.rulebook-brand:hover .page-brand__mark, .rulebook-brand:focus-visible .page-brand__mark { box-shadow: 0 0 24px #eab308aa; }
-.rulebook-brand:focus-visible, .rulebook button:focus-visible { outline: 2px solid #fbd77e; outline-offset: 4px; }
+.rulebook button:focus-visible { outline: 2px solid #fbd77e; outline-offset: 4px; }
 .rulebook-shell { max-width: 1500px; padding-inline: 56px; }
 .rulebook-cover { min-height: 570px; gap: 90px; border-bottom-color: #d5a65477; }
 .rulebook-eyebrow { color: #f0bd61; letter-spacing: .3em; }

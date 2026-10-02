@@ -44,7 +44,7 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
       <div className="home-scanline" />
       <div className="home-orbit home-orbit--outer" />
       <div className="home-orbit home-orbit--inner" />
-      <div className="home-core"><span>E</span></div>
+      <div className="home-core"><span className="home-core__logo" /></div>
       <div className="home-card home-card--one" />
       <div className="home-card home-card--two" />
       <div className="home-card home-card--three" />
@@ -54,7 +54,7 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
     </div>
 
     <header className="home-topbar">
-      <div className="home-mark"><span className="home-mark__symbol"><span>E</span></span><span>PROJECT ENTITY <small>SIMULATION CARD GAME</small></span></div>
+      <div className="home-mark"><span className="home-mark__symbol" aria-hidden="true"><span /></span><span>PROJECT ENTITY <small>SIMULATION CARD GAME</small></span></div>
       <div className="home-topbar__right">
         <span className="home-build">ALPHA / 1.5.0</span>
         <button type="button" data-sound="select" className="home-account" onClick={onAccount}>
@@ -69,7 +69,7 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
       <div className="home-left">
         <div className="home-heading">
           <span className="home-kicker"><span className="home-live-dot" /> Pending...</span>
-          <h1>PROJECT <em>ENTITY</em><span className="home-heading__asterisk"></span></h1>
+          <h1>PROJECT <em>ENTITY</em></h1>
         </div>
         <nav aria-label="Main menu" className="home-navigation">
           {navigation.map(item => <button

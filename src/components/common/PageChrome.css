@@ -19,11 +19,12 @@
   background: linear-gradient(90deg, #07090df5, #0c1017e8);
 }
 
-.page-brand { display: inline-flex; align-items: center; gap: 19px; font-family: Orbitron, sans-serif; }
-.page-brand__mark { display: grid; place-items: center; width: 50px; height: 50px; flex: none; transform: rotate(45deg); border: 2px solid #eab308; background: #090b0e; color: #fff; box-shadow: 0 0 15px #eab30866; font-size: 29px; font-weight: 900; }
-.page-brand__mark span { transform: rotate(-45deg); }
-.page-brand__copy strong { display: block; color: #fff; font-size: 18px; font-weight: 900; letter-spacing: .13em; }
-.page-brand__copy small { display: block; margin-top: 6px; color: #cbaa6b; font-size: 9px; letter-spacing: .3em; }
+.page-brand { display: inline-flex; align-items: center; gap: 27px; font-family: Orbitron, sans-serif; }
+.page-brand__mark { display: grid; place-items: center; width: 47px; height: 47px; flex: 0 0 47px; transform: rotate(45deg); border: 2px solid #eab308; background: #0a0a0a; color: #fff; box-shadow: 0 0 7px #eab30866, 0 0 15px #eab30826; }
+.page-brand__mark span { display: block; width: 33px; height: 36px; transform: rotate(-45deg); filter: drop-shadow(0 0 3px #ffffff70); }
+.page-brand__mark span::before { content: ''; display: block; width: 100%; height: 100%; background: currentColor; mask: url('../../styles/Logo/ProjEntityLogo.svg') center / contain no-repeat; }
+.page-brand__copy strong { display: block; color: #fff; font-size: 21px; font-weight: 900; letter-spacing: .13em; }
+.page-brand__copy small { display: block; margin-top: 7px; color: #bdb6a7; font-size: 10px; font-weight: 400; letter-spacing: .22em; line-height: 1.4; }
 
 .page-back-button {
   display: inline-flex;

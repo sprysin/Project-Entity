@@ -2,7 +2,7 @@ import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
 import { canTribute, isToken } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, runEffect } from './chains';
+import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, runEffect, startPendingTriggers } from './chains';
 import { destroyOrphanedAttachments, notifyAttachedActivation } from './attachments';
 import { finishEffect } from './finishEffect';
 import { formatSummonLog } from './effectLog';
@@ -101,7 +101,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             next.pendingVoidSelections = next.pendingVoidSelections!.slice(1)
                 .filter(request => next.players[request.pilePlayerIndex].discard.length);
             next.log = [`"${pending.source.name}" sends "${card.name}" from the Discard Pile to the Void.`, ...next.log].slice(0, 50);
-            return autoPass(notifyAttachedActivation(state, next, pending.source));
+            return startPendingTriggers(autoPass(notifyAttachedActivation(state, next, pending.source)));
         }
         case 'declineHandSummon': {
             const pending = state.pendingHandSummons?.[0];
@@ -237,5 +237,5 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
             events.push({ type: 'destroyed', playerIndex, index, card: zone.card });
         }
     }));
-    return { state: queueRevealedSwitches(state, next), events };
+    return { state: startPendingTriggers(queueRevealedSwitches(state, next)), events };
 }

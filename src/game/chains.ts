@@ -212,10 +212,15 @@ export function resolveChain(state: GameState): GameState {
     let next = state;
     while (next.chain?.length && !next.winner && !next.pendingVoidSelections?.length) next = resolveChainStep(next);
     if (next.pendingVoidSelections?.length) return next;
-    return next.chain?.length || next.response && !next.resolvingChain
-        ? { ...next, chain: [], resolvingChain: undefined,
-            response: state.deferredAction && !next.winner ? { ...state.response!, ready: true } : undefined }
-        : next;
+    return next.winner ? { ...next, chain: [], resolvingChain: undefined, response: undefined } : next;
+}
+
+/** Automatic triggers form a new chain; they never interrupt cost payment or combat. */
+export function startPendingTriggers(state: GameState): GameState {
+    if (!state.pendingTriggers?.length || state.chain?.length || state.response || state.deferredAction
+        || state.winner || state.pendingVoidSelections?.length) return state;
+    return addSimultaneousTriggers({ ...state, pendingTriggers: [] },
+        state.pendingTriggers.map(entry => ({ ...entry, mandatory: true })));
 }
 
 /** Resolve one link so the host can display each resulting board state. */
@@ -253,10 +258,10 @@ export function resolveChainStep(state: GameState): GameState {
             fizzled ? `"${context.card.name}" resolved without effect: its selection is no longer valid.` : formatEffectLog(before, result.newState, context.card, context, link.trigger, context.tributeCards));
     }
     const remaining = state.chain!.slice(0, -1);
-    return { ...next, chain: remaining, resolvingChain: remaining.length && !next.winner
+    return startPendingTriggers({ ...next, chain: remaining, resolvingChain: remaining.length && !next.winner
         ? { total: state.resolvingChain?.total ?? state.chain!.length, current: (state.resolvingChain?.current ?? 0) + 1, cardName: remaining.at(-1)!.context.card.name }
         : undefined, response: remaining.length && !next.winner ? state.response
-        : next.deferredAction && !next.winner ? { ...state.response!, ready: true } : undefined };
+        : next.deferredAction && !next.winner ? { ...state.response!, ready: true } : undefined });
 }
 
 function beginChainResolution(state: GameState): GameState {

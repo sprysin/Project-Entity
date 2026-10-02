@@ -9,11 +9,12 @@ const effect: IEffect = {
         const own = next.players[context.playerIndex];
         const slot = own.pawnZones.indexOf(null);
         if (slot < 0 || !own.pawnZones.some(z => z?.card.instanceId === context.card.instanceId)) return { newState: next };
-        let revived = context.destroyedCard;
+        let revived: typeof context.destroyedCard | undefined;
         for (const player of next.players) {
             const index = player.discard.findIndex(card => card.instanceId === context.destroyedCard.instanceId);
             if (index >= 0) { [revived] = player.discard.splice(index, 1); break; }
         }
+        if (!revived) return { newState: next };
         own.pawnZones[slot] = { card: revived, position: Position.DEFENSE, hasAttacked: false,
             hasChangedPosition: false, summonedTurn: next.turnNumber, isSetTurn: false,
             returnToOwnerEndPhase: true };

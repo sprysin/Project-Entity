@@ -238,9 +238,7 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <div ref={scroller} className="rulebook entity-page">
       <header className="rulebook-topbar entity-topbar">
-        <button data-sound="select-small" onClick={() => { setSelected(null); setPage(0); resetPosition(); }} className="rulebook-brand" aria-label="Rulebook home">
-          <PageBrand section="THE RULEBOOK" />
-        </button>
+        <PageBrand section="THE RULEBOOK" />
         <BackToHubButton onClick={onBack} />
       </header>
       <div className="rulebook-shell">

@@ -92,14 +92,10 @@ export const Cost = {
             activePlayer.hand.splice(context.handIndex, 1);
             sendToOwnerPile(draftState, discardedCard, 'discard');
 
-            const discardEffect = cardRegistry.getEffect(discardedCard.id)?.onDiscard;
-            if (discardEffect) {
-                const result = discardEffect(draftState, {
-                    card: discardedCard,
-                    playerIndex: context.playerIndex
-                });
-                if (result.halted) return { halt: true };
-                Object.assign(draftState, result.newState);
+            if (cardRegistry.getEffect(discardedCard.id)?.onDiscard) {
+                draftState.pendingTriggers = [...(draftState.pendingTriggers ?? []), {
+                    context: { card: discardedCard, playerIndex: context.playerIndex }, trigger: 'discard'
+                }];
             }
             return;
         }

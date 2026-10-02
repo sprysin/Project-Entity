@@ -12,6 +12,7 @@ import { fieldStats } from '../src/game/cardHelpers';
 import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
+import { buildEffect } from '../src/cards/engine/Builder';
 import { Card, GameState, Phase, Player, Position } from '../src/types';
 
 let serial = 0;
@@ -351,6 +352,50 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
     expect(game.players[1].discard).toHaveLength(1);
     expect(game.players[1].hand).toHaveLength(1);
     expect(game.players[1].activatedHardOncePerTurns).toContain('pawn_13');
+
+    // Cost-triggered effects cannot change the ongoing battle, even for a quick effect.
+    cardRegistry.register({ ...cardRegistry.getCard('pawn_01')!, id: 'test_quick_discard', name: 'Quick discard' }, {
+        timing: 'quick', onActivate: buildEffect([Cost.DiscardCardFilter(), Effect.DrawCards(1)])
+    });
+    for (const timing of ['battle-switch', 'attack-response', 'main-switch'] as const) {
+        game = state();
+        const defender = card('pawn_13', 1);
+        const guard = card('pawn_10', 1);
+        const survivor = card('test_quick_discard', 1);
+        const attacker = card('pawn_14');
+        game.currentPhase = timing === 'main-switch' ? Phase.MAIN1 : Phase.BATTLE;
+        game.players[0].pawnZones[0] = placed(attacker);
+        game.players[1].pawnZones[0] = placed(defender, Position.HIDDEN);
+        game.players[1].pawnZones[1] = placed(survivor);
+        game.players[1].hand = [guard];
+        game.players[1].deck = [card('pawn_02', 1)];
+        if (timing === 'battle-switch') game = resolveCombat(game, 0, 0);
+        else if (timing === 'main-switch') {
+            game.players[1].pawnZones[0]!.position = Position.DEFENSE;
+            game.pendingSwitches = [{ card: defender, playerIndex: 1 }];
+        } else game = applyCommand(game, 0, { type: 'attack', attackerIndex: 0, targetIndex: 0 }).state;
+        const source = timing === 'attack-response' ? survivor : defender;
+        const trigger = timing === 'attack-response' ? 'activate' : 'switch';
+        let paid = addChainLink(game, { card: source, playerIndex: 1, handIndex: 0 }, trigger);
+        expect(paid.players[1].discard.map(c => c.instanceId)).toContain(guard.instanceId);
+        expect(paid.players[1].pawnZones[1]?.card.def).toBe(survivor.def);
+        expect(paid.pendingTriggers).toHaveLength(1);
+        paid = resolveChain(paid);
+        if (timing === 'attack-response') {
+            expect(paid.players[1].pawnZones[0]?.card.def).toBe(defender.def);
+            expect(paid.pendingTriggers).toHaveLength(1);
+            paid = applySystemCommand(paid, { type: 'completeDeferred' }).state;
+            expect(paid.players[0].pawnZones[1]?.card.instanceId).toBe(defender.instanceId);
+            paid = resolveChain(paid);
+        }
+        expect(paid.players[1].pawnZones[1]?.card.def).toBe(survivor.def + 200);
+        expect(paid.players[1].pawnZones[1]?.position).toBe(Position.DEFENSE);
+        expect(paid.pendingTriggers).toEqual([]);
+        if (timing !== 'main-switch') {
+            expect(paid.players[1].pawnZones[0]).toBeNull();
+            expect(paid.players[0].pawnZones[1]?.card).toMatchObject({ instanceId: defender.instanceId, def: defender.def });
+        } else expect(paid.players[1].pawnZones[0]?.card.def).toBe(defender.def + 200);
+    }
 
     game = state();
     game.currentPhase = Phase.BATTLE;

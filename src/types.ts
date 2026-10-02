@@ -135,6 +135,8 @@ export interface GameState {
   pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
   pendingHandSummons?: { sourceId: string; playerIndex: number }[];
   pendingSwitches?: { card: Card; playerIndex: number }[];
+  /** Triggered effects wait until the current chain and deferred action have finished. */
+  pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute'> }[];
   drawProgress?: { turn: number; remaining: number };
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
   chain?: ChainLink[];

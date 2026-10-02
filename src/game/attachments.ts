@@ -8,8 +8,8 @@ export function destroyFieldCard(state: GameState, instanceId: string): void {
         const index = zones.findIndex(zone => zone?.card.instanceId === instanceId);
         if (index < 0) continue;
         const card = zones[index]!.card;
-        zones[index] = null;
         sendToOwnerPile(state, card, 'discard');
+        zones[index] = null;
         const observers = state.players.flatMap((controller, playerIndex) => controller.actionZones.flatMap(attachment =>
             attachment && attachment.position !== Position.HIDDEN && attachment.attachedToInstanceIds?.includes(instanceId)
                 ? [{ attachment, playerIndex, attachedInstanceIds: [...attachment.attachedToInstanceIds] }] : []));
@@ -19,6 +19,7 @@ export function destroyFieldCard(state: GameState, instanceId: string): void {
                 card: attachment.card, playerIndex, destroyedCard: card, attachedInstanceIds
             });
         }
+        destroyOrphanedAttachments(state);
         return;
     }
 }

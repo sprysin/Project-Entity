@@ -12,6 +12,8 @@ import { XrayOverlay } from '../src/components/game/XrayOverlay';
 import { GameSidebar } from '../src/components/game/GameSidebar';
 import { CardDetail } from '../src/components/cards/CardDetail';
 import { detectSummonReverbs } from '../src/components/game/SummonReverb';
+import { WinnerModal } from '../src/components/game/MatchModals';
+import { getDuelMvp } from '../src/game/mvp';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
@@ -293,4 +295,21 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => root.update(<><Zone card={hidden} type="pawn" /><DeckPile count={0} label="Deck" /><GameSidebar gameState={debugGame} viewerIndex={0} selectedCard={null} selectedFieldSlot={{ playerIndex: 1, type: 'pawn', index: 0 }} isOpen setIsOpen={() => {}} /></>));
     expect(root.root.findAllByType(XrayOverlay)).toHaveLength(0);
     expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(true);
+});
+
+it('ranks the winning duel MVP and reveals it after one second', () => {
+    const a = card('action_01'); const b = card('action_02');
+    const state = { winner: 'Winner', turnNumber: 4, players: [{ name: 'Winner' }, { name: 'Loser' }], damageEvents: [
+        { card: a, playerIndex: 0, amount: 200, kind: 'battle' },
+        { card: b, playerIndex: 0, amount: 250, kind: 'battle' },
+        { card: a, playerIndex: 0, amount: 100, kind: 'effect' },
+        { card: b, playerIndex: 1, amount: 900, kind: 'effect' },
+    ] } as GameState;
+    expect(getDuelMvp(state)).toMatchObject({ card: a, battle: 200, effect: 100, total: 300 });
+    vi.stubGlobal('document', { activeElement: null });
+    act(() => root.update(<WinnerModal gameState={state} onQuit={() => {}} />));
+    const front = () => root.root.findByProps({ className: 'duel-mvp-face duel-mvp-front' });
+    expect(front().props['aria-hidden']).toBe(true);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(front().props['aria-hidden']).toBe(false);
 });
