@@ -1,6 +1,6 @@
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card, CardContext, CardFilter, CardType, GameState, Position, ShuffleLocation, TargetSelectScope } from '../../types';
+import { Card, CardContext, CardFilter, CardType, GameState, Phase, Position, ShuffleLocation, TargetSelectScope } from '../../types';
 import { canSetPawn, cardsAtLocation, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
 import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
@@ -57,6 +57,26 @@ export const Effect = {
         const zone = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
             .find(candidate => candidate?.card.instanceId === context.card.instanceId);
         if (!zone || zone.position === Position.HIDDEN) return { halt: true };
+    },
+    /** Select a Pawn from the Deck, choose an empty zone, then summon and shuffle. */
+    SpecialSummonFromDeck: (filter: CardFilter, position?: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
+        const player = state.players[context.playerIndex];
+        const eligible: CardFilter = card => card.type === CardType.PAWN && filter(card);
+        if (!player.pawnZones.includes(null) || !player.deck.some(eligible)) return { halt: true };
+        if (context.deckIndex === undefined) return { requireDeckSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' } };
+        const card = player.deck[context.deckIndex];
+        if (!card || !eligible(card)) return { halt: true };
+        const placement = context.pawnPlacement;
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position } };
+        if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
+            || player.pawnZones[placement.slot] || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)
+            || position && placement.position !== position) return { halt: true };
+        player.deck.splice(context.deckIndex, 1);
+        player.pawnZones[placement.slot] = {
+            card, position: placement.position, hasAttacked: false,
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
+        };
+        shuffleDeck(player.deck);
     },
     SpecialSummonFromHand: (filter: CardFilter): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
@@ -266,6 +286,23 @@ export const Effect = {
         if (resolvedAmount <= 0) return;
 
         draftState.players[resolvedPlayerIndex].lp += resolvedAmount;
+    },
+
+    /** Temporarily removes a Pawn; its return is independent of the effect source. */
+    VoidTargetTemporarily: (phase: Phase, delayTurns = 0, targetIndex = 0): EffectStep => (state, context) => {
+        if (!Number.isInteger(delayTurns) || delayTurns < 0) return { halt: true };
+        const target = getEffectTarget(context, targetIndex);
+        const zone = target?.type === 'pawn' ? state.players[target.playerIndex]?.pawnZones[target.index] : undefined;
+        if (!target || !zone) return { halt: true };
+        const ownerIndex = state.players.findIndex(player => player.id === zone.card.ownerId);
+        Effect.BanishTargetToVoid(targetIndex)(state, context);
+        if (ownerIndex >= 0 && state.players[ownerIndex].void.some(card => card.instanceId === zone.card.instanceId)) {
+            state.temporaryVoidReturns = [...(state.temporaryVoidReturns ?? []), {
+                cardId: zone.card.instanceId, playerIndex: ownerIndex, position: zone.position,
+                phase, dueTurn: state.turnNumber + delayTurns
+            }];
+        }
+        Object.assign(state, destroyOrphanedAttachments(state));
     },
 
     /** Sends a targeted card to the Void. */

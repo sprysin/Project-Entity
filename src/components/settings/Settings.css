@@ -321,7 +321,7 @@
   font-size: 15px;
 }
 
-.settings-actions > .settings-save {
+.settings-actions>.settings-save {
   min-height: 56px;
   padding: 0 30px;
   font-size: 13px;
@@ -333,7 +333,7 @@
   box-shadow: 0 0 20px #42658233;
 }
 
-.settings-actions > .settings-save:hover:not(:disabled) {
+.settings-actions>.settings-save:hover:not(:disabled) {
   background: #344e63;
 }
 

@@ -4,7 +4,7 @@ import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Card, CardType, GameState, Phase, Player, Position, PawnType } from '../src/types';
-import { addChainLink, fieldActivations, resolveChain } from '../src/game/chains';
+import { addChainLink, fieldActivations, resolveChain, startPendingTriggers } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
 import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
@@ -94,7 +94,7 @@ it('destroys chained Attach cards when an attached target leaves the field', () 
     attachedVictim.players[0].actionZones[1]!.attachedToInstanceIds = [revival.source.instanceId];
     expect(attachedVictim.players[1].pawnZones[0]!.card.atk).toBe(victim.atk + 20);
     attachedVictim.currentPhase = Phase.BATTLE;
-    const revived = resolveCombat(attachedVictim, 0, 0);
+    const revived = resolveChain(startPendingTriggers(resolveCombat(attachedVictim, 0, 0)));
     expect(revived.players[0].actionZones.slice(0, 2)).toEqual([null, null]);
     expect(revived.players[0].discard.map(c => c.instanceId)).toEqual([revival.source.instanceId, secondSource.instanceId]);
     expect(revived.players[0].pawnZones[1]?.card).toMatchObject({ instanceId: victim.instanceId, atk: victim.atk });

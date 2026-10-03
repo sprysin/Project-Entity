@@ -91,7 +91,7 @@ The complete contract is `IEffect` in `src/types.ts`.
 - `onActivate`: initial Action/Condition activation or Pawn ignition effect.
 - `onFieldActivate`: an existing face-up Lingering Action's manual effect.
 - `onPhaseChange`: automatic phase effects; check the relevant phase as needed.
-- `onSwitch`, `onDiscard`, `onTribute`, `onBattleDestroy`: specialized existing events.
+- `onSwitch`, `onDiscard`, `onTribute`, `onBattleDestroy`, `onBattleDestroyed`: specialized existing events.
 - `onAttachedActivation`: an attachment observes activation by its target.
 - `canActivate`: shared player/AI activation eligibility.
 - `onPawnSummoned`: a face-up field source observes a successful face-up normal
@@ -103,6 +103,13 @@ The complete contract is `IEffect` in `src/types.ts`.
 Pawn ignition timing defaults to the controller's Main Phase. Declare
 `timing: 'quick'` only when the design explicitly allows response timing.
 
+For optional effects when a Pawn is destroyed by battle and sent to its owner`s
+Discard, implement `onBattleDestroyed` with `buildEffect`. Combat queues this
+hook in `pendingReactions`; the shared prompts and AI collect choices and let the
+controller activate or decline it. Switch effects use that same queue.
+`Effect.SpecialSummonFromDeck(filter, position?)` selects a Pawn and empty zone,
+rechecks eligibility at resolution, and shuffles the Deck. An explicit position
+restricts both human and AI placement choices.
 ## Shared queued hand summons
 
 Orcustrated Frontline Unit demonstrates a reusable summon reaction:
@@ -128,6 +135,12 @@ If another card needs a new mechanic, extend the shared event or operation contr
   new field entry or face-down reset.
 - Use `sendToOwnerPile` for departures, including hand/deck returns, so tokens
   vanish and field-only reductions are cleared correctly.
+- Use `Effect.VoidTargetTemporarily(phase, delayTurns = 0, targetIndex = 0)`
+  to target a Pawn for temporary Void removal. It returns at the next phase selected
+  by its effect; `delayTurns` adds turns to the wait. On return, its original owner
+  chooses any empty Pawn zone on their field. The Pawn is placed in its original
+  position, without counting as a Special Summon. A full field sends it to its
+  owner's Discard pile. The return is independent of the source.
 - Use `canTribute`, `canSetPawn`, and `setPawnPosition` for their existing invariants.
 - Attach cards use `Effect.AttachToTarget` after target selection. Use the shared
   attachment helpers for bonuses and departures.

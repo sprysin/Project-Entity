@@ -5,10 +5,12 @@ import { formatEffectLog } from './effectLog';
 import { checkVictory } from './finishEffect';
 import { drawCards } from './draw';
 import { sendToOwnerPile } from './cardOwnership';
+import { prepareVoidReturn } from './voidReturns';
+import { isAwaitingDecision } from './decisions';
 
 /** Applies one complete phase transition, including phase-entry maintenance. */
 export const advancePhaseState = (prev: GameState): GameState => {
-    if (prev.winner || prev.pendingVoidSelections?.length) return prev;
+    if (prev.winner || isAwaitingDecision(prev)) return prev;
     prev = structuredClone(prev);
     let nextPhase = prev.currentPhase;
     let activeIndex = prev.activePlayerIndex;
@@ -46,6 +48,16 @@ export const advancePhaseState = (prev: GameState): GameState => {
         })) as [Player, Player];
     }
 
+    {
+        const dueReturns = (prev.temporaryVoidReturns ?? []).filter(entry => entry.phase === nextPhase && entry.dueTurn <= turnNumber);
+        prev.pendingVoidReturns = [...(prev.pendingVoidReturns ?? []), ...dueReturns.map(({ cardId, playerIndex, position }) => ({ cardId, playerIndex, position }))];
+        prev.temporaryVoidReturns = prev.temporaryVoidReturns?.filter(entry => !dueReturns.includes(entry));
+        prev.log = updatedLog;
+        const returnState = { ...prev, players: updatedPlayers as [Player, Player] };
+        prepareVoidReturn(returnState);
+        prev = returnState;
+        updatedLog = returnState.log;
+    }
     if (nextPhase === Phase.STANDBY) {
         let phaseState: GameState = { ...prev, players: updatedPlayers as [Player, Player], currentPhase: nextPhase, activePlayerIndex: activeIndex, turnNumber };
         const standbyPlayer = phaseState.players[activeIndex];
@@ -120,7 +132,7 @@ export const advancePhaseState = (prev: GameState): GameState => {
 
 /** A host may step draws individually for presentation; rules own the remaining count. */
 export function stepDraw(state: GameState): GameState {
-    if (state.winner || state.pendingVoidSelections?.length || state.currentPhase !== Phase.DRAW || state.response) return state;
+    if (state.winner || isAwaitingDecision(state) || state.currentPhase !== Phase.DRAW || state.response) return state;
     let next = state;
     if (next.drawProgress?.turn !== next.turnNumber) {
         next = structuredClone(state);

@@ -115,6 +115,7 @@ export function simulateAttack(state: GameState, index: number, target: number |
     const estimate = structuredClone(state);
     estimate.response = undefined;
     estimate.deferredAction = undefined;
+    estimate.attackReplay = undefined;
     estimate.chain = [];
     estimate.currentPhase = Phase.BATTLE;
     if (target !== 'direct') {
@@ -136,7 +137,9 @@ export function updateKnownCards(state: GameState, viewer: number, knownCards: M
 function attackChoices(state: GameState): Extract<AIDecision, { kind: 'attack' }>[] {
     const p = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
     const targets: (number | 'direct')[] = opp.pawnZones.some(Boolean) ? opp.pawnZones.flatMap((z, i) => z ? [i] : []) : ['direct'];
-    return p.pawnZones.flatMap((z, index) => z?.position === Position.ATTACK && (z.attacksRemaining ?? (z.hasAttacked ? 0 : 1)) > 0 ? targets.map(target => ({ kind: 'attack' as const, index, target })) : []);
+    return p.pawnZones.flatMap((z, index) => z?.position === Position.ATTACK
+        && (!state.attackReplay || state.attackReplay.attackerId === z.card.instanceId)
+        && (z.attacksRemaining ?? (z.hasAttacked ? 0 : 1)) > 0 ? targets.map(target => ({ kind: 'attack' as const, index, target })) : []);
 }
 
 function scoreAfterResponse(state: GameState, player: number): number {

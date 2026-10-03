@@ -4,6 +4,7 @@ vi.mock('react', () => { throw new Error('The rules engine must not import React
 import { applyCommand, applySystemCommand, createGame, GameCommand } from '../src/game/engine';
 import { Card, GameState, Phase, Position } from '../src/types';
 import { cardRegistry } from '../src/cards/CardRegistry';
+import { resolveChainStep, resolveChain } from '../src/game/chains';
 
 let serial = 0;
 const card = (id: string, player = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `engine-${serial++}`, ownerId: `player${player + 1}` });
@@ -90,6 +91,17 @@ it('rejects wrong actors, nonexistent cards, duplicate tributes, and occupied de
     expect(next.players[0].hand).toHaveLength(0);
     expect(next.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
     expect(state.players[0].discard).toHaveLength(0);
+    const waiting = freeze({ ...state, pendingActivation: { cardId: king.instanceId, playerIndex: 0 } });
+    for (const actor of [0, 1]) {
+        for (const value of [{ type: 'phase' }, { type: 'end' }, { type: 'pass' },
+            { type: 'summon', cardId: king.instanceId, hidden: false, slot: 0, tributes: [0, 1] },
+            { type: 'cancelEffect', cardId: 'another-card' }] as GameCommand[]) {
+            expect(command(waiting, value, actor)).toBe(waiting);
+        }
+    }
+    for (const type of ['draw', 'completeDeferred'] as const) expect(applySystemCommand(waiting, { type }).state).toBe(waiting);
+    expect(resolveChainStep(waiting)).toBe(waiting);
+    expect(resolveChain(waiting)).toBe(waiting);
 });
 
 it('rechecks an attack target after responses and never hits a replacement in its old slot', () => {

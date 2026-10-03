@@ -13,6 +13,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
     const waypoints = useRef(new Map<string, DOMRect>());
     const activated = useRef(new Set<string>());
     const [motions, setMotions] = useState<CardMotion[]>([]);
+    const [landings, setLandings] = useState<Animation[]>([]);
     useEffect(() => {
         if (typeof document === 'undefined') return;
         const measure = () => previous.current.forEach(location => {
@@ -82,13 +83,18 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             const el = refs.current.get(dest.key);
             if (el && /-(pawn|action)-/.test(dest.key) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 const face = el.querySelector<HTMLElement>('[data-card-face]');
-                face?.animate?.([
+                const landing = face?.animate?.([
                     { opacity: 0, transform: 'translateY(-18px) scale(1.07)' },
                     { opacity: 0, transform: 'translateY(-18px) scale(1.07)', offset: .65 },
                     { opacity: 1, transform: 'translateY(-14px) scale(1.06)', offset: .72 },
                     { opacity: 1, transform: 'translateY(3px) scale(.98)', offset: .85 },
                     { opacity: 1, transform: 'translateY(0) scale(1)' }
                 ], { duration: waypoint ? 1350 : 700, easing: 'ease-out' });
+                if (landing) {
+                    setLandings(current => [...current, landing]);
+                    const finish = () => setLandings(current => current.filter(animation => animation !== landing));
+                    void landing.finished.then(finish, finish);
+                }
             }
         });
         previous.current = next;
@@ -100,6 +106,8 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
     }, [game, refs, viewerIndex, suppressedCardIds]);
     return {
         motions,
+        // Existing travel finishes before any decision UI opens. Rules remain locked meanwhile.
+        isMoving: motions.length > 0 || landings.length > 0,
         // Preserve temporary field stops that React batches away during instant effects.
         recordMovement: (_source: string, target: string, _type: 'discard' | 'void' | 'retrieve', card?: Card) => {
             if (!card) return;

@@ -5,6 +5,7 @@ import { useManagedTimeout } from './useManagedTimeout';
 import { applySystemCommand } from '../game/engine';
 import { pendingDrawCount } from '../game/phases';
 import { playSound } from '../audio';
+import { isAwaitingDecision } from '../game/decisions';
 
 type AnimationController = ReturnType<typeof useAnimations>;
 
@@ -13,7 +14,8 @@ export const useGameAnimationEffects = (
     gameState: GameState | null,
     setGameState: Dispatch<SetStateAction<GameState | null>>,
     animations: AnimationController,
-    nextPhase: () => void
+    nextPhase: () => void,
+    effectDecisionPending = false
 ) => {
     const schedule = useManagedTimeout();
     const previousTurn = useRef<number | null>(null);
@@ -103,7 +105,7 @@ export const useGameAnimationEffects = (
         if (previousTurn.current !== null && previousTurn.current !== gameState.turnNumber) playSound('turn-change');
         previousTurn.current = gameState.turnNumber;
 
-        if (gameState.openingCoin || gameState.winner || gameState.pendingVoidSelections?.length) return;
+        if (gameState.openingCoin || gameState.winner || gameState.response || gameState.resolvingChain || effectDecisionPending || isAwaitingDecision(gameState)) return;
         const timers: ReturnType<typeof setTimeout>[] = [];
         const later = (callback: () => void, delay: number) => timers.push(setTimeout(callback, delay));
         const turn = gameState.turnNumber;
@@ -128,5 +130,5 @@ export const useGameAnimationEffects = (
             animations.setPhaseFlash(phase);
         }
         return () => timers.forEach(clearTimeout);
-    }, [gameState?.openingCoin, gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, gameState?.pendingVoidSelections?.length, nextPhase, setGameState]);
+    }, [gameState?.openingCoin, gameState?.currentPhase, gameState?.activePlayerIndex, gameState?.turnNumber, gameState?.winner, !!gameState?.response, !!gameState?.resolvingChain, gameState ? isAwaitingDecision(gameState) : false, effectDecisionPending, nextPhase, setGameState]);
 };

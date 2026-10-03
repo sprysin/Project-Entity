@@ -27,6 +27,12 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     const attackingPawn = { ...activePlayer.pawnZones[attackerIndex]! };
     const attackingAtk = fieldStats(gameState, attackingPawn).atk;
     let destroyedByAttacker: typeof attackingPawn.card | undefined;
+    const battleDestroyed: typeof attackingPawn.card[] = [];
+    const destroyByBattle = (card: typeof attackingPawn.card) => {
+        if (!players.some(player => player.pawnZones.some(zone => zone?.card.instanceId === card.instanceId))) return;
+        destroyFieldCard({ ...gameState, players }, card.instanceId);
+        if (players.some(player => player.discard.some(value => value.instanceId === card.instanceId))) battleDestroyed.push(card);
+    };
     let revealedSwitch: typeof attackingPawn.card | undefined;
 
     if (targetIndex === 'direct') {
@@ -49,7 +55,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
             const difference = attackingAtk - defendingStats.atk;
             if (difference > 0) {
                 opponent.lp -= difference;
-                destroyFieldCard({ ...gameState, players }, defendingPawn.card.instanceId);
+                destroyByBattle(defendingPawn.card);
                 destroyedByAttacker = defendingPawn.card;
                 opponent.pawnZones[targetIndex] = null;
                 logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle. ${lpLoss(opponent, difference)}`);
@@ -57,18 +63,18 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
                 damageSource = defendingPawn.card;
                 damagePlayerIndex = opponentIndex;
                 activePlayer.lp += difference;
-                destroyFieldCard({ ...gameState, players }, attackingPawn.card.instanceId);
+                destroyByBattle(attackingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
                 logs.push(`${reveal}${quote(defendingPawn.card.name)} destroyed ${quote(attackingPawn.card.name)} by battle. ${lpLoss(activePlayer, -difference)}`);
             } else {
-                destroyFieldCard({ ...gameState, players }, attackingPawn.card.instanceId);
-                destroyFieldCard({ ...gameState, players }, defendingPawn.card.instanceId);
+                destroyByBattle(attackingPawn.card);
+                destroyByBattle(defendingPawn.card);
                 activePlayer.pawnZones[attackerIndex] = null;
                 opponent.pawnZones[targetIndex] = null;
                 logs.push(`${reveal}${quote(attackingPawn.card.name)} and ${quote(defendingPawn.card.name)} destroyed each other by battle.`);
             }
         } else if (attackingAtk > defendingStats.def) {
-            destroyFieldCard({ ...gameState, players }, defendingPawn.card.instanceId);
+            destroyByBattle(defendingPawn.card);
             destroyedByAttacker = defendingPawn.card;
             opponent.pawnZones[targetIndex] = null;
             logs.push(`${reveal}${quote(attackingPawn.card.name)} destroyed ${quote(defendingPawn.card.name)} by battle.`);
@@ -100,14 +106,22 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
         card: { ...damageSource }, playerIndex: damagePlayerIndex, amount, kind: 'battle' as const
     }] : gameState.damageEvents;
     let next: GameState = { ...gameState, damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) };
+    for (const card of battleDestroyed) {
+        const playerIndex = next.players.findIndex(player => player.discard.some(value => value.instanceId === card.instanceId));
+        if (playerIndex >= 0 && cardRegistry.getEffect(card.id)?.onBattleDestroyed) {
+            next.pendingReactions = [...(next.pendingReactions ?? []), { card, playerIndex, trigger: 'battle_destroyed' }];
+        }
+    }
     if (destroyedByAttacker) {
         const handler = cardRegistry.getEffect(attackingPawn.card.id)?.onBattleDestroy;
         if (handler && activePlayer.pawnZones.some(z => z?.card.instanceId === attackingPawn.card.instanceId)) {
-            const result = handler(next, { card: attackingPawn.card, playerIndex: activeIndex, destroyedCard: destroyedByAttacker });
-            if (!result.halted) next = result.newState;
+            next.pendingTriggers = [...(next.pendingTriggers ?? []), {
+                context: { card: attackingPawn.card, playerIndex: activeIndex, destroyedCard: destroyedByAttacker },
+                trigger: 'battle_destroy'
+            }];
         }
     }
-    if (revealedSwitch) next.pendingSwitches = [...(next.pendingSwitches ?? []), { card: revealedSwitch, playerIndex: opponentIndex }];
+    if (revealedSwitch) next.pendingReactions = [...(next.pendingReactions ?? []), { card: revealedSwitch, playerIndex: opponentIndex, trigger: 'switch' }];
     return checkVictory(next);
 
 }

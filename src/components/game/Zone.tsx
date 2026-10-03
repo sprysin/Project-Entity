@@ -36,6 +36,7 @@ export const Zone: React.FC<{
     const prevStats = useRef<{ id: string, atk: number, def: number } | null>(null);
     const prevPlacement = useRef<{ id: string, position: Position } | null>(null);
     const [popStats, setPopStats] = useState<{ atk: boolean, def: boolean }>({ atk: false, def: false });
+    const [isRevealFlashing, setIsRevealFlashing] = useState(false);
 
     useEffect(() => {
         if (!card) {
@@ -47,6 +48,14 @@ export const Zone: React.FC<{
         if (card.position === Position.HIDDEN
             && (prevPlacement.current?.id !== card.card.instanceId || prevPlacement.current.position !== Position.HIDDEN)) {
             playSound('hide-card');
+        }
+        if (card.card.type === CardType.CONDITION
+            && card.position !== Position.HIDDEN
+            && prevPlacement.current?.id === card.card.instanceId
+            && prevPlacement.current.position === Position.HIDDEN) {
+            playSound('toggle');
+            setIsRevealFlashing(true);
+            schedule(() => setIsRevealFlashing(false), 550);
         }
 
         if (prevStats.current && prevStats.current.id === card.card.instanceId) {
@@ -105,6 +114,7 @@ export const Zone: React.FC<{
                     )}
                 {xray && visibleCard.position === Position.HIDDEN && <XrayOverlay card={visibleCard.card} />}
                 </div>
+                {isRevealFlashing && <div className="effect-marker effect-activation" aria-hidden="true" />}
                 {type === 'pawn' && visibleCard.position !== Position.HIDDEN && (
                     <div className={`field-pawn-overlay ${visibleCard.position === Position.DEFENSE ? 'field-pawn-overlay--defense' : 'field-pawn-overlay--attack'}`} aria-label={`Level ${visibleCard.card.level}, attack ${displayedAtk}, defense ${displayedDef}`}>
                         <div className="field-pawn-overlay__level"><span>Lv.</span><strong>{visibleCard.card.level}</strong></div>

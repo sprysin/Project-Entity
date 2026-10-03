@@ -21,7 +21,7 @@ export const ContextMenu: React.FC<{ title: string; children: React.ReactNode }>
 );
 
 export const ContextMenuButton: React.FC<{ label: string; onClick: () => void; disabled?: boolean; tone?: MenuTone }> = ({ label, onClick, disabled = false, tone = 'slate' }) => (
-    <button disabled={disabled} onClick={onClick} className={`min-w-0 flex-1 overflow-hidden whitespace-nowrap border px-2 py-2 font-orbitron text-[9px] font-black uppercase tracking-wider transition-colors ${tones[tone]} ${disabled ? 'cursor-not-allowed opacity-35 grayscale' : ''}`}>
+    <button disabled={disabled} onClick={onClick} className={`min-w-0 flex-1 overflow-hidden whitespace-nowrap border px-2 py-2 font-orbitron text-[9px] font-black uppercase tracking-wider transition-colors ${tones[tone]} ${disabled ? 'opacity-35 grayscale' : ''}`}>
         <span className="inline-block whitespace-nowrap" style={{ transform: `scaleX(${Math.max(.72, Math.min(1, 14 / label.length))})` }}>{label}</span>
     </button>
 );

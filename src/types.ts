@@ -132,11 +132,16 @@ export interface PendingEffect {
 }
 
 export interface GameState {
+  /** Only this activation's controller may finish or cancel while choosing its effect. */
+  pendingActivation?: { cardId: string; playerIndex: number };
+  temporaryVoidReturns?: { cardId: string; playerIndex: number; position: Position; phase: Phase; dueTurn: number }[];
+  pendingVoidReturns?: { cardId: string; playerIndex: number; position: Position }[];
+  attackReplay?: { attackerId: string; choosingTarget?: boolean };
   pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
   pendingHandSummons?: { sourceId: string; playerIndex: number }[];
-  pendingSwitches?: { card: Card; playerIndex: number }[];
+  pendingReactions?: { card: Card; playerIndex: number; trigger: 'switch' | 'battle_destroyed' }[];
   /** Triggered effects wait until the current chain and deferred action have finished. */
-  pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute'> }[];
+  pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute' | 'battle_destroy'> }[];
   drawProgress?: { turn: number; remaining: number };
   response?: { priority: number; passes: number; reason: string; ready?: boolean };
   chain?: ChainLink[];
@@ -167,6 +172,7 @@ export type CardTarget = {
 export type CardFilter = (card: Card) => boolean;
 
 export interface CardSelectionRequest {
+  purpose?: 'summon';
   playerIndex: number;
   title?: string;
   prompt?: string;
@@ -210,7 +216,7 @@ export interface TributeSelectionRequest extends HandSelectionRequest {
   filter?: CardFilter;
 }
 
-export type EffectTrigger = 'summon' | 'switch' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
+export type EffectTrigger = 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
@@ -219,7 +225,7 @@ export type TargetSelectScope = 'active' | 'opponent' | 'both';
 export type EffectResult = {
   requireEffectChoice?: { id: string; label: string; disabled: boolean }[];
   newState: GameState;
-  requirePawnPlacement?: { playerIndex: number };
+  requirePawnPlacement?: { playerIndex: number; position?: Position.ATTACK | Position.DEFENSE };
   halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
@@ -239,6 +245,8 @@ export interface CardContext {
   pawnPlacement?: { slot: number; position: Position };
   execution?: 'costs' | 'resolve';
   tributeCards?: Card[];
+  /** Battle-event identity retained while player reactions are decided. */
+  destroyedCard?: Card;
   card: Card;
   playerIndex: number;
   target?: CardTarget;
@@ -273,6 +281,8 @@ export interface IEffect {
   onSummon?(state: GameState, context: CardContext): EffectResult;
   onSwitch?(state: GameState, context: CardContext): EffectResult;
   onBattleDestroy?(state: GameState, context: CardContext & { destroyedCard: Card }): EffectResult;
+  /** Optional reaction after this Pawn is destroyed by battle and reaches its owner's Discard. */
+  onBattleDestroyed?(state: GameState, context: CardContext): EffectResult;
 
   // Triggered when a card is Tributed
   onTribute?(state: GameState, context: CardContext): EffectResult;

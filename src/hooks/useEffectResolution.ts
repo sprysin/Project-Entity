@@ -48,7 +48,7 @@ export const useEffectResolution = (
     }
 ) => {
     const [effectChoiceReq, setEffectChoiceReq] = useState<EffectResult['requireEffectChoice'] | null>(null);
-    const [pawnPlacementReq, setPawnPlacementReq] = useState<{ playerIndex: number } | null>(null);
+    const [pawnPlacementReq, setPawnPlacementReq] = useState<NonNullable<EffectResult['requirePawnPlacement']> | null>(null);
     const {
         setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition,
         setIsPeekingField, setDiscardSelectionReq, setSelectedDiscardIndex,
@@ -79,9 +79,9 @@ export const useEffectResolution = (
         if (!gameState || gameState.winner) return;
         const controllerIndex = gameState.players.findIndex((p, index) => p.pawnZones.some(z => z?.card.instanceId === card.instanceId)
             || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
-            || gameState.pendingSwitches?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === index));
-        const switchIndex = gameState.pendingSwitches?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex;
-        const activeIndex = switchIndex ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
+            || gameState.pendingReactions?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === index));
+        const reactionIndex = gameState.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex;
+        const activeIndex = reactionIndex ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
         if (activeIndex < 0) return;
 
         const actualTargets = [...(providedTargets ?? pendingContext.current.targets ?? (pendingContext.current.target ? [pendingContext.current.target] : []))];
@@ -330,7 +330,7 @@ export const useEffectResolution = (
         
         // Try not to trigger visual animation yet, actually let's do 'retrieve' 
         // to fly a card to hand, which visually simulates searching from deck.
-        triggerVisual(`deck-${pIdx}`, `${pIdx}-hand-${gameState.players[pIdx].hand.length}`, 'retrieve', card);
+        if (selectionState.deckSelectionReq.purpose !== 'summon') triggerVisual(`deck-${pIdx}`, `${pIdx}-hand-${gameState.players[pIdx].hand.length}`, 'retrieve', card);
 
         const pendingCard = selectionState.pendingEffectCard;
         const pendingTrigger = selectionState.pendingTriggerType || 'activate';
@@ -341,7 +341,7 @@ export const useEffectResolution = (
         setEffectChoiceReq(null);
         const card = selectionState.pendingEffectCard;
         if (card && !card.switchMandatory) setGameState(prev => prev && !prev.response ? applyCommand(prev,
-            prev.pendingSwitches?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? prev.players.findIndex(p => p.id === card.ownerId),
+            prev.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? prev.players.findIndex(p => p.id === card.ownerId),
             { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
         pendingContext.current = {};
         setPawnPlacementReq(null);

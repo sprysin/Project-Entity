@@ -14,6 +14,8 @@ import { CardDetail } from '../src/components/cards/CardDetail';
 import { detectSummonReverbs } from '../src/components/game/SummonReverb';
 import { WinnerModal } from '../src/components/game/MatchModals';
 import { getDuelMvp } from '../src/game/mvp';
+import { GameOverlays } from '../src/components/game/GameOverlays';
+import { DiscardSelectionModal } from '../src/components/game/SelectionModals';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
@@ -37,7 +39,7 @@ function setup(edit: (s: GameState) => void) {
 beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMode><Harness /></React.StrictMode>); }); });
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it('prompts only for available effects and honors a chosen special-summon slot', () => {
+it('prompts only after cards settle and honors a chosen special-summon slot', async () => {
     const recovery = card('action_02');
     setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('pawn_04')]; });
     const previousLog = game.gameState!.log;
@@ -52,9 +54,70 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     expect(game.state.triggeredEffect).toBeNull();
 
     const eligibleCaster = card('pawn_04');
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    let finishLanding!: () => void;
+    const landing = { finished: new Promise<void>(resolve => { finishLanding = resolve; }), pause: vi.fn() };
+    const animate = vi.fn(() => landing);
+    const rect = { left: 0, top: 0, width: 100, height: 150 };
+    const handElement = { getBoundingClientRect: () => rect, querySelector: () => null };
+    const fieldElement = { getBoundingClientRect: () => rect,
+        querySelector: (selector: string) => selector === '[data-card-face]' ? { animate } : null };
+    game.actions.setRef('0-hand-0')(handElement as unknown as HTMLElement);
+    game.actions.setRef('0-pawn-0')(fieldElement as unknown as HTMLElement);
     setup(s => { s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('action_01')]; });
     act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(eligibleCaster.instanceId);
+    expect(game.state.cardMovementPending).toBe(true);
+    expect(animate).toHaveBeenCalledOnce();
+    const promptView = () => <GameOverlays gameState={game.gameState!} state={game.state} actions={game.actions}
+        activePlayer={game.gameState!.players[0]} actionsDisabled viewerIndex={0} onQuit={() => {}} />;
+    let prompt: ReturnType<typeof create>;
+    act(() => { prompt = create(promptView()); });
+    expect(prompt!.root.findAllByProps({ 'aria-label': 'Summon effect prompt' })).toHaveLength(0);
+    // Travel can finish before the field landing animation; both must settle.
+    act(() => game.state.cardMotions.forEach(motion => game.state.finishMotion(motion.id)));
+    expect(game.state.cardMovementPending).toBe(true);
+    act(() => { vi.advanceTimersByTime(5000); prompt!.update(promptView()); });
+    expect(prompt!.root.findAllByProps({ 'aria-label': 'Summon effect prompt' })).toHaveLength(0);
+    expect(landing.pause).not.toHaveBeenCalled();
+    await act(async () => { finishLanding(); });
+    expect(game.state.cardMovementPending).toBe(false);
+    act(() => prompt!.update(promptView()));
+    expect(prompt!.root.findAllByProps({ 'aria-label': 'Summon effect prompt' })).toHaveLength(1);
+    act(() => prompt!.unmount());
+    game.actions.setRef('0-hand-0')(null);
+    game.actions.setRef('0-pawn-0')(null);
+    vi.unstubAllGlobals();
+    const waitingForActivation = game.gameState!;
+    act(() => { game.actions.setIsPeekingField(true); vi.advanceTimersByTime(5000); });
+    expect(game.gameState).toBe(waitingForActivation);
+    expect(game.gameState!.pendingActivation).toMatchObject({ cardId: eligibleCaster.instanceId, playerIndex: 0 });
+    act(() => game.actions.resolveEffect(eligibleCaster, undefined, undefined, undefined, undefined, 'summon'));
+    expect(game.state.discardSelectionReq).not.toBeNull();
+    let discardModal: ReturnType<typeof create>;
+    act(() => { discardModal = create(<DiscardSelectionModal selectionReq={game.state.discardSelectionReq} gameState={game.gameState}
+        selectedDiscardIndex={game.state.selectedDiscardIndex} setSelectedDiscardIndex={game.actions.setSelectedDiscardIndex}
+        handleDiscardSelection={game.actions.handleDiscardSelection} />); });
+    expect(discardModal!.root.findByProps({ 'aria-label': 'Discard pile search' }).props.className).toContain('duel-prompt--card-search');
+    expect(discardModal!.root.findAllByType('button').filter(button => button.children.includes('Cancel'))).toHaveLength(0);
+    act(() => discardModal!.unmount());
+    const waitingForSelection = game.gameState!;
+    act(() => vi.advanceTimersByTime(5000));
+    expect(game.gameState).toBe(waitingForSelection);
+    act(() => game.actions.handleDiscardSelection(0));
+    expect(game.gameState!.pendingActivation).toBeUndefined();
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.gameState!.players[0].hand).toHaveLength(1);
+
+    // A decision opened during Draw cancels queued draws and resumes them on decline.
+    setup(s => { s.currentPhase = Phase.DRAW; s.drawProgress = undefined; s.players[0].deck = Array.from({ length: 6 }, () => card('pawn_01')); });
+    act(() => game.actions.setTriggeredEffect(eligibleCaster));
+    const waitingDuringDraw = game.gameState!;
+    act(() => vi.advanceTimersByTime(5000));
+    expect(game.gameState).toBe(waitingDuringDraw);
+    act(() => game.actions.setTriggeredEffect(null));
+    act(() => vi.advanceTimersByTime(300));
+    expect(game.gameState!.players[0].hand).toHaveLength(1);
 
     const tributeSummon: Card = { ...card('pawn_01'), level: 5 };
     setup(s => {
@@ -88,6 +151,14 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     expect(game.gameState!.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
     expect(game.gameState!.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
     expect(game.state.handSummonCardId).toBeNull();
+
+    for (const position of [Position.ATTACK, Position.DEFENSE, Position.HIDDEN]) {
+        setup(s => { s.pendingHandSummons = []; s.players[1].void = [light]; s.pendingVoidReturns = [{ cardId: light.instanceId, playerIndex: 1, position }]; });
+        expect(game.state.pawnPlacementReq).toMatchObject({ playerIndex: 1, position });
+        act(() => game.actions.handlePawnPlacement(2, Position.ATTACK));
+        expect(game.gameState!.players[1].pawnZones[2]).toMatchObject({ card: light, position });
+        expect(game.gameState!.pendingHandSummons).toEqual([]);
+    }
 
     const tribunal = card('action_06');
     const pawn = { ...card('pawn_01'), level: 5 as const };
@@ -158,9 +229,76 @@ it('prompts only for available effects and honors a chosen special-summon slot',
     moved.players[1].pawnZones[4] = moved.players[1].pawnZones[3];
     moved.players[1].pawnZones[3] = null;
     expect(detectSummonReverbs(afterReverb, moved)).toEqual([]);
+
+    const responseCards = [card('condition_03'), card('condition_03'), card('condition_02')];
+    setup(s => {
+        s.activePlayerIndex = 1;
+        s.currentPhase = Phase.STANDBY;
+        s.players[0].lp = 800;
+        s.players[0].pawnZones[0] = placed({ ...card('pawn_04'), attribute: Attribute.DARK });
+        s.players[0].deck = [card('pawn_01')];
+        responseCards.forEach((c, index) => { s.players[0].actionZones[index] = { ...placed(c), position: Position.HIDDEN }; });
+        s.players[0].actionZones[3] = { ...placed(card('condition_03')), position: Position.HIDDEN, summonedTurn: 2 };
+        s.response = { priority: 0, passes: 0, reason: 'Leave STANDBY' };
+        s.chain = [];
+    });
+    const responseView = () => <>
+        <GameOverlays gameState={game.gameState!} state={game.state} actions={game.actions} actionsDisabled viewerIndex={0} onQuit={() => {}} />
+        <GameSidebar gameState={game.gameState!} viewerIndex={0} selectedCard={null} selectedFieldSlot={game.state.selectedFieldSlot}
+            isOpen={game.state.isRightPanelOpen} setIsOpen={game.actions.setIsRightPanelOpen} />
+    </>;
+    act(() => { overlay = create(responseView()); });
+    expect(overlay!.root.findByType('h2').findAllByType('span').map(span => span.children.join('')))
+        .toEqual(['Opponent Leaving STANDBY', '-', 'Activate a card or effect?']);
+    const responseButtons = () => overlay!.root.findByProps({ 'aria-label': 'Activatable response cards' }).findAllByType('button');
+    const activateResponse = () => overlay!.root.findAllByType('button').find(button => button.children.includes('Activate'))!;
+    expect(activateResponse().props.disabled).toBe(true);
+    expect(responseButtons().map(button => button.findByType(CardDetail).props.card.instanceId)).toEqual(responseCards.map(c => c.instanceId));
+    expect(overlay!.root.findAllByProps({ 'aria-label': 'Response field controls' })).toHaveLength(0);
+    act(() => overlay!.root.findByProps({ 'aria-label': 'Hide prompt and peek at field' }).props.onClick());
+    expect(game.state.responseFieldMode).toBe('peek');
+    expect(game.gameState!.chain).toEqual([]);
+    act(() => overlay!.update(responseView()));
+    act(() => overlay!.root.findByProps({ 'aria-label': 'Return to response window' }).props.onClick());
+    act(() => responseButtons()[0].props.onClick());
+    act(() => overlay!.update(responseView()));
+    expect(game.state.isRightPanelOpen).toBe(true);
+    expect(overlay!.root.findByType(GameSidebar).findByType(CardDetail).props).toMatchObject({ card: responseCards[0], isSet: false });
+    expect(game.gameState!.chain).toEqual([]);
+    expect(game.gameState!.players[0].lp).toBe(800);
+    expect(responseButtons()[0].props['aria-pressed']).toBe(true);
+    expect(activateResponse().props.disabled).toBe(false);
+    act(() => responseButtons()[1].props.onClick());
+    act(() => overlay!.update(responseView()));
+    expect(overlay!.root.findByType(GameSidebar).findByType(CardDetail).props.card.instanceId).toBe(responseCards[1].instanceId);
+    expect(responseButtons().map(button => button.props['aria-pressed'])).toEqual([false, true, false]);
+    expect(game.gameState!.chain).toEqual([]);
+    act(() => responseButtons()[0].props.onClick());
+    act(() => activateResponse().props.onClick());
+    expect(game.state.responseFieldMode).toBeNull();
+    expect(game.gameState!.chain?.[0].context.card.instanceId).toBe(responseCards[0].instanceId);
+    expect(game.gameState!.players[0].lp).toBe(600);
+    act(() => overlay!.update(responseView()));
+    expect(activateResponse().props.disabled).toBe(true);
+    expect(responseButtons().map(button => button.findByType(CardDetail).props.card.instanceId)).toEqual(responseCards.slice(1).map(c => c.instanceId));
+    act(() => overlay!.root.findByProps({ 'aria-label': 'Select Void Call' }).props.onClick());
+    expect(game.state.pendingEffectCard).toBeNull();
+    act(() => activateResponse().props.onClick());
+    expect(game.state.pendingEffectCard?.instanceId).toBe(responseCards[2].instanceId);
+    const waitingForResponseTarget = game.gameState!;
+    act(() => { game.actions.passResponse(); vi.advanceTimersByTime(5000); });
+    expect(game.gameState).toBe(waitingForResponseTarget);
+    expect(game.state.targetSelectMode).toBe('effect');
+    act(() => overlay!.update(responseView()));
+    expect(overlay!.root.findAllByProps({ 'aria-label': 'Activatable response cards' })).toHaveLength(0);
+    act(() => game.actions.cancelEffect());
+    act(() => overlay!.update(responseView()));
+    act(() => overlay!.root.findAllByType('button').find(button => button.children.includes('Decline'))!.props.onClick());
+    expect(game.gameState!.resolvingChain).toBeDefined();
+    act(() => overlay!.unmount());
 });
 
-it('holds a declared attack for 1.5 seconds before committing combat', () => {
+it('holds attacks and battle-destruction choices before mandatory effects move the defeated card', async () => {
     setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('pawn_01')); s.players[1].pawnZones[0] = placed(card('pawn_04', 1)); });
     const before = game.gameState!;
     act(() => game.actions.handleAttack(0, 0));
@@ -180,6 +318,75 @@ it('holds a declared attack for 1.5 seconds before committing combat', () => {
     expect(game.gameState!.log[0]).toBe('"Solstice Sentinel" destroyed "Void Caster" by battle. "Player 2" -20 LP.');
     act(() => game.actions.handleAttack(0, 'direct'));
     expect(game.gameState!.players[1].lp).toBe(780);
+
+    for (const accept of [false, true]) {
+        const necromancer = card('pawn_14');
+        const knight = card('pawn_cockroach_knight', 1);
+        const recruit = { ...card('pawn_01', 1), attribute: Attribute.EARTH, atk: 100 };
+        let finishRecruitLanding!: () => void;
+        if (accept) {
+            vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+            const finished = new Promise<void>(resolve => { finishRecruitLanding = resolve; });
+            const rect = { left: 0, top: 0, width: 100, height: 150 };
+            game.actions.setRef('deck-1')({ getBoundingClientRect: () => rect, querySelector: () => null } as unknown as HTMLElement);
+            game.actions.setRef('1-pawn-2')({ getBoundingClientRect: () => rect,
+                querySelector: (selector: string) => selector === '[data-card-face]' ? { animate: () => ({ finished }) } : null } as unknown as HTMLElement);
+        }
+        setup(s => {
+            s.response = undefined; s.deferredAction = undefined; s.chain = []; s.resolvingChain = undefined;
+            s.currentPhase = Phase.BATTLE; s.activePlayerIndex = 0;
+            s.players[0].pawnZones[0] = placed(necromancer);
+            s.players[1].pawnZones[0] = placed(knight);
+            s.players[1].deck = [recruit];
+        });
+        act(() => game.actions.handleAttack(0, 0));
+        act(() => vi.advanceTimersByTime(1500));
+        expect(game.state.triggeredEffect?.instanceId).toBe(knight.instanceId);
+        const expectKnightInDiscard = () => {
+            expect(game.gameState!.players[1].discard.map(value => value.instanceId)).toContain(knight.instanceId);
+            expect(game.gameState!.players.flatMap(player => player.pawnZones).some(zone => zone?.card.instanceId === knight.instanceId)).toBe(false);
+        };
+        expectKnightInDiscard();
+        let overlay: ReturnType<typeof create>;
+        act(() => { overlay = create(<GameOverlays gameState={game.gameState!} state={game.state} actions={game.actions}
+            activePlayer={game.gameState!.players[0]} actionsDisabled viewerIndex={1} onQuit={() => {}} />); });
+        expect(overlay!.root.findAllByProps({ 'aria-label': 'Summon effect prompt' })).toHaveLength(1);
+        act(() => vi.advanceTimersByTime(5000));
+        expectKnightInDiscard();
+        if (accept) {
+            act(() => game.actions.resolveEffect(knight, undefined, undefined, undefined, undefined, 'battle_destroyed'));
+            expect(game.state.deckSelectionReq).not.toBeNull();
+            act(() => vi.advanceTimersByTime(5000));
+            expectKnightInDiscard();
+            act(() => game.actions.handleDeckSelection(0));
+            expect(game.state.pawnPlacementReq).not.toBeNull();
+            act(() => vi.advanceTimersByTime(5000));
+            expectKnightInDiscard();
+            act(() => game.actions.handlePawnPlacement(2, Position.ATTACK));
+            act(() => vi.advanceTimersByTime(0));
+            expectKnightInDiscard();
+            expect(game.gameState!.players[1].pawnZones[2]?.card.instanceId).toBe(recruit.instanceId);
+            // The next mandatory effect waits for the recruit to land, without a fixed gap afterward.
+            expect(game.state.cardMovementPending).toBe(true);
+            act(() => vi.advanceTimersByTime(5000));
+            expectKnightInDiscard();
+            act(() => game.state.cardMotions.forEach(motion => game.state.finishMotion(motion.id)));
+            expect(game.state.cardMovementPending).toBe(true);
+            await act(async () => { finishRecruitLanding(); });
+            expect(game.state.cardMovementPending).toBe(false);
+        } else {
+            act(() => overlay!.root.findAllByType('button').find(button => button.children.includes('Decline'))!.props.onClick());
+            expectKnightInDiscard();
+        }
+        act(() => vi.advanceTimersByTime(0));
+        expect(game.gameState!.players[0].pawnZones[1]?.card.instanceId).toBe(knight.instanceId);
+        expect(game.gameState!.players[0].pawnZones[1]?.position).toBe(Position.DEFENSE);
+        expect(game.gameState!.players[1].discard).toHaveLength(0);
+        act(() => overlay!.unmount());
+        game.actions.setRef('deck-1')(null);
+        game.actions.setRef('1-pawn-2')(null);
+        vi.unstubAllGlobals();
+    }
 });
 
 it('discard and tribute costs are paid once after all activation selections are complete', () => {

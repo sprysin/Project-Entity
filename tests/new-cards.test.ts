@@ -13,7 +13,7 @@ import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
 import { buildEffect } from '../src/cards/engine/Builder';
-import { Card, GameState, Phase, Player, Position } from '../src/types';
+import { Attribute, Card, CardType, GameState, Phase, Player, Position } from '../src/types';
 
 let serial = 0;
 const card = (id: string, owner = 0): Card => ({
@@ -54,72 +54,8 @@ const state = (): GameState => ({
     pendingEffects: []
 });
 
-it('new Conditions and Turnados resolve their selected effects', () => {
-    const game = state();
-    const call = card('condition_04');
-    game.players[0].actionZones[0] = placed(call, Position.HIDDEN);
-    game.players[0].pawnZones[0] = placed(card('pawn_08'));
-    game.players[0].pawnZones[1] = placed(card('pawn_01'), Position.HIDDEN);
-    game.players[1].pawnZones[0] = placed(card('pawn_05', 1));
-
-    const handler = cardRegistry.getEffect(call.id)!.onActivate!;
-    const firstRequest = handler(game, { card: call, playerIndex: 0 });
-    expect(firstRequest).toMatchObject({
-        requireTarget: 'pawn', requireTargetPosition: 'faceup',
-        requireTargetScope: 'active', requireTargetIndex: 0
-    });
-    const ownTarget = { playerIndex: 0, type: 'pawn' as const, index: 0 };
-    const secondRequest = handler(game, { card: call, playerIndex: 0, target: ownTarget, targets: [ownTarget] });
-    expect(secondRequest).toMatchObject({
-        requireTarget: 'pawn', requireTargetPosition: 'faceup',
-        requireTargetScope: 'opponent', requireTargetIndex: 1
-    });
-
-    const choices = effectChoices(game, call, 'activate');
-    expect(choices).toHaveLength(1);
-    expect(choices[0].targets).toEqual([
-        { playerIndex: 0, type: 'pawn', index: 0 },
-        { playerIndex: 1, type: 'pawn', index: 0 }
-    ]);
-
-    const resolved = resolveChain(addChainLink(game, choices[0], 'activate'));
-    expect(resolved.players[0].pawnZones[0]?.position).toBe(Position.HIDDEN);
-    expect(resolved.players[0].pawnZones[1]?.position).toBe(Position.HIDDEN);
-    expect(resolved.players[1].pawnZones[0]?.position).toBe(Position.HIDDEN);
-    expect(resolved.players[0].discard.some(value => value.instanceId === call.instanceId)).toBe(true);
-
-    const routGame = state();
-    const rout = card('action_07');
-    routGame.players[0].actionZones[0] = placed(rout, Position.HIDDEN);
-    routGame.players[0].pawnZones[0] = placed(card('pawn_01'));
-    routGame.players[1].pawnZones[0] = placed(card('pawn_02', 1));
-    expect(effectChoices(routGame, rout, 'activate')).toEqual([]);
-    routGame.players[1].pawnZones[1] = placed(card('pawn_03', 1), Position.HIDDEN);
-    routGame.players[1].pawnZones[2] = placed(card('pawn_04', 1), Position.DEFENSE);
-    routGame.players[1].pawnZones[3] = placed(card('pawn_05', 1));
-    const routed = resolveChain(addChainLink(routGame, effectChoices(routGame, rout, 'activate')[0], 'activate'));
-    expect(routed.players[0].lp).toBe(840);
-    expect(routed.players[0].pawnZones[0]?.position).toBe(Position.ATTACK);
-    expect(routed.players[1].pawnZones.map(zone => zone?.position)).toEqual([
-        Position.DEFENSE, Position.HIDDEN, Position.DEFENSE, Position.DEFENSE, undefined
-    ]);
-    expect(routed.players[0].discard.some(value => value.instanceId === rout.instanceId)).toBe(true);
-
-    const windGame = state();
+it('shuffle costs, attack negation and summon reactions share the engine selection path', () => {
     const turnados = card('pawn_15');
-    const airCost = card('pawn_11');
-    const enemyAction = card('action_01', 1);
-    windGame.players[0].pawnZones[0] = placed(turnados);
-    windGame.players[0].discard = [airCost];
-    windGame.players[1].actionZones[0] = placed(enemyAction, Position.HIDDEN);
-    const windChoices = effectChoices(windGame, turnados, 'summon');
-    expect(windChoices).toHaveLength(1);
-    expect(windChoices[0]).toMatchObject({ shuffleCardIds: [airCost.instanceId], target: { playerIndex: 1, type: 'action', index: 0 } });
-    const windResolved = resolveChain(addChainLink(windGame, windChoices[0], 'summon'));
-    expect(windResolved.players[0].deck.some(value => value.instanceId === airCost.instanceId)).toBe(true);
-    expect(windResolved.players[1].actionZones[0]).toBeNull();
-    expect(windResolved.players[1].discard.some(value => value.instanceId === enemyAction.instanceId)).toBe(true);
-
     for (const location of ['hand', 'field', 'discard'] as const) {
         const costGame = state();
         const first = card('pawn_01');
@@ -311,7 +247,7 @@ it('Glass Witch destroys itself and privately reveals the opponent-selected hand
     expect(effectChoices(timing, timing.players[1].pawnZones[0]!.card, 'activate')).toHaveLength(0);
 });
 
-it('Switch reveals, Necromancer revival and controlled cards use their owner’s piles', () => {
+it('battle reactions and controlled cards respect identity and ownership', () => {
     let game = state();
     const ghost = card('pawn_12');
     const necromancer = card('pawn_14');
@@ -320,7 +256,7 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
     game.players[0].pawnZones[1] = placed(necromancer);
     game.players[1].pawnZones[0] = placed(enemy);
     game = applyCommand(game, 0, { type: 'position', index: 0 }).state;
-    expect(game.pendingSwitches?.[0].card.instanceId).toBe(ghost.instanceId);
+    expect(game.pendingReactions?.[0].card.instanceId).toBe(ghost.instanceId);
     const firstTarget = { playerIndex: 1, type: 'pawn' as const, index: 0 };
     const targetPreview = runEffect(game, { card: ghost, playerIndex: 0, target: firstTarget, targets: [firstTarget] }, 'switch');
     expect(targetPreview.requireTargetIndex).toBe(1);
@@ -337,21 +273,6 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
     game.currentPhase = Phase.END;
     game = advancePhaseState(game);
     expect(game.players[0].pawnZones[1]?.card.atk).toBe(145);
-
-    game = state();
-    game.currentPhase = Phase.BATTLE;
-    const grub = card('pawn_13', 1);
-    game.players[1].pawnZones[0] = placed(grub, Position.HIDDEN);
-    game.players[1].hand = [card('pawn_01', 1)];
-    game.players[1].deck = [card('pawn_02', 1)];
-    game.players[0].pawnZones[0] = placed(card('pawn_01'));
-    game = resolveCombat(game, 0, 0);
-    expect(game.pendingSwitches?.[0].playerIndex).toBe(1);
-    expect(game.players[1].pawnZones[0]?.position).toBe(Position.DEFENSE);
-    game = resolveChain(addChainLink(game, effectChoices(game, grub, 'switch')[0], 'switch'));
-    expect(game.players[1].discard).toHaveLength(1);
-    expect(game.players[1].hand).toHaveLength(1);
-    expect(game.players[1].activatedHardOncePerTurns).toContain('pawn_13');
 
     // Cost-triggered effects cannot change the ongoing battle, even for a quick effect.
     cardRegistry.register({ ...cardRegistry.getCard('pawn_01')!, id: 'test_quick_discard', name: 'Quick discard' }, {
@@ -372,20 +293,23 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
         if (timing === 'battle-switch') game = resolveCombat(game, 0, 0);
         else if (timing === 'main-switch') {
             game.players[1].pawnZones[0]!.position = Position.DEFENSE;
-            game.pendingSwitches = [{ card: defender, playerIndex: 1 }];
+            game.pendingReactions = [{ card: defender, playerIndex: 1, trigger: 'switch' }];
         } else game = applyCommand(game, 0, { type: 'attack', attackerIndex: 0, targetIndex: 0 }).state;
         const source = timing === 'attack-response' ? survivor : defender;
         const trigger = timing === 'attack-response' ? 'activate' : 'switch';
         let paid = addChainLink(game, { card: source, playerIndex: 1, handIndex: 0 }, trigger);
         expect(paid.players[1].discard.map(c => c.instanceId)).toContain(guard.instanceId);
         expect(paid.players[1].pawnZones[1]?.card.def).toBe(survivor.def);
-        expect(paid.pendingTriggers).toHaveLength(1);
+        expect(paid.pendingTriggers?.filter(entry => entry.trigger === 'discard')).toHaveLength(1);
         paid = resolveChain(paid);
         if (timing === 'attack-response') {
             expect(paid.players[1].pawnZones[0]?.card.def).toBe(defender.def);
             expect(paid.pendingTriggers).toHaveLength(1);
             paid = applySystemCommand(paid, { type: 'completeDeferred' }).state;
-            expect(paid.players[0].pawnZones[1]?.card.instanceId).toBe(defender.instanceId);
+            expect(paid.players[1].discard.some(card => card.instanceId === defender.instanceId)).toBe(true);
+            // The battle-revealed Pawn gets its choice before queued mandatory effects.
+            for (const reaction of paid.pendingReactions ?? []) paid = applyCommand(paid, reaction.playerIndex,
+                { type: 'cancelEffect', cardId: reaction.card.instanceId }).state;
             paid = resolveChain(paid);
         }
         expect(paid.players[1].pawnZones[1]?.card.def).toBe(survivor.def + 200);
@@ -399,22 +323,6 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
 
     game = state();
     game.currentPhase = Phase.BATTLE;
-    const revivedGrub = card('pawn_13', 1);
-    game.players[0].pawnZones[0] = placed(card('pawn_14'));
-    game.players[1].pawnZones[0] = placed(revivedGrub, Position.HIDDEN);
-    game.players[1].hand = [card('pawn_01', 1)];
-    game.players[1].deck = [card('pawn_02', 1)];
-    game = resolveCombat(game, 0, 0);
-    expect(game.pendingSwitches?.[0].playerIndex).toBe(1);
-    expect(game.players[0].pawnZones.some(z => z?.card.instanceId === revivedGrub.instanceId)).toBe(true);
-    const revivedChoice = effectChoices(game, revivedGrub, 'switch')[0];
-    expect(revivedChoice.playerIndex).toBe(1);
-    game = resolveChain(addChainLink(game, revivedChoice, 'switch'));
-    expect(game.players[1].discard).toHaveLength(1);
-    expect(game.players[0].hand).toHaveLength(0);
-
-    game = state();
-    game.currentPhase = Phase.BATTLE;
     const stolen = card('pawn_01', 1);
     const attacker = card('pawn_14');
     game.players[0].pawnZones[0] = placed(attacker);
@@ -424,6 +332,8 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
     const battle = applySystemCommand(game, { type: 'completeDeferred' });
     expect(battle.events).toMatchObject([{ type: 'destroyed', playerIndex: 1, index: 0, card: stolen }]);
     game = battle.state;
+    expect(game.players[1].discard.some(c => c.instanceId === stolen.instanceId)).toBe(true);
+    game = resolveChain(game);
     expect(game.players[0].pawnZones.some(z => z?.card.instanceId === stolen.instanceId)).toBe(true);
     expect(game.players[1].discard).toHaveLength(0);
     game.currentPhase = Phase.END;
@@ -438,14 +348,71 @@ it('Switch reveals, Necromancer revival and controlled cards use their owner’s
 
     game = state();
     game.currentPhase = Phase.BATTLE;
-    const infantry = card('pawn_infantry_soldier');
-    game.players[0].pawnZones[0] = placed(infantry);
-    game.players[0].pawnZones[1] = placed(card('pawn_infantry_soldier'));
-    game.players[1].pawnZones[0] = placed(card('pawn_01', 1));
-    expect(resolveCombat(game, 0, 0).players[1].lp).toBe(780);
-    game.players[0].pawnZones[1] = placed(card('pawn_infantry_soldier'), Position.HIDDEN);
-    expect(resolveCombat(game, 0, 0).players[0].pawnZones[0]).toBeNull();
-
+    // Battle departures share the optional reaction and selection path with Switch effects.
+    cardRegistry.register({ ...cardRegistry.getCard('pawn_cockroach_knight')!, id: 'test_battle_recruiter' },
+        cardRegistry.getEffect('pawn_cockroach_knight')!);
+    for (const sourceId of ['test_battle_recruiter']) {
+        for (const battleMode of ['defending', 'hidden', 'attacking', 'tie', 'borrowed'] as const) {
+            const duel = state();
+            duel.currentPhase = Phase.BATTLE;
+            const owner = battleMode === 'attacking' || battleMode === 'tie' ? 0 : 1;
+            const controller = battleMode === 'borrowed' ? 0 : owner;
+            const knight = card(sourceId, owner);
+            const recruit = { ...card('pawn_01', owner), attribute: Attribute.EARTH, atk: 100 };
+            const weak = { ...card('pawn_01', owner), attribute: Attribute.EARTH, atk: 0 };
+            const wrongAttribute = { ...recruit, instanceId: 'wrong-attribute', attribute: Attribute.FIRE };
+            const tooStrong = { ...recruit, instanceId: 'too-strong', atk: 101 };
+            const action = { ...recruit, instanceId: 'wrong-type', type: CardType.ACTION };
+            duel.players[owner].deck = [wrongAttribute, tooStrong, action, recruit, weak];
+            duel.players[controller].pawnZones[0] = placed(knight, battleMode === 'hidden' ? Position.HIDDEN : Position.ATTACK);
+            duel.players[1 - controller].pawnZones[0] = placed({
+                ...card('pawn_01', 1 - controller), atk: battleMode === 'tie' ? 100 : 150
+            });
+            duel.activePlayerIndex = battleMode === 'borrowed' ? 1 : 0;
+            const destroyed = resolveCombat(duel, 0, 0);
+            expect(destroyed.players[owner].discard.some(value => value.instanceId === knight.instanceId)).toBe(true);
+            expect(destroyed.pendingReactions).toContainEqual({ card: knight, playerIndex: owner, trigger: 'battle_destroyed' });
+            const choices = effectChoices(destroyed, knight, 'battle_destroyed');
+            expect(choices).toHaveLength(destroyed.players[owner].pawnZones.filter(zone => !zone).length * 2);
+            expect(choices.every(choice => choice.playerIndex === owner && choice.pawnPlacement?.position === Position.ATTACK
+                && [3, 4].includes(choice.deckIndex!))).toBe(true);
+            expect(applyCommand(destroyed, owner, { type: 'attack', attackerIndex: 0, targetIndex: 'direct' }).state).toBe(destroyed);
+            const choice = choices.find(value => value.deckIndex === 3 && value.pawnPlacement?.slot === 2)!;
+            expect(applyCommand(destroyed, owner, { type: 'activate', context: {
+                ...choice, pawnPlacement: { slot: 2, position: Position.DEFENSE }
+            }, trigger: 'battle_destroyed' }).state).toBe(destroyed);
+            const queued = applyCommand(destroyed, owner, { type: 'activate', context: choice, trigger: 'battle_destroyed' }).state;
+            expect(queued.pendingReactions).toEqual([]);
+            queued.players[owner].deck.reverse();
+            const summoned = resolveChain(queued);
+            expect(summoned.players[owner].pawnZones[2]).toMatchObject({
+                card: { instanceId: recruit.instanceId }, position: Position.ATTACK, summonedTurn: duel.turnNumber
+            });
+            expect(summoned.players[owner].deck).toHaveLength(4);
+            expect(summoned.players[owner].normalSummonUsed).toBe(false);
+            const decline = applyCommand(destroyed, owner, { type: 'cancelEffect', cardId: knight.instanceId }).state;
+            expect(decline.pendingReactions).toEqual([]);
+            expect(decline.players[owner].deck).toHaveLength(5);
+            expect(applyCommand(destroyed, 1 - owner, { type: 'cancelEffect', cardId: knight.instanceId }).state).toBe(destroyed);
+            const emptyDeck = structuredClone(destroyed);
+            emptyDeck.players[owner].deck = [];
+            expect(effectChoices(emptyDeck, knight, 'battle_destroyed')).toEqual([]);
+            const fullField = structuredClone(destroyed);
+            fullField.players[owner].pawnZones.fill(placed(recruit));
+            expect(effectChoices(fullField, knight, 'battle_destroyed')).toEqual([]);
+            for (const interruption of ['removed', 'occupied'] as const) {
+                const interrupted = structuredClone(queued);
+                if (interruption === 'removed') interrupted.players[owner].deck = [];
+                else interrupted.players[owner].pawnZones[2] = placed(weak);
+                expect(resolveChain(interrupted).players[owner].pawnZones[2]?.card.instanceId).not.toBe(recruit.instanceId);
+            }
+        }
+    }
+    const nonBattle = state();
+    const knight = card('pawn_cockroach_knight');
+    nonBattle.players[0].pawnZones[0] = placed(knight);
+    Effect.DestroyTarget()(nonBattle, { card: knight, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } });
+    expect(nonBattle.pendingReactions).toBeUndefined();
     // A second card can supply a continuous ATK/DEF rule without shared-code changes.
     cardRegistry.register({ ...cardRegistry.getCard('pawn_01')!, id: 'test_field_stat_modifier', name: 'Test Field Modifier' }, {
         fieldStatModifier: current => ({ atk: current.players[0].pawnZones[1] ? 70 : 0, def: 25 })

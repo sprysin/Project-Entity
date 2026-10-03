@@ -94,7 +94,7 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
 };
 
 interface EffectModalProps {
-    declineSwitch: (cardId: string) => void;
+    declineReaction: (cardId: string) => void;
     triggeredEffect: Card | null;
     gameState: GameState | null;
     isPeekingField: boolean;
@@ -105,7 +105,7 @@ interface EffectModalProps {
     setPendingEffectCard: (card: Card | null) => void;
 }
 
-export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameState, isPeekingField, resolveEffect, checkActivationConditions, setIsPeekingField, setTriggeredEffect, setPendingEffectCard, declineSwitch }) => {
+export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameState, isPeekingField, resolveEffect, checkActivationConditions, setIsPeekingField, setTriggeredEffect, setPendingEffectCard, declineReaction }) => {
     React.useEffect(() => {
         if (!triggeredEffect || !isPeekingField) return;
         const returnToPrompt = (event: KeyboardEvent) => {
@@ -118,10 +118,10 @@ export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameS
     }, [isPeekingField, setIsPeekingField, triggeredEffect]);
 
     if (!triggeredEffect || !gameState) return null;
-    const switchController = gameState.pendingSwitches?.find(entry => entry.card.instanceId === triggeredEffect.instanceId)?.playerIndex;
-    const canActivate = checkActivationConditions(gameState, triggeredEffect, switchController ?? gameState.activePlayerIndex);
+    const reactionController = gameState.pendingReactions?.find(entry => entry.card.instanceId === triggeredEffect.instanceId)?.playerIndex;
+    const canActivate = checkActivationConditions(gameState, triggeredEffect, reactionController ?? gameState.activePlayerIndex);
     const decline = () => {
-        if (switchController !== undefined) declineSwitch(triggeredEffect.instanceId);
+        if (reactionController !== undefined) declineReaction(triggeredEffect.instanceId);
         setTriggeredEffect(null);
         setPendingEffectCard(null);
         setIsPeekingField(false);
@@ -133,7 +133,7 @@ export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameS
         peeking={isPeekingField}
         setPeeking={setIsPeekingField}
         actions={[
-            ...(!triggeredEffect.switchMandatory || switchController === undefined ? [{ label: 'Decline', onClick: decline, variant: 'secondary' as const }] : []),
+            ...(!triggeredEffect.switchMandatory || reactionController === undefined ? [{ label: 'Decline', onClick: decline, variant: 'secondary' as const }] : []),
             { label: 'Activate', onClick: () => resolveEffect(triggeredEffect), variant: 'primary', disabled: !canActivate },
         ]}
     >

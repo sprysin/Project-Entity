@@ -56,19 +56,23 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 
   const effectCard = state.pendingEffectCard ?? state.triggeredEffect;
-  const selectingPlayer = effectCard ? gameState.pendingSwitches?.find(entry => entry.card.instanceId === effectCard.instanceId)?.playerIndex
+  const pendingConditionId = state.pendingTriggerType === 'activate' && state.pendingEffectCard?.type === CardType.CONDITION
+    ? state.pendingEffectCard.instanceId : null;
+  const displayActionCard = (zone: (typeof gameState.players)[number]['actionZones'][number]) =>
+    zone && zone.card.instanceId === pendingConditionId && zone.position === Position.HIDDEN
+      ? { ...zone, position: Position.FACE_UP }
+      : zone;
+  const selectingPlayer = effectCard ? gameState.pendingReactions?.find(entry => entry.card.instanceId === effectCard.instanceId)?.playerIndex
     ?? gameState.players.findIndex((p, index) =>
       p.pawnZones.some(z => z?.card.instanceId === effectCard.instanceId)
       || p.actionZones.some(z => z?.card.instanceId === effectCard.instanceId)
-      || gameState.pendingSwitches?.some(entry => entry.card.instanceId === effectCard.instanceId && entry.playerIndex === index)) : undefined;
+      || gameState.pendingReactions?.some(entry => entry.card.instanceId === effectCard.instanceId && entry.playerIndex === index)) : undefined;
   const privatePeek = gameState.peekEvents?.[0];
   const handSummonViewer = gameState.pendingHandSummons?.[0] && !gameState.response && !gameState.resolvingChain
     && !state.triggeredEffect && !state.pendingEffectCard ? gameState.pendingHandSummons[0].playerIndex : undefined;
-  const viewIndex = opponentMode === 'ai' ? 0 : gameState.pendingVoidSelections?.[0]?.playerIndex ?? state.peekSelectionReq?.playerIndex ?? privatePeek?.viewerPlayerIndex ?? selectingPlayer ?? handSummonViewer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
+  const viewIndex = opponentMode === 'ai' ? 0 : gameState.pendingVoidReturns?.[0]?.playerIndex ?? gameState.pendingVoidSelections?.[0]?.playerIndex ?? state.peekSelectionReq?.playerIndex ?? privatePeek?.viewerPlayerIndex ?? selectingPlayer ?? handSummonViewer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
   const turnIsMine = !gameState.openingCoin && viewIndex === gameState.activePlayerIndex;
   const availableFieldEffects = fieldActivations(gameState, viewIndex);
-  const responseActivationAt = (type: 'pawn' | 'action', index: number) =>
-    state.responseOptions.find(option => option.slot.type === type && option.slot.index === index);
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
@@ -76,7 +80,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
   const revealedOpponentCardId = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex && event.ownerPlayerIndex === oppIdx)?.card.instanceId;
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
-  const actionsDisabled = !turnIsMine || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!gameState.peekEvents?.some(event => event.viewerPlayerIndex === viewIndex);
+  const actionsDisabled = !turnIsMine || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!gameState.peekEvents?.some(event => event.viewerPlayerIndex === viewIndex);
   const selectedPawnCanSummon = selectedCard?.type === CardType.PAWN && !actionsDisabled && actions.canPlayCard(selectedCard);
   const handSummonCard = gameState.pendingHandSummons?.[0]?.playerIndex === viewIndex
     ? activePlayer.hand.find(card => card.instanceId === state.handSummonCardId) : undefined;
@@ -187,12 +191,12 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
             ))}
           </div>
 
-          <div className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
+          <div inert={state.cardMovementPending} className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
             {/* Opponent Field View */}
             <div className={`game-player-field duel-player-field--opponent flex flex-col items-center ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} opacity-90`}>
               <div className="game-field-row">
                 <div className="game-field-zones game-field-zones--actions">
-                  {opponent.actionZones.map((z, i) => (<Zone key={i} card={z} xray={xray} type="action" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'action', oppIdx)} onClick={() => {
+                  {opponent.actionZones.map((z, i) => (<Zone key={i} card={displayActionCard(z)} xray={xray} type="action" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'action', oppIdx)} onClick={() => {
                     if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                     if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                       if (checkIsSelectable(z, 'action', oppIdx)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
@@ -250,7 +254,6 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                   {activePlayer.pawnZones.map((z, i) => {
                     const selected = isSelectedZone('pawn', i);
                     const canChangePosition = canChangePawnPosition(gameState, viewIndex, i);
-                    const responseActivation = responseActivationAt('pawn', i);
                     const canActivateEffect = availableFieldEffects.some(a => a.slot.type === 'pawn' && a.slot.index === i);
                     const attackReady = canPawnAttack(i);
                     const selectedCardCanTributeSummon = selectedCard?.type === CardType.PAWN && selectedCard.level >= 5;
@@ -269,10 +272,9 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       isTributeSelected={state.tributeSelection.includes(i)}
                       isSelectable={checkIsSelectable(z, 'pawn', viewIndex)}
                       isDropTarget={(choosingEffectPlacement && !z) || (!!handSummonCard && !z) || (selectedPawnCanSummon && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i))}
-                      isActivatable={state.responseFieldMode === 'activate' ? !!responseActivation : attackReady}
-                      contextualActions={showEffectPlacementMenu ? <ContextMenu title="Special summon position">
-                        <ContextMenuButton label="Attack" onClick={() => { actions.handlePawnPlacement(i, Position.ATTACK); actions.setSelectedFieldSlot(null); }} tone="gold" />
-                        <ContextMenuButton label="Defense" onClick={() => { actions.handlePawnPlacement(i, Position.DEFENSE); actions.setSelectedFieldSlot(null); }} />
+                      isActivatable={attackReady}
+                      contextualActions={showEffectPlacementMenu ? <ContextMenu title="Pawn position">
+                        {(state.pawnPlacementReq?.position ? [state.pawnPlacementReq.position] : [Position.ATTACK, Position.DEFENSE]).map(position => <ContextMenuButton key={position} label={position} onClick={() => { actions.handlePawnPlacement(i, position); actions.setSelectedFieldSlot(null); }} tone={position === Position.ATTACK ? 'gold' : undefined} />)}
                       </ContextMenu> : showHandSummonMenu ? <ContextMenu title="Special summon position">
                         <ContextMenuButton label="Attack" onClick={() => actions.confirmHandSummon(i, Position.ATTACK)} tone="gold" />
                         <ContextMenuButton label="Defense" onClick={() => actions.confirmHandSummon(i, Position.DEFENSE)} />
@@ -287,8 +289,6 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                       onClick={() => {
                         if (choosingEffectPlacement || handSummonCard) {
                           actions.setSelectedFieldSlot(!z ? { playerIndex: viewIndex, type: 'pawn', index: i } : null);
-                        } else if (state.responseFieldMode === 'activate') {
-                          if (responseActivation) actions.respond(responseActivation.card.instanceId);
                         } else if (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i)) {
                           actions.handlePlacement(i);
                         } else if (state.targetSelectMode === 'tribute') {
@@ -313,15 +313,14 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                 <div className="game-field-zones game-field-zones--actions">
                   {activePlayer.actionZones.map((z, i) => {
                     const selected = isSelectedZone('action', i);
-                    const responseActivation = responseActivationAt('action', i);
                     const canActivateFieldCard = availableFieldEffects.some(a => a.slot.type === 'action' && a.slot.index === i);
                     const showHandMenu = selected && !z && !!selectedCard && selectedCard.type !== CardType.PAWN && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
                     const showFieldMenu = !state.responseFieldMode && selected && !!z && !selectedCard && !state.targetSelectMode && canActivateFieldCard;
-                    return <Zone key={i} card={z} type="action" domRef={actions.setRef(`${viewIndex}-action-${i}`)}
+                    return <Zone key={i} card={displayActionCard(z)} type="action" domRef={actions.setRef(`${viewIndex}-action-${i}`)}
                       isSelected={selected}
                       isSelectable={checkIsSelectable(z, 'action', viewIndex)}
                       isDropTarget={((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null) || (state.targetSelectMode === 'place_action' && z === null)}
-                      isActivatable={state.responseFieldMode === 'activate' ? !!responseActivation : canActivateFieldCard}
+                      isActivatable={canActivateFieldCard}
                       contextualActions={showHandMenu ? <ContextMenu title="Choose card action">
                         {selectedCard.type !== CardType.CONDITION && <ContextMenuButton label="Activate" onClick={() => actions.handleActionFromHand(selectedCard, 'activate', i)} disabled={actionsDisabled || !checkActivationConditions(gameState, selectedCard, viewIndex)} tone="green" />}
                         <ContextMenuButton label="Set Hidden" onClick={() => actions.handleActionFromHand(selectedCard, 'set', i)} disabled={actionsDisabled} />
@@ -329,9 +328,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                         <ContextMenuButton label={`Activate ${z!.card.type}`} onClick={() => actions.activateOnField(viewIndex, 'action', i)} disabled={actionsDisabled || !canActivateFieldCard} tone="green" />
                       </ContextMenu> : null}
                       onClick={() => {
-                        if (state.responseFieldMode === 'activate') {
-                          if (responseActivation) actions.respond(responseActivation.card.instanceId);
-                        } else if (state.targetSelectMode === 'place_action' && z === null) {
+                        if (state.targetSelectMode === 'place_action' && z === null) {
                           actions.handlePlacement(i);
                         } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                           if (checkIsSelectable(z, 'action', viewIndex)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: viewIndex, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');

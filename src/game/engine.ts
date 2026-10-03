@@ -10,6 +10,8 @@ import { resolveCombat } from './combat';
 import { advancePhaseState, stepDraw } from './phases';
 import { sendToOwnerPile } from './cardOwnership';
 import { queueRevealedSwitches } from './switches';
+import { prepareVoidReturn } from './voidReturns';
+import { isAwaitingDecision } from './decisions';
 import '../cards/pawns';
 import '../cards/actions';
 import '../cards/conditions';
@@ -17,12 +19,14 @@ import '../cards/conditions';
 export type GameCommand =
     | { type: 'chooseTurnOrder'; order: 'first' | 'second' }
     | { type: 'voidSelection'; sourceId: string; cardId: string }
+    | { type: 'placeVoidReturn'; cardId: string; slot: number }
     | { type: 'summon'; cardId: string; hidden: boolean; slot: number; tributes?: number[] }
     | { type: 'play'; cardId: string; set: boolean; slot: number }
     | { type: 'position'; index: number }
     | { type: 'activate'; context: CardContext; trigger: EffectTrigger }
     | { type: 'cancelEffect'; cardId: string }
     | { type: 'attack'; attackerIndex: number; targetIndex: number | 'direct' }
+    | { type: 'attackReplay'; retry: boolean }
     | { type: 'confirmHandSummon'; sourceId: string; cardId: string; slot: number; position: Position }
     | { type: 'declineHandSummon'; sourceId: string }
     | { type: 'phase' | 'end' | 'pass' };
@@ -48,7 +52,7 @@ export function createGame(players: [
         log: ['Turn 1', `Duel initialized. ${players[0].name}: ${players[0].deckName ?? 'Random test deck'}; ${players[1].name}: ${players[1].deckName ?? 'Random test deck'}.`] };
 }
 
-const isMain = (state: GameState, actor: number) => !state.openingCoin && !state.winner && !state.response && !state.pendingVoidSelections?.length && !state.pendingSwitches?.length && !state.pendingHandSummons?.length
+const isMain = (state: GameState, actor: number) => !state.pendingActivation && !state.openingCoin && !state.winner && !state.response && !state.pendingVoidReturns?.length && !state.pendingVoidSelections?.length && !state.pendingReactions?.length && !state.pendingHandSummons?.length
     && actor === state.activePlayerIndex && [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase);
 const validSlot = (slot: number) => Number.isInteger(slot) && slot >= 0 && slot < 5;
 
@@ -59,8 +63,9 @@ export function canChangePosition(state: GameState, actor: number, index: number
 
 export function canAttack(state: GameState, actor: number, index: number): boolean {
     const zone = state.players[actor]?.pawnZones[index];
-    return !state.openingCoin && !state.winner && !state.response && !state.pendingVoidSelections?.length && !state.pendingSwitches?.length && !state.pendingHandSummons?.length && state.activePlayerIndex === actor && state.currentPhase === Phase.BATTLE
+    return !state.pendingActivation && !state.openingCoin && !state.winner && !state.response && !state.pendingVoidReturns?.length && !state.pendingVoidSelections?.length && !state.pendingReactions?.length && !state.pendingHandSummons?.length && state.activePlayerIndex === actor && state.currentPhase === Phase.BATTLE
         && state.turnNumber > 1 && !!zone && zone.position === Position.ATTACK
+        && (!state.attackReplay || state.attackReplay.choosingTarget && state.attackReplay.attackerId === zone.card.instanceId)
         && (zone.attacksRemaining !== undefined ? zone.attacksRemaining > 0 : !zone.hasAttacked);
 }
 
@@ -86,10 +91,27 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             log: [`${state.players[actor].name} won the coin flip and chose to go ${command.order}. ${state.players[first].name} starts.`, ...state.log] };
     }
     if (state.openingCoin) return state;
+    if (state.pendingVoidReturns?.length && command.type !== 'placeVoidReturn') return state;
+    if (state.attackReplay && !['attackReplay', 'attack'].includes(command.type)) return state;
     if (state.pendingVoidSelections?.length && command.type !== 'voidSelection') return state;
     if (state.pendingHandSummons?.length && !['confirmHandSummon', 'declineHandSummon', 'activate', 'pass', 'cancelEffect', 'voidSelection'].includes(command.type)) return state;
     const player = state.players[actor];
     switch (command.type) {
+        case 'placeVoidReturn': {
+            const entry = state.pendingVoidReturns?.[0];
+            if (!entry || actor !== entry.playerIndex || command.cardId !== entry.cardId
+                || !validSlot(command.slot) || player.pawnZones[command.slot]) return state;
+            const index = player.void.findIndex(card => card.instanceId === entry.cardId);
+            if (index < 0) return state;
+            const next = structuredClone(state);
+            const [card] = next.players[actor].void.splice(index, 1);
+            next.players[actor].pawnZones[command.slot] = { card, position: entry.position,
+                hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+            next.pendingVoidReturns!.shift();
+            next.log = [`"${card.name}" returned from the Void.`, ...next.log].slice(0, 50);
+            prepareVoidReturn(next);
+            return next;
+        }
         case 'voidSelection': {
             const pending = state.pendingVoidSelections?.[0];
             if (!pending || pending.playerIndex !== actor || pending.source.instanceId !== command.sourceId) return state;
@@ -164,11 +186,11 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
         case 'activate': {
             if (command.context.playerIndex !== actor) return state;
             const source = [...player.pawnZones, ...player.actionZones].find(z => z?.card.instanceId === command.context.card.instanceId);
-            const pendingSwitch = command.trigger === 'switch' && state.pendingSwitches?.find(entry => entry.card.instanceId === command.context.card.instanceId && entry.playerIndex === actor);
-            if (!source && !pendingSwitch) return state;
-            const context = { ...command.context, card: source?.card ?? pendingSwitch!.card };
-            if (command.trigger === 'switch') {
-                if (!pendingSwitch) return state;
+            const pendingReaction = state.pendingReactions?.find(entry => entry.card.instanceId === command.context.card.instanceId && entry.playerIndex === actor && entry.trigger === command.trigger);
+            if (!source && !pendingReaction) return state;
+            const context = { ...command.context, card: source?.card ?? pendingReaction!.card };
+            if (['switch', 'battle_destroyed'].includes(command.trigger)) {
+                if (!pendingReaction) return state;
             } else if (command.trigger === 'summon') {
                 if (state.response || actor !== state.activePlayerIndex || source.position === Position.HIDDEN || source.summonedTurn !== state.turnNumber) return state;
             } else if (!fieldActivations(state, actor, !!state.response).some(a => a.card.instanceId === source.card.instanceId && a.trigger === command.trigger)) {
@@ -180,11 +202,23 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
         }
         case 'cancelEffect': {
             if (state.response) return state;
-            if (state.pendingSwitches?.some(entry => entry.card.instanceId === command.cardId)) return {
-                ...state, pendingSwitches: state.pendingSwitches.filter(entry => entry.card.instanceId !== command.cardId)
+            if (state.pendingReactions?.some(entry => entry.card.instanceId === command.cardId && entry.playerIndex === actor)) return {
+                ...state, pendingReactions: state.pendingReactions.filter(entry => entry.card.instanceId !== command.cardId)
             };
             const source = player.actionZones.find(z => z?.card.instanceId === command.cardId);
             return source ? finishEffect(state, source.card) : state;
+        }
+        case 'attackReplay': {
+            if (!state.attackReplay || actor !== state.activePlayerIndex) return state;
+            if (command.retry) return { ...state, attackReplay: { ...state.attackReplay, choosingTarget: true } };
+            const next = structuredClone(state);
+            const attacker = next.players[actor].pawnZones.find(zone => zone?.card.instanceId === state.attackReplay!.attackerId);
+            if (attacker) {
+                if (attacker.attacksRemaining !== undefined) attacker.attacksRemaining = Math.max(0, attacker.attacksRemaining - 1);
+                attacker.hasAttacked = attacker.attacksRemaining === undefined || attacker.attacksRemaining <= 0;
+            }
+            next.attackReplay = undefined;
+            return next;
         }
         case 'attack': {
             if (!canAttack(state, actor, command.attackerIndex)) return state;
@@ -192,12 +226,12 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             const opponent = state.players[1 - actor];
             const targetId = command.targetIndex === 'direct' ? 'direct' : opponent.pawnZones[command.targetIndex]?.card.instanceId;
             if (!targetId || targetId === 'direct' && opponent.pawnZones.some(Boolean)) return state;
-            return openResponse(state, { kind: 'attack', attackerId: attacker.card.instanceId, targetId }, `${attacker.card.name} declares an attack`);
+            return openResponse({ ...state, attackReplay: undefined }, { kind: 'attack', attackerId: attacker.card.instanceId, targetId }, `${attacker.card.name} declares an attack`);
         }
         case 'pass': return state.response?.priority === actor ? passPriority(state) : state;
         case 'phase':
         case 'end': {
-            if (actor !== state.activePlayerIndex || state.response || state.pendingSwitches?.length || command.type === 'end' && state.currentPhase === Phase.END) return state;
+            if (actor !== state.activePlayerIndex || state.response || state.pendingReactions?.length || command.type === 'end' && state.currentPhase === Phase.END) return state;
             if (state.currentPhase === Phase.DRAW && state.turnNumber > 1
                 && (state.drawProgress?.turn !== state.turnNumber || state.drawProgress.remaining > 0)) return state;
             return openResponse(state, { kind: command.type }, command.type === 'phase' ? `Leave ${state.currentPhase}` : `Skip from ${state.currentPhase} to END`);
@@ -207,7 +241,17 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
 
 /** Rules-only state transition. Rejected commands retain the original state identity. */
 export function applyCommand(state: GameState, actor: number, command: GameCommand): Transition {
-    return { state: queueRevealedSwitches(state, reduceCommand(state, actor, command)), events: [] };
+    if (state.pendingActivation) {
+        const pending = state.pendingActivation;
+        const cardId = command.type === 'activate' ? command.context.card.instanceId
+            : command.type === 'cancelEffect' ? command.cardId : undefined;
+        if (actor !== pending.playerIndex || cardId !== pending.cardId) return { state, events: [] };
+        const unlocked = { ...state, pendingActivation: undefined };
+        const next = reduceCommand(unlocked, actor, command);
+        return { state: next === unlocked ? state : startPendingTriggers(queueRevealedSwitches(unlocked, next)), events: [] };
+    }
+    const next = reduceCommand(state, actor, command);
+    return { state: next === state ? state : startPendingTriggers(queueRevealedSwitches(state, next)), events: [] };
 }
 
 /** A local adapter or server drives these steps; animation delay is entirely its choice. */
@@ -215,7 +259,7 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
     if (command.type === 'landCoin') return { state: state.openingCoin?.stage === 'flipping'
         ? { ...state, openingCoin: { ...state.openingCoin, stage: 'choosing' } } : state, events: [] };
     if (state.openingCoin) return { state, events: [] };
-    if (state.winner || state.pendingVoidSelections?.length) return { state, events: [] };
+    if (state.winner || isAwaitingDecision(state)) return { state, events: [] };
     if (command.type === 'draw') return { state: stepDraw(state), events: [] };
     if (!state.response?.ready || !state.deferredAction) return { state, events: [] };
     const action = state.deferredAction;
@@ -227,6 +271,7 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
         const actor = state.activePlayerIndex;
         const attacker = state.players[actor].pawnZones.findIndex(z => z?.card.instanceId === action.attackerId);
         const target = action.targetId === 'direct' ? 'direct' : state.players[1 - actor].pawnZones.findIndex(z => z?.card.instanceId === action.targetId);
+        if (attacker >= 0 && canAttack(next, actor, attacker) && target === -1) next.attackReplay = { attackerId: action.attackerId };
         if (attacker >= 0 && (target === 'direct' || target >= 0)) next = resolveCombat(next, attacker, target);
     }
     const events: GameEvent[] = [];

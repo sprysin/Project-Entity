@@ -34,7 +34,7 @@
 .database-section__icon svg { width: 24px; height: 24px; }
 .database-section h2 small { margin-left: auto; color: #bba77e; font-size: 9px; letter-spacing: .17em; white-space: nowrap; }
 .database-card-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 18px 15px; padding: 24px 25px 29px; }
-.database-card { display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none; opacity: .93; cursor: pointer; transition: transform .18s, opacity .18s, filter .18s; }
+.database-card { display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none; text-align: left; opacity: .93; cursor: pointer; transition: transform .18s, opacity .18s, filter .18s; }
 .database-card:hover { z-index: 1; transform: translateY(-6px) scale(1.035); opacity: 1; filter: brightness(1.1); }
 .database-card:focus-visible, .database-card[aria-pressed="true"] { outline: 2px solid var(--section-color); outline-offset: 3px; opacity: 1; }
 .database-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 95px 20px; border: 1px solid #a88a575c; background: #111820b8; color: #b2bdca; }
