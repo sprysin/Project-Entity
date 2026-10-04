@@ -1,4 +1,4 @@
-import { canTribute, fieldStats } from './cardHelpers';
+import { canTributeForSummon, fieldStats } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
@@ -215,7 +215,7 @@ function handFollowUpScore(state: GameState, player: number): number {
     for (const card of own.hand) {
         if (card.type !== CardType.PAWN) continue;
         const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
-        for (const tributes of combinations(own.pawnZones.flatMap((z, i) => z && canTribute(z.card) ? [i] : []), count)) {
+        for (const tributes of combinations(own.pawnZones.flatMap((z, i) => z && canTributeForSummon(z.card, card) ? [i] : []), count)) {
             const next = simulateSummon(state, card, false, tributes);
             if (next !== state) best = Math.max(best, summonScore(state, next, player));
         }
@@ -340,7 +340,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
     own.hand.forEach(card => {
         if (card.type === CardType.PAWN) {
             const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
-            const tributes = combinations(own.pawnZones.flatMap((z, i) => z && canTribute(z.card) ? [i] : []), count);
+            const tributes = combinations(own.pawnZones.flatMap((z, i) => z && canTributeForSummon(z.card, card) ? [i] : []), count);
             for (const tribute of tributes) for (const hidden of [false, true]) {
                 const next = simulateSummon(state, card, hidden, tribute);
                 if (next === state) continue;

@@ -16,6 +16,7 @@ import { WinnerModal } from '../src/components/game/MatchModals';
 import { getDuelMvp } from '../src/game/mvp';
 import { GameOverlays } from '../src/components/game/GameOverlays';
 import { DiscardSelectionModal } from '../src/components/game/SelectionModals';
+vi.mock('../src/desktop/files', () => ({ showMessage: vi.fn() }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
@@ -29,6 +30,8 @@ function setup(edit: (s: GameState) => void) {
         const s = structuredClone(prev!);
         s.turnNumber = 2; s.currentPhase = Phase.MAIN1;
         s.openingCoin = undefined;
+        s.pendingResponse = undefined; s.pendingReactions = []; s.pendingTriggers = [];
+        s.response = undefined; s.chain = []; s.resolvingChain = undefined; s.deferredAction = undefined; s.skipToEnd = undefined;
         for (const p of s.players) {
             p.hand = []; p.deck = []; p.discard = []; p.pawnZones.fill(null); p.actionZones.fill(null);
             p.normalSummonUsed = false; p.hiddenSummonUsed = false; p.activatedHardOncePerTurns = [];
@@ -277,7 +280,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => activateResponse().props.onClick());
     expect(game.state.responseFieldMode).toBeNull();
     expect(game.gameState!.chain?.[0].context.card.instanceId).toBe(responseCards[0].instanceId);
-    expect(game.gameState!.players[0].lp).toBe(600);
+    expect(game.gameState!.players[0].lp).toBe(800);
     act(() => overlay!.update(responseView()));
     expect(activateResponse().props.disabled).toBe(true);
     expect(responseButtons().map(button => button.findByType(CardDetail).props.card.instanceId)).toEqual(responseCards.slice(1).map(c => c.instanceId));
@@ -296,6 +299,24 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => overlay!.root.findAllByType('button').find(button => button.children.includes('Decline'))!.props.onClick());
     expect(game.gameState!.resolvingChain).toBeDefined();
     act(() => overlay!.unmount());
+    for (const mode of ['off', 'auto', 'on'] as const) for (const timing of ['activation', 'minor_action'] as const) {
+        setup(() => {});
+        act(() => game.actions.setActivationPopupMode(mode));
+        setup(s => {
+            s.players[0].pawnZones[0] = placed(card('pawn_04'));
+            s.players[0].actionZones[0] = { ...placed(card('condition_03')), position: Position.HIDDEN };
+            s.players[0].deck = [card('pawn_01')];
+            s.response = { priority: 0, passes: 0, timing, reason: timing };
+        });
+        expect(!!game.gameState!.response).toBe(mode === 'on' || mode === 'auto' && timing === 'activation');
+        if (game.gameState!.response) act(() => game.actions.passResponse());
+    }
+    act(() => game.actions.setActivationPopupMode('off'));
+    const summonTrigger = card('pawn_01');
+    setup(s => { s.activePlayerIndex = 0; s.players[0].hand = [summonTrigger]; });
+    act(() => game.actions.handleSummon(summonTrigger, 'normal', 0));
+    expect(game.state.triggeredEffect?.instanceId).toBe(summonTrigger.instanceId);
+    act(() => game.actions.cancelEffect());
 });
 
 it('holds attacks and battle-destruction choices before mandatory effects move the defeated card', async () => {
@@ -471,6 +492,29 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     expect(game.gameState!.players[0].deck).toEqual(choices.filter((_, index) => !indices.includes(index)));
     expect(game.gameState!.players[1].hand).toHaveLength(5);
     const debugGame = game.gameState!;
+    // An AI quick effect cannot interrupt any card in the required draw batch.
+    act(() => game.actions.setActivationPopupMode('on'));
+    setup(s => {
+        s.activePlayerIndex = 0; s.currentPhase = Phase.DRAW; s.drawProgress = undefined;
+        s.players[0].hand = [card('action_01')];
+        s.players[0].deck = Array.from({ length: 10 }, () => card('pawn_01'));
+        s.players[1].pawnZones[0] = placed(card('pawn_everlasting_dragonlord', 1));
+    });
+    let drawOverlay: ReturnType<typeof create>;
+    const drawView = () => <GameOverlays gameState={game.gameState!} state={game.state} actions={game.actions}
+        actionsDisabled viewerIndex={0} onQuit={() => {}} />;
+    act(() => { drawOverlay = create(drawView()); });
+    for (let i = 1; i <= 4; i++) {
+        expect(drawOverlay!.root.findAllByProps({ role: 'status' })).toHaveLength(0);
+        act(() => vi.advanceTimersByTime(300));
+        expect(game.gameState!.players[0].hand).toHaveLength(i + 1);
+        if (i < 4) expect(game.gameState!.response).toBeUndefined();
+        act(() => drawOverlay!.update(drawView()));
+    }
+    expect(game.gameState!.response).toMatchObject({ timing: 'draw', priority: 1 });
+    for (let i = 0; i < 5; i++) act(() => vi.advanceTimersByTime(0));
+    expect(game.gameState!.currentPhase).toBe(Phase.STANDBY);
+    act(() => drawOverlay!.unmount());
     // Remount self-play with the same settings to verify they are ignored at the boundary.
     act(() => root.update(null));
     act(() => root.update(<React.StrictMode><DebugHarness mode="self" /></React.StrictMode>));

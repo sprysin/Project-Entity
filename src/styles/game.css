@@ -1255,6 +1255,11 @@ body {
   box-shadow: 0 0 7px #fff, 0 0 0 2px #d4af37;
 }
 
+.game-corner-button[data-activation-mode="auto"] .game-corner-button__status {
+  background: #d4af37;
+  box-shadow: 0 0 7px #d4af3788, 0 0 0 2px #d4af3722;
+}
+
 .game-corner-button:hover {
   color: #fff;
   filter: brightness(1.16);

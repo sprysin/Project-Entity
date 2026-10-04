@@ -10,6 +10,10 @@ export function destroyFieldCard(state: GameState, instanceId: string): void {
         const card = zones[index]!.card;
         sendToOwnerPile(state, card, 'discard');
         zones[index] = null;
+        const owner = state.players.findIndex(candidate => candidate.discard.some(value => value.instanceId === card.instanceId));
+        if (owner >= 0 && cardRegistry.getEffect(card.id)?.onDestroyed) {
+            state.pendingReactions = [...(state.pendingReactions ?? []), { card, playerIndex: owner, trigger: 'destroyed' }];
+        }
         const observers = state.players.flatMap((controller, playerIndex) => controller.actionZones.flatMap(attachment =>
             attachment && attachment.position !== Position.HIDDEN && attachment.attachedToInstanceIds?.includes(instanceId)
                 ? [{ attachment, playerIndex, attachedInstanceIds: [...attachment.attachedToInstanceIds] }] : []));

@@ -2,7 +2,8 @@ import { handSummonCandidates, handSummonSource } from '../../game/summonReactio
 import { cardRegistry } from '../../cards/CardRegistry';
 import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
-import { GameState, Player } from '../../types';
+import { GameState, Phase, Player } from '../../types';
+import { isDrawingForTurn } from '../../game/phases';
 import { ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
@@ -168,7 +169,10 @@ export const GameOverlays: React.FC<{
             </DuelPrompt>
         )}
         </>}
-        {state.opponentMode === 'ai' && !gameState.resolvingChain && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
+        {state.opponentMode === 'ai' && !isDrawingForTurn(gameState) && !gameState.pendingResponse && !gameState.response?.ready
+            && !gameState.resolvingChain && (gameState.response || [Phase.MAIN1, Phase.MAIN2, Phase.BATTLE].includes(gameState.currentPhase))
+            && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner
+            && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
         {!state.cardMovementPending && <>
         {!gameState.winner && gameState.pendingVoidSelections?.length

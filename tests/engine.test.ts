@@ -4,7 +4,7 @@ vi.mock('react', () => { throw new Error('The rules engine must not import React
 import { applyCommand, applySystemCommand, createGame, GameCommand } from '../src/game/engine';
 import { Card, GameState, Phase, Position } from '../src/types';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { resolveChainStep, resolveChain } from '../src/game/chains';
+import { passPriority, resolveChainStep, resolveChain, startPendingResponse } from '../src/game/chains';
 
 let serial = 0;
 const card = (id: string, player = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `engine-${serial++}`, ownerId: `player${player + 1}` });
@@ -21,7 +21,22 @@ function freeze<T>(value: T): T {
     return value;
 }
 const command = (state: GameState, value: GameCommand, actor = state.activePlayerIndex) => applyCommand(state, actor, value).state;
-const nextPhase = (state: GameState) => applySystemCommand(command(state, { type: 'phase' }), { type: 'completeDeferred' }).state;
+// A headless host declines optional choices and drives every automatic timing step.
+function settle(state: GameState): GameState {
+    for (let i = 0; i < 40; i++) {
+        const before = state;
+        const reaction = state.pendingReactions?.[0];
+        if (reaction && !state.response) state = command(state, { type: 'cancelEffect', cardId: reaction.card.instanceId }, reaction.playerIndex);
+        else if (state.resolvingChain) state = resolveChainStep(state);
+        else if (state.response && !state.response.ready) state = passPriority(state);
+        else if (state.response?.ready) state = applySystemCommand(state, { type: 'completeDeferred' }).state;
+        else if (state.pendingResponse) state = startPendingResponse(state);
+        else if (state.skipToEnd) state = command(state, { type: 'end' });
+        if (state === before) break;
+    }
+    return state;
+}
+const nextPhase = (state: GameState) => settle(command(settle(state), { type: 'phase' }));
 
 it('runs opening turns, summons, and a winning attack with no React or timers', () => {
     for (const winnerIndex of [0, 1] as const) for (const order of ['first', 'second'] as const) {
@@ -56,7 +71,7 @@ it('runs opening turns, summons, and a winning attack with no React or timers', 
     state = nextPhase(state);
     state = nextPhase(state);
     state = command(state, { type: 'end' });
-    state = applySystemCommand(state, { type: 'completeDeferred' }).state;
+    state = settle(state);
     state = nextPhase(state);
     state = applySystemCommand(state, { type: 'draw' }).state;
     state = nextPhase(nextPhase(state));

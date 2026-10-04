@@ -1,4 +1,4 @@
-import { activationCost, EffectStep } from './Builder';
+import { activationReservation, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, CardContext, CardFilter, CardType, GameState, Phase, Position, ShuffleLocation, TargetSelectScope } from '../../types';
 import { canSetPawn, cardsAtLocation, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
@@ -96,7 +96,7 @@ export const Effect = {
             hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
         };
     },
-    SetOnceWhileOnField: (): EffectStep => activationCost((state, context) => {
+    SetOnceWhileOnField: (): EffectStep => activationReservation((state, context) => {
         const zone = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
             .find(z => z?.card.instanceId === context.card.instanceId);
         if (!zone || zone.hasUsedWhileOnField) return { halt: true };
@@ -354,17 +354,27 @@ export const Effect = {
     },
 
     /** Marks the card instance as having used its effect this turn. */
-    SetSoftOncePerTurn: (effectId?: string): EffectStep => activationCost((draftState, context) => {
+    SetSoftOncePerTurn: (effectId?: string, cooldownTurns = 0): EffectStep => activationReservation((draftState, context) => {
         const p = draftState.players[context.playerIndex];
         const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z && z.card.instanceId === context.card.instanceId);
         if (selfZone && effectId) {
-            if (selfZone.effectUsedTurn?.[effectId] === draftState.turnNumber) return { halt: true };
+            const used = selfZone.effectUsedTurn?.[effectId];
+            if (used !== undefined && draftState.turnNumber <= used + cooldownTurns) return { halt: true };
             selfZone.effectUsedTurn = { ...selfZone.effectUsedTurn, [effectId]: draftState.turnNumber };
         } else if (selfZone) selfZone.hasActivatedEffect = true;
     }),
 
+    /** Field-only restrictions expire after all End Phase responses finish. */
+    RestrictForTurn: (restriction: 'tributeBlockedThisTurn' | 'effectTargetBlockedThisTurn', targetIndex?: number): EffectStep => (state, context) => {
+        const target = targetIndex === undefined ? undefined : getEffectTarget(context, targetIndex);
+        const zone = target ? state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]
+            : targetIndex === undefined ? state.players[context.playerIndex].pawnZones.find(z => z?.card.instanceId === context.card.instanceId) : undefined;
+        if (!zone) return { halt: true };
+        zone.card[restriction] = true;
+    },
+
     /** Marks the card ID as having used its effect globally for the rest of the turn. */
-    SetHardOncePerTurn: (cardId: string): EffectStep => activationCost((draftState, context) => {
+    SetHardOncePerTurn: (cardId: string): EffectStep => activationReservation((draftState, context) => {
         const p = draftState.players[context.playerIndex];
         if (!p.activatedHardOncePerTurns) p.activatedHardOncePerTurns = [];
         if (!p.activatedHardOncePerTurns.includes(cardId)) p.activatedHardOncePerTurns.push(cardId);

@@ -1,16 +1,14 @@
-import { canTribute } from '../game/cardHelpers';
+import { canTributeForSummon } from '../game/cardHelpers';
 import { Dispatch, SetStateAction, useRef } from 'react';
 import { Card, CardTarget, EffectTrigger, GameState, TargetSelectMode } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { effectChoices, fieldActivations } from '../game/chains';
+import { fieldActivations } from '../game/chains';
 import { applyCommand, GameCommand } from '../game/engine';
 
 type PlayMode = 'normal' | 'hidden' | 'activate' | 'set';
 interface PlaySelection {
     setPendingPlayCard: (card: Card | null) => void;
     setPlayMode: (mode: PlayMode | null) => void;
-    setTriggeredEffect?: (card: Card | null) => void;
-    setPendingTriggerType?: (trigger: 'summon' | 'activate' | 'phase' | null) => void;
 }
 interface TributeSelection extends PlaySelection {
     setPendingTributeCard: (card: Card | null) => void;
@@ -37,19 +35,13 @@ export function useCardActions(
         setGameState(previous => previous ? applyCommand(previous, gameState.activePlayerIndex, command).state : previous);
         return result.state;
     };
-    const afterSummon = (state: GameState, card: Card, hidden: boolean, selection: PlaySelection) => {
-        if (hidden || !cardRegistry.getEffect(card.id)?.onSummon || !effectChoices(state, card, 'summon', 1).length) return;
-        selection.setPendingTriggerType?.('summon');
-        selection.setTriggeredEffect?.(card);
-    };
-    const placePawn = (card: Card, hidden: boolean, slot: number, tributes: number[], selection: PlaySelection) => {
+    const placePawn = (card: Card, hidden: boolean, slot: number, tributes: number[]) => {
         const nextState = commit({ type: 'summon', cardId: card.instanceId, hidden, slot, tributes });
         if (!nextState) return false;
         tributes.forEach(index => {
             const sacrifice = gameState!.players[gameState!.activePlayerIndex].pawnZones[index];
             if (sacrifice) triggerVisual(`${gameState!.activePlayerIndex}-pawn-${index}`, `discard-${gameState!.activePlayerIndex}`, 'discard', sacrifice.card);
         });
-        afterSummon(nextState, card, hidden, selection);
         setSelectedHandIndex(null);
         return true;
     };
@@ -59,7 +51,7 @@ export function useCardActions(
         pendingTributes.current = null;
         if (card.level >= 5) {
             const requiredTributes = card.level <= 7 ? 1 : 2;
-            const availableTributes = gameState.players[gameState.activePlayerIndex].pawnZones.filter(z => z && canTribute(z.card)).length;
+            const availableTributes = gameState.players[gameState.activePlayerIndex].pawnZones.filter(z => z && canTributeForSummon(z.card, card)).length;
             if (availableTributes < requiredTributes) return;
             selection.setPendingTributeCard(card);
             selection.setTributeSummonMode(mode === 'hidden' ? 'hidden' : 'normal');
@@ -67,7 +59,7 @@ export function useCardActions(
             selection.setPendingTributeSlot(slot ?? null);
             setTargetSelectMode('tribute');
         } else if (slot !== undefined) {
-            placePawn(card, mode === 'hidden', slot, [], selection);
+            placePawn(card, mode === 'hidden', slot, []);
         } else {
             selection.setPendingPlayCard(card);
             selection.setPlayMode(mode === 'hidden' ? 'hidden' : 'normal');
@@ -81,7 +73,7 @@ export function useCardActions(
         const requiredTributes = card.level <= 7 ? 1 : 2;
         const zones = gameState.players[gameState.activePlayerIndex].pawnZones;
         if (tributes.length !== requiredTributes || new Set(tributes).size !== requiredTributes
-            || tributes.some(index => !zones[index] || !canTribute(zones[index]!.card))) return;
+            || tributes.some(index => !zones[index] || !canTributeForSummon(zones[index]!.card, card))) return;
         if (slot === null || (zones[slot] && !tributes.includes(slot))) {
             // Keep choices local until placement; sacrifice and summon commit together.
             pendingTributes.current = { cardId: card.instanceId, indices: [...tributes] };
@@ -89,7 +81,7 @@ export function useCardActions(
             selection.setPlayMode(mode);
             setTargetSelectMode('place_pawn');
         } else {
-            if (!placePawn(card, mode === 'hidden', slot, tributes, selection)) return;
+            if (!placePawn(card, mode === 'hidden', slot, tributes)) return;
             selection.setPendingPlayCard(null);
             selection.setPlayMode(null);
             setTargetSelectMode(null);
@@ -120,7 +112,7 @@ export function useCardActions(
     const handlePlacement = (slot: number, card: Card | null, mode: PlayMode | null, selection: PlaySelection) => {
         if (!card || !mode) return;
         const placed = mode === 'normal' || mode === 'hidden'
-            ? placePawn(card, mode === 'hidden', slot, pendingTributes.current?.cardId === card.instanceId ? pendingTributes.current.indices : [], selection)
+            ? placePawn(card, mode === 'hidden', slot, pendingTributes.current?.cardId === card.instanceId ? pendingTributes.current.indices : [])
             : placeAction(card, mode, slot);
         if (!placed) return;
         pendingTributes.current = null;

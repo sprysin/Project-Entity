@@ -92,6 +92,11 @@ export const advancePhaseState = (prev: GameState): GameState => {
 
     // Expire only after End Phase responses finish, immediately before the next turn.
     if (prev.currentPhase === Phase.END) {
+        for (const player of updatedPlayers) for (const zone of [...player.pawnZones, ...player.actionZones]) {
+            if (!zone) continue;
+            delete zone.card.tributeBlockedThisTurn;
+            delete zone.card.effectTargetBlockedThisTurn;
+        }
         for (const player of updatedPlayers) player.pawnZones.forEach((zone, index) => {
             if (!zone?.returnToOwnerEndPhase) return;
             sendToOwnerPile({ ...prev, players: updatedPlayers as [Player, Player] }, zone.card, 'discard');
@@ -152,4 +157,10 @@ export function stepDraw(state: GameState): GameState {
 export function pendingDrawCount(state: GameState): number {
     if (state.winner || state.currentPhase !== Phase.DRAW || state.turnNumber === 1) return 0;
     return state.drawProgress?.turn === state.turnNumber ? state.drawProgress.remaining : Math.max(1, 5 - state.players[state.activePlayerIndex].hand.length);
+}
+
+/** The entire required turn draw completes before either player can activate effects. */
+export function isDrawingForTurn(state: GameState): boolean {
+    return state.currentPhase === Phase.DRAW && !state.winner
+        && (state.drawProgress?.turn !== state.turnNumber || state.drawProgress.remaining > 0);
 }

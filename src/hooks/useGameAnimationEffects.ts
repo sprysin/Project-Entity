@@ -111,6 +111,11 @@ export const useGameAnimationEffects = (
         const turn = gameState.turnNumber;
 
         if (phase === Phase.DRAW) {
+            // Resuming after the post-draw response must not replay the draw delay.
+            if (gameState.drawProgress?.turn === turn && !gameState.drawProgress.remaining) {
+                later(nextPhase, 0);
+                return () => timers.forEach(clearTimeout);
+            }
             animations.setTurnFlash('TURN CHANGE');
             later(() => animations.setTurnFlash(null), 1500);
             later(() => animations.setPhaseFlash(Phase.DRAW), 1200);

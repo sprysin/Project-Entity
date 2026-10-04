@@ -28,9 +28,10 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     const attackingAtk = fieldStats(gameState, attackingPawn).atk;
     let destroyedByAttacker: typeof attackingPawn.card | undefined;
     const battleDestroyed: typeof attackingPawn.card[] = [];
+    const destructionState = { ...gameState, players };
     const destroyByBattle = (card: typeof attackingPawn.card) => {
         if (!players.some(player => player.pawnZones.some(zone => zone?.card.instanceId === card.instanceId))) return;
-        destroyFieldCard({ ...gameState, players }, card.instanceId);
+        destroyFieldCard(destructionState, card.instanceId);
         if (players.some(player => player.discard.some(value => value.instanceId === card.instanceId))) battleDestroyed.push(card);
     };
     let revealedSwitch: typeof attackingPawn.card | undefined;
@@ -105,7 +106,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     const damageEvents = amount > 0 ? [...(gameState.damageEvents ?? []), {
         card: { ...damageSource }, playerIndex: damagePlayerIndex, amount, kind: 'battle' as const
     }] : gameState.damageEvents;
-    let next: GameState = { ...gameState, damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) };
+    let next: GameState = { ...gameState, pendingReactions: destructionState.pendingReactions, attacksThisTurn: [...(gameState.attacksThisTurn ?? []).filter(event => event.turn === gameState.turnNumber), { turn: gameState.turnNumber, card: { ...attackingPawn.card }, playerIndex: activeIndex }], damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) };
     for (const card of battleDestroyed) {
         const playerIndex = next.players.findIndex(player => player.discard.some(value => value.instanceId === card.instanceId));
         if (playerIndex >= 0 && cardRegistry.getEffect(card.id)?.onBattleDestroyed) {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CatalogFilters, { useCatalogFilters } from './CatalogFilters';
 import CatalogPagination, { useCatalogPage } from './CatalogPagination';
 import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
@@ -27,8 +28,9 @@ const catalogTypes = [
 const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-    const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery));
-    const pagination = useCatalogPage(filteredCards, searchQuery);
+    const filters = useCatalogFilters();
+    const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery) && filters.matches(card));
+    const pagination = useCatalogPage(filteredCards, searchQuery + filters.key);
 
     return <div className="card-database entity-page">
         <header className="entity-topbar database-topbar">
@@ -42,7 +44,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                     <div>
                         <h1>CARD <em>DATABASE</em></h1>
                     </div>
-                    <span className="database-total">{String(filteredCards.length).padStart(2, '0')}<small>{searchQuery ? 'MATCHING CARDS' : 'CARDS IN GAME'}</small></span>
+                    <span className="database-total">{String(filteredCards.length).padStart(2, '0')}<small>{searchQuery || filters.active ? 'MATCHING CARDS' : 'CARDS IN GAME'}</small></span>
                 </div>
 
                 <div className="database-tools">
@@ -53,6 +55,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
 
                 </div>
 
+                <CatalogFilters {...filters} />
                 <div className="database-pagination"><CatalogPagination {...pagination} /></div>
                 <div className="database-sections">
                     {catalogTypes.map(({ type, label, icon, tone }) => {
@@ -71,7 +74,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                             ><CardDetail card={card} compact /></button>)}</div>
                         </section>;
                     })}
-                    {!filteredCards.length && <div className="database-empty" role="status"><i className="fa-solid fa-magnifying-glass" aria-hidden="true" /><strong>No cards found</strong><span>Try a different search.</span></div>}
+                    {!filteredCards.length && <div className="database-empty" role="status"><i className="fa-solid fa-magnifying-glass" aria-hidden="true" /><strong>No cards found</strong><span>Try a different search or filter.</span></div>}
                 </div>
             </main>
 

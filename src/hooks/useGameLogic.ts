@@ -1,13 +1,14 @@
 import { handSummonCandidates } from '../game/summonReactions';
 import { chooseAIHandSummon, observeGame } from '../game/opponentAI';
 import { canTribute } from '../game/cardHelpers';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     GameState, Card, Position, Phase, CardSelectionRequest, PlaytestDebugSettings,
     EffectTrigger, HandSelectionRequest, OpponentMode, TargetSelectMode, TargetSelectPosition,
     TargetSelectScope, TargetSelectType, TributeSelectionRequest, PeekSelectionRequest, ShuffleSelectionRequest
 } from '../types';
-import { effectChoices, fieldActivations, resolveChainStep, startPendingTriggers } from '../game/chains';
+import { effectChoices, fieldActivations, resolveChainStep, startPendingResponse, startPendingTriggers } from '../game/chains';
+import { shouldPromptResponse } from '../game/responseTiming';
 import { applyCommand, applySystemCommand, canPlayCard as engineCanPlayCard, createGame } from '../game/engine';
 import { useOpponentAI } from './useOpponentAI';
 import { isAwaitingDecision } from '../game/decisions';
@@ -22,7 +23,7 @@ import '../cards/actions';
 import '../cards/conditions';
 import { createRuntimeDeck, SavedDeck } from '../decks';
 import { useManagedTimeout } from './useManagedTimeout';
-import { getActivationPopups, getSettings, saveActivationPopups } from '../desktop/storage';
+import { getActivationPopupMode, getSettings, saveActivationPopupMode } from '../desktop/storage';
 import { showMessage } from '../desktop/files';
 
 export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] = [null, null], opponentMode: OpponentMode = 'self', debugSettings: PlaytestDebugSettings = {}) => {
@@ -101,15 +102,15 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Layout
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
     const [isDeckViewerOpen, setIsDeckViewerOpen] = useState(false);
-    const [activationPopupsEnabled, setActivationPopupsEnabled] = useState(getActivationPopups);
-    const previousPopupPreference = useRef(activationPopupsEnabled);
+    const [activationPopupMode, setActivationPopupMode] = useState(getActivationPopupMode);
+    const previousPopupPreference = useRef(activationPopupMode);
 
     useEffect(() => {
-        if (activationPopupsEnabled !== previousPopupPreference.current) {
-            previousPopupPreference.current = activationPopupsEnabled;
-            void saveActivationPopups(activationPopupsEnabled).catch(() => showMessage('Could not save the activation popup setting. It will apply for this session only.'));
+        if (activationPopupMode !== previousPopupPreference.current) {
+            previousPopupPreference.current = activationPopupMode;
+            void saveActivationPopupMode(activationPopupMode).catch(() => showMessage('Could not save the activation popup setting. It will apply for this session only.'));
         }
-    }, [activationPopupsEnabled]);
+    }, [activationPopupMode]);
 
     // A selected hand card only describes an action in the current phase. Clear
     // it when the turn/phase moves so placement highlights cannot leak into
@@ -274,18 +275,28 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             }
             setGameState(prev => prev === gameState ? result.state : prev);
         };
-        if (action?.kind !== 'attack') { complete(); return; }
+        if (action?.kind !== 'attack' || action.battleStep) { complete(); return; }
         const timeout = setTimeout(complete, 1500);
         return () => clearTimeout(timeout);
     }, [gameState, effectDecisionPending]);
-    const responseOptions = gameState?.response && !gameState.response.ready ? fieldActivations(gameState, gameState.response.priority, true) : [];
+    const responseOptions = useMemo(() => gameState?.response && !gameState.response.ready
+        ? fieldActivations(gameState, gameState.response.priority, true) : [], [gameState]);
     const visibleResponseRef = useRef<GameState['response']>();
     if (!gameState?.response || gameState.response.ready) visibleResponseRef.current = undefined;
-    else if (activationPopupsEnabled && responseOptions.length > 0 && !pendingEffectCard && !triggeredEffect
+    else if (shouldPromptResponse(activationPopupMode, gameState) && responseOptions.length > 0 && !pendingEffectCard && !triggeredEffect
         && !(opponentMode === 'ai' && gameState.response.priority === 1)) {
         visibleResponseRef.current = gameState.response;
     }
-    const showResponsePopup = activationPopupsEnabled || visibleResponseRef.current === gameState?.response;
+    const showResponsePopup = !!gameState?.response && (shouldPromptResponse(activationPopupMode, gameState) || visibleResponseRef.current === gameState.response);
+    useEffect(() => {
+        if (!gameState?.pendingResponse || cardMotion.isMoving || effectDecisionPending) return;
+        setGameState(previous => previous === gameState ? startPendingResponse(previous) : previous);
+    }, [gameState, cardMotion.isMoving, effectDecisionPending]);
+    useEffect(() => {
+        if (!gameState?.skipToEnd || gameState.response || gameState.resolvingChain || gameState.pendingResponse
+            || effectDecisionPending || isAwaitingDecision(gameState) || gameState.winner) return;
+        skipToEndPhase();
+    }, [gameState, effectDecisionPending, skipToEndPhase]);
     useEffect(() => {
         if (!gameState?.resolvingChain || cardMotion.isMoving || effectDecisionPending || isAwaitingDecision(gameState)) return;
         // Yield for committed movement to be measured, then resolve as soon as the board settles.
@@ -374,7 +385,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             cardMotions: cardMotion.motions, finishMotion: cardMotion.finishMotion, cardMovementPending: cardMotion.isMoving,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
-            isRightPanelOpen, isDeckViewerOpen, activationPopupsEnabled, showResponsePopup, effectTributeReq, shuffleSelectionReq,
+            isRightPanelOpen, isDeckViewerOpen, activationPopupMode, showResponsePopup, effectTributeReq, shuffleSelectionReq,
         },
         actions: {
             chooseAttackReplay: (retry: boolean) => {
@@ -410,7 +421,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             setPeekSelectionReq, setSelectedPeekIndex,
             setSelectedDeckIndex,
             setTriggeredEffect, setPendingEffectCard,
-            setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen, setActivationPopupsEnabled,
+            setViewingDiscardIdx, setViewingVoidIdx, setIsRightPanelOpen, setIsDeckViewerOpen, setActivationPopupMode,
             inspectPileCard: (card: Card) => {
                 setSelectedHandIndex(null);
                 setSelectedFieldSlot(null);
@@ -428,9 +439,9 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection,
             dismissPeek: (id: string) => setGameState(prev => prev ? { ...prev, peekEvents: (prev.peekEvents ?? []).filter(event => event.id !== id) } : prev),
             handleSummon: (card: Card, mode: 'normal' | 'hidden' | 'tribute', autoSlotIndex?: number) =>
-                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
+                cardActions.handleSummon(card, mode, { setPendingTributeCard, setTributeSummonMode, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode }, autoSlotIndex),
             handleTributeSummon: () =>
-                cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, pendingTributeSlot, { setPendingTributeCard, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }),
+                cardActions.handleTributeSummon(pendingTributeCard, tributeSelection, tributeSummonMode, pendingTributeSlot, { setPendingTributeCard, setTributeSelection, setPendingTributeSlot, setPendingPlayCard, setPlayMode }),
             handleEffectTribute: () => {
                 if (!gameState || !pendingEffectCard || !effectTributeReq) return;
                 if (tributeSelection.length !== effectTributeReq.count) return;
@@ -447,11 +458,10 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 stableResolveEffect(pendingEffectCard, undefined, undefined, undefined, undefined, pendingTriggerType || 'activate', copiedSelection);
             },
             handleActionFromHand: (card: Card, mode: 'activate' | 'set', autoSlotIndex?: number) =>
-                cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode, setTriggeredEffect, setPendingTriggerType }, autoSlotIndex),
+                cardActions.handleActionFromHand(card, mode, { setPendingPlayCard, setPlayMode }, autoSlotIndex),
             handlePlacement: (slotIndex: number) =>
                 cardActions.handlePlacement(slotIndex, pendingPlayCard, playMode, {
-                    setPendingPlayCard, setPlayMode,
-                    setTriggeredEffect, setPendingTriggerType
+                    setPendingPlayCard, setPlayMode
                 }),
             activateOnField: cardActions.activateOnField,
             canPlacePawn: (slot: number) => cardActions.canPlacePawn(pendingPlayCard, playMode, slot),

@@ -9,11 +9,11 @@ const CARD_ID = 'pawn_future_outlander';
 const effect: IEffect = {
     timing: 'quick',
     onActivate: buildEffect([
-        Effect.SetSoftOncePerTurn(CARD_ID),
+        Effect.SetSoftOncePerTurn(CARD_ID, 1),
         Require.Target('pawn', 'both', 'both'),
         Effect.VoidTargetTemporarily(Phase.STANDBY)
     ]),
-    canActivate: Condition.SoftOncePerTurn(CARD_ID)
+    canActivate: Condition.SoftOncePerTurn(CARD_ID, 1)
 };
 
 export default [{
@@ -27,7 +27,7 @@ export default [{
         pawnType: PawnType.WARRIOR,
         atk: 250,
         def: 200,
-        effectText: '(Quick): Once per turn target 1 pawn on the field, send it to the void until the next standby phase.'
+        effectText: '(Quick): Once per turn target 1 pawn on the field, send it to the void until the next standby phase. You cannot activate this effect again until the end of the following turn.'
     },
     effect
 }] satisfies CardModule;

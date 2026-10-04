@@ -1,4 +1,5 @@
 import CatalogPagination, { useCatalogPage } from '../catalog/CatalogPagination';
+import CatalogFilters, { useCatalogFilters } from '../catalog/CatalogFilters';
 import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
 import { matchesCardCatalog } from '../../cards/CardRegistry';
@@ -110,8 +111,9 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             open(imported); setDirty(true);
         } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not open this file.'); }
     };
-    const filtered = cards.filter(c => matchesCardCatalog(c, search));
-    const pagination = useCatalogPage(filtered, search);
+    const filters = useCatalogFilters();
+    const filtered = cards.filter(c => matchesCardCatalog(c, search) && filters.matches(c));
+    const pagination = useCatalogPage(filtered, search + filters.key);
     const quantity = (card: CardDefinition) => deck?.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
 
     return <div className="deck-workspace entity-page" inert={busy}>
@@ -173,6 +175,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             </main>
             <aside className="deck-catalog" aria-label="All cards">
                 <label className="deck-search"><i className="fa-solid fa-search" aria-hidden="true" /><input aria-label="Search cards" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} /></label>
+                <CatalogFilters {...filters} />
                 <CatalogPagination {...pagination} />
                 <div className="deck-catalog-scroll">
                     {!filtered.length && <p className="deck-no-results">No cards found</p>}
@@ -181,7 +184,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                         return entries.length > 0 && <section key={type} aria-label={type} className={`deck-card-section deck-type-${type}`}>
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
-                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} onClick={() => setSelected(card)}>{face(card, true)}</button>
+                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} title="Double click to add to deck" onClick={() => setSelected(card)} onDoubleClick={() => changeQuantity(card, 1)}>{face(card, true)}</button>
                             </div>)}</div>
                         </section>;
                     })}

@@ -8,7 +8,7 @@ The setup screen defaults to self-play. AI mode assigns Player 2's selected save
 - A popup appears only when its priority holder has a legal activation, including valid costs and selections. It shows the number of eligible cards and waits for a choice or Pass.
 - Conditions set on an earlier turn and face-up Pawns whose registered effect has `timing: 'quick'` can respond. Other Pawn effects and Actions remain Main Phase activations. Existing Pawns have not been reclassified as quick effects.
 - Each added link hands priority to the other player and resets the pass count. Players without legal responses pass automatically. Two consecutive passes resolve the entire stack in reverse order.
-- A source cannot join the same unresolved chain twice. Declared costs and usage limits are reserved at activation. Removing a source does not negate its effect; an invalid target causes that effect to resolve without effect. Targets and selected pile cards use instance identities, so replacement cards are not accidentally affected.
+- A source cannot join the same unresolved chain twice. Usage limits and selections are reserved at activation. Costs are paid when that link resolves, before its effect, after later links have finished. If a selected cost is unavailable or unaffordable then, the link resolves without effect. Removing a source does not negate its effect; an invalid target causes that effect to resolve without effect. Targets, tributes, and selected pile cards use instance identities, so replacement cards are not accidentally affected.
 - After the chain, a pending attack is checked against the current field. A missing attacker/target or attacker moved out of Attack stops that attack. Phase changes resume after responses finish.
 
 ## Adding cards
@@ -19,7 +19,7 @@ Discard means hand to Discard Pile. Tribute, destroy, and send remain distinct o
 
 Required draws use `drawCards` for both Draw Phase and effects. An attempted draw from an empty deck immediately ends the duel, including when only part of a multi-card draw can be completed. Drawing the last available card is safe. Simultaneous nonpositive LP is a draw. Temporary stat resets run when leaving the due turn's End Phase, after responses, rather than on entry.
 
-Use `buildEffect` with `Cost` helpers for costs and `Effect` helpers for resolution. Custom activation costs must be wrapped with `activationCost`. The builder previews choices without committing state, pays tagged costs at announcement, and skips those costs during resolution. Custom handlers outside the builder are resolution-only.
+Use `buildEffect` with `Cost` helpers for costs and `Effect` helpers for resolution. Custom costs must be wrapped with `activationCost`; usage limits use `activationReservation`. The builder previews choices without committing state, reserves usage at announcement, and pays tagged costs immediately before that link's effect resolves. Custom handlers outside the builder are resolution-only.
 
 Use `context.playerIndex` for the controller, not `state.activePlayerIndex`, which is the turn player. Quick Pawns opt in through `IEffect.timing`. Card-specific requirements still belong in `canActivate` and effect steps, and apply to both humans and the AI.
 

@@ -1,15 +1,14 @@
-import { IEffect, Position, CardType } from '../../types';
+import { IEffect, CardType } from '../../types';
 import { CardModule } from '../CardRegistry';
-import { buildEffect, buildCondition } from '../engine/Builder';
-import { Require, Condition } from '../engine/Requirements';
+import { buildEffect } from '../engine/Builder';
+import { Require } from '../engine/Requirements';
 import { Effect } from '../engine/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-
-    ]),
-    canActivate: buildCondition([
-
+        Require.Target('pawn'),
+        Effect.AttachToTarget(),
+        Effect.RestrictForTurn('tributeBlockedThisTurn', 0)
     ])
 };
 

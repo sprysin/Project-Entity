@@ -2,6 +2,7 @@ import { activationCost, ConditionStep, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, PlacedCard, Position, TargetSelectScope } from '../../types';
 import { getEffectTarget } from './Targets';
+import { canTargetWithEffect } from '../../game/cardHelpers';
 
 export const Require = {
     /** Prompts the player to select a target on the field. */
@@ -18,7 +19,7 @@ export const Require = {
         const isOpponent = target.playerIndex !== context.playerIndex;
         if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return { halt: true };
         const zone = draftState.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
-        if (!zone || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
+        if (!zone || context.execution !== 'resolve' && !canTargetWithEffect(zone.card) || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
     /** Verifies the provided target relies on a specific player scope. */
@@ -110,11 +111,12 @@ export const Condition = {
     },
 
     /** Checks if this specific card instance has activated its effect this turn. */
-    SoftOncePerTurn: (effectId?: string): ConditionStep => (state, context) => {
+    SoftOncePerTurn: (effectId?: string, cooldownTurns = 0): ConditionStep => (state, context) => {
         const p = state.players[context.playerIndex];
         const selfZone = p.pawnZones.find(z => z?.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z?.card.instanceId === context.card.instanceId);
         if (!selfZone) return true;
-        return effectId ? selfZone.effectUsedTurn?.[effectId] !== state.turnNumber : !selfZone.hasActivatedEffect;
+        const used = effectId ? selfZone.effectUsedTurn?.[effectId] : undefined;
+        return effectId ? used === undefined || state.turnNumber > used + cooldownTurns : !selfZone.hasActivatedEffect;
     },
 
     /** Checks if any card with this ID has activated its effect this turn globally. */

@@ -109,7 +109,7 @@ export const Cost = {
             return {
                 requireDiscardSelection: {
                     playerIndex: context.playerIndex,
-                    filter: card => canTribute(card) && (!filter || filter(card))
+                    filter
                 }
             };
         }

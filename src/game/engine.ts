@@ -1,13 +1,13 @@
 import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
-import { canTribute, isToken } from './cardHelpers';
+import { canTributeForSummon, isToken } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, runEffect, startPendingTriggers } from './chains';
+import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, queueEventResponses, runEffect, startPendingTriggers } from './chains';
 import { destroyOrphanedAttachments, notifyAttachedActivation } from './attachments';
 import { finishEffect } from './finishEffect';
 import { formatSummonLog } from './effectLog';
 import { resolveCombat } from './combat';
-import { advancePhaseState, stepDraw } from './phases';
+import { advancePhaseState, isDrawingForTurn, stepDraw } from './phases';
 import { sendToOwnerPile } from './cardOwnership';
 import { queueRevealedSwitches } from './switches';
 import { prepareVoidReturn } from './voidReturns';
@@ -74,7 +74,7 @@ export function canPlayCard(state: GameState, card: Card): boolean {
     if (!isMain(state, actor) || !player.hand.some(c => c.instanceId === card.instanceId)) return false;
     if (card.type === CardType.PAWN) return card.level <= 4
         ? player.pawnZones.includes(null) && (!player.normalSummonUsed || !player.hiddenSummonUsed)
-        : player.pawnZones.filter(z => z && canTribute(z.card)).length >= (card.level <= 7 ? 1 : 2);
+        : player.pawnZones.filter(z => z && canTributeForSummon(z.card, card)).length >= (card.level <= 7 ? 1 : 2);
     const effect = cardRegistry.getEffect(card.id);
     return player.actionZones.includes(null) && (card.type === CardType.CONDITION || !effect?.canActivate || effect.canActivate(state, { card, playerIndex: actor }));
 }
@@ -152,7 +152,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (!card || card.type !== CardType.PAWN) return state;
             const tributes = command.tributes ?? [];
             const required = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
-            if (tributes.length !== required || new Set(tributes).size !== required || tributes.some(i => !validSlot(i) || !player.pawnZones[i] || !canTribute(player.pawnZones[i]!.card))) return state;
+            if (tributes.length !== required || new Set(tributes).size !== required || tributes.some(i => !validSlot(i) || !player.pawnZones[i] || !canTributeForSummon(player.pawnZones[i]!.card, card))) return state;
             if (!required && (command.hidden ? player.hiddenSummonUsed : player.normalSummonUsed)) return state;
             if (player.pawnZones[command.slot] && !tributes.includes(command.slot)) return state;
             const next = structuredClone(state), p = next.players[actor];
@@ -162,6 +162,8 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
             if (!required) { if (command.hidden) p.hiddenSummonUsed = true; else p.normalSummonUsed = true; }
             if (!command.hidden) next.log = [formatSummonLog(card), ...next.log].slice(0, 50);
+            if (command.hidden) next.pendingResponse = { timing: 'minor_action', reason: 'A Pawn was set' };
+            else if (cardRegistry.getEffect(card.id)?.onSummon) next.pendingReactions = [...(next.pendingReactions ?? []), { card, playerIndex: actor, trigger: 'summon' }];
             return destroyOrphanedAttachments(command.hidden ? next : notifyPawnSummoned(next, card, actor, required));
         }
         case 'play': {
@@ -174,6 +176,8 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             p.actionZones[command.slot] = { card: { ...card }, position: command.set ? Position.HIDDEN : Position.FACE_UP,
                 hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: command.set };
             p.hand = p.hand.filter(c => c.instanceId !== card.instanceId);
+            if (command.set) next.pendingResponse = { timing: 'minor_action', reason: 'A card was set' };
+            else if (!effect?.onActivate) next.pendingResponse = { timing: 'activation', reason: `${card.name} activated` };
             return next;
         }
         case 'position': {
@@ -181,7 +185,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             const next = structuredClone(state), zone = next.players[actor].pawnZones[command.index]!;
             zone.position = zone.position === Position.ATTACK ? Position.DEFENSE : Position.ATTACK;
             zone.hasChangedPosition = true;
-            return next;
+            return { ...next, pendingResponse: { timing: 'minor_action', reason: 'A Pawn changed position' } };
         }
         case 'activate': {
             if (command.context.playerIndex !== actor) return state;
@@ -189,7 +193,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             const pendingReaction = state.pendingReactions?.find(entry => entry.card.instanceId === command.context.card.instanceId && entry.playerIndex === actor && entry.trigger === command.trigger);
             if (!source && !pendingReaction) return state;
             const context = { ...command.context, card: source?.card ?? pendingReaction!.card };
-            if (['switch', 'battle_destroyed'].includes(command.trigger)) {
+            if (['switch', 'battle_destroyed', 'destroyed'].includes(command.trigger)) {
                 if (!pendingReaction) return state;
             } else if (command.trigger === 'summon') {
                 if (state.response || actor !== state.activePlayerIndex || source.position === Position.HIDDEN || source.summonedTurn !== state.turnNumber) return state;
@@ -226,7 +230,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             const opponent = state.players[1 - actor];
             const targetId = command.targetIndex === 'direct' ? 'direct' : opponent.pawnZones[command.targetIndex]?.card.instanceId;
             if (!targetId || targetId === 'direct' && opponent.pawnZones.some(Boolean)) return state;
-            return openResponse({ ...state, attackReplay: undefined }, { kind: 'attack', attackerId: attacker.card.instanceId, targetId }, `${attacker.card.name} declares an attack`);
+            return openResponse({ ...state, attackReplay: undefined, attacksThisTurn: [...(state.attacksThisTurn ?? []).filter(event => event.turn === state.turnNumber), { turn: state.turnNumber, card: { ...attacker.card }, playerIndex: actor }] }, { kind: 'attack', attackerId: attacker.card.instanceId, targetId }, `${attacker.card.name} declares an attack`);
         }
         case 'pass': return state.response?.priority === actor ? passPriority(state) : state;
         case 'phase':
@@ -234,7 +238,8 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (actor !== state.activePlayerIndex || state.response || state.pendingReactions?.length || command.type === 'end' && state.currentPhase === Phase.END) return state;
             if (state.currentPhase === Phase.DRAW && state.turnNumber > 1
                 && (state.drawProgress?.turn !== state.turnNumber || state.drawProgress.remaining > 0)) return state;
-            return openResponse(state, { kind: command.type }, command.type === 'phase' ? `Leave ${state.currentPhase}` : `Skip from ${state.currentPhase} to END`);
+            const turnEnd = state.currentPhase === Phase.END;
+            return openResponse(state, { kind: command.type }, turnEnd ? 'End of turn' : `Leave ${state.currentPhase}`, turnEnd ? 'turn_end' : 'phase_exit');
         }
     }
 }
@@ -248,10 +253,10 @@ export function applyCommand(state: GameState, actor: number, command: GameComma
         if (actor !== pending.playerIndex || cardId !== pending.cardId) return { state, events: [] };
         const unlocked = { ...state, pendingActivation: undefined };
         const next = reduceCommand(unlocked, actor, command);
-        return { state: next === unlocked ? state : startPendingTriggers(queueRevealedSwitches(unlocked, next)), events: [] };
+        return { state: next === unlocked ? state : startPendingTriggers(queueEventResponses(unlocked, queueRevealedSwitches(unlocked, next))), events: [] };
     }
     const next = reduceCommand(state, actor, command);
-    return { state: next === state ? state : startPendingTriggers(queueRevealedSwitches(state, next)), events: [] };
+    return { state: next === state ? state : startPendingTriggers(queueEventResponses(state, queueRevealedSwitches(state, next))), events: [] };
 }
 
 /** A local adapter or server drives these steps; animation delay is entirely its choice. */
@@ -260,14 +265,25 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
         ? { ...state, openingCoin: { ...state.openingCoin, stage: 'choosing' } } : state, events: [] };
     if (state.openingCoin) return { state, events: [] };
     if (state.winner || isAwaitingDecision(state)) return { state, events: [] };
-    if (command.type === 'draw') return { state: stepDraw(state), events: [] };
+    if (command.type === 'draw') {
+        const next = stepDraw(state);
+        const drew = next.players[next.activePlayerIndex].hand.length > state.players[state.activePlayerIndex].hand.length;
+        return { state: drew && !next.winner && !isDrawingForTurn(next)
+            ? { ...next, pendingResponse: { timing: 'draw', reason: 'Finished drawing for turn' } } : next, events: [] };
+    }
     if (!state.response?.ready || !state.deferredAction) return { state, events: [] };
     const action = state.deferredAction;
-    let next: GameState = { ...state, response: undefined, deferredAction: undefined };
-    if (action.kind === 'phase') next = advancePhaseState(next);
-    else if (action.kind === 'end') {
-        for (let i = 0; i < 6 && next.currentPhase !== Phase.END && !next.winner; i++) next = advancePhaseState(next);
+    let next: GameState = { ...state, response: undefined, deferredAction: undefined, pendingResponse: undefined };
+    if (action.kind === 'phase' || action.kind === 'end') {
+        next = advancePhaseState(next);
+        // Step through each phase so triggers and On windows cannot be skipped.
+        if (action.kind === 'end' && next.currentPhase !== Phase.END && !next.winner) next = { ...next, skipToEnd: true };
+        if (next.currentPhase === Phase.END) next = { ...next, skipToEnd: undefined };
     } else if (action.kind === 'attack') {
+        if (!action.battleStep) {
+            const battle = openResponse(next, { ...action, battleStep: true }, 'Before battle damage', 'battle_step');
+            if (!battle.response?.ready) return { state: battle, events: [] };
+        }
         const actor = state.activePlayerIndex;
         const attacker = state.players[actor].pawnZones.findIndex(z => z?.card.instanceId === action.attackerId);
         const target = action.targetId === 'direct' ? 'direct' : state.players[1 - actor].pawnZones.findIndex(z => z?.card.instanceId === action.targetId);
@@ -282,5 +298,6 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
             events.push({ type: 'destroyed', playerIndex, index, card: zone.card });
         }
     }));
-    return { state: startPendingTriggers(queueRevealedSwitches(state, next)), events };
+    if (action.kind === 'attack' && !next.winner && !next.attackReplay) next.pendingResponse = { timing: 'battle_step', reason: 'Battle finished' };
+    return { state: startPendingTriggers(queueEventResponses(state, queueRevealedSwitches(state, next))), events };
 }

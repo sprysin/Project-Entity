@@ -83,6 +83,8 @@ export interface Card {
   ownerId: string;
   tributedByAction?: boolean;
   cannotBeTributed?: boolean;
+  tributeBlockedThisTurn?: boolean;
+  effectTargetBlockedThisTurn?: boolean;
   /** ATK lost to field-only reductions; restored when this card leaves the field. */
   fieldAtkReduction?: number;
 }
@@ -131,22 +133,33 @@ export interface PendingEffect {
   dueTurn: number;
 }
 
+export type ActivationPopupMode = 'off' | 'auto' | 'on';
+export type ResponseTiming = 'summon' | 'attack' | 'activation' | 'turn_end' | 'phase_exit' | 'phase_entry' | 'battle_step' | 'chain_resolved' | 'minor_action' | 'draw';
+export interface ResponseWindow {
+  timing: ResponseTiming;
+  reason: string;
+}
+
 export interface GameState {
   /** Only this activation's controller may finish or cancel while choosing its effect. */
   pendingActivation?: { cardId: string; playerIndex: number };
   temporaryVoidReturns?: { cardId: string; playerIndex: number; position: Position; phase: Phase; dueTurn: number }[];
   pendingVoidReturns?: { cardId: string; playerIndex: number; position: Position }[];
+  attacksThisTurn?: { turn: number; card: Card; playerIndex: number }[];
   attackReplay?: { attackerId: string; choosingTarget?: boolean };
   pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
   pendingHandSummons?: { sourceId: string; playerIndex: number }[];
-  pendingReactions?: { card: Card; playerIndex: number; trigger: 'switch' | 'battle_destroyed' }[];
+  pendingReactions?: { card: Card; playerIndex: number; trigger: 'summon' | 'switch' | 'battle_destroyed' | 'destroyed' }[];
   /** Triggered effects wait until the current chain and deferred action have finished. */
   pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute' | 'battle_destroy'> }[];
   drawProgress?: { turn: number; remaining: number };
-  response?: { priority: number; passes: number; reason: string; ready?: boolean };
+  response?: { priority: number; passes: number; reason: string; timing?: ResponseTiming; ready?: boolean };
+  /** Event responses wait for trigger choices and the entire resolving chain. */
+  pendingResponse?: ResponseWindow;
+  skipToEnd?: boolean;
   chain?: ChainLink[];
   resolvingChain?: { total: number; current: number; cardName: string };
-  deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct' };
+  deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct'; battleStep?: boolean };
   players: [Player, Player];
   activePlayerIndex: number;
   openingCoin?: { winnerIndex: 0 | 1; stage: 'flipping' | 'choosing' };
@@ -216,7 +229,7 @@ export interface TributeSelectionRequest extends HandSelectionRequest {
   filter?: CardFilter;
 }
 
-export type EffectTrigger = 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
+export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
@@ -243,7 +256,7 @@ export type EffectResult = {
 export interface CardContext {
   effectId?: string;
   pawnPlacement?: { slot: number; position: Position };
-  execution?: 'costs' | 'resolve';
+  execution?: 'reserve' | 'costs' | 'resolve';
   tributeCards?: Card[];
   /** Battle-event identity retained while player reactions are decided. */
   destroyedCard?: Card;
@@ -260,6 +273,8 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  tributeSummonFilter?: CardFilter;
+  onDestroyed?(state: GameState, context: CardContext): EffectResult;
   /** Reusable counter-gated hand summon; shared by card legality and AI planning. */
   counterSummon?: { counter: string; requiredCounters(card: Card): number | undefined };
   /** Continuous field-only stat changes; evaluated from the current board without mutating printed stats. */
@@ -305,6 +320,7 @@ export interface IEffect {
 
 export interface ChainLink {
   handId?: string;
+  tributeIds?: string[];
   context: CardContext;
   trigger: EffectTrigger;
   targetId?: string;

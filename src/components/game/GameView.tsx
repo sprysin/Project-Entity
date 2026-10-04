@@ -1,5 +1,6 @@
-import { canTribute } from '../../game/cardHelpers';
+import { canTribute, canTributeForSummon, canTargetWithEffect } from '../../game/cardHelpers';
 import React from 'react';
+import { activationPopupModes } from '../../game/responseTiming';
 import { createPortal } from 'react-dom';
 import { CardType, Phase, Position, OpponentMode, PlaytestDebugSettings } from '../../types';
 import { useGameLogic } from '../../hooks/useGameLogic';
@@ -112,7 +113,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
       if (state.targetSelectType !== 'any' && state.targetSelectType !== zoneType) return false;
       if (state.targetSelectScope === 'active' && isOpponent) return false;
       if (state.targetSelectScope === 'opponent' && !isOpponent) return false;
-      if (!z) return false;
+      if (!z || !canTargetWithEffect(z.card)) return false;
       if (state.targetSelectFilter && !state.targetSelectFilter(z.card)) return false;
       if (state.targetSelectPosition === 'both') return true;
       if (state.targetSelectPosition === 'hidden' && z.position === Position.HIDDEN) return true;
@@ -143,13 +144,13 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
         <button
           data-sound="toggle"
           type="button"
-          aria-label="Toggle activation pop-ups"
-          aria-pressed={state.activationPopupsEnabled}
-          onClick={() => actions.setActivationPopupsEnabled(!state.activationPopupsEnabled)}
-          className={`game-corner-button game-corner-button--secondary ${state.activationPopupsEnabled ? 'is-active' : ''}`}
+          aria-label={`Activation pop-ups: ${state.activationPopupMode}. Click to switch to ${activationPopupModes[(activationPopupModes.indexOf(state.activationPopupMode) + 1) % 3]}.`}
+          onClick={() => actions.setActivationPopupMode(activationPopupModes[(activationPopupModes.indexOf(state.activationPopupMode) + 1) % 3])}
+          className={`game-corner-button game-corner-button--secondary ${state.activationPopupMode !== 'off' ? 'is-active' : ''}`}
+          data-activation-mode={state.activationPopupMode}
         >
-          <span className="game-corner-button__icon" aria-hidden="true"><i className={`fa-solid ${state.activationPopupsEnabled ? 'fa-bell' : 'fa-bell-slash'}`} /></span>
-          <span>POP-UPS {state.activationPopupsEnabled ? 'ON' : 'OFF'}</span>
+          <span className="game-corner-button__icon" aria-hidden="true"><i className={`fa-solid ${state.activationPopupMode === 'off' ? 'fa-bell-slash' : state.activationPopupMode === 'auto' ? 'fa-bell' : 'fa-bell-concierge'}`} /></span>
+          <span>POP-UPS {state.activationPopupMode.toUpperCase()}</span>
           <span className="game-corner-button__status" aria-hidden="true" />
         </button>
       </div>
@@ -293,6 +294,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
                           actions.handlePlacement(i);
                         } else if (state.targetSelectMode === 'tribute') {
                           if (z && canTribute(z.card)) {
+                            if (state.pendingTributeCard && !canTributeForSummon(z.card, state.pendingTributeCard)) return;
                             if (state.effectTributeReq?.filter && !state.effectTributeReq.filter(z.card)) return; // Prevent invalid sacrifice
                             actions.setTributeSelection(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
                           }

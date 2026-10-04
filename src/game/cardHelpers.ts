@@ -2,7 +2,11 @@ import { GameState, Card, CardContext, PawnSubtype, PlacedCard, Player, Position
 import { cardRegistry } from '../cards/CardRegistry';
 
 export const isToken = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.TOKEN;
-export const canTribute = (card: Card): boolean => !card.cannotBeTributed;
+export const canTribute = (card: Card): boolean => !card.cannotBeTributed && !card.tributeBlockedThisTurn;
+export const canTributeForSummon = (card: Card, summoned: Card): boolean => canTribute(card) && (cardRegistry.getEffect(summoned.id)?.tributeSummonFilter?.(card) ?? true);
+export const matchesCardName = (card: Card, name: string): boolean => card.name.toLowerCase() === name.toLowerCase();
+export const matchesCardGroup = (card: Card, group: string): boolean => card.name.toLowerCase().includes(group.toLowerCase());
+export const canTargetWithEffect = (card: Card): boolean => !card.effectTargetBlockedThisTurn;
 export const canSetPawn = (card: Card): boolean => !isToken(card);
 
 /** Current combat stats, including a card's continuous field modifier. */
@@ -40,9 +44,8 @@ export function setPawnPosition(zone: PlacedCard, position: Position): void {
 }
 
 export function clearFieldReduction(card: Card): Card {
-    if (card.fieldAtkReduction === undefined) return card;
-    const { fieldAtkReduction, ...rest } = card;
-    return { ...rest, atk: card.atk + fieldAtkReduction };
+    const { fieldAtkReduction, tributeBlockedThisTurn, effectTargetBlockedThisTurn, ...rest } = card;
+    return { ...rest, atk: card.atk + (fieldAtkReduction ?? 0) };
 }
 
 /**

@@ -16,7 +16,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn(), message: vi.fn() }));
 
-import { flushSaves, getActivationPopups, getSettings, saveProfile, saveSettings, getSavedDecks, initializeStorage, migrateSave, saveActivationPopups, saveDeckLibrary } from '../src/desktop/storage';
+import { flushSaves, getActivationPopupMode, getSettings, saveProfile, saveSettings, getSavedDecks, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
 import { newDeck } from '../src/decks';
 import { exportDeck, importDeck } from '../src/desktop/files';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -31,14 +31,20 @@ beforeEach(async () => {
 
 it('persists decks and settings together across a restart, even with concurrent writes', async () => {
   const deck = newDeck();
-  await Promise.all([saveDeckLibrary([deck]), saveActivationPopups(false), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true })]);
+  await Promise.all([saveDeckLibrary([deck]), saveActivationPopupMode('off'), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true })]);
   const profileImage = 'data:image/webp;base64,UklGRg==';
   await saveProfile({ username: '  Drake  ', profileImage });
   await initializeStorage();
   expect(getSavedDecks()).toEqual([deck]);
-  expect(getActivationPopups()).toBe(false);
-  expect(getSettings()).toEqual({ activationPopupsEnabled: false, username: 'Drake', profileImage, volume: 35, fannedOutPiles: true });
+  expect(getActivationPopupMode()).toBe('off');
+  expect(getSettings()).toEqual({ activationPopupMode: 'off', username: 'Drake', profileImage, volume: 35, fannedOutPiles: true });
   expect(disk.files.has('save.json.tmp')).toBe(false);
+  for (const mode of ['off', 'auto', 'on'] as const) {
+    await saveActivationPopupMode(mode);
+    await initializeStorage();
+    expect(getActivationPopupMode()).toBe(mode);
+    expect(getSavedDecks()).toEqual([deck]);
+  }
 });
 
 it('keeps the previous save and cached state when replacement fails, then supports retry', async () => {
@@ -57,8 +63,12 @@ it('keeps the previous save and cached state when replacement fails, then suppor
 
 it('migrates legacy arrays and rejects future versions and duplicate IDs', () => {
   const deck = newDeck();
-  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupsEnabled: true, username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
-  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false, profileIcon: 'star' } }).settings).toEqual({ activationPopupsEnabled: false, username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false });
+  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false, profileIcon: 'star' } }).settings).toEqual({ activationPopupMode: 'off', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false });
+  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: true } }).settings.activationPopupMode).toBe('on');
+  for (const activationPopupMode of ['always', true, null]) {
+    expect(() => migrateSave({ version: 1, decks: [], settings: { activationPopupMode } })).toThrow('Invalid settings');
+  }
   for (const settings of [{ username: ' ' }, { username: 'x'.repeat(25) }, { profileImage: 'https://example.com/image.png' }, { volume: -1 }, { volume: 101 }, { fannedOutPiles: 'yes' }]) {
     expect(() => migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: true, ...settings } })).toThrow('Invalid settings');
   }

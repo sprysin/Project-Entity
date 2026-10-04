@@ -2,18 +2,20 @@ import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import { Card, GameState, Phase } from '../types';
 import { chooseAIAction, hasWorthwhileAttack, observeGame, simulateSummon, updateKnownCards } from '../game/opponentAI';
 import { applyCommand } from '../game/engine';
-import { cardRegistry } from '../cards/CardRegistry';
 import type { useEffectResolution } from './useEffectResolution';
+import { isDrawingForTurn } from '../game/phases';
 
 export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhase, skipToEndPhase, requestAttack, resolveEffect }: {
     gameState: GameState | null; setGameState: Dispatch<SetStateAction<GameState | null>>; enabled: boolean; busy: boolean;
     nextPhase: () => void; skipToEndPhase: () => void; requestAttack: (index: number, target: number | 'direct') => void;
     resolveEffect: ReturnType<typeof useEffectResolution>['resolveEffect'];
 }) {
-    const pendingSummon = useRef<Card | undefined>(undefined);
     const knownCards = useRef(new Map<string, Card>());
     const lastTurn = useRef(0);
     const moves = useRef({ turn: 0, count: 0 });
+    // Animation renders update handlers without restarting a pending decision timer.
+    const handlers = useRef({ nextPhase, skipToEndPhase, requestAttack, resolveEffect });
+    handlers.current = { nextPhase, skipToEndPhase, requestAttack, resolveEffect };
     useEffect(() => {
         if (!enabled || !gameState) { knownCards.current.clear(); lastTurn.current = 0; return; }
         if (gameState.turnNumber < lastTurn.current) knownCards.current.clear();
@@ -21,10 +23,12 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
         updateKnownCards(gameState, 1, knownCards.current);
     }, [enabled, gameState]);
     useEffect(() => {
-        if (!enabled || !gameState || gameState.openingCoin || gameState.winner || busy || gameState.pendingVoidReturns?.length || gameState.pendingVoidSelections?.length || gameState.response?.ready || gameState.resolvingChain) return;
+        if (!enabled || !gameState || isDrawingForTurn(gameState) || gameState.pendingResponse || gameState.openingCoin || gameState.winner || busy || gameState.pendingVoidReturns?.length || gameState.pendingVoidSelections?.length || gameState.response?.ready || gameState.resolvingChain) return;
         if (gameState.response ? gameState.response.priority !== 1 : gameState.activePlayerIndex !== 1) return;
         if (!gameState.response && ![Phase.MAIN1, Phase.MAIN2, Phase.BATTLE].includes(gameState.currentPhase)) return;
         const timer = setTimeout(() => {
+            const { nextPhase, skipToEndPhase, requestAttack, resolveEffect } = handlers.current;
+            const observation = observeGame(gameState, 1, knownCards.current);
             if (gameState.attackReplay) {
                 const retry = applyCommand(gameState, 1, { type: 'attackReplay', retry: true }).state;
                 const action = chooseAIAction(observeGame(retry, 1, knownCards.current), 1);
@@ -34,19 +38,15 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
                 return;
             }
             if (moves.current.turn !== gameState.turnNumber) moves.current = { turn: gameState.turnNumber, count: 0 };
-            const summon = pendingSummon.current;
-            pendingSummon.current = undefined;
-            const action = chooseAIAction(observeGame(gameState, 1, knownCards.current), 1, summon);
+            const action = chooseAIAction(observation, 1);
             if (moves.current.count++ > 70 && !gameState.response) { nextPhase(); return; }
             if (action.kind === 'pass') {
                 if (gameState.response) setGameState(prev => prev ? applyCommand(prev, 1, { type: 'pass' }).state : prev);
-                else if (summon) setGameState(prev => prev ? { ...prev } : prev);
                 else if (gameState.currentPhase === Phase.BATTLE || gameState.currentPhase === Phase.MAIN1
-                    && !hasWorthwhileAttack(observeGame(gameState, 1, knownCards.current), 1)) skipToEndPhase();
+                    && !hasWorthwhileAttack(observation, 1)) skipToEndPhase();
                 else nextPhase();
             } else if (action.kind === 'attack') requestAttack(action.index, action.target);
             else if (action.kind === 'summon') {
-                if (!action.hidden && cardRegistry.getEffect(action.card.id)?.onSummon) pendingSummon.current = action.card;
                 setGameState(prev => prev ? simulateSummon(prev, action.card, action.hidden, action.tributes) : prev);
             } else if (action.kind === 'position') {
                 setGameState(prev => prev ? applyCommand(prev, 1, { type: 'position', index: action.index }).state : prev);
@@ -65,7 +65,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
                 // A human opponent chooses which of their cards Glass Witch reveals.
                 resolveEffect(c.card, c.target, c.discardIndex, c.handIndex, deckIndex, action.trigger, c.tributeIndices, c.targets, undefined, c.shuffleCardIds, c.pawnPlacement, c.effectId);
             }
-        }, 650);
+        }, gameState.response ? 0 : 350);
         return () => clearTimeout(timer);
-    }, [gameState, enabled, busy, nextPhase, skipToEndPhase, requestAttack, resolveEffect, setGameState]);
+    }, [gameState, enabled, busy, setGameState]);
 }

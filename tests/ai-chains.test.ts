@@ -7,9 +7,10 @@ import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Attribute, Card, CardType, GameState, Phase, Player, Position } from '../src/types';
-import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority, resolveChain, resolveChainStep } from '../src/game/chains';
-import { applyCommand } from '../src/game/engine';
+import { Attribute, Card, CardType, GameState, Phase, Player, Position, ResponseTiming } from '../src/types';
+import { addChainLink, effectChoices, fieldActivations, openResponse, passPriority, resolveChain, resolveChainStep, startPendingResponse } from '../src/game/chains';
+import { applyCommand, applySystemCommand } from '../src/game/engine';
+import { shouldPromptResponse } from '../src/game/responseTiming';
 import { chooseAIAction, chooseAIHandSummon, hasWorthwhileAttack, observeGame, updateKnownCards } from '../src/game/opponentAI';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
@@ -30,7 +31,7 @@ function passAll(state: GameState) {
 }
 
 describe('response windows and chains', () => {
-    it('skips empty windows, and excludes newly set Conditions and ordinary Pawn effects', () => {
+    it('opens legal timing windows and distinguishes Off, Auto, and On', () => {
         const s = game();
         const played = card('action_01');
         s.players[0].hand = [played];
@@ -40,15 +41,80 @@ describe('response windows and chains', () => {
         s.players[1].actionZones[0] = zone(card('test_attached_condition', 1), Position.HIDDEN, s.turnNumber);
         expect(fieldActivations(s, 1, true)).toHaveLength(0);
         expect(openResponse(s, { kind: 'phase' }, 'Leave Main').response?.ready).toBe(true);
-    });
+        for (const timing of ['summon', 'attack', 'activation', 'turn_end', 'phase_exit', 'phase_entry', 'battle_step', 'chain_resolved', 'minor_action', 'draw'] as ResponseTiming[]) {
+            for (const priority of [0, 1]) {
+                const window = { ...game(), response: { priority, passes: 0, reason: timing, timing } };
+                expect(shouldPromptResponse('off', window)).toBe(false);
+                expect(shouldPromptResponse('on', window)).toBe(true);
+                expect(shouldPromptResponse('auto', window)).toBe(['summon', 'attack', 'activation', 'phase_exit'].includes(timing) || timing === 'turn_end' && priority === 1);
+                expect(shouldPromptResponse('on', { ...window, response: { ...window.response, ready: true } })).toBe(false);
+                if (timing === 'phase_exit') for (const currentPhase of Object.values(Phase)) {
+                    expect(shouldPromptResponse('auto', { ...window, currentPhase })).toBe([Phase.MAIN1, Phase.BATTLE, Phase.MAIN2].includes(currentPhase));
+                }
+            }
+        }
+        const events = game();
+        events.players[0].pawnZones[1] = zone(card('pawn_04'));
+        events.players[1].actionZones[0] = zone(card('condition_03', 1), Position.HIDDEN);
+        events.players[1].actionZones[1] = zone(card('test_attached_condition', 1), Position.HIDDEN);
+        events.players[1].deck = [card('pawn_01', 1)];
+        const pawn = { ...card('pawn_05'), level: 4 as const };
+        events.players[0].hand = [pawn];
+        let summoned = applyCommand(events, 0, { type: 'summon', cardId: pawn.instanceId, hidden: false, slot: 0 }).state;
+        expect(startPendingResponse(summoned).response).toMatchObject({ timing: 'summon', priority: 1 });
+        const hidden = applyCommand(events, 0, { type: 'summon', cardId: pawn.instanceId, hidden: true, slot: 0 }).state;
+        expect(startPendingResponse(hidden).response?.timing).toBe('minor_action');
+        const triggerPawn = card('pawn_01');
+        events.players[0].hand = [triggerPawn];
+        const triggered = applyCommand(events, 0, { type: 'summon', cardId: triggerPawn.instanceId, hidden: false, slot: 0 }).state;
+        expect(triggered.pendingReactions?.[0].trigger).toBe('summon');
+        expect(startPendingResponse(triggered)).toBe(triggered);
+        expect(startPendingResponse(applyCommand(triggered, 0, { type: 'cancelEffect', cardId: triggerPawn.instanceId }).state).response?.timing).toBe('summon');
 
-    it('counts only cards with an actually legal target and cost', () => {
-        const s = game();
-        s.players[1].actionZones[0] = zone(card('condition_02', 1), Position.HIDDEN);
+        const setCard = card('action_01');
+        events.players[0].hand = [setCard];
+        const set = applyCommand(events, 0, { type: 'play', cardId: setCard.instanceId, set: true, slot: 0 }).state;
+        expect(startPendingResponse(set).response?.timing).toBe('minor_action');
+        const phase = passAll(applyCommand(events, 0, { type: 'phase' }).state);
+        expect(startPendingResponse(applySystemCommand(phase, { type: 'completeDeferred' }).state).response?.timing).toBe('phase_entry');
+        const end = { ...events, currentPhase: Phase.END };
+        expect(applyCommand(end, 0, { type: 'phase' }).state.response?.timing).toBe('turn_end');
+        let draw = { ...structuredClone(events), currentPhase: Phase.DRAW };
+        draw.players[0].hand = [];
+        draw.players[0].deck = Array.from({ length: 5 }, () => card('pawn_01'));
+        expect(fieldActivations(draw, 1, true)).toEqual([]);
+        expect(openResponse(draw, { kind: 'phase' }, 'Before draw')).toBe(draw);
+        for (let i = 1; i <= 5; i++) {
+            draw = applySystemCommand(draw, { type: 'draw' }).state;
+            expect(draw.players[0].hand).toHaveLength(i);
+            if (i < 5) {
+                expect(draw.pendingResponse).toBeUndefined();
+                expect(fieldActivations(draw, 1, true)).toEqual([]);
+                expect(startPendingResponse(draw)).toBe(draw);
+            }
+        }
+        expect(startPendingResponse(draw).response?.timing).toBe('draw');
+
+        summoned = { ...summoned, pendingResponse: undefined, currentPhase: Phase.BATTLE };
+        const attack = passAll(applyCommand(summoned, 0, { type: 'attack', attackerIndex: 0, targetIndex: 'direct' }).state);
+        let battle = applySystemCommand(attack, { type: 'completeDeferred' }).state;
+        expect(battle.response?.timing).toBe('battle_step');
+        expect(battle.players[1].lp).toBe(800);
+        battle = applySystemCommand(passAll(battle), { type: 'completeDeferred' }).state;
+        expect(battle.players[1].lp).toBeLessThan(800);
+        expect(startPendingResponse(battle).response?.timing).toBe('battle_step');
+        const activation = effectChoices(events, events.players[1].actionZones[0]!.card, 'activate')[0];
+        const chained = addChainLink(events, activation, 'activate');
+        expect(chained.response?.timing).toBe('activation');
+        expect(startPendingResponse(chained)).toBe(chained);
+        expect(startPendingResponse(resolveChain(chained)).response?.timing).toBe('chain_resolved');
+
+        const legal = game();
+        legal.players[1].actionZones[0] = zone(card('condition_02', 1), Position.HIDDEN);
         // Void Call cannot target itself: activation reveals its source.
-        expect(fieldActivations(s, 1, true)).toHaveLength(0);
-        s.players[0].actionZones[0] = zone(card('action_01'), Position.HIDDEN);
-        expect(fieldActivations(s, 1, true)).toHaveLength(1);
+        expect(fieldActivations(legal, 1, true)).toHaveLength(0);
+        legal.players[0].actionZones[0] = zone(card('action_01'), Position.HIDDEN);
+        expect(fieldActivations(legal, 1, true)).toHaveLength(1);
 
         const depths = game();
         depths.players[1].actionZones[0] = zone(card('condition_04', 1), Position.HIDDEN);
@@ -70,11 +136,16 @@ describe('response windows and chains', () => {
         expect(next.players[1].lp).toBe(800);
         expect(next.response?.priority).toBe(1);
         next = addChainLink(next, { card: draw, playerIndex: 1 }, 'activate');
-        expect(next.players[1].lp).toBe(600); // paid before responses
+        expect(next.players[1].lp).toBe(800); // cost waits for this chain link
         expect(next.players[1].actionZones[0]?.position).toBe(Position.FACE_UP);
-        expect(next.log[0]).toContain('turns face-up');
+        expect(next.log).toEqual(s.log);
         expect(next.players[1].hand).toHaveLength(0);
         next = addChainLink(next, { card: reinforcement, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'activate');
+        next = resolveChainStep(next);
+        expect(next.players[1].lp).toBe(800);
+        next = resolveChainStep(next);
+        expect(next.players[1].lp).toBe(600);
+        expect(next.players[1].hand).toHaveLength(1);
         next = passAll(next);
         expect(next.players[1].lp).toBe(550);
         expect(next.players[0].lp).toBe(800);
@@ -87,6 +158,28 @@ describe('response windows and chains', () => {
         expect(next.log.join(' ')).not.toContain('to ATTACK');
         expect(resolutionLogs[2]).toContain('Reinforcement');
         expect(next.chain).toHaveLength(0);
+
+        const example = game(), darkDraw = card('condition_03'), dragon = card('pawn_everlasting_dragonlord', 1);
+        example.players[0].actionZones[0] = zone(darkDraw, Position.HIDDEN);
+        example.players[1].pawnZones[0] = zone(dragon);
+        example.players[0].deck = [card('pawn_01')];
+        let ordered = addChainLink(example, { card: darkDraw, playerIndex: 0 }, 'activate');
+        ordered = addChainLink(ordered, { card: dragon, playerIndex: 1 }, 'activate');
+        expect(ordered.players[0].lp).toBe(800);
+        ordered = resolveChainStep(ordered);
+        expect(ordered.players[1].pawnZones[0]?.card.effectTargetBlockedThisTurn).toBe(true);
+        expect(ordered.players[0].lp).toBe(800);
+        expect(ordered.players[0].hand).toHaveLength(0);
+        const unaffordable = structuredClone(ordered);
+        unaffordable.players[0].lp = 100;
+        const failed = resolveChainStep(unaffordable);
+        expect(failed.players[0].lp).toBe(100);
+        expect(failed.players[0].hand).toHaveLength(0);
+        expect(failed.log[0]).toContain('cost can no longer be paid');
+        ordered = resolveChainStep(ordered);
+        expect(ordered.players[0].lp).toBe(600);
+        expect(ordered.players[0].hand).toHaveLength(1);
+        expect(ordered.log[0]).toContain('-200 LP');
     });
 
     it('a set card flipped in response no longer satisfies an earlier hidden-only target', () => {
@@ -249,15 +342,30 @@ describe('fair general AI', () => {
         vi.useFakeTimers();
         const resolveEffect = vi.fn();
         let root: ReturnType<typeof create> | undefined;
+        const setGameState = vi.fn();
+        let hookState = tribunal;
         function AIHarness() {
-            useOpponentAI({ gameState: tribunal, enabled: true, busy: false,
-                setGameState: vi.fn(), nextPhase: vi.fn(), skipToEndPhase: vi.fn(), requestAttack: vi.fn(), resolveEffect });
+            useOpponentAI({ gameState: hookState, enabled: true, busy: false,
+                setGameState, nextPhase: vi.fn(), skipToEndPhase: vi.fn(), requestAttack: vi.fn(), resolveEffect });
             return null;
         }
         try {
             act(() => { root = create(React.createElement(AIHarness)); });
-            act(() => vi.advanceTimersByTime(650));
+            act(() => vi.advanceTimersByTime(200));
+            act(() => root!.update(React.createElement(AIHarness)));
+            act(() => vi.advanceTimersByTime(150));
             expect(resolveEffect.mock.calls[0]?.[11]).toBe('tribute');
+            const quick = game();
+            quick.players[1].pawnZones[0] = zone(card('pawn_everlasting_dragonlord', 1));
+            hookState = { ...quick, response: { priority: 1, passes: 0, reason: 'Leave MAIN1', timing: 'phase_exit' } };
+            act(() => root!.update(React.createElement(AIHarness)));
+            act(() => vi.advanceTimersByTime(0));
+            expect(setGameState).toHaveBeenCalledOnce(); // Immediate pass, without the old 650ms wait.
+            setGameState.mockClear();
+            hookState = { ...quick, currentPhase: Phase.DRAW, response: { priority: 1, passes: 0, reason: 'Before draw' } };
+            act(() => root!.update(React.createElement(AIHarness)));
+            act(() => vi.advanceTimersByTime(1000));
+            expect(setGameState).not.toHaveBeenCalled();
         } finally {
             act(() => root?.unmount());
             vi.useRealTimers();
