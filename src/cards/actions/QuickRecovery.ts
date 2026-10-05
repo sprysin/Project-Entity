@@ -18,14 +18,16 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'action_02',
-    name: 'Quick recovery',
-    type: CardType.ACTION,
-    rarity: 'Common',
-    level: 0,
-    atk: 0,
-    def: 0,
-    effectText: 'If opponent has Pawn: Return Lv 3 or lower Pawn from Discard to hand, gain 20 LP.',
-}, effect }
+    {
+        cardData: {
+            id: 'action_02',
+            name: 'Quick recovery',
+            type: CardType.ACTION,
+            rarity: 'Rare',
+            level: 0,
+            atk: 0,
+            def: 0,
+            effectText: 'If opponent has Pawn: Return Lv 3 or lower Pawn from Discard to hand, gain 20 LP.',
+        }, effect
+    }
 ] satisfies CardModule;

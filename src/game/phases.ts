@@ -7,16 +7,25 @@ import { drawCards } from './draw';
 import { sendToOwnerPile } from './cardOwnership';
 import { prepareVoidReturn } from './voidReturns';
 import { isAwaitingDecision } from './decisions';
+import { notifyFieldEvent } from './fieldEvents';
+
+function resetTurnPlayer(player: Player): void {
+    player.normalSummonUsed = false;
+    player.hiddenSummonUsed = false;
+    player.pawnZones.forEach(zone => {
+        if (zone) { zone.hasAttacked = false; zone.hasChangedPosition = false; }
+    });
+}
 
 /** Applies one complete phase transition, including phase-entry maintenance. */
-export const advancePhaseState = (prev: GameState): GameState => {
+export const advancePhaseState = (prev: GameState, destination?: Phase.END): GameState => {
     if (prev.winner || isAwaitingDecision(prev)) return prev;
     prev = structuredClone(prev);
     let nextPhase = prev.currentPhase;
     let activeIndex = prev.activePlayerIndex;
     let turnNumber = prev.turnNumber;
 
-    if (prev.turnNumber === 1 && prev.currentPhase === Phase.MAIN1) {
+    if (destination === Phase.END || prev.turnNumber === 1 && prev.currentPhase === Phase.MAIN1) {
         nextPhase = Phase.END;
     } else {
         switch (prev.currentPhase) {
@@ -33,9 +42,26 @@ export const advancePhaseState = (prev: GameState): GameState => {
         }
     }
 
+    if (nextPhase === Phase.DRAW && prev.players[activeIndex].skipNextDrawPhase) {
+        delete prev.players[activeIndex].skipNextDrawPhase;
+        resetTurnPlayer(prev.players[activeIndex]);
+        nextPhase = Phase.STANDBY;
+        prev.log = [`${prev.players[activeIndex].name} skips their Draw Phase.`, ...prev.log].slice(0, 50);
+    }
+
     let currentPendingEffects = prev.pendingEffects || [];
     let updatedPlayers = [...prev.players];
     let updatedLog = prev.log;
+
+    // Explicit phase durations end before entering the following phase.
+    const expired = currentPendingEffects.filter(effect => effect.duePhase === prev.currentPhase && effect.dueTurn <= prev.turnNumber);
+    for (const effect of expired) for (const player of updatedPlayers) for (const zone of player.pawnZones) {
+        if (zone?.card.instanceId !== effect.targetInstanceId) continue;
+        const stat = effect.type === 'RESET_ATK' ? 'atk' : 'def';
+        zone.card[stat] = effect.delta === undefined ? effect.value : zone.card[stat] - effect.delta;
+    }
+    currentPendingEffects = currentPendingEffects.filter(effect => !expired.includes(effect));
+    prev.pendingEffects = currentPendingEffects;
 
     if (nextPhase === Phase.BATTLE) {
         updatedPlayers = updatedPlayers.map(p => ({
@@ -69,7 +95,8 @@ export const advancePhaseState = (prev: GameState): GameState => {
             const result = phaseEffect(phaseState, context);
             if (result?.newState && !result.halted) {
                 const log = formatEffectLog(phaseState, result.newState, card, context, 'phase');
-                phaseState = { ...result.newState, log: [log, ...phaseState.log].slice(0, 50) };
+                phaseState = notifyFieldEvent({ ...result.newState, log: [log, ...phaseState.log].slice(0, 50) },
+                    'onEffectActivated', { activatedCard: card, activatingPlayerIndex: activeIndex });
             }
         }
         const fieldEffects = phaseState.players.flatMap((player, playerIndex) => player.actionZones.flatMap(zone =>
@@ -78,7 +105,8 @@ export const advancePhaseState = (prev: GameState): GameState => {
         for (const context of fieldEffects) {
             const result = cardRegistry.getEffect(context.card.id)!.onPhaseChange!(phaseState, context);
             if (result.halted) continue;
-            const next = notifyAttachedActivation(phaseState, result.newState, context.card);
+            const next = notifyFieldEvent(notifyAttachedActivation(phaseState, result.newState, context.card),
+                'onEffectActivated', { activatedCard: context.card, activatingPlayerIndex: context.playerIndex });
             next.log = [formatEffectLog(phaseState, next, context.card, context, 'phase'), ...next.log].slice(0, 50);
             phaseState = checkVictory(next);
             if (phaseState.winner) return phaseState;
@@ -102,8 +130,8 @@ export const advancePhaseState = (prev: GameState): GameState => {
             sendToOwnerPile({ ...prev, players: updatedPlayers as [Player, Player] }, zone.card, 'discard');
             player.pawnZones[index] = null;
         });
-        const effectsToResolve = currentPendingEffects.filter(e => e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
-        const remainingEffects = currentPendingEffects.filter(e => !(e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF')));
+        const effectsToResolve = currentPendingEffects.filter(e => !e.duePhase && e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));
+        const remainingEffects = currentPendingEffects.filter(e => !effectsToResolve.includes(e));
         updatedPlayers = updatedPlayers.map(p => ({
             ...p,
             activatedHardOncePerTurns: [],
@@ -127,7 +155,7 @@ export const advancePhaseState = (prev: GameState): GameState => {
         currentPendingEffects = remainingEffects;
     }
 
-    if (nextPhase === Phase.DRAW && turnNumber !== prev.turnNumber) {
+    if (turnNumber !== prev.turnNumber) {
         updatedLog = [`Turn ${turnNumber}`, ...updatedLog].slice(0, 50);
     }
 
@@ -142,11 +170,7 @@ export function stepDraw(state: GameState): GameState {
     if (next.drawProgress?.turn !== next.turnNumber) {
         next = structuredClone(state);
         const player = next.players[next.activePlayerIndex];
-        player.normalSummonUsed = false;
-        player.hiddenSummonUsed = false;
-        player.pawnZones.forEach(zone => {
-            if (zone) { zone.hasAttacked = false; zone.hasChangedPosition = false; }
-        });
+        resetTurnPlayer(player);
         next.drawProgress = { turn: next.turnNumber, remaining: next.turnNumber === 1 ? 0 : Math.max(1, 5 - player.hand.length) };
     }
     if (!next.drawProgress!.remaining) return next;

@@ -109,6 +109,7 @@ export interface PlacedCard {
 }
 
 export interface Player {
+  skipNextDrawPhase?: boolean;
   id: string;
   name: string;
   deckName?: string;
@@ -126,6 +127,8 @@ export interface Player {
 }
 
 export interface PendingEffect {
+  /** Omitted effects expire after End Phase; explicit phases expire on exit. */
+  duePhase?: Phase;
   type: 'RESET_ATK' | 'RESET_DEF';
   targetInstanceId: string;
   value: number;
@@ -156,7 +159,8 @@ export interface GameState {
   response?: { priority: number; passes: number; reason: string; timing?: ResponseTiming; ready?: boolean };
   /** Event responses wait for trigger choices and the entire resolving chain. */
   pendingResponse?: ResponseWindow;
-  skipToEnd?: boolean;
+  /** The top resolving link is waiting for its controller's target selection. */
+  pendingChainTarget?: boolean;
   chain?: ChainLink[];
   resolvingChain?: { total: number; current: number; cardName: string };
   deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct'; battleStep?: boolean };
@@ -273,6 +277,9 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Immediate, selection-free observers while this source is face-up. */
+  onEffectActivated?(state: GameState, context: CardContext & { activatedCard: Card; activatingPlayerIndex: number }): EffectResult;
+  onEffectDamage?(state: GameState, context: CardContext & { damageCard: Card; damageEffectId?: string; damagedPlayerIndex: number; amount: number }): EffectResult;
   tributeSummonFilter?: CardFilter;
   onDestroyed?(state: GameState, context: CardContext): EffectResult;
   /** Reusable counter-gated hand summon; shared by card legality and AI planning. */
@@ -290,6 +297,8 @@ export interface IEffect {
   onAttachedDestroyed?(state: GameState, context: CardContext & { destroyedCard: Card; attachedInstanceIds: readonly string[] }): void;
   /** Only explicitly quick Pawn effects may respond outside normal ignition timing. */
   timing?: 'main' | 'quick';
+  /** Choose targets from the current board when this link resolves. */
+  targetsAtResolution?: boolean;
   /** Let an effect resolve its remaining instructions when one selected target has left the field. */
   allowMissingTargets?: boolean;
   // Triggered when an Pawn is Normal Summoned or Set

@@ -19,15 +19,17 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'condition_03',
-    name: 'Dark Draw',
-    type: CardType.CONDITION,
-    rarity: 'Rare',
-    isLingering: false,
-    level: 0,
-    atk: 0,
-    def: 0,
-    effectText: 'Pay 200 life points, draw 1 card for every face up DARK Pawn on the field.',
-}, effect }
+    {
+        cardData: {
+            id: 'condition_03',
+            name: 'Dark Draw',
+            type: CardType.CONDITION,
+            rarity: 'Uncommon',
+            isLingering: false,
+            level: 0,
+            atk: 0,
+            def: 0,
+            effectText: 'Pay 200 life points, draw 1 card for every face up DARK Pawn on the field.',
+        }, effect
+    }
 ] satisfies CardModule;

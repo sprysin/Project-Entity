@@ -19,7 +19,7 @@ export const Require = {
         const isOpponent = target.playerIndex !== context.playerIndex;
         if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return { halt: true };
         const zone = draftState.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
-        if (!zone || context.execution !== 'resolve' && !canTargetWithEffect(zone.card) || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
+        if (!zone || !canTargetWithEffect(zone.card) || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
     /** Verifies the provided target relies on a specific player scope. */

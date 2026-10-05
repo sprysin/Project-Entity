@@ -77,6 +77,55 @@ describe('response windows and chains', () => {
         expect(startPendingResponse(set).response?.timing).toBe('minor_action');
         const phase = passAll(applyCommand(events, 0, { type: 'phase' }).state);
         expect(startPendingResponse(applySystemCommand(phase, { type: 'completeDeferred' }).state).response?.timing).toBe('phase_entry');
+        // Human and AI End requests visit only the origin and End, even in On mode.
+        for (const actor of [0, 1]) for (const currentPhase of [Phase.MAIN1, Phase.BATTLE, Phase.MAIN2]) {
+            const skipping = game();
+            skipping.activePlayerIndex = actor;
+            skipping.currentPhase = currentPhase;
+            const responder = 1 - actor;
+            const pawn = zone(card('pawn_04', responder));
+            skipping.players[responder].pawnZones[0] = { ...pawn, attacksRemaining: 0, nextBattleAttacks: 2 };
+            skipping.players[responder].actionZones[0] = zone(card('condition_03', responder), Position.HIDDEN);
+            skipping.players[responder].deck = [card('pawn_01', responder)];
+            const requested = applyCommand(skipping, actor, { type: 'end' }).state;
+            expect(requested.currentPhase).toBe(currentPhase);
+            expect(requested.response).toMatchObject({ timing: 'phase_exit', priority: responder });
+            expect(shouldPromptResponse('auto', requested)).toBe(true);
+            const ended = applySystemCommand(passAll(requested), { type: 'completeDeferred' }).state;
+            expect(ended.currentPhase).toBe(Phase.END);
+            expect(ended.activePlayerIndex).toBe(actor);
+            expect(ended.turnNumber).toBe(skipping.turnNumber);
+            expect(ended.players[responder].pawnZones[0]).toMatchObject({ attacksRemaining: 0, nextBattleAttacks: 2 });
+            expect(ended.deferredAction).toBeUndefined();
+            const entry = startPendingResponse(ended);
+            expect(entry.response?.timing).toBe('phase_entry');
+            expect(shouldPromptResponse('auto', entry)).toBe(false);
+            expect(shouldPromptResponse('on', entry)).toBe(true);
+
+            // Either player's accepted activation cancels the request, not the effect.
+            for (const playerIndex of [actor, responder]) {
+                const interrupted = game();
+                interrupted.activePlayerIndex = actor;
+                interrupted.currentPhase = currentPhase;
+                interrupted.players[playerIndex].pawnZones[0] = zone(card('pawn_04', playerIndex));
+                interrupted.players[playerIndex].actionZones[0] = zone(card('condition_03', playerIndex), Position.HIDDEN);
+                interrupted.players[playerIndex].deck = [card('pawn_01', playerIndex)];
+                const exit = applyCommand(interrupted, actor, { type: 'end' }).state;
+                const context = effectChoices(exit, exit.players[playerIndex].actionZones[0]!.card, 'activate')[0];
+                const activated = applyCommand(exit, playerIndex, { type: 'activate', context, trigger: 'activate' }).state;
+                expect(activated.deferredAction).toBeUndefined();
+                const resolved = passAll(activated);
+                expect(resolved.currentPhase).toBe(currentPhase);
+                expect(resolved.players[playerIndex].hand).toHaveLength(1);
+                expect(resolved.players[playerIndex].lp).toBe(600);
+                const resumed = startPendingResponse(resolved);
+                expect(resumed.response).toBeUndefined();
+                expect(applySystemCommand(resumed, { type: 'completeDeferred' }).state).toBe(resumed);
+                // A fresh request still works after the player has reconsidered.
+                const retry = passAll(applyCommand(resumed, actor, { type: 'end' }).state);
+                expect(applySystemCommand(retry, { type: 'completeDeferred' }).state.currentPhase).toBe(Phase.END);
+            }
+        }
         const end = { ...events, currentPhase: Phase.END };
         expect(applyCommand(end, 0, { type: 'phase' }).state.response?.timing).toBe('turn_end');
         let draw = { ...structuredClone(events), currentPhase: Phase.DRAW };
@@ -125,7 +174,7 @@ describe('response windows and chains', () => {
         expect(fieldActivations(depths, 1, true)).toHaveLength(1);
     });
 
-    it('lets a controller respond during the other player’s turn and resolves LIFO', () => {
+    it('responds during the other turn, resolves LIFO, and rechecks revealed targets', () => {
         const s = game(), blast = card('action_01'), draw = card('condition_03', 1), reinforcement = card('test_attached_condition');
         s.players[0].actionZones[0] = zone(blast);
         s.players[0].actionZones[1] = zone(reinforcement, Position.HIDDEN);
@@ -180,19 +229,58 @@ describe('response windows and chains', () => {
         expect(ordered.players[0].lp).toBe(600);
         expect(ordered.players[0].hand).toHaveLength(1);
         expect(ordered.log[0]).toContain('-200 LP');
-    });
-
-    it('a set card flipped in response no longer satisfies an earlier hidden-only target', () => {
-        const s = game(), call = card('condition_02'), reinforcement = card('test_attached_condition', 1);
-        s.players[0].actionZones[0] = zone(call, Position.HIDDEN);
-        s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
-        s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
-        let next = addChainLink(s, { card: call, playerIndex: 0, target: { playerIndex: 1, type: 'action', index: 0 } }, 'activate');
-        next = addChainLink(next, { card: reinforcement, playerIndex: 1, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'activate');
-        next = passAll(next);
-        expect(next.players[1].actionZones[0]?.card.instanceId).toBe(reinforcement.instanceId);
-        expect(next.players[1].pawnZones[0]!.card.atk).toBe(150);
-        expect(next.players[1].void).toHaveLength(0);
+        // A later protection link takes effect before an earlier targeted removal.
+        for (const protect of [false, true]) {
+            const duel = game(), outlander = card('pawn_future_outlander'), dragon = card('pawn_everlasting_dragonlord', 1);
+            duel.players[0].pawnZones[0] = zone(outlander);
+            duel.players[1].pawnZones[0] = zone(dragon);
+            const alternative = card('pawn_08', 1);
+            duel.players[1].pawnZones[1] = zone(alternative);
+            let removal = applyCommand(duel, 0, {
+                type: 'activate', trigger: 'activate', context: {
+                    card: outlander, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 }
+                }
+            }).state;
+            expect(removal.players[1].pawnZones[0]?.card.instanceId).toBe(dragon.instanceId);
+            expect(removal.players[1].void).toEqual([]);
+            expect(removal.temporaryVoidReturns ?? []).toEqual([]);
+            expect(removal.chain?.[0].context.target).toBeUndefined();
+            expect(removal.chain?.[0].targetIds).toEqual([]);
+            if (protect) {
+                removal = applyCommand(removal, 1, { type: 'activate', trigger: 'activate', context: { card: dragon, playerIndex: 1 } }).state;
+                removal = resolveChainStep(removal);
+                expect(removal.players[1].pawnZones[0]?.card.effectTargetBlockedThisTurn).toBe(true);
+                expect(removal.chain).toHaveLength(1);
+            }
+            removal = passAll(removal);
+            expect(removal.pendingChainTarget).toBe(true);
+            expect(resolveChain(removal)).toBe(removal);
+            expect(applyCommand(removal, 1, { type: 'chainTargets', targets: [{ playerIndex: 1, type: 'pawn', index: 1 }] }).state).toBe(removal);
+            const target = { playerIndex: 1, type: 'pawn' as const, index: 0 };
+            if (protect) {
+                expect(applyCommand(removal, 0, { type: 'chainTargets', targets: [target] }).state).toBe(removal);
+                target.index = 1;
+            }
+            removal = applyCommand(removal, 0, { type: 'chainTargets', targets: [target] }).state;
+            expect(removal.pendingChainTarget).toBeUndefined();
+            expect(removal.chain).toEqual([]);
+            expect(removal.players[1].pawnZones[0]?.card.instanceId).toBe(protect ? dragon.instanceId : undefined);
+            expect(removal.players[1].void.map(card => card.instanceId)).toEqual([protect ? alternative.instanceId : dragon.instanceId]);
+            expect(removal.temporaryVoidReturns ?? []).toHaveLength(1);
+            expect(effectChoices(removal, outlander, 'activate')).toEqual([]);
+        }
+        {
+            const s = game(), call = card('condition_02'), reinforcement = card('test_attached_condition', 1);
+            s.players[0].actionZones[0] = zone(call, Position.HIDDEN);
+            s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
+            s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
+            let next = addChainLink(s, { card: call, playerIndex: 0, target: { playerIndex: 1, type: 'action', index: 0 } }, 'activate');
+            next = addChainLink(next, { card: reinforcement, playerIndex: 1, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'activate');
+            next = passAll(next);
+            expect(next.players[1].actionZones[0]?.card.instanceId).toBe(reinforcement.instanceId);
+            expect(next.players[1].pawnZones[0]!.card.atk).toBe(150);
+            expect(next.players[1].void).toHaveLength(0);
+        }
     });
 });
 
@@ -345,8 +433,10 @@ describe('fair general AI', () => {
         const setGameState = vi.fn();
         let hookState = tribunal;
         function AIHarness() {
-            useOpponentAI({ gameState: hookState, enabled: true, busy: false,
-                setGameState, nextPhase: vi.fn(), skipToEndPhase: vi.fn(), requestAttack: vi.fn(), resolveEffect });
+            useOpponentAI({
+                gameState: hookState, enabled: true, busy: false,
+                setGameState, nextPhase: vi.fn(), skipToEndPhase: vi.fn(), requestAttack: vi.fn(), resolveEffect
+            });
             return null;
         }
         try {
@@ -425,6 +515,8 @@ describe('fair general AI', () => {
         summonDebuff.players[1].pawnZones[0] = zone(king);
         summonDebuff.players[0].pawnZones[0] = zone(card('pawn_01'));
         expect(chooseAIAction(observeGame(summonDebuff, 1), 1, king)).toMatchObject({ kind: 'effect', context: { target: { playerIndex: 0 } } });
+        summonDebuff.players[0].pawnZones[0] = null;
+        expect(chooseAIAction(observeGame(summonDebuff, 1), 1, king)).toEqual({ kind: 'pass' });
 
         const s = game(); s.activePlayerIndex = 1; s.currentPhase = Phase.BATTLE;
         s.players[0].lp = 250;

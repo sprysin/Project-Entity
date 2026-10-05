@@ -1,7 +1,7 @@
 import { canTributeForSummon, fieldStats } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { addChainLink, combinations, effectChoices, fieldActivations, resolveChain } from './chains';
+import { addChainLink, combinations, effectChoices, fieldActivations, needsChoice, resolveChain, resolveChainStep, runEffect } from './chains';
 import { applyCommand, GameCommand } from './engine';
 import { handSummonCandidates } from './summonReactions';
 import { resolveCombat } from './combat';
@@ -95,6 +95,8 @@ export function evaluatePosition(state: GameState, player: number): number {
     return ownLPSafety - opponentLP + field(player) - field(1 - player)
         + setupValue(player) - setupValue(1 - player)
         + own.hand.reduce((n, c) => n + (c.type === CardType.PAWN ? (c.level <= 4 ? 24 : 12) : 18), 0)
+        - (own.skipNextDrawPhase ? Math.max(1, 5 - own.hand.length) * 18 : 0)
+        + (opp.skipNextDrawPhase ? Math.max(1, 5 - opp.hand.length) * 18 : 0)
         - exposed(player) * (own.lp < 100 ? 1.6 : .6)
         + combatControl
         // In Main 1, available attack power represents this turn's pressure. In
@@ -197,6 +199,14 @@ function immediateBattleScore(state: GameState, player: number): number {
         evaluatePosition(simulateAttack(battle, action.index, action.target), player)));
 }
 
+/** Combat payoff without Main Phase pressure bonuses or an open priority window. */
+function battleOpportunity(state: GameState, player: number): number {
+    const settled = { ...state, response: undefined, deferredAction: undefined, attackReplay: undefined };
+    const battle = settled.currentPhase === Phase.MAIN1 ? advancePhaseState(settled) : settled;
+    if (battle.currentPhase !== Phase.BATTLE) return 0;
+    return immediateBattleScore(battle, player) - evaluatePosition(battle, player);
+}
+
 export function hasWorthwhileAttack(state: GameState, player: number): boolean {
     const battle = state.currentPhase === Phase.MAIN1 ? advancePhaseState(state) : state;
     return battle.currentPhase === Phase.BATTLE && planBattle(battle, player).kind === 'attack';
@@ -241,16 +251,31 @@ export function chooseAIHandSummon(state: GameState, player: number): GameComman
     return command;
 }
 
-export function chooseAIAction(observation: GameState, player: number, summonEffect?: Card): AIDecision {
+export function chooseAIAction(observation: GameState, player: number, reactionCard?: Card, reactionTrigger: EffectTrigger = 'summon'): AIDecision {
     const state = observation, own = state.players[player];
+    const resolvingLink = state.pendingChainTarget ? state.chain?.at(-1) : undefined;
+    // Forecast delayed choices without storing them on the announced chain link.
+    const settleChain = (queued: GameState, preferred?: CardContext) => resolveChain(queued, (pending, link) => {
+        if (preferred?.card.instanceId === link.context.card.instanceId) {
+            const preview = runEffect(pending, { ...preferred, execution: 'resolve' }, link.trigger);
+            if (!preview.halted && !needsChoice(preview)) return preferred.targets ?? (preferred.target ? [preferred.target] : []);
+        }
+        const choice = chooseAIAction(observeGame(pending, link.context.playerIndex), link.context.playerIndex);
+        return choice.kind === 'effect' ? choice.context.targets ?? (choice.context.target ? [choice.context.target] : []) : [];
+    });
     const response = !!state.response;
-    if (!summonEffect && !response && state.currentPhase === Phase.BATTLE) return planBattle(state, player);
-    const baseline = response ? resolveChain(state) : state;
-    let bestScore = scoreAfterResponse(baseline, player) + .1;
-    let decision: AIDecision = { kind: 'pass' };
-    const lowersOwnPawnAttack = (before: GameState, after: GameState) => {
-        const originalAttack = new Map(before.players[player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
-        return after.players[player].pawnZones.some(z => z && z.card.atk < (originalAttack.get(z.card.instanceId) ?? z.card.atk));
+    const battleDecision = !reactionCard && !response && state.currentPhase === Phase.BATTLE ? planBattle(state, player) : undefined;
+    const baseline = response && !resolvingLink ? settleChain(state) : state;
+    let bestScore = resolvingLink ? -Infinity : scoreAfterResponse(baseline, player) + .1;
+    let decision: AIDecision = battleDecision ?? { kind: 'pass' };
+    const lowersOwnPawnStats = (before: GameState, after: GameState) => {
+        return after.players[player].pawnZones.some(z => {
+            if (!z) return false;
+            const original = before.players[player].pawnZones.find(previous => previous?.card.instanceId === z.card.instanceId);
+            if (!original) return false;
+            const previous = fieldStats(before, original), current = fieldStats(after, z);
+            return current.atk < previous.atk || current.def < previous.def;
+        });
     };
     const raisesOpponentPawnAttack = (before: GameState, after: GameState) => {
         const originalAttack = new Map(before.players[1 - player].pawnZones.flatMap(z => z ? [[z.card.instanceId, z.card.atk] as const] : []));
@@ -262,7 +287,8 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             return new Set([...opponent.pawnZones, ...opponent.actionZones].flatMap(z => z ? [z.card.instanceId] : []));
         };
         const remaining = fieldIds(after);
-        return [...fieldIds(before)].filter(id => !remaining.has(id)).length;
+        return [...fieldIds(before)].filter(id => !remaining.has(id)
+            && !after.temporaryVoidReturns?.some(entry => entry.cardId === id)).length;
     };
     const opponentLPDamage = (before: GameState, after: GameState) =>
         Math.max(0, before.players[1 - player].lp - after.players[1 - player].lp);
@@ -282,7 +308,7 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
                 for (const choice of effectChoices(board, activation.card, activation.trigger, 8)) {
                     const queued = addChainLink(board, choice, activation.trigger);
                     if (queued === board) continue;
-                    const after = queued.response ? resolveChain(queued) : queued;
+                    const after = queued.response ? settleChain(queued, choice) : queued;
                     if (!raisedOwnAttack(board, after)) continue;
                     const key = after.players[player].pawnZones.map(z => z ? `${z.card.instanceId}:${z.card.atk}:${z.position}` : '').join('|')
                         + '/' + after.players[player].hand.map(c => c.instanceId).sort().join('|');
@@ -299,21 +325,62 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
         return best;
     };
     const considerEffect = (base: GameState, card: Card, trigger: EffectTrigger, fromHand = false) => {
-        for (const context of effectChoices(base, card, trigger)) {
-            const queued = addChainLink(base, context, trigger);
-            const next = queued.response ? resolveChain(queued) : queued;
+        for (const context of effectChoices(base, card, trigger, 160, resolvingLink?.context)) {
+            const queued = resolvingLink ? resolveChainStep(base, context.targets ?? (context.target ? [context.target] : []))
+                : addChainLink(base, context, trigger);
+            if (queued === base) continue;
+            const next = queued.response ? settleChain(queued, context) : queued;
             // A legal target is not necessarily a sensible one. In particular,
             // optional broad targeting must never turn an ATK reduction on the
             // AI's own Pawn just because no opponent target is available.
-            if (lowersOwnPawnAttack(base, next) || raisesOpponentPawnAttack(base, next)) continue;
+            const preview = runEffect(base, context, trigger).newState;
+            if (!resolvingLink && (lowersOwnPawnStats(base, preview) || raisesOpponentPawnAttack(base, preview))) continue;
+            if (!resolvingLink && (context.targets ?? (context.target ? [context.target] : [])).some(target => {
+                if (target.playerIndex !== player || target.type !== 'pawn') return false;
+                const id = base.players[player].pawnZones[target.index]?.card.instanceId;
+                return id && !preview.players[player].pawnZones.some(z => z?.card.instanceId === id)
+                    && !preview.temporaryVoidReturns?.some(entry => entry.cardId === id);
+            })) continue;
             // Credit only removals beyond those already queued in the chain,
             // regardless of whether a card is destroyed, voided, or returned.
-            let score = scoreAfterResponse(next, player)
+            const temporary = (next.temporaryVoidReturns ?? []).filter(entry =>
+                !baseline.temporaryVoidReturns?.some(previous => previous.cardId === entry.cardId));
+            // Returning Pawns are not permanent card advantage. Restore their
+            // board value, then credit only the combat or chain outcome achieved
+            // during their absence. This also recognizes temporarily saving an
+            // ally from an announced targeted effect.
+            let lasting = next;
+            if (temporary.length) {
+                lasting = structuredClone(next);
+                for (const entry of temporary) {
+                    const controller = base.players.findIndex(p => p.pawnZones.some(z => z?.card.instanceId === entry.cardId));
+                    if (controller < 0) continue;
+                    const original = base.players[controller].pawnZones.find(z => z?.card.instanceId === entry.cardId)!;
+                    const owner = lasting.players[entry.playerIndex];
+                    const returning = owner.void.find(c => c.instanceId === entry.cardId);
+                    const slot = owner.pawnZones.indexOf(null);
+                    if (!returning || slot < 0) continue;
+                    owner.pawnZones[slot] = { ...structuredClone(original), card: returning, position: entry.position };
+                    owner.void = owner.void.filter(c => c.instanceId !== entry.cardId);
+                }
+            }
+            let score = evaluatePosition(lasting, player)
+                + scoreAfterResponse(next, player) - evaluatePosition(next, player)
                 + opponentFieldRemovals(baseline, next) * 45
                 // Position evaluation deliberately gives non-lethal LP a light
                 // weight. Add effect-specific pressure so burn cards are still
                 // worth converting from hand instead of being held forever.
                 + opponentLPDamage(baseline, next) * .2;
+            if (temporary.length) {
+                // Proactive removal needs a real attack payoff this turn. During
+                // Draw/Standby/End there is no combat opportunity before a
+                // next-Standby return; keep the quick effect available instead.
+                if (state.activePlayerIndex === player && state.deferredAction?.kind !== 'attack'
+                    && [Phase.MAIN1, Phase.BATTLE].includes(state.currentPhase)) {
+                    score += battleOpportunity(next, player) - battleOpportunity(baseline, player);
+                }
+                score -= 12; // Preserve a reusable response unless it achieves a useful payoff.
+            }
             if (!response && next.players[player].hand.some(c => !base.players[player].hand.some(previous => previous.instanceId === c.instanceId))) {
                 score += Math.max(0, handFollowUpScore(next, player) - evaluatePosition(next, player));
                 // Avoid paying substantial LP merely to stockpile unplayable
@@ -326,16 +393,20 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
             // Summon effects still fire when their benefit is intentionally not
             // represented by the score (for example, gaining LP while healthy).
             // Harmful self-ATK targets were filtered immediately above.
-            if (score > bestScore || summonEffect && decision.kind === 'pass') {
+            if (score > bestScore || reactionCard && decision.kind === 'pass' && !temporary.length) {
                 bestScore = score;
                 decision = { kind: 'effect', context, trigger, fromHand, deckId: context.deckIndex === undefined ? undefined : own.deck[context.deckIndex]?.instanceId };
             }
         }
     };
-    if (summonEffect) { considerEffect(state, summonEffect, 'summon'); return decision; }
+    if (resolvingLink) {
+        if (resolvingLink.context.playerIndex === player) considerEffect(state, resolvingLink.context.card, resolvingLink.trigger);
+        return decision;
+    }
+    if (reactionCard) { considerEffect(state, reactionCard, reactionTrigger); return decision; }
     fieldActivations(state, player, response).forEach(a => considerEffect(state, a.card, a.trigger));
     if (response) return decision;
-    if (![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)) return { kind: 'pass' };
+    if (![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)) return decision;
     const biggestEnemy = Math.max(0, ...state.players[1 - player].pawnZones.map(z => z && z.position !== Position.HIDDEN ? fieldStats(state, z).atk : 0));
     own.hand.forEach(card => {
         if (card.type === CardType.PAWN) {
@@ -347,8 +418,8 @@ export function chooseAIAction(observation: GameState, player: number, summonEff
                 let score = summonScore(state, next, player);
                 if (!hidden && cardRegistry.getEffect(card.id)?.onSummon) {
                     for (const context of effectChoices(next, card, 'summon')) {
-                        const resolved = resolveChain(addChainLink(next, context, 'summon'));
-                        if (!lowersOwnPawnAttack(next, resolved) && !raisesOpponentPawnAttack(next, resolved)) {
+                        const resolved = settleChain(addChainLink(next, context, 'summon'), context);
+                        if (!lowersOwnPawnStats(next, resolved) && !raisesOpponentPawnAttack(next, resolved)) {
                             // Small generic credit for successfully using a summon
                             // effect. This lets utility Pawns enter face-up even when
                             // the immediate numeric result (such as LP above 100) is

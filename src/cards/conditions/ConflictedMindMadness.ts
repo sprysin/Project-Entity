@@ -1,4 +1,4 @@
-import { CardType, IEffect, Position } from '../../types';
+import { CardType, IEffect, Phase, Position } from '../../types';
 import { CardModule } from '../CardRegistry';
 import { buildEffect } from '../engine/Builder';
 import { Require } from '../engine/Requirements';
@@ -12,6 +12,7 @@ const effect: IEffect = {
     ]),
     onPhaseChange: buildEffect([
         (state, context) => {
+            if (state.currentPhase !== Phase.STANDBY) return { halt: true };
             const zones = state.players.flatMap(player => player.actionZones);
             const source = zones.find(zone => zone?.card.instanceId === context.card.instanceId);
             const target = zones.find(zone => zone?.card.instanceId === source?.attachedToInstanceIds?.[0]);
@@ -38,6 +39,6 @@ export default [
 { cardData: {
     id: 'condition_07', name: 'Conflicted Mind Madness', type: CardType.CONDITION, rarity: 'Rare',
     isAttached: true, level: 0, atk: 0, def: 0,
-    effectText: 'Target 1 face-up Action/Condition, during each standy phase deal 10 damage to the owner of the target. If the target activates an additional effect Void 1 card from the owners Discard pile.'
+    effectText: 'Target 1 face-up Action/Condition, during each Standby Phase deal 10 damage to the owner of the target. If the target activates an additional effect Void 1 card from the owners Discard pile.'
 }, effect }
 ] satisfies CardModule;

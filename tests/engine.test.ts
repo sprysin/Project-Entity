@@ -31,7 +31,6 @@ function settle(state: GameState): GameState {
         else if (state.response && !state.response.ready) state = passPriority(state);
         else if (state.response?.ready) state = applySystemCommand(state, { type: 'completeDeferred' }).state;
         else if (state.pendingResponse) state = startPendingResponse(state);
-        else if (state.skipToEnd) state = command(state, { type: 'end' });
         if (state === before) break;
     }
     return state;

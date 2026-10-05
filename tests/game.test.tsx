@@ -31,7 +31,8 @@ function setup(edit: (s: GameState) => void) {
         s.turnNumber = 2; s.currentPhase = Phase.MAIN1;
         s.openingCoin = undefined;
         s.pendingResponse = undefined; s.pendingReactions = []; s.pendingTriggers = [];
-        s.response = undefined; s.chain = []; s.resolvingChain = undefined; s.deferredAction = undefined; s.skipToEnd = undefined;
+        s.pendingChainTarget = undefined;
+        s.response = undefined; s.chain = []; s.resolvingChain = undefined; s.deferredAction = undefined;
         for (const p of s.players) {
             p.hand = []; p.deck = []; p.discard = []; p.pawnZones.fill(null); p.actionZones.fill(null);
             p.normalSummonUsed = false; p.hiddenSummonUsed = false; p.activatedHardOncePerTurns = [];
@@ -299,6 +300,33 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => overlay!.root.findAllByType('button').find(button => button.children.includes('Decline'))!.props.onClick());
     expect(game.gameState!.resolvingChain).toBeDefined();
     act(() => overlay!.unmount());
+    const outlander = card('pawn_future_outlander'), dragon = card('pawn_everlasting_dragonlord', 1), other = card('pawn_08', 1);
+    act(() => game.actions.setActivationPopupMode('on'));
+    setup(s => {
+        s.activePlayerIndex = 0;
+        s.players[0].pawnZones[0] = placed(outlander);
+        s.players[1].pawnZones[0] = placed(dragon);
+        s.players[1].pawnZones[1] = placed(other);
+    });
+    act(() => game.actions.resolveEffect(outlander));
+    expect(game.state.targetSelectMode).toBeNull();
+    expect(game.gameState!.chain?.[0].context.target).toBeUndefined();
+    expect(game.gameState!.response?.priority).toBe(1);
+    act(() => game.actions.respond(dragon.instanceId));
+    for (let i = 0; i < 8; i++) act(() => vi.advanceTimersByTime(0));
+    expect(game.gameState!.players[1].pawnZones[0]?.card.effectTargetBlockedThisTurn).toBe(true);
+    expect(game.gameState!.pendingChainTarget).toBe(true);
+    expect(game.state.targetSelectMode).toBe('effect');
+    expect(game.state.pendingEffectCard?.instanceId).toBe(outlander.instanceId);
+    const choosing = game.gameState;
+    act(() => { game.actions.nextPhase(); game.actions.passResponse(); vi.advanceTimersByTime(5000); });
+    expect(game.gameState).toBe(choosing);
+    act(() => game.actions.resolveEffect(outlander, { playerIndex: 1, type: 'pawn', index: 1 }));
+    expect(game.gameState!.pendingChainTarget).toBeUndefined();
+    expect(game.gameState!.chain).toEqual([]);
+    expect(game.state.targetSelectMode).toBeNull();
+    expect(game.gameState!.players[1].pawnZones[0]?.card.instanceId).toBe(dragon.instanceId);
+    expect(game.gameState!.players[1].void.map(card => card.instanceId)).toEqual([other.instanceId]);
     for (const mode of ['off', 'auto', 'on'] as const) for (const timing of ['activation', 'minor_action'] as const) {
         setup(() => {});
         act(() => game.actions.setActivationPopupMode(mode));
@@ -515,6 +543,41 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     for (let i = 0; i < 5; i++) act(() => vi.advanceTimersByTime(0));
     expect(game.gameState!.currentPhase).toBe(Phase.STANDBY);
     act(() => drawOverlay!.unmount());
+    // Live triggered effects must use scored targets, not the first legal Pawn.
+    for (const withEnemy of [true, false]) {
+        const king = card('pawn_02', 1);
+        const ally = card('pawn_01', 1);
+        const enemy = card('pawn_01');
+        setup(s => {
+            s.activePlayerIndex = 1;
+            s.players[1].pawnZones[0] = { ...placed(king), summonedTurn: s.turnNumber };
+            s.players[1].pawnZones[1] = placed(ally);
+            if (withEnemy) s.players[0].pawnZones[0] = placed(enemy);
+            s.pendingReactions = [{ card: king, playerIndex: 1, trigger: 'summon' }];
+        });
+        for (let i = 0; i < 8; i++) act(() => vi.advanceTimersByTime(0));
+        expect(game.gameState!.players[1].pawnZones[0]?.card.atk).toBe(king.atk);
+        expect(game.gameState!.players[1].pawnZones[1]?.card.atk).toBe(ally.atk);
+        if (withEnemy) expect(game.gameState!.players[0].pawnZones[0]?.card.atk).toBe(enemy.atk - 20);
+        expect(game.gameState!.pendingReactions).toEqual([]);
+    }
+    // The live AI chooses a target after the human's later protection link resolves.
+    const future = card('pawn_future_outlander', 1), protectedDragon = card('pawn_everlasting_dragonlord'), exposed = card('pawn_08');
+    act(() => game.actions.setActivationPopupMode('on'));
+    setup(s => {
+        s.activePlayerIndex = 0;
+        s.players[1].pawnZones[0] = placed(future);
+        s.players[0].pawnZones[0] = placed(protectedDragon);
+        s.players[0].pawnZones[1] = placed(exposed);
+    });
+    act(() => game.actions.resolveEffect(future));
+    expect(game.state.targetSelectMode).toBeNull();
+    act(() => game.actions.respond(protectedDragon.instanceId));
+    for (let i = 0; i < 8; i++) act(() => vi.advanceTimersByTime(0));
+    expect(game.gameState!.chain).toEqual([]);
+    expect(game.gameState!.pendingChainTarget).toBeUndefined();
+    expect(game.gameState!.players[0].pawnZones[0]?.card.effectTargetBlockedThisTurn).toBe(true);
+    expect(game.gameState!.players[0].void.map(card => card.instanceId)).toEqual([exposed.instanceId]);
     // Remount self-play with the same settings to verify they are ignored at the boundary.
     act(() => root.update(null));
     act(() => root.update(<React.StrictMode><DebugHarness mode="self" /></React.StrictMode>));

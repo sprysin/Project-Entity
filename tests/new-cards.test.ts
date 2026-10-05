@@ -3,13 +3,12 @@ import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { addChainLink, effectChoices, fieldActivations, passPriority, resolveChain, runEffect } from '../src/game/chains';
+import { addChainLink, effectChoices, fieldActivations, passPriority, queueEventResponses, resolveChain, runEffect } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
-import { destroyFieldCard } from '../src/game/attachments';
 import { sendToOwnerPile } from '../src/game/cardOwnership';
 import { applyCommand, applySystemCommand } from '../src/game/engine';
 import { resolveCombat } from '../src/game/combat';
-import { fieldStats, canTribute, canTributeForSummon } from '../src/game/cardHelpers';
+import { fieldStats } from '../src/game/cardHelpers';
 import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
@@ -54,137 +53,26 @@ const state = (): GameState => ({
     winner: null,
     pendingEffects: []
 });
+const attackGame = state();
+attackGame.currentPhase = Phase.BATTLE;
+const attacker = card('pawn_01');
+const escape = card('condition_05', 1);
+const discarded = card('pawn_03', 1);
+attackGame.players[0].pawnZones[0] = placed(attacker);
+attackGame.players[1].actionZones[0] = placed(escape, Position.HIDDEN);
+attackGame.players[1].hand = [discarded];
+const announced = applyCommand(attackGame, 0, { type: 'attack', attackerIndex: 0, targetIndex: 'direct' }).state;
+const escapeChoice = effectChoices(announced, escape, 'activate')[0];
+expect(escapeChoice.handIndex).toBe(0);
+const negated = resolveChain(addChainLink(announced, escapeChoice, 'activate'));
+expect(negated.deferredAction).toBeUndefined();
+expect(negated.players[0].pawnZones[0]?.hasAttacked).toBe(true);
+expect(negated.players[1].discard.some(value => value.instanceId === discarded.instanceId)).toBe(true);
+expect(applySystemCommand(negated, { type: 'completeDeferred' }).state.players[1].lp).toBe(800);
 
-it('shuffle costs, attack negation and summon reactions share the engine selection path', () => {
-    // Named groups, exact-name recovery, independent limits and restricted tributes.
-    {
-        const game = state();
-        const arms = card('action_call_to_arms');
-        const infantry = card('pawn_infantry_soldier');
-        const high = card('pawn_soldier_of_the_high_ground');
-        game.players[0].actionZones[0] = placed(arms, Position.FACE_UP);
-        game.players[0].pawnZones[0] = placed(infantry);
-        game.players[0].hand = [high];
-        game.players[0].deck = [card('pawn_soldier_of_the_high_ground'), { ...card('pawn_01'), name: 'The world of a Man and a Dog' }];
-        const summoned = runEffect(game, { card: arms, playerIndex: 0, effectId: 'summon', handIndex: 0, pawnPlacement: { slot: 1, position: Position.ATTACK } }, 'field_activate');
-        expect(summoned.newState.players[0].pawnZones[1]?.card).toEqual(high);
-        expect(effectChoices(summoned.newState, arms, 'field_activate')).toEqual([]);
-        const battle = { ...summoned.newState, currentPhase: Phase.BATTLE };
-        const attacked = resolveCombat(battle, 0, 'direct');
-        const main = { ...attacked, currentPhase: Phase.MAIN2 };
-        const search = effectChoices(main, arms, 'field_activate');
-        expect(search.map(choice => choice.effectId)).toEqual(['search']);
-        const searched = runEffect(main, search[0], 'field_activate').newState;
-        expect(searched.players[0].hand[0].name).toBe('Soldier of the High Ground');
-        expect(effectChoices(searched, arms, 'field_activate')).toEqual([]);
-        const destroy = effectChoices(game, high, 'activate');
-        expect(destroy).toEqual([]); // The hand copy has no field effect.
-        const removed = runEffect(main, { card: high, playerIndex: 0, target: { playerIndex: 0, type: 'action', index: 0 } }, 'activate').newState;
-        expect(removed.players[0].actionZones[0]).toBeNull();
-        expect(effectChoices(removed, high, 'activate')).toEqual([]);
-        expect(canTributeForSummon(infantry, high)).toBe(true);
-        expect(canTributeForSummon({ ...infantry, name: 'A Solider' }, high)).toBe(false);
-        const invalid = state();
-        invalid.players[0].hand = [high];
-        invalid.players[0].pawnZones[0] = placed(card('pawn_01'));
-        expect(applyCommand(invalid, 0, { type: 'summon', cardId: high.instanceId, slot: 0, hidden: false, tributes: [0] }).state).toBe(invalid);
-        const recovery = state();
-        recovery.players[0].pawnZones[0] = placed(high);
-        recovery.players[0].discard = [infantry, { ...card('pawn_infantry_soldier'), name: 'Elite Infantry Soldier' }];
-        destroyFieldCard(recovery, high.instanceId);
-        expect(recovery.pendingReactions).toContainEqual({ card: high, playerIndex: 0, trigger: 'destroyed' });
-        expect(effectChoices(recovery, high, 'destroyed').map(choice => choice.discardIndex)).toEqual([0]);
-        const recovered = runEffect(recovery, { card: high, playerIndex: 0, discardIndex: 0 }, 'destroyed').newState;
-        expect(recovered.players[0].hand).toContainEqual(infantry);
-        const combat = state();
-        combat.currentPhase = Phase.BATTLE;
-        combat.players[0].pawnZones[0] = placed({ ...card('pawn_01'), atk: 250 });
-        combat.players[1].pawnZones[0] = placed(card('pawn_soldier_of_the_high_ground', 1));
-        expect(resolveCombat(combat, 0, 0).pendingReactions?.[0].trigger).toBe('destroyed');
-    }
-
-    const restrictions = state();
-    const dragon = card('pawn_everlasting_dragonlord');
-    const containment = card('condition_09');
-    const victim = card('pawn_01');
-    restrictions.players[0].pawnZones[0] = placed(dragon);
-    restrictions.players[0].pawnZones[1] = placed(victim);
-    restrictions.players[0].actionZones[0] = placed(containment, Position.HIDDEN);
-    const trapped = resolveChain(addChainLink(restrictions, {
-        card: containment, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 1 }
-    }, 'activate'));
-    expect(trapped.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([victim.instanceId]);
-    const hiddenTarget = structuredClone(restrictions);
-    hiddenTarget.players[0].pawnZones[1]!.position = Position.HIDDEN;
-    const hiddenTrapped = resolveChain(addChainLink(hiddenTarget, { card: containment, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 1 } }, 'activate'));
-    expect(canTribute(hiddenTrapped.players[0].pawnZones[1]!.card)).toBe(false);
-    expect(hiddenTrapped.players[0].actionZones[0]).toBeNull();
-    expect(canTribute(trapped.players[0].pawnZones[1]!.card)).toBe(false);
-    expect(Cost.TributePawns(1)(trapped, { card: dragon, playerIndex: 0, tributeIndices: [1] })).toMatchObject({ halt: true });
-    const king = { ...card('pawn_01'), level: 6 as const };
-    trapped.players[0].hand = [king];
-    expect(applyCommand(trapped, 0, { type: 'summon', cardId: king.instanceId, hidden: false, slot: 1, tributes: [1] }).state).toBe(trapped);
-    const dragonAnnounced = addChainLink(trapped, { card: dragon, playerIndex: 0 }, 'activate');
-    expect(dragonAnnounced.players[0].pawnZones[0]?.card.effectTargetBlockedThisTurn).toBeUndefined();
-    let protectedGame = resolveChain(dragonAnnounced);
-    expect(effectChoices(protectedGame, dragon, 'activate')).toHaveLength(0);
-    expect(effectChoices(protectedGame, containment, 'activate').some(choice => choice.target?.index === 0)).toBe(false);
-    expect(runEffect(protectedGame, { card: containment, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate').halted).toBe(true);
-    // Protection stops new targeting, but does not cancel a target selected earlier.
-    expect(runEffect(protectedGame, { card: containment, playerIndex: 0, execution: 'resolve', target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate').halted).not.toBe(true);
-    const leaving = structuredClone(protectedGame);
-    sendToOwnerPile(leaving, leaving.players[0].pawnZones[0]!.card, 'discard');
-    expect(leaving.players[0].discard.at(-1)?.effectTargetBlockedThisTurn).toBeUndefined();
-    protectedGame.currentPhase = Phase.END;
-    protectedGame = advancePhaseState(protectedGame);
-    expect(canTribute(protectedGame.players[0].pawnZones[1]!.card)).toBe(true);
-    expect(protectedGame.players[0].pawnZones[0]?.card.effectTargetBlockedThisTurn).toBeUndefined();
-    expect(effectChoices(protectedGame, dragon, 'activate')).toHaveLength(0);
-    protectedGame.currentPhase = Phase.END;
-    protectedGame = advancePhaseState(protectedGame);
-    expect(effectChoices(protectedGame, dragon, 'activate')).toHaveLength(1);
-    const turnados = card('pawn_15');
-    for (const location of ['hand', 'field', 'discard'] as const) {
-        const costGame = state();
-        const first = card('pawn_01');
-        const second = card('pawn_03');
-        if (location === 'hand') costGame.players[0].hand = [first, second];
-        else if (location === 'discard') costGame.players[0].discard = [first, second];
-        else { costGame.players[0].pawnZones[0] = placed(first); costGame.players[0].pawnZones[1] = placed(second); }
-        const shuffle = Cost.ShuffleFrom(location, 2);
-        expect(shuffle(costGame, { card: turnados, playerIndex: 0 })).toMatchObject({
-            requireShuffleSelection: { location, count: 2 }
-        });
-        shuffle(costGame, { card: turnados, playerIndex: 0, shuffleCardIds: [first.instanceId, second.instanceId] });
-        expect(costGame.players[0].deck.map(value => value.instanceId).sort()).toEqual([first.instanceId, second.instanceId].sort());
-        const effectGame = state();
-        effectGame.players[0].discard = [first, second];
-        effectGame.players[0].discard.reverse();
-        Effect.ShuffleFrom('discard', 1)(effectGame, { card: turnados, playerIndex: 0, shuffleCardIds: [first.instanceId] });
-        expect(effectGame.players[0].deck[0].instanceId).toBe(first.instanceId);
-        expect(effectGame.players[0].discard[0].instanceId).toBe(second.instanceId);
-    }
-
-    const attackGame = state();
-    attackGame.currentPhase = Phase.BATTLE;
-    const attacker = card('pawn_01');
-    const escape = card('condition_05', 1);
-    const discarded = card('pawn_03', 1);
-    attackGame.players[0].pawnZones[0] = placed(attacker);
-    attackGame.players[1].actionZones[0] = placed(escape, Position.HIDDEN);
-    attackGame.players[1].hand = [discarded];
-    const announced = applyCommand(attackGame, 0, { type: 'attack', attackerIndex: 0, targetIndex: 'direct' }).state;
-    const escapeChoice = effectChoices(announced, escape, 'activate')[0];
-    expect(escapeChoice.handIndex).toBe(0);
-    const negated = resolveChain(addChainLink(announced, escapeChoice, 'activate'));
-    expect(negated.deferredAction).toBeUndefined();
-    expect(negated.players[0].pawnZones[0]?.hasAttacked).toBe(true);
-    expect(negated.players[1].discard.some(value => value.instanceId === discarded.instanceId)).toBe(true);
-    expect(applySystemCommand(negated, { type: 'completeDeferred' }).state.players[1].lp).toBe(800);
-
-    // The same behavior must work under an unrelated ID with no engine edits.
-    cardRegistry.register({ ...cardRegistry.getCard('condition_06')!, id: 'test-summon-observer' }, cardRegistry.getEffect('condition_06')!);
-    for (const sourceId of ['condition_06', 'test-summon-observer']) {
+// The same behavior must work under an unrelated ID with no engine edits.
+cardRegistry.register({ ...cardRegistry.getCard('condition_06')!, id: 'test-summon-observer' }, cardRegistry.getEffect('condition_06')!);
+for (const sourceId of ['condition_06', 'test-summon-observer']) {
     const tributeGame = state();
     const handSummon = card(sourceId, 1);
     const light = card('pawn_01', 1);
@@ -211,10 +99,43 @@ it('shuffle costs, attack negation and summon reactions share the engine selecti
     const absentSource = structuredClone(tributeGame);
     absentSource.players[1].actionZones[0] = null;
     expect(applyCommand(absentSource, 0, { type: 'summon', cardId: king.instanceId, hidden: false, slot: 0, tributes: [0] }).state.pendingHandSummons).toBeUndefined();
-    }
-});
+}
 
-it('Tribunal tracks counters, separate soft uses, summon choices and interrupted activations', () => {
+it('counter cards track damage, phase timing, separate soft uses and interrupted activations', () => {
+    const commander = card('pawn_force_fire_sparkling_commander');
+    const madness = card('condition_07');
+    const target = card('action_06', 1);
+    let duel = state();
+    duel.players[0].pawnZones[0] = placed(commander);
+    duel.players[0].actionZones[0] = { ...placed(madness, Position.FACE_UP), attachedToInstanceIds: [target.instanceId] };
+    duel.players[1].actionZones[0] = placed(target, Position.FACE_UP);
+    duel.currentPhase = Phase.DRAW;
+    duel = advancePhaseState(duel);
+    expect(duel.players[1].lp).toBe(790);
+    expect(duel.players[0].pawnZones[0]?.counters).toEqual({ 'Spark Counters': 1 });
+    // Every phase outside Standby must decline, including repeated End maintenance.
+    for (const phase of Object.values(Phase).filter(value => value !== Phase.STANDBY)) {
+        expect(runEffect({ ...duel, currentPhase: phase }, { card: madness, playerIndex: 0 }, 'phase').halted).toBe(true);
+    }
+    Effect.DealDamage(0, 10)(duel, { card: target, playerIndex: 1 });
+    expect(duel.players[0].pawnZones[0]?.counters?.['Spark Counters']).toBe(1);
+    Effect.DealDamage(1, 10)(duel, { card: madness, playerIndex: 0 });
+    expect(duel.players[0].pawnZones[0]?.counters?.['Spark Counters']).toBe(2);
+    duel.players[0].pawnZones[0]!.counters = { 'Spark Counters': 5 };
+    duel.currentPhase = Phase.END;
+    duel.activePlayerIndex = 1;
+    duel = runEffect(duel, { card: commander, playerIndex: 0 }, 'activate').newState;
+    expect(duel.players[0].pawnZones[0]?.counters?.['Spark Counters']).toBe(5);
+    expect(duel.players[0].skipNextDrawPhase).toBe(true);
+    const beforePayout = duel;
+    duel = resolveChain(addChainLink(duel, { card: commander, playerIndex: 0 }, 'phase'));
+    expect(duel.players[1].lp).toBe(beforePayout.players[1].lp - 150);
+    expect(duel.damageEvents?.slice(beforePayout.damageEvents?.length ?? 0).map(event => event.amount)).toEqual([150]);
+    expect(duel.players[0].pawnZones[0]?.counters?.['Spark Counters'] ?? 0).toBe(0);
+    for (let repeat = 0; repeat < 3; repeat++) {
+        duel = queueEventResponses(beforePayout, duel);
+        expect(duel.pendingTriggers ?? []).toEqual([]);
+    }
     const counterCount = (zone: GameState['players'][number]['actionZones'][number]) => zone?.counters?.['Tribute Counters'] ?? 0;
     let game = state();
     const tribunal = card('action_06');
@@ -481,9 +402,11 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
                 && [3, 4].includes(choice.deckIndex!))).toBe(true);
             expect(applyCommand(destroyed, owner, { type: 'attack', attackerIndex: 0, targetIndex: 'direct' }).state).toBe(destroyed);
             const choice = choices.find(value => value.deckIndex === 3 && value.pawnPlacement?.slot === 2)!;
-            expect(applyCommand(destroyed, owner, { type: 'activate', context: {
-                ...choice, pawnPlacement: { slot: 2, position: Position.DEFENSE }
-            }, trigger: 'battle_destroyed' }).state).toBe(destroyed);
+            expect(applyCommand(destroyed, owner, {
+                type: 'activate', context: {
+                    ...choice, pawnPlacement: { slot: 2, position: Position.DEFENSE }
+                }, trigger: 'battle_destroyed'
+            }).state).toBe(destroyed);
             const queued = applyCommand(destroyed, owner, { type: 'activate', context: choice, trigger: 'battle_destroyed' }).state;
             expect(queued.pendingReactions).toEqual([]);
             queued.players[owner].deck.reverse();

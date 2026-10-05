@@ -8,7 +8,13 @@ export function sendToOwnerPile(state: GameState, card: Card, pile: 'discard' | 
     const placement = state.players.flatMap(player => [...player.pawnZones, ...player.actionZones])
         .find(zone => zone?.card.instanceId === card.instanceId);
     const bonuses = placement?.attachmentStatBonuses ?? [];
-    const cleared = clearFieldReduction(card);
+    const cleared = { ...clearFieldReduction(card) };
+    const temporaryStats = state.pendingEffects.filter(effect => effect.duePhase && effect.targetInstanceId === card.instanceId);
+    for (const effect of temporaryStats) {
+        const stat = effect.type === 'RESET_ATK' ? 'atk' : 'def';
+        cleared[stat] = effect.delta === undefined ? effect.value : cleared[stat] - effect.delta;
+    }
+    state.pendingEffects = state.pendingEffects.filter(effect => !temporaryStats.includes(effect));
     if (owner) owner[pile].push(bonuses.length ? { ...cleared,
         atk: Math.max(0, cleared.atk - bonuses.reduce((sum, bonus) => sum + bonus.atk, 0)),
         def: Math.max(0, cleared.def - bonuses.reduce((sum, bonus) => sum + bonus.def, 0))

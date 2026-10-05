@@ -7,6 +7,7 @@ import { getEffectTarget } from './Targets';
 import { drawCards } from '../../game/draw';
 import { sendToOwnerPile } from '../../game/cardOwnership';
 import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
+import { notifyFieldEvent } from '../../game/fieldEvents';
 
 export const Effect = {
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
@@ -212,7 +213,7 @@ export const Effect = {
     },
 
     /** Modifies the targeted Pawn's stats. */
-    ModifyTargetStats: (atkChange: number, defChange: number, targetIndex = 0): EffectStep => (draftState, context) => {
+    ModifyTargetStats: (atkChange: number, defChange: number, targetIndex = 0, untilPhase?: Phase): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context, targetIndex);
         if (target) {
             const p = draftState.players[target.playerIndex];
@@ -221,6 +222,15 @@ export const Effect = {
                 const previousAtk = tE.card.atk, previousDef = tE.card.def;
                 tE.card.atk = Math.max(0, previousAtk + atkChange);
                 tE.card.def = Math.max(0, previousDef + defChange);
+                if (untilPhase) {
+                    for (const [type, value, delta] of [
+                        ['RESET_ATK', previousAtk, tE.card.atk - previousAtk],
+                        ['RESET_DEF', previousDef, tE.card.def - previousDef]
+                    ] as const) if (delta) draftState.pendingEffects.push({
+                        type, targetInstanceId: tE.card.instanceId, value, delta,
+                        dueTurn: draftState.turnNumber, duePhase: untilPhase
+                    });
+                }
                 const source = draftState.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
                 if (context.card.isAttached && source?.attachedToInstanceIds?.includes(tE.card.instanceId)) {
                     tE.attachmentStatBonuses ??= [];
@@ -276,6 +286,14 @@ export const Effect = {
             }];
         }
         draftState.players[resolvedPlayerIndex].lp -= resolvedAmount;
+        Object.assign(draftState, notifyFieldEvent(draftState, 'onEffectDamage', {
+            damageCard: context.card, damageEffectId: context.effectId,
+            damagedPlayerIndex: resolvedPlayerIndex, amount: resolvedAmount
+        }));
+    },
+
+    SkipNextDrawPhase: (): EffectStep => (state, context) => {
+        state.players[context.playerIndex].skipNextDrawPhase = true;
     },
 
     /** Restores LP to a specific player. */

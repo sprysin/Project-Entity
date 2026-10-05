@@ -4,7 +4,9 @@ import { act, create } from 'react-test-renderer';
 import CatalogPagination, { useCatalogPage } from '../src/components/catalog/CatalogPagination';
 import CatalogFilters, { useCatalogFilters } from '../src/components/catalog/CatalogFilters';
 import DeckCreator from '../src/components/decks/DeckCreator';
-import { expect, it } from 'vitest';
+import PlaytestSetup from '../src/components/decks/PlaytestSetup';
+import * as storage from '../src/desktop/storage';
+import { expect, it, vi } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable } from '../src/decks';
 import { CARD_RARITIES, CARD_RARITY_TIERS } from '../src/types';
 
@@ -106,7 +108,7 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     expect(parseDeck(legacy, false)).toEqual(legacy);
 });
 
-it('enforces deck size boundaries and rejects malformed imports', () => {
+it('enforces deck size boundaries, rejects malformed imports, and offers recent playable decks for training', () => {
     // Synthetic IDs exercise the size boundary independently of the current small card pool.
     const atSize = (size: number) => ({ ...newDeck(), cards: Array.from({ length: size }, (_, i) => ({ cardId: `card-${i}`, quantity: 1 })) });
     expect(isDeckPlayable(atSize(39))).toBe(false);
@@ -123,4 +125,31 @@ it('enforces deck size boundaries and rejects malformed imports', () => {
     }
     expect(() => parseDeck({ ...newDeck(), version: 2 })).toThrow();
     expect(() => parseDeck(null)).toThrow();
+
+    const older = { ...atSize(40), name: 'Older deck' };
+    const recent = { ...atSize(60), name: 'Recently edited deck' };
+    const invalid = { ...atSize(39), name: 'Incomplete deck' };
+    const library = [older, invalid, recent];
+    const savedDecks = vi.spyOn(storage, 'getSavedDecks').mockReturnValue(library);
+    const start = vi.fn();
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    let root: ReturnType<typeof create>;
+    try {
+        act(() => { root = create(<PlaytestSetup onBack={() => {}} onStart={start} />); });
+        for (const list of root!.root.findAllByProps({ className: 'training-deck__list' })) {
+            const choices = list.findAllByType('button');
+            expect(choices.map(choice => choice.findByType('strong').props.children)).toEqual(['RANDOM TEST DECK', recent.name, invalid.name, older.name]);
+            expect(choices.map(choice => choice.props.disabled)).toEqual([undefined, false, true, false]);
+            expect(choices[1].findByType('small').props.children.filter(Boolean).join('')).toBe('60 cards');
+            expect(choices[2].findByType('small').props.children.filter(Boolean).join('')).toBe('39 cards · Invalid');
+            act(() => choices[1].props.onClick());
+            expect(choices[1].props['aria-pressed']).toBe(true);
+        }
+        act(() => root!.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
+        expect(start).toHaveBeenCalledWith([recent, recent], 'ai', {});
+        expect(library).toEqual([older, invalid, recent]);
+    } finally {
+        act(() => root?.unmount());
+        savedDecks.mockRestore();
+    }
 });

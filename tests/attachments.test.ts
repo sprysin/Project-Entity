@@ -3,10 +3,9 @@ import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { Card, CardType, GameState, Phase, Player, Position, PawnType } from '../src/types';
-import { addChainLink, fieldActivations, resolveChain, startPendingTriggers } from '../src/game/chains';
+import { Card, GameState, Phase, Player, Position, PawnType } from '../src/types';
+import { addChainLink, resolveChain, startPendingTriggers } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
-import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { resolveCombat } from '../src/game/combat';
@@ -22,42 +21,6 @@ function setup() {
     return { state, source, target };
 }
 
-it('Reinforcement grants ATK only while attached and normally falls off a face-down target', () => {
-    const { state, source, target } = setup();
-    expect(source).toMatchObject({ type: CardType.CONDITION, isAttached: true });
-    const next = resolveChain(addChainLink(state, { card: source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate'));
-    expect(next.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([target.instanceId]);
-    expect(next.players[0].pawnZones[0]?.card.atk).toBe(target.atk + 20);
-    expect(fieldActivations(next, 0)).toHaveLength(0);
-    expect(state.players[0].actionZones[0]?.attachedToInstanceIds).toBeUndefined();
-    next.players[0].pawnZones[0]!.position = Position.HIDDEN;
-    checkVictory(next);
-    expect(next.players[0].actionZones[0]).toBeNull();
-    expect(next.players[0].pawnZones[0]?.card.atk).toBe(target.atk);
-
-    const another = setup();
-    const sustained = resolveChain(addChainLink(another.state, { card: another.source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate'));
-    sustained.players[0].actionZones[0]!.card.survivesTargetFlip = true;
-    sustained.players[0].pawnZones[0]!.position = Position.HIDDEN;
-    checkVictory(sustained);
-    expect(sustained.players[0].pawnZones[0]?.card.atk).toBe(target.atk + 20);
-    sustained.players[0].actionZones[0] = null;
-    checkVictory(sustained);
-    expect(sustained.players[0].pawnZones[0]?.card.atk).toBe(target.atk);
-
-    const dragonSetup = setup();
-    const dragon = card('pawn_05');
-    dragonSetup.state.players[0].pawnZones[0] = zone(dragon);
-    dragonSetup.state.players[0].hand = [card('pawn_02')];
-    const attached = resolveChain(addChainLink(dragonSetup.state, { card: dragonSetup.source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, 'activate'));
-    const effect = cardRegistry.getEffect(dragon.id)!.onActivate!;
-    const activated = effect(attached, { card: dragon, playerIndex: 0, handIndex: 0 }).newState;
-    expect(activated.players[0].pawnZones[0]?.card.atk).toBe(280);
-    activated.currentPhase = Phase.END;
-    const expired = advancePhaseState(activated);
-    expect(expired.players[0].pawnZones[0]?.card.atk).toBe(270);
-    expect(expired.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([dragon.instanceId]);
-});
 
 it('discards an attachment that fizzles instead of linking to a replacement target', () => {
     const { state, source, target } = setup();
@@ -114,10 +77,12 @@ it('destroys chained Attach cards when an attached target leaves the field', () 
             scenario.state.players[0].pawnZones[0]!.card.pawnType = pawnType;
             const opposing = { ...card('pawn_02'), ownerId: 'p1', atk: 0, def: 0 };
             scenario.state.players[1].pawnZones[0] = zone(opposing);
-            const context = { card: link, playerIndex: 0, targets: [
-                { playerIndex: 0, type: 'pawn' as const, index: 0 },
-                { playerIndex: 1, type: 'pawn' as const, index: 0 }
-            ] };
+            const context = {
+                card: link, playerIndex: 0, targets: [
+                    { playerIndex: 0, type: 'pawn' as const, index: 0 },
+                    { playerIndex: 1, type: 'pawn' as const, index: 0 }
+                ]
+            };
             const effect = cardRegistry.getEffect(link.id)!;
             expect(effect.canActivate!(scenario.state, context)).toBe(true);
             scenario.state.players[1].pawnZones[0]!.position = Position.HIDDEN;

@@ -8,6 +8,7 @@ const CARD_ID = 'pawn_future_outlander';
 
 const effect: IEffect = {
     timing: 'quick',
+    targetsAtResolution: true,
     onActivate: buildEffect([
         Effect.SetSoftOncePerTurn(CARD_ID, 1),
         Require.Target('pawn', 'both', 'both'),

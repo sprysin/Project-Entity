@@ -10,6 +10,8 @@ The setup screen defaults to self-play. AI mode assigns Player 2's selected save
 - Each added link hands priority to the other player and resets the pass count. Players without legal responses pass automatically. Two consecutive passes resolve the entire stack in reverse order.
 - A source cannot join the same unresolved chain twice. Usage limits and selections are reserved at activation. Costs are paid when that link resolves, before its effect, after later links have finished. If a selected cost is unavailable or unaffordable then, the link resolves without effect. Removing a source does not negate its effect; an invalid target causes that effect to resolve without effect. Targets, tributes, and selected pile cards use instance identities, so replacement cards are not accidentally affected.
 - After the chain, a pending attack is checked against the current field. A missing attacker/target or attacker moved out of Attack stops that attack. Phase changes resume after responses finish.
+- Skip to End Phase offers the current phase's exit response, then jumps directly to End Phase. Skipped phases create no entry or exit windows or maintenance. An effect activated in that exit window cancels the skip and returns control in the current phase after the chain and its response windows finish.
+- Target protection is rechecked when each link resolves. Effects with `targetsAtResolution: true`, such as Future Outlander, announce without a target, then pause at their resolving link for the controller to choose a currently legal target. Later links finish first; the AI chooses from that resulting board as well.
 
 ## Adding cards
 
@@ -28,6 +30,8 @@ Use `context.playerIndex` for the controller, not `state.activePlayerIndex`, whi
 `observeGame` removes the opposing hand and face-down identities/stats, removes initial deck lists, and hides draw order. The planner receives this observation rather than the live game state. Unknown defending Pawns use a fixed estimate; changing their actual identity cannot change a decision.
 
 Legal effect choices come from the registered effect's own selection requests. A shared score values lethal damage first, then LP, field presence, useful cards, and exposure to attacks. Main Phase choices compare summons, tribute costs, defensive sets, position changes, and effects. Battle uses a bounded search of attack sequences so smaller attackers can clear blockers for larger direct attacks. Response evaluation includes the pending attack. There are no card-name combo tables.
+
+Live triggered reactions use the same planner instead of accepting the first legal target. Optional effects that weaken or permanently remove a targeted friendly Pawn are declined. Temporary Void removal retains the returning Pawn's board value rather than counting it as permanent removal. The AI spends it for a useful combat payoff or to protect a Pawn from a queued targeted effect, and otherwise preserves the response. Quick effects are considered during Battle as well as Main Phase and response windows; no card identities or effect-text recipes are used for these decisions.
 
 This is a heuristic opponent, not an exhaustive solver: effect-choice exploration and battle search are bounded. A per-turn action budget prevents pathological effect loops from hanging the match. Tests cover hidden-information invariance, legal timing/counts, costs, LIFO order, invalidated targets, and complete React-driven AI turns.
 

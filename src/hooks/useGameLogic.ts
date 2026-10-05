@@ -1,5 +1,5 @@
 import { handSummonCandidates } from '../game/summonReactions';
-import { chooseAIHandSummon, observeGame } from '../game/opponentAI';
+import { chooseAIAction, chooseAIHandSummon, observeGame } from '../game/opponentAI';
 import { canTribute } from '../game/cardHelpers';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
@@ -68,7 +68,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         const card = pendingEffectCard ?? triggeredEffect;
         setGameState(previous => {
             if (!previous) return previous;
-            if (!card) return previous.pendingActivation ? { ...previous, pendingActivation: undefined } : previous;
+            if (!card || previous.pendingChainTarget) return previous.pendingActivation ? { ...previous, pendingActivation: undefined } : previous;
             const controller = previous.players.findIndex(player => [...player.pawnZones, ...player.actionZones]
                 .some(zone => zone?.card.instanceId === card.instanceId));
             const playerIndex = previous.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex
@@ -293,10 +293,14 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         setGameState(previous => previous === gameState ? startPendingResponse(previous) : previous);
     }, [gameState, cardMotion.isMoving, effectDecisionPending]);
     useEffect(() => {
-        if (!gameState?.skipToEnd || gameState.response || gameState.resolvingChain || gameState.pendingResponse
-            || effectDecisionPending || isAwaitingDecision(gameState) || gameState.winner) return;
-        skipToEndPhase();
-    }, [gameState, effectDecisionPending, skipToEndPhase]);
+        if (!gameState?.pendingChainTarget || pendingEffectCard || targetSelectMode) return;
+        const link = gameState.chain!.at(-1)!;
+        if (opponentMode === 'ai' && link.context.playerIndex === 1) {
+            const action = chooseAIAction(observeGame(gameState, 1), 1);
+            setGameState(previous => previous === gameState ? applyCommand(previous, 1, { type: 'chainTargets',
+                targets: action.kind === 'effect' ? action.context.targets ?? (action.context.target ? [action.context.target] : []) : [] }).state : previous);
+        } else resolveEffect(link.context.card, undefined, undefined, undefined, undefined, link.trigger);
+    }, [gameState, pendingEffectCard, targetSelectMode, opponentMode, resolveEffect]);
     useEffect(() => {
         if (!gameState?.resolvingChain || cardMotion.isMoving || effectDecisionPending || isAwaitingDecision(gameState)) return;
         // Yield for committed movement to be measured, then resolve as soon as the board settles.
@@ -314,7 +318,12 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             return;
         }
         if (opponentMode === 'ai' && pending.playerIndex === 1) {
-            setGameState(prev => prev ? applyCommand(prev, 1, { type: 'activate', context: choices[0], trigger }).state : prev);
+            const action = chooseAIAction(observeGame(gameState, 1), 1, pending.card, trigger);
+            const context = action.kind === 'effect' ? action.context
+                : trigger === 'switch' && pending.card.switchMandatory ? choices[0] : undefined;
+            setGameState(prev => prev === gameState ? applyCommand(prev, 1, context
+                ? { type: 'activate', context, trigger }
+                : { type: 'cancelEffect', cardId: pending.card.instanceId }).state : prev);
             return;
         }
         if (trigger === 'switch' && pending.card.switchMandatory) {

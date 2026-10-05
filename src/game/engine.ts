@@ -1,8 +1,8 @@
 import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
 import { canTributeForSummon, isToken } from './cardHelpers';
-import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
+import { Card, CardContext, CardTarget, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, queueEventResponses, runEffect, startPendingTriggers } from './chains';
+import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, queueEventResponses, resolveChainStep, runEffect, startPendingTriggers } from './chains';
 import { destroyOrphanedAttachments, notifyAttachedActivation } from './attachments';
 import { finishEffect } from './finishEffect';
 import { formatSummonLog } from './effectLog';
@@ -25,6 +25,7 @@ export type GameCommand =
     | { type: 'position'; index: number }
     | { type: 'activate'; context: CardContext; trigger: EffectTrigger }
     | { type: 'cancelEffect'; cardId: string }
+    | { type: 'chainTargets'; targets: CardTarget[] }
     | { type: 'attack'; attackerIndex: number; targetIndex: number | 'direct' }
     | { type: 'attackReplay'; retry: boolean }
     | { type: 'confirmHandSummon'; sourceId: string; cardId: string; slot: number; position: Position }
@@ -79,7 +80,9 @@ export function canPlayCard(state: GameState, card: Card): boolean {
     return player.actionZones.includes(null) && (card.type === CardType.CONDITION || !effect?.canActivate || effect.canActivate(state, { card, playerIndex: actor }));
 }
 
-export const previewEffect = runEffect;
+export const previewEffect = (state: GameState, context: CardContext, trigger: EffectTrigger) => runEffect(state,
+    cardRegistry.getEffect(context.card.id)?.targetsAtResolution && context.execution !== 'resolve'
+        ? { ...context, target: undefined, targets: undefined, execution: 'reserve' } : context, trigger);
 
 function reduceCommand(state: GameState, actor: number, command: GameCommand): GameState {
     if (state.winner || !state.players[actor]) return state;
@@ -246,6 +249,11 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
 
 /** Rules-only state transition. Rejected commands retain the original state identity. */
 export function applyCommand(state: GameState, actor: number, command: GameCommand): Transition {
+    if (state.pendingChainTarget || command.type === 'chainTargets') {
+        const link = state.chain?.at(-1);
+        return { state: state.pendingChainTarget && link?.context.playerIndex === actor && command.type === 'chainTargets'
+            ? resolveChainStep(state, command.targets) : state, events: [] };
+    }
     if (state.pendingActivation) {
         const pending = state.pendingActivation;
         const cardId = command.type === 'activate' ? command.context.card.instanceId
@@ -275,10 +283,7 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
     const action = state.deferredAction;
     let next: GameState = { ...state, response: undefined, deferredAction: undefined, pendingResponse: undefined };
     if (action.kind === 'phase' || action.kind === 'end') {
-        next = advancePhaseState(next);
-        // Step through each phase so triggers and On windows cannot be skipped.
-        if (action.kind === 'end' && next.currentPhase !== Phase.END && !next.winner) next = { ...next, skipToEnd: true };
-        if (next.currentPhase === Phase.END) next = { ...next, skipToEnd: undefined };
+        next = advancePhaseState(next, action.kind === 'end' ? Phase.END : undefined);
     } else if (action.kind === 'attack') {
         if (!action.battleStep) {
             const battle = openResponse(next, { ...action, battleStep: true }, 'Before battle damage', 'battle_step');

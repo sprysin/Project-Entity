@@ -36,7 +36,8 @@ export default function PlaytestSetup({ onBack, onStart }: PlaytestSetupProps) {
   const [debug, setDebug] = useState<PlaytestDebugSettings>({});
 
   useEffect(() => {
-    try { setLibrary(getSavedDecks()); }
+    // Saving appends the edited deck to the library; show the newest save first.
+    try { setLibrary([...getSavedDecks()].reverse()); }
     catch { setLoadError(true); }
   }, []);
 
@@ -83,8 +84,8 @@ export default function PlaytestSetup({ onBack, onStart }: PlaytestSetupProps) {
               const selected = selectedIds[playerIndex] === deck.id;
               return <button type="button" data-sound="select" key={deck.id} disabled={!playable} aria-pressed={selected} aria-label={`${deck.name}, ${deckSize(deck)} cards${playable ? '' : ', not playable'}`} className={`training-choice${selected ? ' is-selected' : ''}`} onClick={() => choose(playerIndex, deck.id)}>
                 <span className="training-choice__icon"><i className="fa-solid fa-layer-group" aria-hidden="true" /></span>
-                <span className="training-choice__copy"><strong>{deck.name}</strong><small>{deckSize(deck)} cards · {playable ? 'Ready to play' : 'Needs 40–60 cards'}</small></span>
-                <i className={`fa-solid ${selected ? 'fa-circle-check' : 'fa-arrow-up-right'}`} aria-hidden="true" />
+                <span className="training-choice__copy"><strong>{deck.name}</strong><small>{deckSize(deck)} cards{!playable && ' · Invalid'}</small></span>
+                <i className={`fa-solid ${!playable ? 'fa-ban' : selected ? 'fa-circle-check' : 'fa-arrow-up-right'}`} aria-hidden="true" />
               </button>;
             })}
             {!library.length && <p className="training-empty">No decks saved.</p>}

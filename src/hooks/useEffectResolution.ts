@@ -77,11 +77,13 @@ export const useEffectResolution = (
         effectId?: string
     ) => {
         if (!gameState || gameState.winner) return;
+        const resolvingLink = gameState.pendingChainTarget && gameState.chain?.at(-1)?.context.card.instanceId === card.instanceId
+            ? gameState.chain.at(-1) : undefined;
         const controllerIndex = gameState.players.findIndex((p, index) => p.pawnZones.some(z => z?.card.instanceId === card.instanceId)
             || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
             || gameState.pendingReactions?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === index));
         const reactionIndex = gameState.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex;
-        const activeIndex = reactionIndex ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
+        const activeIndex = resolvingLink?.context.playerIndex ?? reactionIndex ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
         if (activeIndex < 0) return;
 
         const actualTargets = [...(providedTargets ?? pendingContext.current.targets ?? (pendingContext.current.target ? [pendingContext.current.target] : []))];
@@ -116,7 +118,8 @@ export const useEffectResolution = (
         };
 
         // Peek at the effect result to check if we need a selection mode
-        const contextForPeek: CardContext = { card, effectId: actualEffectId, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, peekIndex: actualPeekIndex, tributeIndices: actualTributeIndices, shuffleCardIds: actualShuffleCardIds, pawnPlacement: actualPawnPlacement };
+        const contextForPeek: CardContext = { card, effectId: actualEffectId, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, peekIndex: actualPeekIndex, tributeIndices: actualTributeIndices, shuffleCardIds: actualShuffleCardIds, pawnPlacement: actualPawnPlacement,
+            execution: resolvingLink ? 'resolve' : undefined };
         const peekResult = previewEffect(gameState, contextForPeek, actualTriggerType);
 
         if (peekResult.requireEffectChoice) {
@@ -229,7 +232,8 @@ export const useEffectResolution = (
         // Apply the effect to game state
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
-            return applyCommand(prev, activeIndex, { type: 'activate', context: contextForPeek, trigger: actualTriggerType }).state;
+            return applyCommand(prev, activeIndex, resolvingLink ? { type: 'chainTargets', targets: actualTargets }
+                : { type: 'activate', context: contextForPeek, trigger: actualTriggerType }).state;
         });
 
         // Cleanup selection modes
@@ -340,6 +344,8 @@ export const useEffectResolution = (
     const cancelEffect = () => {
         setEffectChoiceReq(null);
         const card = selectionState.pendingEffectCard;
+        if (gameState?.pendingChainTarget) setGameState(prev => prev?.pendingChainTarget ? applyCommand(prev,
+            prev.chain!.at(-1)!.context.playerIndex, { type: 'chainTargets', targets: [] }).state : prev);
         if (card && !card.switchMandatory) setGameState(prev => prev && !prev.response ? applyCommand(prev,
             prev.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? prev.players.findIndex(p => p.id === card.ownerId),
             { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
