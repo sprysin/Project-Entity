@@ -6,7 +6,8 @@ import { matchesCardCatalog } from '../../cards/CardRegistry';
 import React, { useEffect, useState } from 'react';
 import { CardDetail } from '../cards/CardDetail';
 import { CardDefinition } from '../../cards/CardRegistry';
-import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, MIN_DECK_SIZE } from '../../decks';
+import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, reserveSize, MIN_DECK_SIZE, MAX_RESERVE_SIZE } from '../../decks';
+import { isReservePawn } from '../../game/cardHelpers';
 import { getSavedDecks, saveDeckLibrary } from '../../desktop/storage';
 import { exportDeck, importDeck } from '../../desktop/files';
 import { setCloseReason } from '../../desktop/lifecycle';
@@ -71,11 +72,13 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const changeQuantity = (card: CardDefinition, delta: number) => {
         if (!deck) return;
         if (delta > 0 && !canAddCard(deck, card.id)) return;
-        const previous = deck.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
+        const pile = isReservePawn(card) ? 'reserve' : 'cards';
+        const entries = deck[pile] ?? [];
+        const previous = entries.find(e => e.cardId === card.id)?.quantity ?? 0;
         const quantity = Math.max(0, previous + delta);
         if (quantity === previous) return;
         setCardMotion({ id: card.id, direction: delta > 0 ? 'add' : 'remove', key: Date.now() });
-        setDeck({ ...deck, cards: [...deck.cards.filter(e => e.cardId !== card.id), ...(quantity ? [{ cardId: card.id, quantity }] : [])] });
+        setDeck({ ...deck, [pile]: [...entries.filter(e => e.cardId !== card.id), ...(quantity ? [{ cardId: card.id, quantity }] : [])] });
         setSelected(card); setDirty(true); setNotice('');
     };
     const save = async () => {
@@ -114,7 +117,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const filters = useCatalogFilters();
     const filtered = cards.filter(c => matchesCardCatalog(c, search) && filters.matches(c));
     const pagination = useCatalogPage(filtered, search + filters.key);
-    const quantity = (card: CardDefinition) => deck?.cards.find(e => e.cardId === card.id)?.quantity ?? 0;
+    const quantity = (card: CardDefinition) => deck?.[isReservePawn(card) ? 'reserve' : 'cards']?.find(e => e.cardId === card.id)?.quantity ?? 0;
 
     return <div className="deck-workspace entity-page" inert={busy}>
         {busy && <div role="status" style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', background: '#020617aa' }}>Saving deck…</div>}
@@ -164,13 +167,16 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                     <IconButton sound="select-small" label="Export deck to JSON" icon="fa-file-export" onClick={exportJson} />
                 </header>
                 <div className="deck-counts"><span>{total(deck)} <span className="text-slate-500">cards</span></span>{types.map((type, i) => <span key={type} title={type} aria-label={`${type} count`}><TypeIcon type={type} icon={icons[i]} className={`deck-type-${type}`} /> {deck.cards.filter(e => cards.find(c => c.id === e.cardId)?.type === type).reduce((sum, e) => sum + e.quantity, 0)}</span>)}</div>
-                <div className="deck-content-scroll">
-                    {!deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
-                    <div className="deck-owned-grid">{cards.flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
+                <div className="deck-content" style={{ '--deck-rows': Math.max(4, Math.ceil(total(deck) / 10)) } as React.CSSProperties}>
+                    {(['cards', 'reserve'] as const).map(pile => <section key={pile} className={pile === 'reserve' ? 'deck-reserve' : 'deck-main'} aria-label={pile === 'reserve' ? 'Reserve contents' : 'Main deck cards'}>
+                    {pile === 'reserve' && <h2 className="deck-reserve-heading">Reserve · {reserveSize(deck)}/{MAX_RESERVE_SIZE}</h2>}
+                    {pile === 'cards' && !deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
+                    <div className="deck-owned-grid">{cards.filter(card => isReservePawn(card) === (pile === 'reserve')).flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
                         <div key={`${card.id}-${copy}-${cardMotion?.id === card.id ? cardMotion.key : ''}`} className={`deck-owned-card${cardMotion?.id === card.id ? ` deck-card-${cardMotion.direction}` : ''}`}>
                             <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}; right click to remove`} title="Right click to remove" onClick={() => setSelected(card)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, -1); }}>{face(card, true)}</button>
                         </div>
-                    ))}</div>
+                    ))}{pile === 'reserve' && Array.from({ length: Math.max(0, MAX_RESERVE_SIZE - reserveSize(deck)) }, (_, index) => <div key={`empty-${index}`} className="deck-reserve-slot" aria-hidden="true" />)}</div>
+                    </section>)}
                 </div>
             </main>
             <aside className="deck-catalog" aria-label="All cards">

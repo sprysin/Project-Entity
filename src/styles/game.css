@@ -71,6 +71,26 @@ body {
   height: 1.2em;
 }
 
+.card-artwork-symbol--framed {
+  position: relative;
+  width: 48cqw;
+  height: 48cqw;
+  font-size: 22cqw;
+}
+
+.card-artwork-subtype-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.card-artwork-symbol--framed[data-subtype="Attach"] {
+  font-size: 18cqw;
+  padding-top: 14cqw;
+}
+
 .field-pawn-overlay {
   position: absolute;
   inset: 0;
@@ -675,6 +695,36 @@ body {
   max-height: calc(100dvh - 80px);
   flex-direction: column;
 }
+
+.card-vassal {
+  border: 3px solid #ef4444;
+  background: linear-gradient(145deg, #420e16, #21070c);
+  box-shadow: 0 0 15px #ef444466;
+}
+
+.duel-arena {
+  --reserve-width: 128px;
+  --reserve-gap: 24px;
+  --board-center-offset: calc((var(--reserve-width) + var(--reserve-gap)) / -2);
+}
+
+.game-board {
+  --field-row-width: 1060px;
+  --field-frame-padding: 18px;
+}
+
+.game-board--compact { --field-row-width: 888px; }
+
+.game-field-reserve {
+  position: absolute;
+  right: calc(100% + var(--reserve-gap));
+  bottom: 0;
+  width: var(--reserve-width);
+}
+.game-field-reserve--opponent { bottom: auto; top: 0; }
+.game-field-reserve [role="button"] { cursor: pointer; }
+.game-field-reserve [role="button"]:focus-visible { outline: 2px solid #f87171; outline-offset: 3px; }
+.card-search__location { display: block; color: #cbd5e1; font-size: 12px; margin-top: 4px; }
 .duel-prompt--response .duel-prompt__content { min-height: 0; overflow-y: auto; }
 .duel-prompt--response .duel-prompt__title {
   display: flex;
@@ -749,6 +799,30 @@ body {
   box-shadow: 0 0 10px #d4af37;
 }
 
+.deck-pile__count {
+  color: #fff;
+  filter: drop-shadow(0 2px 2px #0008);
+}
+
+/* The Reserve uses the original back geometry with a subtle neutral white palette. */
+.card-back--light {
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #b8b8b833 25%, transparent 25%, transparent 75%, #b8b8b833 75%), linear-gradient(45deg, #b8b8b833 25%, transparent 25%, transparent 75%, #b8b8b833 75%);
+}
+
+.card-back--light::before {
+  background: #fff;
+}
+
+.card-back--light::after {
+  border-color: #000;
+}
+
+.card-back--light .deck-pile__count {
+  color: #000;
+  filter: none;
+}
+
 .deck-pile--empty {
   border: 1px dashed #94a3b855;
   background: #02040938;
@@ -766,14 +840,13 @@ body {
   grid-template-columns: 736px 300px;
   align-items: center;
   gap: 24px;
-  width: 1060px;
+  width: var(--field-row-width);
 }
 
 .game-board--compact .game-field-row {
   position: relative;
   z-index: 0;
   grid-template-columns: 736px 128px;
-  width: 888px;
 }
 
 .game-board--compact .game-player-field {
@@ -967,7 +1040,8 @@ body {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: center;
   gap: 5px;
-  width: 1060px;
+  width: calc(var(--field-row-width) + var(--reserve-width) + var(--reserve-gap) + 2 * var(--field-frame-padding));
+  transform: translateX(var(--board-center-offset));
   height: 38px;
   flex-shrink: 0;
   padding: 4px 7px;
@@ -979,7 +1053,6 @@ body {
 .game-board--compact .phase-track {
   position: relative;
   z-index: 1;
-  width: 888px;
 }
 
 .phase-track__step {
@@ -1769,7 +1842,6 @@ body {
   position: fixed;
   z-index: 250;
   pointer-events: none;
-  filter: drop-shadow(0 0 9px #fff8);
 }
 
 .shatter-impact {
@@ -1823,7 +1895,6 @@ body {
   0% {
     transform: scale(.94);
     opacity: 0;
-    filter: brightness(2);
   }
 
   28% {
@@ -1841,13 +1912,11 @@ body {
   0% {
     transform: translate(0, 0) scale(1);
     opacity: 1;
-    filter: brightness(1.9);
   }
 
   14% {
     transform: translate(0, 0) scale(1.025);
     opacity: 1;
-    filter: brightness(1.25);
   }
 
   72% {
@@ -1857,7 +1926,6 @@ body {
   100% {
     transform: translate(var(--tx), var(--ty)) scale(.42) rotate(var(--rot));
     opacity: 0;
-    filter: brightness(.5);
   }
 }
 

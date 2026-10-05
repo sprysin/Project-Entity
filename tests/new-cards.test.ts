@@ -6,9 +6,10 @@ import { cardRegistry } from '../src/cards/CardRegistry';
 import { addChainLink, effectChoices, fieldActivations, passPriority, queueEventResponses, resolveChain, runEffect } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
 import { sendToOwnerPile } from '../src/game/cardOwnership';
-import { applyCommand, applySystemCommand } from '../src/game/engine';
+import { applyCommand, applySystemCommand, canPlayCard, createGame } from '../src/game/engine';
 import { resolveCombat } from '../src/game/combat';
 import { fieldStats } from '../src/game/cardHelpers';
+import { chooseAIAction, observeGame } from '../src/game/opponentAI';
 import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
@@ -34,6 +35,7 @@ const player = (index: number): Player => ({
     name: `Player ${index + 1}`,
     lp: 800,
     deck: [],
+    reserve: [],
     initialDeck: [],
     hand: [],
     discard: [],
@@ -233,6 +235,93 @@ it('counter cards track damage, phase timing, separate soft uses and interrupted
     game.players[1].actionZones[0] = null;
     game.players[0].actionZones[0] = placed(game.players[0].hand.at(-1)!, Position.FACE_UP);
     expect(counterCount(game.players[0].actionZones[0])).toBe(0);
+});
+
+it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, and resolve Patron damage', () => {
+    const contractId = 'action_scripture_of_faith', patronId = 'pawn_patron_of_judgement';
+    // An unrelated Contract can use the same engine mechanic without shared-code branches.
+    cardRegistry.register({ ...cardRegistry.getCard(contractId)!, id: 'test-alternate-contract' }, cardRegistry.getEffect(contractId)!);
+    for (const owner of [0, 1]) for (const location of ['hand', 'field', 'mixed', 'full'] as const) {
+        const duel = state();
+        duel.activePlayerIndex = owner;
+        const player = duel.players[owner];
+        const contract = card(location === 'full' ? 'test-alternate-contract' : contractId, owner);
+        const patron = card(patronId, owner);
+        player.reserve = [patron];
+        player.actionZones[0] = placed(contract, Position.FACE_UP);
+        const materials = [card('pawn_01', owner), card('pawn_02', owner)];
+        materials[0].level = 4; materials[1].level = 6;
+        if (location === 'hand') player.hand = materials;
+        else if (location === 'field') player.pawnZones[0] = placed(materials[0]), player.pawnZones[1] = placed(materials[1]);
+        else {
+            player.hand = [materials[0]];
+            player.pawnZones[2] = placed(materials[1]);
+            if (location === 'full') for (const index of [0, 1, 3, 4]) player.pawnZones[index] = placed(card('pawn_01', owner));
+        }
+        const context = effectChoices(duel, contract, 'activate').find(value => value.materialIds?.length === 2
+            && materials.every(material => value.materialIds!.includes(material.instanceId)) && value.pawnPlacement?.slot === (location === 'full' ? 2 : 4))!;
+        expect(context).toBeDefined();
+        const announced = addChainLink(duel, context, 'activate');
+        expect(announced.players[owner].discard).toEqual([]);
+        const resolved = resolveChain(announced);
+        expect(resolved.players[owner].reserve).toEqual([]);
+        expect(resolved.players[owner].pawnZones[context.pawnPlacement!.slot]?.card.instanceId).toBe(patron.instanceId);
+        expect(resolved.players[owner].discard.map(value => value.instanceId).sort()).toEqual([...materials, contract].map(value => value.instanceId).sort());
+        expect(resolved.players[owner].discard.filter(value => value.tributedByAction)).toHaveLength(2);
+        expect(resolved.players[owner].normalSummonUsed).toBe(false);
+        expect(resolved.log[0]).toContain('Vassal summons');
+        // Losing a cost card, its level, or its tribute eligibility fizzles without partial payment.
+        for (const change of ['missing', 'level', 'blocked', 'reserve'] as const) {
+            const interrupted = structuredClone(announced);
+            const payer = interrupted.players[owner];
+            const material = payer.hand.find(value => value.instanceId === materials[0].instanceId)
+                ?? payer.pawnZones.find(value => value?.card.instanceId === materials[0].instanceId)!.card;
+            if (change === 'missing') { payer.hand = payer.hand.filter(value => value.instanceId !== material.instanceId); payer.pawnZones = payer.pawnZones.map(value => value?.card.instanceId === material.instanceId ? null : value); }
+            if (change === 'level') material.level = 3;
+            if (change === 'blocked') material.cannotBeTributed = true;
+            if (change === 'reserve') payer.reserve = [];
+            const result = resolveChain(interrupted);
+            expect(result.players[owner].pawnZones.some(value => value?.card.instanceId === patron.instanceId)).toBe(false);
+            if (change !== 'reserve') expect(result.players[owner].discard).toHaveLength(1);
+        }
+    }
+    let duel = state();
+    const contract = card(contractId), patron = card(patronId);
+    const level10 = card('pawn_05');
+    duel.players[0].reserve = [patron]; duel.players[0].hand = [contract, level10];
+    const ai = chooseAIAction(observeGame(duel, 0), 0);
+    expect(ai.kind).toBe('effect');
+    if (ai.kind === 'effect') expect(ai.context.materialIds).toEqual([level10.instanceId]);
+    expect(observeGame(duel, 1).players[0].reserve[0].id).toBe('unknown');
+    duel.players[0].hand = [patron];
+    expect(canPlayCard(duel, patron)).toBe(false);
+    for (const hidden of [false, true]) expect(applyCommand(duel, 0, { type: 'summon', cardId: patron.instanceId, hidden, slot: 0, tributes: [] }).state).toBe(duel);
+
+    for (const targetOwner of [0, 1]) for (const bonus of [0, 40, 900]) {
+        duel = state();
+        duel.players[0].pawnZones[0] = placed(patron);
+        const target = card('pawn_01', targetOwner); target.atk += bonus;
+        duel.players[targetOwner].pawnZones[1] = placed(target);
+        const choices = effectChoices(duel, patron, 'activate');
+        if (!bonus) { expect(choices).toEqual([]); continue; }
+        const context = choices.find(value => value.target?.playerIndex === targetOwner)!;
+        const announced = addChainLink(duel, context, 'activate');
+        expect(effectChoices(announced, patron, 'activate')).toEqual([]);
+        const result = resolveChain(announced);
+        expect(result.players[targetOwner].pawnZones[1]).toBeNull();
+        expect(result.players[0].lp).toBe(800 - bonus);
+        if (bonus === 900) expect(result.winner).toBe('Player 2');
+        const missing = structuredClone(announced); missing.players[targetOwner].pawnZones[1] = null;
+        expect(resolveChain(missing).players[0].lp).toBe(800);
+        const reverted = structuredClone(announced); reverted.players[targetOwner].pawnZones[1]!.card.atk -= bonus;
+        expect(resolveChain(reverted).players[targetOwner].pawnZones[1]).not.toBeNull();
+        expect(resolveChain(reverted).players[0].lp).toBe(800);
+    }
+    const created = createGame([{ id: 'player1', name: 'One', deck: Array.from({ length: 8 }, () => card('pawn_01')), reserve: [patron] },
+        { id: 'player2', name: 'Two', deck: Array.from({ length: 8 }, () => card('pawn_01', 1)) }]);
+    expect(created.players[0].hand).toHaveLength(5);
+    expect(created.players[0].deck).toHaveLength(3);
+    expect(created.players[0].reserve).toEqual([patron]);
 });
 
 it('Glass Witch destroys itself and privately reveals the opponent-selected hand card', () => {

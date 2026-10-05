@@ -21,7 +21,7 @@ let serial = 0;
 const card = (id: string, pi = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `card-${serial++}`, ownerId: `player${pi + 1}` });
 const zone = (card: Card, position = Position.ATTACK, turn = 1) => ({ card, position, hasAttacked: false, hasChangedPosition: false, summonedTurn: turn, isSetTurn: position === Position.HIDDEN });
 function game(): GameState {
-    const player = (i: number): Player => ({ id: `player${i + 1}`, name: `Player ${i + 1}`, lp: 800, hand: [], deck: [], initialDeck: [], discard: [], void: [], pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null), normalSummonUsed: false, hiddenSummonUsed: false, activatedHardOncePerTurns: [] });
+    const player = (i: number): Player => ({ id: `player${i + 1}`, name: `Player ${i + 1}`, lp: 800, hand: [], deck: [], reserve: [], initialDeck: [], discard: [], void: [], pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null), normalSummonUsed: false, hiddenSummonUsed: false, activatedHardOncePerTurns: [] });
     return { players: [player(0), player(1)], activePlayerIndex: 0, currentPhase: Phase.MAIN1, turnNumber: 3, log: [], winner: null, pendingEffects: [] };
 }
 function passAll(state: GameState) {
@@ -290,7 +290,13 @@ describe('fair general AI', () => {
         s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
         s.players[0].hand = [card('action_01')];
         s.players[0].pawnZones[0] = zone(card('pawn_01'), Position.HIDDEN);
+        s.log = ['Private match history'];
+        s.players[1].initialDeck = [card('pawn_08', 1)];
+        const snapshot = structuredClone(s);
         const first = observeGame(s, 1), decision = chooseAIAction(first, 1);
+        expect(s).toEqual(snapshot);
+        expect(first.log).toEqual([]);
+        expect(first.players.map(player => player.initialDeck)).toEqual([[], []]);
         s.players[0].hand[0] = { ...card('pawn_05'), instanceId: s.players[0].hand[0].instanceId };
         s.players[0].pawnZones[0]!.card = { ...card('pawn_05'), instanceId: s.players[0].pawnZones[0]!.card.instanceId };
         expect(observeGame(s, 1)).toEqual(first);

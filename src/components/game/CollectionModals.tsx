@@ -6,12 +6,14 @@ export const PileViewModal: React.FC<{
     viewingDiscardIdx: number | null; viewingVoidIdx: number | null; gameState: GameState | null;
     setViewingDiscardIdx: (index: number | null) => void; setViewingVoidIdx: (index: number | null) => void;
     onSelectCard: (card: Card) => void;
-}> = ({ viewingDiscardIdx, viewingVoidIdx, gameState, setViewingDiscardIdx, setViewingVoidIdx, onSelectCard }) => {
+    viewingReserveIdx?: number | null;
+    setViewingReserveIdx?: (index: number | null) => void;
+}> = ({ viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx = null, gameState, setViewingDiscardIdx, setViewingVoidIdx, setViewingReserveIdx, onSelectCard }) => {
     const panelRef = React.useRef<HTMLElement>(null);
-    const close = React.useCallback(() => { setViewingDiscardIdx(null); setViewingVoidIdx(null); }, [setViewingDiscardIdx, setViewingVoidIdx]);
+    const close = React.useCallback(() => { setViewingDiscardIdx(null); setViewingVoidIdx(null); setViewingReserveIdx?.(null); }, [setViewingDiscardIdx, setViewingVoidIdx, setViewingReserveIdx]);
 
     React.useEffect(() => {
-        if (viewingDiscardIdx === null && viewingVoidIdx === null) return;
+        if (viewingDiscardIdx === null && viewingVoidIdx === null && viewingReserveIdx === null) return;
         const outside = (event: PointerEvent) => { if (!panelRef.current?.contains(event.target as Node)) close(); };
         const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
         document.addEventListener('pointerdown', outside);
@@ -20,20 +22,21 @@ export const PileViewModal: React.FC<{
             document.removeEventListener('pointerdown', outside);
             document.removeEventListener('keydown', escape);
         };
-    }, [viewingDiscardIdx, viewingVoidIdx, close]);
+    }, [viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx, close]);
 
-    const playerIndex = viewingDiscardIdx ?? viewingVoidIdx;
+    const playerIndex = viewingReserveIdx ?? viewingDiscardIdx ?? viewingVoidIdx;
     if (!gameState || playerIndex === null) return null;
-    const isVoid = viewingDiscardIdx === null;
-    const cards = gameState.players[playerIndex][isVoid ? 'void' : 'discard'];
+    const isReserve = viewingReserveIdx !== null;
+    const isVoid = !isReserve && viewingDiscardIdx === null;
+    const pile = isReserve ? 'Reserve' : isVoid ? 'Void' : 'Discard';
+    const cards = gameState.players[playerIndex][isReserve ? 'reserve' : isVoid ? 'void' : 'discard'];
 
     return (
-        <aside ref={panelRef} aria-label={isVoid ? 'Void pile contents' : 'Discard pile contents'} className="pile-drawer absolute inset-y-0 right-0 z-[110] flex w-80 flex-col border-l border-white/20 bg-slate-950 text-white shadow-2xl">
+        <aside ref={panelRef} aria-label={`${pile} pile contents`} className="pile-drawer absolute inset-y-0 right-0 z-[110] flex w-80 flex-col border-l border-white/20 bg-slate-950 text-white shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-white/15 p-5">
                 <div>
                     <p className="text-xs text-slate-400">{gameState.players[playerIndex].name}</p>
-                    <h2 className={`font-orbitron text-lg ${isVoid ? 'text-purple-400' : 'text-yellow-400'}`}>{isVoid ? 'VOID' : 'DISCARD'} · {cards.length}</h2>
-                    <p className="mt-1 text-xs text-slate-400">Most recent first</p>
+                    <h2 className={`font-orbitron text-lg ${isReserve ? 'text-red-400' : isVoid ? 'text-purple-400' : 'text-yellow-400'}`}>{pile.toUpperCase()} · {cards.length}</h2>
                 </div>
                 <button data-sound="cancellation" aria-label="Close pile" onClick={close} className="rounded px-3 py-2 hover:bg-white/10">✕</button>
             </div>

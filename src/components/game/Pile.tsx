@@ -6,12 +6,12 @@ import { XrayOverlay } from './XrayOverlay';
 /**
  * DeckPile Sub-component: Visualizes the deck with a card count.
  */
-export const DeckPile: React.FC<{ count: number, label: string, domRef?: (el: HTMLElement | null) => void, xrayCard?: Card, onInspect?: () => void }> = ({ count, label, domRef, xrayCard, onInspect }) => (
+export const DeckPile: React.FC<{ count: number, label: string, backStyle?: 'dark' | 'light', domRef?: (el: HTMLElement | null) => void, xrayCard?: Card, onInspect?: () => void, onOpen?: () => void }> = ({ count, label, backStyle = 'dark', domRef, xrayCard, onInspect, onOpen }) => (
     <div className="flex flex-col items-center group relative">
-        <div ref={domRef} role={xrayCard ? 'button' : undefined} tabIndex={xrayCard ? 0 : undefined} onClick={xrayCard ? onInspect : undefined} onKeyDown={event => { if (xrayCard && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onInspect?.(); } }} aria-label={`${label}: ${count} cards${xrayCard ? '. Inspect top card' : ''}`} className={`deck-pile w-32 aspect-[2/3] rounded flex items-center justify-center relative ${count > 0 ? 'card-back border-2 border-slate-400 shadow-xl transition-transform group-hover:scale-105' : 'deck-pile--empty'}`}>
+        <div ref={domRef} role={onOpen || xrayCard ? 'button' : undefined} tabIndex={onOpen || xrayCard ? 0 : undefined} onClick={onOpen ?? (xrayCard ? onInspect : undefined)} onKeyDown={event => { if ((onOpen || xrayCard) && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); (onOpen ?? onInspect)?.(); } }} aria-label={`${label}: ${count} cards${onOpen ? '. Open pile' : xrayCard ? '. Inspect top card' : ''}`} className={`deck-pile w-32 aspect-[2/3] rounded flex items-center justify-center relative ${count > 0 ? `card-back ${backStyle === 'light' ? 'card-back--light ' : ''}border-2 border-slate-400 shadow-xl transition-transform group-hover:scale-105` : 'deck-pile--empty'}`}>
             {xrayCard && <XrayOverlay card={xrayCard} />}
             {count > 0
-                ? <span className="font-black text-white text-3xl font-orbitron drop-shadow-md z-20 pointer-events-none">{count}</span>
+                ? <span className="deck-pile__count font-black text-3xl font-orbitron z-20 pointer-events-none">{count}</span>
                 : <span className="deck-pile__empty-label">EMPTY</span>}
         </div>
     </div>

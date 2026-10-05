@@ -65,34 +65,11 @@ export const useGameAnimationEffects = (
                 animations.setFloatingTexts(previous => [...previous, { id, text: difference > 0 ? `+${difference}` : `${difference}`, type: difference > 0 ? 'heal' : 'damage', x: 50, y: 50 }]);
                 schedule(() => animations.setFloatingTexts(previous => previous.filter(text => text.id !== id)), 2500);
                 animations.lastLp.current[index] = player.lp;
+                const flash = difference > 0 ? 'heal' : 'damage';
+                animations.setLpFlash(previous => { const next = [...previous] as [string | null, string | null]; next[index] = flash; return next; });
+                schedule(() => animations.setLpFlash(previous => { const next = [...previous] as [string | null, string | null]; next[index] = null; return next; }), 800);
             }
         });
-
-        const intervals: ReturnType<typeof setInterval>[] = [];
-        gameState.players.forEach((player, index) => {
-            if (player.lp === animations.displayedLp[index]) return;
-            const difference = player.lp - animations.displayedLp[index];
-            const flash = difference > 0 ? 'heal' : 'damage';
-            animations.setLpFlash(previous => { const next = [...previous] as [string | null, string | null]; next[index] = flash; return next; });
-            animations.setLpScale(previous => { const next = [...previous] as [boolean, boolean]; next[index] = true; return next; });
-            schedule(() => {
-                animations.setLpFlash(previous => { const next = [...previous] as [string | null, string | null]; next[index] = null; return next; });
-                animations.setLpScale(previous => { const next = [...previous] as [boolean, boolean]; next[index] = false; return next; });
-            }, 800);
-
-            const step = Math.ceil(Math.abs(difference) / 10);
-            const interval = setInterval(() => {
-                animations.setDisplayedLp(previous => {
-                    const next = [...previous] as [number, number];
-                    if (next[index] < player.lp) next[index] = Math.min(next[index] + step, player.lp);
-                    else if (next[index] > player.lp) next[index] = Math.max(next[index] - step, player.lp);
-                    if (next[index] === player.lp) clearInterval(interval);
-                    return next;
-                });
-            }, 20);
-            intervals.push(interval);
-        });
-        return () => intervals.forEach(clearInterval);
     }, [gameState?.players[0]?.lp, gameState?.players[1]?.lp, schedule]);
 
     useEffect(() => {

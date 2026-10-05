@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Phase, Player } from '../../types';
 import { isDrawingForTurn } from '../../game/phases';
-import { ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
+import { LevelTributeSelectionModal, ReserveSelectionModal, ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
 import { DuelPrompt } from './DuelPrompt';
@@ -179,6 +179,8 @@ export const GameOverlays: React.FC<{
             && !(state.opponentMode === 'ai' && gameState.pendingVoidSelections[0].playerIndex === 1)
             ? <VoidSelectionModal gameState={gameState} onConfirm={actions.chooseVoidCard} /> : null}
         <ShuffleSelectionModal request={state.shuffleSelectionReq} gameState={gameState} onConfirm={actions.handleShuffleSelection} />
+        <LevelTributeSelectionModal request={state.levelTributeReq} gameState={gameState} onConfirm={actions.handleLevelTribute} onCancel={actions.cancelEffect} />
+        <ReserveSelectionModal request={state.reserveSelectionReq} gameState={gameState} onConfirm={actions.handleReserveSelection} onCancel={actions.cancelEffect} />
         {gameState.pendingHandSummons?.length && !state.handSummonCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
             && !(state.opponentMode === 'ai' && gameState.pendingHandSummons[0].playerIndex === 1)
             && <PeekSelectionModal

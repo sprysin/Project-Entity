@@ -2,6 +2,7 @@ import { GameState, Card, CardContext, PawnSubtype, PlacedCard, Player, Position
 import { cardRegistry } from '../cards/CardRegistry';
 
 export const isToken = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.TOKEN;
+export const isReservePawn = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.VASSAL;
 export const canTribute = (card: Card): boolean => !card.cannotBeTributed && !card.tributeBlockedThisTurn;
 export const canTributeForSummon = (card: Card, summoned: Card): boolean => canTribute(card) && (cardRegistry.getEffect(summoned.id)?.tributeSummonFilter?.(card) ?? true);
 export const matchesCardName = (card: Card, name: string): boolean => card.name.toLowerCase() === name.toLowerCase();

@@ -16,9 +16,13 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
     const [landings, setLandings] = useState<Animation[]>([]);
     useEffect(() => {
         if (typeof document === 'undefined') return;
-        const measure = () => previous.current.forEach(location => {
-            location.rect = refs.current.get(location.key)?.getBoundingClientRect() ?? location.rect;
-        });
+        const measure = () => {
+            const measured = new Map<string, DOMRect | undefined>();
+            previous.current.forEach(location => {
+                if (!measured.has(location.key)) measured.set(location.key, refs.current.get(location.key)?.getBoundingClientRect());
+                location.rect = measured.get(location.key) ?? location.rect;
+            });
+        };
         // Capture hover/selection offsets before the click changes the board.
         document.addEventListener('pointerdown', measure, true);
         document.addEventListener('keydown', measure, true);
@@ -30,16 +34,20 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
     useLayoutEffect(() => {
         if (!game) { previous.current.clear(); previousGame.current = null; return; }
         const next = new Map<string, Location>();
+        // A pile may contain many cards, but all share one visible location.
+        const measured = new Map<string, DOMRect | undefined>();
         const add = (card: Card, key: string, hidden = false, rotation = 0, attached = false) => {
             const el = refs.current.get(key);
-            const face = el?.querySelector<HTMLElement>('[data-card-face] [data-field-card-id]');
-            next.set(card.instanceId, { card, key, hidden, rotation, rect: el?.getBoundingClientRect(), attached,
+            if (!measured.has(key)) measured.set(key, el?.getBoundingClientRect());
+            const face = /-(pawn|action)-/.test(key) ? el?.querySelector<HTMLElement>('[data-card-face] [data-field-card-id]') : undefined;
+            next.set(card.instanceId, { card, key, hidden, rotation, rect: measured.get(key), attached,
                 shatter: face ? { rect: face.getBoundingClientRect(), cardMarkup: face.innerHTML,
                     rotated: face.classList.contains('rotate-90'), faceDown: face.classList.contains('card-back') } : undefined });
         };
         game.players.forEach((p, pi) => {
             p.hand.forEach((c, i) => add(c, `${pi}-hand-${i}`, pi !== (viewerIndex ?? game.activePlayerIndex)));
             p.deck.forEach(c => add(c, `deck-${pi}`, true));
+            p.reserve.forEach(c => add(c, `reserve-${pi}`, true));
             p.discard.forEach(c => add(c, `discard-${pi}`));
             p.void.forEach(c => add(c, `void-${pi}`));
             (['pawn', 'action'] as const).forEach(type => p[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((z, i) => {

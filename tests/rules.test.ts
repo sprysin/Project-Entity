@@ -10,7 +10,7 @@ import { advancePhaseState } from '../src/game/phases';
 
 function state(): GameState {
     const player = (index: number): Player => ({
-        id: `p${index}`, name: `Player ${index + 1}`, lp: 800, deck: [], initialDeck: [], hand: [], discard: [], void: [],
+        id: `p${index}`, name: `Player ${index + 1}`, lp: 800, deck: [], reserve: [], initialDeck: [], hand: [], discard: [], void: [],
         pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null), normalSummonUsed: false,
         hiddenSummonUsed: false, activatedHardOncePerTurns: [],
     });
@@ -31,9 +31,6 @@ it('loses only on a required missing draw, including partially fulfilled draws',
     expect(partial.players[0].hand).toHaveLength(1);
     expect(partial.winner).toBe('Player 2');
     expect(game.players[0].deck).toHaveLength(1);
-});
-
-it('stops an effect immediately after a failed draw', () => {
     const result = buildEffect([Effect.DrawCards(1), Effect.RestoreLP(0, 100)])(state(), { card: card(), playerIndex: 0 });
     expect(result.newState.winner).toBe('Player 2');
     expect(result.newState.players[0].lp).toBe(800);

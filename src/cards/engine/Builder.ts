@@ -18,7 +18,7 @@ export const buildEffect = (steps: EffectStep[]) => {
             if (context.execution === 'resolve' && (step.activationCost || step.activationReservation)) continue;
             const result = step(draftState, context);
             if (result) {
-                if (result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection) {
+                if (result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireReserveSelection || result.requireLevelTribute || result.requireEffectTribute || result.requireShuffleSelection) {
                     return { ...result, newState: draftState };
                 }
 

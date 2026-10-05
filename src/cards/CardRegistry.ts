@@ -1,4 +1,4 @@
-import { IEffect, Card, CardType, CARD_RARITIES } from '../types';
+import { IEffect, Card, CardType, ActionSubtype, CARD_RARITIES } from '../types';
 
 export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId' | 'tributedByAction' | 'fieldAtkReduction'>;
 
@@ -22,6 +22,7 @@ export class CardRegistry {
             || !Number.isInteger(cardData.level) || cardData.level < 0 || cardData.level > 10
             || !Number.isFinite(cardData.atk) || !Number.isFinite(cardData.def)
             || cardData.isAttached && cardData.isLingering
+            || cardData.actionSubtype !== undefined && (cardData.type !== CardType.ACTION || !Object.values(ActionSubtype).includes(cardData.actionSubtype) || cardData.isAttached || cardData.isLingering)
             || cardData.type === CardType.PAWN && (cardData.isAttached || cardData.isLingering)
             || cardData.type !== CardType.PAWN && (cardData.level !== 0 || cardData.atk !== 0 || cardData.def !== 0)) {
             throw new Error(`Invalid card definition: ${id}`);
@@ -45,14 +46,14 @@ export class CardRegistry {
 }
 
 export const cardRegistry = new CardRegistry();
-type Metadata = Pick<Card, 'type' | 'isAttached' | 'isLingering' | 'name' | 'effectText' | 'attribute' | 'pawnType' | 'pawnSubtype'>;
-type CardSubtype = 'Normal' | 'Lingering' | 'Attach';
+type Metadata = Pick<Card, 'type' | 'isAttached' | 'isLingering' | 'actionSubtype' | 'name' | 'effectText' | 'attribute' | 'pawnType' | 'pawnSubtype'>;
+type CardSubtype = 'Normal' | 'Lingering' | 'Attach' | ActionSubtype;
 
-export function cardSubtype(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering'>): CardSubtype | null {
-    return card.type === CardType.PAWN ? null : card.isAttached ? 'Attach' : card.isLingering ? 'Lingering' : 'Normal';
+export function cardSubtype(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering' | 'actionSubtype'>): CardSubtype | null {
+    return card.type === CardType.PAWN ? null : card.actionSubtype ?? (card.isAttached ? 'Attach' : card.isLingering ? 'Lingering' : 'Normal');
 }
 
-export function cardTypeLabel(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering' | 'pawnSubtype'>): string {
+export function cardTypeLabel(card: Pick<Metadata, 'type' | 'isAttached' | 'isLingering' | 'actionSubtype' | 'pawnSubtype'>): string {
     return card.type === CardType.PAWN ? `${card.pawnSubtype ? `${card.pawnSubtype}/` : ''}Pawn` : `${cardSubtype(card)} ${card.type === CardType.ACTION ? 'Action' : 'Condition'}`;
 }
 

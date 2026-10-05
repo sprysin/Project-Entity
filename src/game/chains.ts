@@ -6,6 +6,7 @@ import { cardsAtLocation, canTargetWithEffect } from './cardHelpers';
 import { notifyAttachedActivation } from './attachments';
 import { isDrawingForTurn } from './phases';
 import { notifyFieldEvent } from './fieldEvents';
+import { levelTributeCandidates, levelTributeChoices } from './levelTributes';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
     if (context.execution !== 'costs' && (context.targets ?? (context.target ? [context.target] : [])).some(target => {
@@ -37,7 +38,7 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
 }
 
 export function needsChoice(result: EffectResult) {
-    return !!(result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireEffectTribute || result.requireShuffleSelection);
+    return !!(result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireReserveSelection || result.requireLevelTribute || result.requireEffectTribute || result.requireShuffleSelection);
 }
 
 export function combinations<T>(values: T[], count: number): T[][] {
@@ -66,7 +67,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
         if (result.requireEffectChoice && !context.effectId) {
             result.requireEffectChoice.filter(choice => !choice.disabled).forEach(choice => visit({ ...context, effectId: choice.id }, depth + 1));
         } else if (result.requirePawnPlacement && !context.pawnPlacement) {
-            state.players[result.requirePawnPlacement.playerIndex].pawnZones.forEach((zone, slot) => {
+            result.newState.players[result.requirePawnPlacement.playerIndex].pawnZones.forEach((zone, slot) => {
                 if (!zone) for (const position of result.requirePawnPlacement!.position ? [result.requirePawnPlacement!.position] : [Position.ATTACK, Position.DEFENSE]) visit({ ...context, pawnPlacement: { slot, position } }, depth + 1);
             });
         } else if (result.requireTarget && !selectedTarget) {
@@ -98,6 +99,13 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             const cardIds = cardsAtLocation(state.players[req.playerIndex], req.location)
                 .filter(entry => req.filter(entry.card)).map(entry => entry.card.instanceId);
             combinations(cardIds, req.count).forEach(shuffleCardIds => visit({ ...context, shuffleCardIds }, depth + 1));
+        } else if (result.requireLevelTribute && !context.materialIds) {
+            levelTributeChoices(state, result.requireLevelTribute).forEach(materialIds => visit({ ...context, materialIds }, depth + 1));
+        } else if (result.requireReserveSelection && context.reserveIndex === undefined) {
+            const req = result.requireReserveSelection;
+            state.players[req.playerIndex].reserve.forEach((card, reserveIndex) => {
+                if (req.filter(card)) visit({ ...context, reserveIndex }, depth + 1);
+            });
         } else if (result.requireEffectTribute && !context.tributeIndices) {
             const req = result.requireEffectTribute;
             const indices = state.players[req.playerIndex].pawnZones.flatMap((z, i) => z && (!req.filter || req.filter(z.card)) ? [i] : []);
@@ -173,7 +181,9 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     let next = structuredClone(reserved.newState);
     if (['summon', 'switch', 'battle_destroyed', 'destroyed'].includes(trigger)) next.pendingReactions = next.pendingReactions?.filter(entry => entry.card.instanceId !== context.card.instanceId);
     const p = next.players[context.playerIndex];
-    const tributeCards = context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
+    const tributeCards = context.materialIds
+        ? levelTributeCandidates(state, context.playerIndex).filter(entry => context.materialIds!.includes(entry.card.instanceId)).map(entry => entry.card)
+        : context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
     const source = [...p.pawnZones, ...p.actionZones].find(z => z?.card.instanceId === context.card.instanceId);
     if (source && context.card.type !== CardType.PAWN) source.position = Position.FACE_UP;
     const targets = context.targets ?? (context.target ? [context.target] : []);
@@ -189,6 +199,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
             : undefined),
         discardId: context.discardIndex === undefined ? undefined : state.players[context.playerIndex].discard[context.discardIndex]?.instanceId,
         deckId: context.deckIndex === undefined ? undefined : state.players[context.playerIndex].deck[context.deckIndex]?.instanceId,
+        reserveId: context.reserveIndex === undefined ? undefined : state.players[context.playerIndex].reserve[context.reserveIndex]?.instanceId,
         peekCardId: context.peekIndex === undefined ? undefined : state.players[1 - context.playerIndex].hand[context.peekIndex]?.instanceId,
     };
     next.chain = [...(state.chain ?? []), link];
@@ -284,6 +295,7 @@ export function resolveChainStep(state: GameState, selectedTargets?: CardTarget[
         }
         if (link.discardId) { context.discardIndex = p.discard.findIndex(c => c.instanceId === link.discardId); invalid ||= context.discardIndex < 0; }
         if (link.deckId) { context.deckIndex = p.deck.findIndex(c => c.instanceId === link.deckId); invalid ||= context.deckIndex < 0; }
+        if (link.reserveId) { context.reserveIndex = p.reserve.findIndex(c => c.instanceId === link.reserveId); invalid ||= context.reserveIndex < 0; }
         if (link.peekCardId) {
             context.peekIndex = next.players[1 - context.playerIndex].hand.findIndex(c => c.instanceId === link.peekCardId);
             invalid ||= context.peekIndex < 0;

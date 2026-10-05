@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Player } from '../../types';
 import ProfileAvatar from '../common/ProfileAvatar';
 
@@ -6,13 +6,32 @@ type LpFlash = 'damage' | 'heal' | null;
 
 interface HealthHudProps {
     player: Player;
-    displayedLp: number;
     flash: LpFlash;
     position: 'active' | 'opponent';
     profileImage?: string | null;
 }
 
-export const HealthHud: React.FC<HealthHudProps> = ({ player, displayedLp, flash, position, profileImage }) => {
+export const HealthHud: React.FC<HealthHudProps> = ({ player, flash, position, profileImage }) => {
+    const [displayedLp, setDisplayedLp] = useState(player.lp);
+    const displayed = useRef({ playerId: player.id, lp: player.lp });
+    useEffect(() => {
+        // Switching viewers must not count between two different players' totals.
+        if (displayed.current.playerId !== player.id) {
+            displayed.current = { playerId: player.id, lp: player.lp };
+            setDisplayedLp(player.lp);
+            return;
+        }
+        const step = Math.ceil(Math.abs(player.lp - displayed.current.lp) / 10);
+        if (!step) return;
+        const timer = setInterval(() => {
+            const current = displayed.current.lp;
+            const next = current < player.lp ? Math.min(current + step, player.lp) : Math.max(current - step, player.lp);
+            displayed.current.lp = next;
+            setDisplayedLp(next);
+            if (next === player.lp) clearInterval(timer);
+        }, 20);
+        return () => clearInterval(timer);
+    }, [player.id, player.lp]);
     const isActive = position === 'active';
     const frameGradientId = `health-frame-${player.id}-${position}`;
     const framePath = isActive ? 'M 0 0 H 72 L 100 100 H 0 Z' : 'M 0 0 H 100 V 100 H 28 Z';
@@ -36,7 +55,7 @@ export const HealthHud: React.FC<HealthHudProps> = ({ player, displayedLp, flash
                     <div className="health-hud__lp">
                     <span className="health-hud__lp-label">LP</span>
                     <span className={`health-hud__lp-value ${flash ? `health-hud__lp-value--${flash} lp-active` : ''}`}>
-                        {Math.floor(displayedLp)}
+                        {Math.floor(displayed.current.playerId === player.id ? displayedLp : player.lp)}
                     </span>
                     </div>
                 </div>

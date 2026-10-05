@@ -6,8 +6,26 @@ import { cardRegistry } from '../CardRegistry';
 import { Effect } from './Effects';
 import { getEffectTarget } from './Targets';
 import { sendToOwnerPile } from '../../game/cardOwnership';
+import { levelTributeCandidates } from '../../game/levelTributes';
+import { destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Cost = {
+    TributeExactLevels: (totalLevel: number): EffectStep => activationCost((state, context) => {
+        if (!context.materialIds) return { requireLevelTribute: { playerIndex: context.playerIndex, totalLevel } };
+        const candidates = levelTributeCandidates(state, context.playerIndex);
+        const selected = context.materialIds.map(id => candidates.find(entry => entry.card.instanceId === id));
+        if (!selected.length || new Set(context.materialIds).size !== selected.length || selected.some(entry => !entry)
+            || selected.reduce((sum, entry) => sum + entry!.card.level, 0) !== totalLevel) return { halt: true };
+        context.tributeCards = selected.map(entry => entry!.card);
+        const player = state.players[context.playerIndex];
+        for (const entry of selected) {
+            const card = { ...entry!.card, tributedByAction: context.card.type === 'ACTION' };
+            sendToOwnerPile(state, card, 'discard');
+            if (entry!.location === 'hand') player.hand = player.hand.filter(value => value.instanceId !== card.instanceId);
+            else player.pawnZones = player.pawnZones.map(zone => zone?.card.instanceId === card.instanceId ? null : zone);
+        }
+        Object.assign(state, destroyOrphanedAttachments(state));
+    }),
     /** Pay for an activation by shuffling selected cards into their owners' decks. */
     ShuffleFrom: (location: ShuffleLocation, count: number, filter?: CardFilter): EffectStep => activationCost(Effect.ShuffleFrom(location, count, filter)),
     /** Destroys the activating Pawn as an activation cost. */

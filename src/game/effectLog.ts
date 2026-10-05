@@ -21,6 +21,7 @@ function selectedCard(state: GameState, context: CardContext): Card | undefined 
     if (context.handIndex !== undefined) return player.hand[context.handIndex];
     if (context.discardIndex !== undefined) return player.discard[context.discardIndex];
     if (context.deckIndex !== undefined) return player.deck[context.deckIndex];
+    if (context.reserveIndex !== undefined) return player.reserve[context.reserveIndex];
 }
 
 /** Builds one successful effect log entry from state changes instead of card-authored prose. */
@@ -77,7 +78,7 @@ export function formatEffectLog(
             const wasBanished = after.players[located.playerIndex].void.some(c => c.instanceId === instanceId);
             if (isToken(located.placed.card)) details.push(`removes ${quote(located.placed.card.name)} from the game`);
             else if (wasBanished) details.push(`sends ${quote(located.placed.card.name)} to the Void`);
-            else if (after.players[located.playerIndex].discard.some(c => c.instanceId === instanceId)) details.push(`destroys ${quote(located.placed.card.name)}`);
+            else if (!tributes.some(tribute => tribute.instanceId === instanceId) && after.players[located.playerIndex].discard.some(c => c.instanceId === instanceId)) details.push(`destroys ${quote(located.placed.card.name)}`);
             continue;
         }
         const atkDelta = changed.placed.card.atk - located.placed.card.atk;
@@ -97,7 +98,7 @@ export function formatEffectLog(
 
     for (const [instanceId, located] of afterField) {
         if (beforeField.has(instanceId) || instanceId === card.instanceId) continue;
-        details.push(`special summons ${quote(located.placed.card.name)}`);
+        details.push(`${before.players[located.playerIndex].reserve.some(value => value.instanceId === instanceId) ? 'Vassal summons' : 'special summons'} ${quote(located.placed.card.name)}`);
     }
 
     if (selected && context.discardIndex !== undefined && after.players[context.playerIndex].hand.some(c => c.instanceId === selected.instanceId)) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GameState } from '../../types';
-import { FieldLink, LinkGraphic } from './AttachmentOverlay';
+import { FieldLink, LinkGraphic, fieldBounds, sameFieldLink } from './AttachmentOverlay';
 
 type Attack = Extract<NonNullable<GameState['deferredAction']>, { kind: 'attack' }>;
 
@@ -10,20 +10,22 @@ export function AttackOverlay({ attack, defendingPlayerId }: { attack?: Attack; 
     useEffect(() => {
         if (!attack) { setLink(null); return; }
         let frame = 0;
+        let source: HTMLElement | undefined;
+        let target: HTMLElement | undefined;
         const update = () => {
-            const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-field-card-id]'));
-            const source = cards.find(element => element.dataset.fieldCardId === attack.attackerId);
-            const target = attack.targetId === 'direct'
-                ? Array.from(document.querySelectorAll<HTMLElement>('[data-player-hand-target]'))
-                    .find(element => element.dataset.playerHandTarget === defendingPlayerId)
-                : cards.find(element => element.dataset.fieldCardId === attack.targetId);
-            if (!source?.isConnected || !target?.isConnected) { setLink(null); frame = requestAnimationFrame(update); return; }
-            const bounds = (element: HTMLElement) => {
-                const rect = element.getBoundingClientRect();
-                return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
-            };
-            const next = { source: bounds(source), target: bounds(target) };
-            setLink(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+            if (!source?.isConnected || source.dataset.fieldCardId !== attack.attackerId
+                || !target?.isConnected || (attack.targetId === 'direct'
+                    ? target.dataset.playerHandTarget !== defendingPlayerId : target.dataset.fieldCardId !== attack.targetId)) {
+                const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-field-card-id]'));
+                source = cards.find(element => element.dataset.fieldCardId === attack.attackerId);
+                target = attack.targetId === 'direct'
+                    ? Array.from(document.querySelectorAll<HTMLElement>('[data-player-hand-target]'))
+                        .find(element => element.dataset.playerHandTarget === defendingPlayerId)
+                    : cards.find(element => element.dataset.fieldCardId === attack.targetId);
+            }
+            if (!source?.isConnected || !target?.isConnected) { setLink(previous => previous === null ? previous : null); frame = requestAnimationFrame(update); return; }
+            const next = { source: fieldBounds(source), target: fieldBounds(target) };
+            setLink(previous => previous && sameFieldLink(previous, next) ? previous : next);
             frame = requestAnimationFrame(update);
         };
         update();

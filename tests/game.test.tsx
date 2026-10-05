@@ -16,15 +16,22 @@ import { WinnerModal } from '../src/components/game/MatchModals';
 import { getDuelMvp } from '../src/game/mvp';
 import { GameOverlays } from '../src/components/game/GameOverlays';
 import { DiscardSelectionModal } from '../src/components/game/SelectionModals';
+import { HealthHud } from '../src/components/game/HealthHud';
+import { useAnimations } from '../src/hooks/useAnimations';
 vi.mock('../src/desktop/files', () => ({ showMessage: vi.fn() }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let game: ReturnType<typeof useGameLogic>;
 let root: ReturnType<typeof create>;
 let serial = 0;
+let gameRenders = 0;
 const card = (id: string, player = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `test-${serial++}`, ownerId: `player${player + 1}` });
 const placed = (c: Card) => ({ card: c, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: 1, isSetTurn: false });
-function Harness() { game = useGameLogic(); return null; }
+function Harness() {
+    gameRenders++;
+    game = useGameLogic();
+    return game.gameState ? <HealthHud player={game.gameState.players[1]} position="opponent" flash={game.state.lpFlash[1]} /> : null;
+}
 function setup(edit: (s: GameState) => void) {
     act(() => game.setGameState(prev => {
         const s = structuredClone(prev!);
@@ -68,7 +75,13 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
         querySelector: (selector: string) => selector === '[data-card-face]' ? { animate } : null };
     game.actions.setRef('0-hand-0')(handElement as unknown as HTMLElement);
     game.actions.setRef('0-pawn-0')(fieldElement as unknown as HTMLElement);
-    setup(s => { s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('action_01')]; });
+    const measureDeck = vi.fn(() => rect);
+    game.actions.setRef('deck-0')({ getBoundingClientRect: measureDeck } as unknown as HTMLElement);
+    setup(s => {
+        s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('action_01')];
+        s.players[0].deck = Array.from({ length: 40 }, () => card('pawn_01'));
+    });
+    expect(measureDeck).toHaveBeenCalledOnce();
     act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(eligibleCaster.instanceId);
     expect(game.state.cardMovementPending).toBe(true);
@@ -91,6 +104,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => prompt!.unmount());
     game.actions.setRef('0-hand-0')(null);
     game.actions.setRef('0-pawn-0')(null);
+    game.actions.setRef('deck-0')(null);
     vi.unstubAllGlobals();
     const waitingForActivation = game.gameState!;
     act(() => { game.actions.setIsPeekingField(true); vi.advanceTimersByTime(5000); });
@@ -365,6 +379,15 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
     expect(game.gameState!.response).toBeUndefined();
     expect(game.gameState!.log).toHaveLength(before.log.length + 1);
     expect(game.gameState!.log[0]).toBe('"Solstice Sentinel" destroyed "Void Caster" by battle. "Player 2" -20 LP.');
+    const rendersBeforeCount = gameRenders;
+    const lpValue = () => root.root.findAllByType('span').find(span => span.props.className?.includes('health-hud__lp-value'))!.children.join('');
+    expect(lpValue()).toBe('800');
+    act(() => vi.advanceTimersByTime(100));
+    expect(lpValue()).toBe('790');
+    expect(gameRenders).toBe(rendersBeforeCount);
+    act(() => vi.advanceTimersByTime(100));
+    expect(lpValue()).toBe('780');
+    expect(gameRenders).toBe(rendersBeforeCount);
     act(() => game.actions.handleAttack(0, 'direct'));
     expect(game.gameState!.players[1].lp).toBe(780);
 
@@ -436,6 +459,41 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
         game.actions.setRef('1-pawn-2')(null);
         vi.unstubAllGlobals();
     }
+    // A new LP change retargets the active count; switching players never
+    // interpolates between unrelated totals.
+    const hudPlayer = game.gameState!.players[0];
+    act(() => root.update(<HealthHud player={{ ...hudPlayer, lp: 800 }} position="active" flash={null} />));
+    act(() => root.update(<HealthHud player={{ ...hudPlayer, lp: 600 }} position="active" flash="damage" />));
+    act(() => vi.advanceTimersByTime(60));
+    expect(lpValue()).toBe('740');
+    act(() => root.update(<HealthHud player={{ ...hudPlayer, lp: 900 }} position="active" flash="heal" />));
+    act(() => vi.advanceTimersByTime(200));
+    expect(lpValue()).toBe('900');
+    act(() => root.update(<HealthHud player={{ ...hudPlayer, id: 'other', lp: 350 }} position="opponent" flash={null} />));
+    expect(lpValue()).toBe('350');
+    act(() => vi.advanceTimersByTime(200));
+    expect(lpValue()).toBe('350');
+
+    // Overlapping shatters retain each card's face and clean up independently.
+    let animations!: ReturnType<typeof useAnimations>;
+    function AnimationHarness() { animations = useAnimations(); return null; }
+    act(() => root.update(<AnimationHarness />));
+    const rect = { left: 0, top: 0, width: 100, height: 150 } as DOMRect;
+    act(() => {
+        for (const [index, rotated] of [false, true, false].entries()) {
+            animations.triggerShatter('', { rect, cardMarkup: `<div>Card ${index}</div>`, rotated, faceDown: index === 2 });
+        }
+    });
+    expect(animations.shatterEffects.map(effect => [effect.cardMarkup, effect.rotated, effect.faceDown])).toEqual([
+        ['<div>Card 0</div>', false, false], ['<div>Card 1</div>', true, false], ['<div>Card 2</div>', false, true],
+    ]);
+    expect(animations.shatterEffects.every(effect => effect.shards.length <= 12)).toBe(true);
+    act(() => vi.advanceTimersByTime(100));
+    act(() => animations.triggerShatter('', { rect, cardMarkup: '<div>Later card</div>', rotated: false, faceDown: false }));
+    act(() => vi.advanceTimersByTime(1150));
+    expect(animations.shatterEffects.map(effect => effect.cardMarkup)).toEqual(['<div>Later card</div>']);
+    act(() => vi.advanceTimersByTime(100));
+    expect(animations.shatterEffects).toEqual([]);
 });
 
 it('discard and tribute costs are paid once after all activation selections are complete', () => {
@@ -468,6 +526,27 @@ it('discard and tribute costs are paid once after all activation selections are 
     expect(game.gameState!.log[0]).toContain('"Mechanical Maintenance" activated');
     expect(game.gameState!.log[0]).toContain('tributes "Solstice Sentinel", "Void Caster"');
     expect(game.gameState!.log[0]).toContain('special summons "Solstice Sentinel"');
+
+    const contract = card('action_scripture_of_faith'), patron = card('pawn_patron_of_judgement');
+    const handMaterial = { ...card('pawn_01'), level: 4 as const }, fieldMaterial = { ...card('pawn_02'), level: 6 as const };
+    setup(s => {
+        s.players[0].hand = [contract, handMaterial]; s.players[0].reserve = [patron];
+        s.players[0].pawnZones = Array.from({ length: 5 }, (_, i) => placed(i === 2 ? fieldMaterial : card('pawn_01')));
+    });
+    act(() => game.actions.handleActionFromHand(contract, 'activate', 0));
+    expect(game.state.levelTributeReq?.totalLevel).toBe(10);
+    act(() => game.actions.handleLevelTribute([handMaterial.instanceId, fieldMaterial.instanceId]));
+    expect(game.state.reserveSelectionReq).not.toBeNull();
+    expect(game.gameState!.players[0].discard).toEqual([]);
+    act(() => game.actions.handleReserveSelection(0));
+    expect(game.state.pawnPlacementReq?.slots).toEqual([2]);
+    act(() => game.actions.handlePawnPlacement(2, Position.DEFENSE));
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.state.pendingEffectCard).toBeNull();
+    expect(game.gameState!.players[0].reserve).toEqual([]);
+    expect(game.gameState!.players[0].pawnZones[2]).toMatchObject({ card: { instanceId: patron.instanceId }, position: Position.DEFENSE });
+    expect(game.gameState!.players[0].discard).toHaveLength(3);
+    expect(game.gameState!.players[0].actionZones[0]).toBeNull();
 });
 
 it('opening turns, AI-only debug setup, and automated drawing preserve hands and hidden card rules', () => {
@@ -606,6 +685,17 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => root.root.findByProps({ 'aria-label': 'Deck: 35 cards. Inspect top card' }).props.onClick());
     expect(inspect).toHaveBeenCalledOnce();
     expect(hidden.position).toBe(Position.HIDDEN);
+    const openReserve = vi.fn();
+    act(() => root.update(<><DeckPile count={3} label="Your Reserve" backStyle="light" onOpen={openReserve} /><DeckPile count={35} label="Deck" /></>));
+    const reserve = root.root.findByProps({ 'aria-label': 'Your Reserve: 3 cards. Open pile' });
+    expect(reserve.props.className).toContain('card-back--light');
+    expect(root.root.findByProps({ 'aria-label': 'Deck: 35 cards' }).props.className).not.toContain('card-back--light');
+    expect(reserve.findByType('span').children).toEqual(['3']);
+    act(() => reserve.props.onClick());
+    const preventDefault = vi.fn();
+    act(() => reserve.props.onKeyDown({ key: 'Enter', preventDefault }));
+    expect(openReserve).toHaveBeenCalledTimes(2);
+    expect(preventDefault).toHaveBeenCalledOnce();
     act(() => root.update(<><Zone card={hidden} type="pawn" /><DeckPile count={0} label="Deck" /><GameSidebar gameState={debugGame} viewerIndex={0} selectedCard={null} selectedFieldSlot={{ playerIndex: 1, type: 'pawn', index: 0 }} isOpen setIsOpen={() => {}} /></>));
     expect(root.root.findAllByType(XrayOverlay)).toHaveLength(0);
     expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(true);

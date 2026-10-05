@@ -63,7 +63,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
                 const c = action.context;
                 const deckIndex = action.deckId ? gameState.players[1].deck.findIndex(card => card.instanceId === action.deckId) : undefined;
                 // A human opponent chooses which of their cards Glass Witch reveals.
-                resolveEffect(c.card, c.target, c.discardIndex, c.handIndex, deckIndex, action.trigger, c.tributeIndices, c.targets, undefined, c.shuffleCardIds, c.pawnPlacement, c.effectId);
+                resolveEffect(c.card, c.target, c.discardIndex, c.handIndex, deckIndex, action.trigger, c.tributeIndices, c.targets, undefined, c.shuffleCardIds, c.pawnPlacement, c.effectId, c.reserveIndex, c.materialIds);
             }
         }, gameState.response ? 0 : 350);
         return () => clearTimeout(timer);

@@ -23,7 +23,7 @@ const topics: Topic[] = [
     id: 'basics', title: 'Starting Info', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
       'Start with 800 Life Points (LP). Reduce your opponent’s LP to 0 or below to win, through combat or card effects.',
       'A deck contains 40–60 cards, with no more than 3 copies of any one card.',
-      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes.',
+      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes; Actions also have Contracts.',
     ]
   },
   {
@@ -60,9 +60,8 @@ const topics: Topic[] = [
       'Simultaneous triggered effects form one chain in this order: turn player mandatory effects, opponent mandatory effects, turn player optional effects, opponent optional effects. Optional effects are included only if activated. Build the entire chain before resolving it in reverse order.',
       'Before an attack, phase change or effect resolves, the other player gets a response opportunity. A window appears only if that player has an eligible card, and shows the number of activatable cards.',
       'Eligible responses are Conditions set on an earlier turn and face-up Pawns with an explicitly designated quick effect. Ordinary Pawn effects and Actions cannot join a chain as responses.',
-      'Choose a response card or Pass. After a card is added, the other player may respond. A player with no eligible cards passes automatically. Two consecutive passes resolve the chain.',
-      'Choose targets and costs before adding the effect. Costs are paid once, when the effect is added, and are not refunded if its target becomes invalid.',
-      'Resolve the last effect added first, then work backward. A target that leaves the field is not replaced by another card in the same zone. Removing an effect’s source does not itself negate that effect.',
+      'After a card is added to a chain, the other player may respond. A player with no eligible effects doesnt get a response opportunity.',
+      'Resolve the last effect in the chain first, then work backward. Removing an effect’s source does not itself negate that effect.',
       'Once the chain finishes, the pending attack or phase change continues if still legal. No new links are added while a chain is resolving.',
     ]
   },
@@ -89,6 +88,13 @@ const topics: Topic[] = [
       'You may tribute with all 5 Pawn zones occupied, then place the new Pawn in a zone freed by the tributes.',
       'A face-up Tribute Summon counts as a Normal Summon for “on Normal Summon” effects.',
     ], note: 'Tribute Summons and tribute sets use neither your level 1–4 Normal Summon allowance nor your level 1–4 set allowance.'
+  },
+  {
+    id: 'reserve', title: 'The Reserve', subtitle: 'Vassal Pawns & Contract summons', icon: 'fa-layer-group', rules: [
+      'Your Reserve is separate from your deck and holds up to 10 extra Pawns. A Reserve can hold either Vassal or Merge Pawns.',
+      'Vassal Pawns are cards known for there red frame. To summon a Vassal from the Reserve you must use a Contract Action.',
+      'When you use a Contract Action to Vassal summon you place the pawn in face-up Attack or Defense Position. This is counted as a special summon.'
+    ]
   },
   {
     id: 'pawn-info', title: 'Pawn Information', subtitle: 'Read every part of a Pawn card', icon: 'fa-address-card', rules: [
@@ -193,8 +199,8 @@ const pawnInfoTabs = ['Pawn card', 'Types', 'Attributes', 'Changing position'];
 
 
 const examples = [
-  { id: 'pawn_01', label: 'Pawn', color: '#f5bd48', description: 'Your fighters on the field. Each has a level, ATK, DEF and its own effects.' },
-  { id: 'action_01', label: 'Action', color: '#48e0ad', description: 'Play during your Main Phases. Normal Actions go to the Discard Pile after resolving.' },
+  { id: 'pawn_01', label: 'Pawn', color: '#f5bd48', description: 'The entities you summon to the field. Each has a level, ATK, DEF and its own effects.' },
+  { id: 'action_01', label: 'Action', color: '#48e0ad', description: 'Utility cards that come in a variety of sub-types. Play during your Main Phases.' },
   { id: 'condition_03', label: 'Condition', color: '#f181ce', description: 'Set first. From the next turn onward, activate during either player’s turn when eligible.' },
 ];
 

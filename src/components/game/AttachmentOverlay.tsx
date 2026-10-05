@@ -4,6 +4,17 @@ import { createPortal } from 'react-dom';
 type Bounds = { x: number; y: number; width: number; height: number };
 export type FieldLink = { source: Bounds; target: Bounds };
 
+export function fieldBounds(element: HTMLElement): Bounds {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+}
+
+export function sameFieldLink(a: FieldLink, b: FieldLink): boolean {
+    const sameBounds = (left: Bounds, right: Bounds) => left.x === right.x && left.y === right.y
+        && left.width === right.width && left.height === right.height;
+    return sameBounds(a.source, b.source) && sameBounds(a.target, b.target);
+}
+
 export function LinkGraphic({ link, kind, outlineTarget = true }: { link: FieldLink; kind: 'attachment' | 'attack'; outlineTarget?: boolean }) {
     const { source, target } = link;
     const center = (r: Bounds) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
@@ -45,21 +56,23 @@ export function AttachmentOverlay() {
     const [links, setLinks] = useState<FieldLink[]>([]);
     useEffect(() => {
         let source: HTMLElement | null = null;
+        let targetIds = '';
+        let targets: HTMLElement[] = [];
         let frame = 0;
-        const clear = () => { source = null; cancelAnimationFrame(frame); setLinks([]); };
+        const clear = () => { source = null; targets = []; targetIds = ''; cancelAnimationFrame(frame); setLinks(previous => previous.length ? [] : previous); };
         const update = () => {
             if (!source?.isConnected) { clear(); return; }
-            const targetIds: string[] = JSON.parse(source.dataset.attachedTo ?? '[]');
-            const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-field-card-id]'))
-                .filter(element => targetIds.includes(element.dataset.fieldCardId ?? ''));
+            const currentIds = source.dataset.attachedTo ?? '[]';
+            if (currentIds !== targetIds || targets.some(target => !target.isConnected)) {
+                const ids = new Set<string>(JSON.parse(currentIds));
+                targets = Array.from(document.querySelectorAll<HTMLElement>('[data-field-card-id]'))
+                    .filter(element => ids.has(element.dataset.fieldCardId ?? ''));
+                targetIds = currentIds;
+            }
             if (!targets.length) { clear(); return; }
-            const bounds = (element: HTMLElement): Bounds => {
-                const rect = element.getBoundingClientRect();
-                return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
-            };
-            const sourceBounds = bounds(source);
-            const next = targets.map(target => ({ source: sourceBounds, target: bounds(target) }));
-            setLinks(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+            const sourceBounds = fieldBounds(source);
+            const next = targets.map(target => ({ source: sourceBounds, target: fieldBounds(target) }));
+            setLinks(previous => previous.length === next.length && previous.every((link, index) => sameFieldLink(link, next[index])) ? previous : next);
             frame = requestAnimationFrame(update);
         };
         const hover = (event: PointerEvent) => {

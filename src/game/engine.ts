@@ -1,5 +1,5 @@
 import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
-import { canTributeForSummon, isToken } from './cardHelpers';
+import { canTributeForSummon, isToken, isReservePawn } from './cardHelpers';
 import { Card, CardContext, CardTarget, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, autoPass, fieldActivations, openResponse, passPriority, queueEventResponses, resolveChainStep, runEffect, startPendingTriggers } from './chains';
@@ -38,12 +38,13 @@ export type GameEvent = { type: 'destroyed'; playerIndex: number; index: number;
 export interface Transition { state: GameState; events: GameEvent[] }
 
 export function createGame(players: [
-    { id: string; name: string; deck: Card[]; deckName?: string },
-    { id: string; name: string; deck: Card[]; deckName?: string }
+    { id: string; name: string; deck: Card[]; reserve?: Card[]; deckName?: string },
+    { id: string; name: string; deck: Card[]; reserve?: Card[]; deckName?: string }
 ], coinWinner?: 0 | 1): GameState {
     const makePlayer = (input: typeof players[number]): Player => ({
         ...structuredClone(input), lp: 800, initialDeck: structuredClone(input.deck),
         deck: structuredClone(input.deck.slice(5)), hand: structuredClone(input.deck.slice(0, 5)),
+        reserve: structuredClone(input.reserve ?? []),
         discard: [], void: [], pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null),
         normalSummonUsed: false, hiddenSummonUsed: false, activatedHardOncePerTurns: [],
     });
@@ -73,6 +74,7 @@ export function canAttack(state: GameState, actor: number, index: number): boole
 export function canPlayCard(state: GameState, card: Card): boolean {
     const actor = state.activePlayerIndex, player = state.players[actor];
     if (!isMain(state, actor) || !player.hand.some(c => c.instanceId === card.instanceId)) return false;
+    if (isReservePawn(card)) return false;
     if (card.type === CardType.PAWN) return card.level <= 4
         ? player.pawnZones.includes(null) && (!player.normalSummonUsed || !player.hiddenSummonUsed)
         : player.pawnZones.filter(z => z && canTributeForSummon(z.card, card)).length >= (card.level <= 7 ? 1 : 2);
@@ -152,7 +154,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
         case 'summon': {
             if (!isMain(state, actor) || !validSlot(command.slot)) return state;
             const card = player.hand.find(c => c.instanceId === command.cardId);
-            if (!card || card.type !== CardType.PAWN) return state;
+            if (!card || card.type !== CardType.PAWN || isReservePawn(card)) return state;
             const tributes = command.tributes ?? [];
             const required = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
             if (tributes.length !== required || new Set(tributes).size !== required || tributes.some(i => !validSlot(i) || !player.pawnZones[i] || !canTributeForSummon(player.pawnZones[i]!.card, card))) return state;

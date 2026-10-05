@@ -59,7 +59,8 @@ export enum PawnType {
 }
 
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token' }
+export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal' }
+export enum ActionSubtype { CONTRACT = 'Contract' }
 
 export interface Card {
   instanceId: string;
@@ -71,6 +72,7 @@ export interface Card {
   attribute?: Attribute;
   pawnType?: PawnType;
   pawnSubtype?: PawnSubtype;
+  actionSubtype?: ActionSubtype;
   switchMandatory?: boolean;
   isLingering?: boolean;
   /** Attach subtype for Actions/Conditions; mutually exclusive with isLingering. */
@@ -115,6 +117,7 @@ export interface Player {
   deckName?: string;
   lp: number;
   deck: Card[];
+  reserve: Card[];
   initialDeck: Card[];
   hand: Card[];
   discard: Card[];
@@ -233,6 +236,12 @@ export interface TributeSelectionRequest extends HandSelectionRequest {
   filter?: CardFilter;
 }
 
+/** Tribute a variable number of Pawns from hand and field with an exact level sum. */
+export interface LevelTributeSelectionRequest {
+  playerIndex: number;
+  totalLevel: number;
+}
+
 export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
@@ -242,7 +251,7 @@ export type TargetSelectScope = 'active' | 'opponent' | 'both';
 export type EffectResult = {
   requireEffectChoice?: { id: string; label: string; disabled: boolean }[];
   newState: GameState;
-  requirePawnPlacement?: { playerIndex: number; position?: Position.ATTACK | Position.DEFENSE };
+  requirePawnPlacement?: { playerIndex: number; position?: Position.ATTACK | Position.DEFENSE; slots?: number[] };
   halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
@@ -253,6 +262,8 @@ export type EffectResult = {
   requireHandSelection?: HandSelectionRequest;
   requirePeekSelection?: PeekSelectionRequest;
   requireDeckSelection?: CardSelectionRequest;
+  requireReserveSelection?: CardSelectionRequest;
+  requireLevelTribute?: LevelTributeSelectionRequest;
   requireEffectTribute?: TributeSelectionRequest;
   requireShuffleSelection?: ShuffleSelectionRequest;
 };
@@ -272,6 +283,8 @@ export interface CardContext {
   handIndex?: number;
   peekIndex?: number;
   deckIndex?: number;
+  reserveIndex?: number;
+  materialIds?: string[];
   tributeIndices?: number[];
   shuffleCardIds?: string[];
 }
@@ -336,6 +349,7 @@ export interface ChainLink {
   targetIds?: (string | undefined)[];
   discardId?: string;
   deckId?: string;
+  reserveId?: string;
   peekCardId?: string;
 }
 

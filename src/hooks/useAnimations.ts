@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useManagedTimeout } from './useManagedTimeout';
 import { playSound } from '../audio';
 import type { SoundName } from '../audio';
@@ -17,7 +17,7 @@ type ShatterShard = {
     clipPath: string;
 };
 
-type ShatterEffect = {
+export type ShatterEffect = {
     id: string;
     left: number;
     top: number;
@@ -46,8 +46,6 @@ export const useAnimations = () => {
     const prevVoidLengths = useRef<[number, number]>([0, 0]);
 
     // LP Animation State
-    const [displayedLp, setDisplayedLp] = useState<[number, number]>([800, 800]);
-    const [lpScale, setLpScale] = useState<[boolean, boolean]>([false, false]);
     const [lpFlash, setLpFlash] = useState<[string | null, string | null]>([null, null]);
 
     // Phase/Turn Overlays
@@ -59,10 +57,18 @@ export const useAnimations = () => {
     const lastLp = useRef<[number, number]>([800, 800]);
 
     /** Registers a DOM element for animation targeting. */
-    const setRef = (key: string) => (el: HTMLElement | null) => {
-        if (el) zoneRefs.current.set(key, el);
-        else zoneRefs.current.delete(key);
-    };
+    const refCallbacks = useRef(new Map<string, (el: HTMLElement | null) => void>());
+    const setRef = useCallback((key: string) => {
+        let callback = refCallbacks.current.get(key);
+        if (!callback) {
+            callback = (el: HTMLElement | null) => {
+                if (el) zoneRefs.current.set(key, el);
+                else zoneRefs.current.delete(key);
+            };
+            refCallbacks.current.set(key, callback);
+        }
+        return callback;
+    }, []);
 
     /** Breaks a visual copy of the card into fragments spanning its full footprint. */
     const triggerShatter = (zoneKey: string, captured?: ShatterSource, sound: SoundName = 'card-destruction') => {
@@ -76,8 +82,10 @@ export const useAnimations = () => {
         const rotated = captured?.rotated ?? visibleCard!.classList.contains('rotate-90');
         // Swap the grid with the card so portrait and defense-position cards
         // produce similarly sized fragments instead of long landscape strips.
-        const columns = rotated ? 6 : 5;
-        const rows = rotated ? 5 : 6;
+        // Twelve substantial fragments preserve the face without multiplying
+        // its full DOM thirty times during a simultaneous field clear.
+        const columns = rotated ? 4 : 3;
+        const rows = rotated ? 3 : 4;
         const cellWidth = rect.width / columns;
         const cellHeight = rect.height / rows;
         const shardShapes = [
@@ -127,11 +135,11 @@ export const useAnimations = () => {
     return {
         // State
         floatingTexts, shatterEffects,
-        discardFlash, voidFlash, displayedLp, lpScale, lpFlash,
+        discardFlash, voidFlash, lpFlash,
         phaseFlash, turnFlash,
         // Setters
         setFloatingTexts, setDiscardFlash, setVoidFlash,
-        setDisplayedLp, setLpScale, setLpFlash,
+        setLpFlash,
         setPhaseFlash, setTurnFlash,
         // Refs
         prevDiscardLengths, prevVoidLengths, lastLp,

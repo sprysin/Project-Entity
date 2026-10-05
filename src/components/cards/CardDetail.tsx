@@ -1,9 +1,9 @@
-import { isToken } from '../../game/cardHelpers';
+import { isToken, isReservePawn } from '../../game/cardHelpers';
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { Card, CardType, Attribute } from '../../types';
-import { cardTypeLabel } from '../../cards/CardRegistry';
+import { cardSubtype, cardTypeLabel } from '../../cards/CardRegistry';
 import { cardRegistry } from '../../cards/CardRegistry';
 
 const getAttributeColor = (attr?: Attribute) => {
@@ -124,6 +124,8 @@ interface CardDetailProps {
  * Used in the Hand, the Sidebar, and the Database Gallery.
  */
 export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, className = '', onClick, highlightAtk, highlightDef, showOriginalStats, domRef }) => {
+    const artworkSubtype = cardSubtype(card);
+    const framedArtwork = artworkSubtype !== null;
     const visibleCounters = Object.entries<number>(counters ?? {}).filter(([, count]) => count > 0);
     const originalCard = cardRegistry.getCard(card.id);
     const displayedAtk = showOriginalStats ? originalCard?.atk ?? card.atk : card.atk;
@@ -149,7 +151,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
     return (
         <ScaledCard className={className} onClick={onClick} domRef={domRef}>
         <div
-            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${isToken(card) ? 'card-token' : card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''}`}
+            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${isToken(card) ? 'card-token' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''}`}
         >
             {/* Header: Name + Level */}
             <div className="card-inner-border"></div>
@@ -190,7 +192,13 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
 
             {/* Artwork placeholder: shared symbols keep the classification recognizable. */}
             <div className="card-artwork">
-                <div className="card-artwork-symbol" aria-hidden="true">
+                <div className={`card-artwork-symbol${framedArtwork ? ' card-artwork-symbol--framed' : ''}`} data-subtype={artworkSubtype ?? undefined} aria-hidden="true">
+                    {framedArtwork && <svg className="card-artwork-subtype-frame" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3">
+                        {artworkSubtype === 'Attach' ? <polygon points="50,4 97,94 3,94" strokeLinejoin="round" />
+                            : artworkSubtype === 'Lingering' ? <circle cx="50" cy="50" r="46" />
+                            : <rect x="4" y="4" width="92" height="92" />}
+                        {artworkSubtype === 'Contract' && <path d="M -8 15 V 85 M 108 15 V 85" />}
+                    </svg>}
                     {card.type === CardType.PAWN ? (
                         <AttributeSymbol attribute={card.attribute} />
                     ) : card.type === CardType.ACTION ? (

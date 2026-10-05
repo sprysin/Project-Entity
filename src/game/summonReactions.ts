@@ -1,5 +1,6 @@
 import { Card, CardContext, CardType, GameState, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
+import { isReservePawn } from './cardHelpers';
 
 export function handSummonSource(state: GameState, request: { sourceId: string; playerIndex: number }) {
     const player = state.players[request.playerIndex];
@@ -12,7 +13,7 @@ export function handSummonCandidates(state: GameState, request: { sourceId: stri
     const source = handSummonSource(state, request);
     const filter = source && cardRegistry.getEffect(source.card.id)?.handSummonFilter;
     return filter && player.pawnZones.includes(null)
-        ? player.hand.filter(card => card.type === CardType.PAWN && filter(card)) : [];
+        ? player.hand.filter(card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card)) : [];
 }
 
 export function notifyPawnSummoned(state: GameState, summonedCard: Card, summoningPlayerIndex: number, tributeCount: number): GameState {

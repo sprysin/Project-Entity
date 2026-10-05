@@ -17,10 +17,13 @@ export type AIDecision =
 
 /** The planner receives only this observation. Hidden identities, stats, hands and draw order are stripped. */
 export function observeGame(state: GameState, viewer: number, knownCards: ReadonlyMap<string, Card> = new Map()): GameState {
-    const view = structuredClone(state);
+    // History and initial decks are excluded from every observation. Strip them
+    // before cloning so a long match does not amplify each simulated decision.
+    const view = structuredClone<GameState>({ ...state, log: [], players: [
+        { ...state.players[0], initialDeck: [] }, { ...state.players[1], initialDeck: [] },
+    ] });
     const unknown = (card: Card, type: CardType): Card => ({ instanceId: card.instanceId, ownerId: card.ownerId, id: 'unknown', name: 'Unknown card', type, rarity: 'Common', level: 0, atk: 0, def: 0, effectText: '' });
     view.players.forEach((p, index) => {
-        p.initialDeck = [];
         if (index === viewer) {
             // The deck's composition is known, but its current draw order is not.
             p.deck.sort((a, b) => a.id.localeCompare(b.id) || a.instanceId.localeCompare(b.instanceId));
@@ -28,10 +31,10 @@ export function observeGame(state: GameState, viewer: number, knownCards: Readon
         }
         p.hand = p.hand.map(c => unknown(c, CardType.ACTION));
         p.deck = p.deck.map(c => unknown(c, CardType.ACTION));
+        p.reserve = p.reserve.map(c => unknown(c, CardType.PAWN));
         p.pawnZones = p.pawnZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: knownCards.get(z.card.instanceId) ?? unknown(z.card, CardType.PAWN) } : z);
         p.actionZones = p.actionZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: knownCards.get(z.card.instanceId) ?? unknown(z.card, CardType.CONDITION) } : z);
     });
-    view.log = [];
     return view;
 }
 

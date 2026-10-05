@@ -5,14 +5,19 @@ import CatalogPagination, { useCatalogPage } from '../src/components/catalog/Cat
 import CatalogFilters, { useCatalogFilters } from '../src/components/catalog/CatalogFilters';
 import DeckCreator from '../src/components/decks/DeckCreator';
 import PlaytestSetup from '../src/components/decks/PlaytestSetup';
+import RulesView from '../src/components/rules/RulesView';
 import * as storage from '../src/desktop/storage';
 import { expect, it, vi } from 'vitest';
-import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable } from '../src/decks';
-import { CARD_RARITIES, CARD_RARITY_TIERS } from '../src/types';
+import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable, createRuntimeDeck, createRuntimeReserve, reserveSize } from '../src/decks';
+import { isReservePawn } from '../src/game/cardHelpers';
+import { cardRegistry } from '../src/cards/CardRegistry';
+import { CardType, CARD_RARITIES, CARD_RARITY_TIERS } from '../src/types';
 
 it('validates a 1000-card catalog, paginates full search results, and preserves deck copy limits', () => {
     expect(sortedCards().every(card => card.pawnSubtype !== 'Token')).toBe(true);
     expect(sortedCards().every(card => CARD_RARITIES.includes(card.rarity))).toBe(true);
+    const pawns = sortedCards().filter(card => card.type === CardType.PAWN);
+    expect(pawns).toEqual([false, true].flatMap(reserve => pawns.filter(card => isReservePawn(card) === reserve).sort((a, b) => a.name.localeCompare(b.name))));
     expect(CARD_RARITY_TIERS.Legendary).toBe(CARD_RARITY_TIERS.Mythic);
     expect(CARD_RARITY_TIERS.Legendary).toBe(CARD_RARITY_TIERS.Relic);
     const registry = new CardRegistry();
@@ -87,6 +92,9 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     act(() => root.unmount());
     act(() => { root = create(<DeckCreator onBack={() => {}} />); });
     act(() => root.root.findAllByType('button').find(button => button.props.children?.[1] === ' New deck')!.props.onClick());
+    expect(root.root.findAllByProps({ className: 'deck-empty-center' })).toHaveLength(1);
+    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByProps({ className: 'deck-reserve-slot' })).toHaveLength(10);
+    expect(JSON.stringify(root.toJSON())).not.toContain('Vassal Pawns are added here automatically');
     const catalog = root.root.findByProps({ 'aria-label': 'All cards' });
     const cardButton = () => catalog.findAllByType('button').find(button => button.props['aria-label'] === `View ${definition.name}`)!;
     act(() => cardButton().props.onClick());
@@ -94,7 +102,30 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     for (let copy = 0; copy < 4; copy++) act(() => cardButton().props.onDoubleClick());
     expect(root.root.findByProps({ 'aria-label': `Add ${definition.name}` }).props.disabled).toBe(true);
     expect(root.root.findByProps({ 'aria-label': 'Deck contents' }).findAllByType('button').filter(button => button.props.title === 'Right click to remove')).toHaveLength(3);
+    const patron = sortedCards().find(card => card.id === 'pawn_patron_of_judgement')!;
+    act(() => root.root.findByProps({ 'aria-label': 'Search cards' }).props.onChange({ target: { value: 'Patron of Judgement' } }));
+    const patronButton = () => catalog.findByProps({ 'aria-label': `View ${patron.name}` });
+    act(() => patronButton().props.onDoubleClick());
+    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByType('button')).toHaveLength(1);
+    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByProps({ className: 'deck-reserve-slot' })).toHaveLength(9);
+    expect(root.root.findAllByProps({ className: 'deck-empty-center' })).toHaveLength(0);
+    expect(root.root.findByProps({ 'aria-label': 'Main deck cards' }).findAllByType('button')).toHaveLength(3);
+    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByType('div').some(div => div.props.className?.includes('card-vassal'))).toBe(true);
     act(() => root.unmount());
+    act(() => { root = create(<RulesView onBack={() => {}} />); });
+    const chapters = root.root.findByProps({ 'aria-label': 'Rulebook chapters' });
+    const reserveChapter = chapters.findAllByType('button').find(button => button.findAllByType('strong').some(title => title.props.children === 'The Reserve'))!;
+    expect(reserveChapter).toBeTruthy();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
+    act(() => reserveChapter.props.onClick());
+    expect(root.root.findByType('h1').props.children).toBe('The Reserve');
+    const reserveRules = root.root.findByProps({ className: 'rulebook-rule-list' }).findAllByType('p').map(rule => rule.props.children).join(' ');
+    expect(reserveRules).toContain('up to 10 Vassal Pawns');
+    expect(reserveRules).toContain('no more than 3 copies');
+    expect(reserveRules).toContain('Contract Action');
+    expect(reserveRules).toContain('does not use your Normal Summon');
+    act(() => root.unmount());
+    vi.unstubAllGlobals();
     for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }, { rarity: 'Unknown' }]) {
         expect(() => registry.register({ ...definition, ...invalid, id: 'invalid' } as typeof definition, {})).toThrow('Invalid');
     }
@@ -109,15 +140,32 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
 });
 
 it('enforces deck size boundaries, rejects malformed imports, and offers recent playable decks for training', () => {
-    // Synthetic IDs exercise the size boundary independently of the current small card pool.
-    const atSize = (size: number) => ({ ...newDeck(), cards: Array.from({ length: size }, (_, i) => ({ cardId: `card-${i}`, quantity: 1 })) });
+    const mainCards = sortedCards().filter(card => !isReservePawn(card));
+    const atSize = (size: number) => ({ ...newDeck(), cards: Array.from({ length: Math.ceil(size / 3) }, (_, i) => ({ cardId: mainCards[i].id, quantity: Math.min(3, size - i * 3) })) });
     expect(isDeckPlayable(atSize(39))).toBe(false);
     expect(isDeckPlayable(atSize(40))).toBe(true);
     expect(isDeckPlayable(atSize(60))).toBe(true);
     expect(isDeckPlayable(atSize(61))).toBe(false);
-    expect(canAddCard(atSize(59), 'another')).toBe(true);
-    expect(canAddCard(atSize(60), 'another')).toBe(false);
-    expect(canAddCard(atSize(61), 'another')).toBe(false);
+    const another = mainCards.at(-1)!.id;
+    expect(canAddCard(atSize(59), another)).toBe(true);
+    expect(canAddCard(atSize(60), another)).toBe(false);
+    expect(canAddCard(atSize(61), another)).toBe(false);
+    const vassal = cardRegistry.getCard('pawn_patron_of_judgement')!;
+    const withReserve = { ...atSize(40), reserve: [{ cardId: vassal.id, quantity: 3 }] };
+    expect(isDeckPlayable(withReserve)).toBe(true);
+    expect(reserveSize(withReserve)).toBe(3);
+    expect(createRuntimeDeck(withReserve, 'p0').some(isReservePawn)).toBe(false);
+    expect(createRuntimeReserve(withReserve, 'p0')).toHaveLength(3);
+    expect(createRuntimeReserve(withReserve, 'p0').every(card => card.ownerId === 'p0')).toBe(true);
+    expect(parseDeck(withReserve).reserve).toEqual(withReserve.reserve);
+    expect(() => parseDeck({ ...atSize(40), cards: [...atSize(40).cards, { cardId: vassal.id, quantity: 1 }] })).toThrow('Reserve');
+    expect(() => parseDeck({ ...atSize(40), reserve: [{ cardId: another, quantity: 1 }] })).toThrow('Reserve');
+    const reserveIds = Array.from({ length: 4 }, (_, i) => `test-reserve-limit-${i}`);
+    reserveIds.forEach(id => cardRegistry.register({ ...vassal, id }, cardRegistry.getEffect(vassal.id)!));
+    const fullReserve = { ...atSize(40), reserve: reserveIds.map((cardId, i) => ({ cardId, quantity: i === 3 ? 1 : 3 })) };
+    expect(isDeckPlayable(fullReserve)).toBe(true);
+    expect(canAddCard(fullReserve, vassal.id)).toBe(false);
+    expect(() => parseDeck({ ...fullReserve, reserve: [...fullReserve.reserve, { cardId: vassal.id, quantity: 1 }] })).toThrow('10 cards');
     expect(parseDeck(newDeck()).cards).toEqual([]);
     const entry = { cardId: sortedCards()[0].id, quantity: 1 };
     for (const cards of [[{ ...entry, cardId: 'missing' }], [{ ...entry, quantity: -1 }], [{ ...entry, quantity: 1.5 }], [entry, entry], [null]]) {

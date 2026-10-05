@@ -1,7 +1,7 @@
 import { activationReservation, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card, CardContext, CardFilter, CardType, GameState, Phase, Position, ShuffleLocation, TargetSelectScope } from '../../types';
-import { canSetPawn, cardsAtLocation, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
+import { ActionSubtype, Card, CardContext, CardFilter, CardType, GameState, PawnSubtype, Phase, Position, ShuffleLocation, TargetSelectScope } from '../../types';
+import { canSetPawn, cardsAtLocation, isReservePawn, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
 import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
 import { drawCards } from '../../game/draw';
@@ -10,6 +10,23 @@ import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachm
 import { notifyFieldEvent } from '../../game/fieldEvents';
 
 export const Effect = {
+    /** Contract summon from Reserve; selections and freed zones are checked again on resolution. */
+    SummonFromReserve: (subtype: PawnSubtype, filter: CardFilter): EffectStep => (state, context) => {
+        if (context.card.type !== CardType.ACTION || context.card.actionSubtype !== ActionSubtype.CONTRACT) return { halt: true };
+        const player = state.players[context.playerIndex];
+        const eligible: CardFilter = card => card.type === CardType.PAWN && card.pawnSubtype === subtype && filter(card);
+        const slots = player.pawnZones.flatMap((zone, index) => zone ? [] : [index]);
+        if (!slots.length || !player.reserve.some(eligible)) return { halt: true };
+        if (context.reserveIndex === undefined) return { requireReserveSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: `Select a ${subtype} from your Reserve` } };
+        const card = player.reserve[context.reserveIndex];
+        if (!card || !eligible(card)) return { halt: true };
+        const placement = context.pawnPlacement;
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, slots } };
+        if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
+        player.reserve.splice(context.reserveIndex, 1);
+        player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false,
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+    },
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
     ShuffleFrom: (location: ShuffleLocation, count: number, filter: CardFilter = () => true): EffectStep => (state, context) => {
         if (!Number.isInteger(count) || count < 1) return { halt: true };
@@ -62,7 +79,7 @@ export const Effect = {
     /** Select a Pawn from the Deck, choose an empty zone, then summon and shuffle. */
     SpecialSummonFromDeck: (filter: CardFilter, position?: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
-        const eligible: CardFilter = card => card.type === CardType.PAWN && filter(card);
+        const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card);
         if (!player.pawnZones.includes(null) || !player.deck.some(eligible)) return { halt: true };
         if (context.deckIndex === undefined) return { requireDeckSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' } };
         const card = player.deck[context.deckIndex];
@@ -81,7 +98,7 @@ export const Effect = {
     },
     SpecialSummonFromHand: (filter: CardFilter): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
-        const eligible: CardFilter = card => card.type === CardType.PAWN && filter(card);
+        const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card);
         if (context.handIndex === undefined) return {
             requireHandSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' }
         };
