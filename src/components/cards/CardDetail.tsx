@@ -128,11 +128,12 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
     const framedArtwork = artworkSubtype !== null;
     const visibleCounters = Object.entries<number>(counters ?? {}).filter(([, count]) => count > 0);
     const originalCard = cardRegistry.getCard(card.id);
+    const changedAttribute = originalCard?.attribute !== undefined && card.attribute !== originalCard.attribute;
     const displayedAtk = showOriginalStats ? originalCard?.atk ?? card.atk : card.atk;
     const displayedDef = showOriginalStats ? originalCard?.def ?? card.def : card.def;
     const getStatColor = (current: number, original?: number) => {
         if (original === undefined) return 'text-yellow-400';
-        if (current > original) return 'text-blue-500';
+        if (current > original) return 'text-[var(--increased-stat-color)]';
         if (current < original) return 'text-red-500';
         return 'text-yellow-400';
     };
@@ -174,7 +175,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                 {card.type === CardType.PAWN ? (
                     <div className="flex items-center space-x-1 w-full">
                         {/* Attribute Bubble */}
-                        <div className={`w-5 h-5 text-[8px] rounded-full flex items-center justify-center ${getAttributeColor(card.attribute)} font-bold border border-white/20`}>
+                        <div aria-label={`${card.attribute ?? 'NORMAL'} attribute${changedAttribute ? ' (changed)' : ''}`} className={`w-5 h-5 text-[8px] rounded-full flex items-center justify-center ${getAttributeColor(card.attribute)} font-bold border ${changedAttribute ? 'ring-2 ring-[var(--increased-stat-color)] border-[var(--increased-stat-color)]' : 'border-white/20'}`}>
                             <AttributeSymbol attribute={card.attribute} />
                         </div>
                         <span className={`text-[9px] font-orbitron text-slate-300 font-bold uppercase tracking-wider`}>

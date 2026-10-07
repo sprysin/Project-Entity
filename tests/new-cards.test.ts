@@ -484,7 +484,7 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
             duel.activePlayerIndex = battleMode === 'borrowed' ? 1 : 0;
             const destroyed = resolveCombat(duel, 0, 0);
             expect(destroyed.players[owner].discard.some(value => value.instanceId === knight.instanceId)).toBe(true);
-            expect(destroyed.pendingReactions).toContainEqual({ card: knight, playerIndex: owner, trigger: 'battle_destroyed' });
+            expect(destroyed.pendingReactions).toContainEqual(expect.objectContaining({ card: knight, playerIndex: owner, trigger: 'battle_destroyed' }));
             const choices = effectChoices(destroyed, knight, 'battle_destroyed');
             expect(choices).toHaveLength(destroyed.players[owner].pawnZones.filter(zone => !zone).length * 2);
             expect(choices.every(choice => choice.playerIndex === owner && choice.pawnPlacement?.position === Position.ATTACK

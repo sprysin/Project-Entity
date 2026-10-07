@@ -1,6 +1,7 @@
 import { handSummonCandidates } from '../game/summonReactions';
 import { chooseAIAction, chooseAIHandSummon, observeGame } from '../game/opponentAI';
 import { canTribute } from '../game/cardHelpers';
+import { cardRegistry } from '../cards/CardRegistry';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     GameState, Card, Position, Phase, CardSelectionRequest, PlaytestDebugSettings,
@@ -321,13 +322,13 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         if (opponentMode === 'ai' && pending.playerIndex === 1) {
             const action = chooseAIAction(observeGame(gameState, 1), 1, pending.card, trigger);
             const context = action.kind === 'effect' ? action.context
-                : trigger === 'switch' && pending.card.switchMandatory ? choices[0] : undefined;
+                : (trigger === 'switch' && pending.card.switchMandatory || cardRegistry.getEffect(pending.card.id)?.mandatoryReactions) ? choices[0] : undefined;
             setGameState(prev => prev === gameState ? applyCommand(prev, 1, context
                 ? { type: 'activate', context, trigger }
                 : { type: 'cancelEffect', cardId: pending.card.instanceId }).state : prev);
             return;
         }
-        if (trigger === 'switch' && pending.card.switchMandatory) {
+        if ((trigger === 'switch' && pending.card.switchMandatory || cardRegistry.getEffect(pending.card.id)?.mandatoryReactions)) {
             resolveEffect(pending.card, undefined, undefined, undefined, undefined, trigger);
             return;
         }

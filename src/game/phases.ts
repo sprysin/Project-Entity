@@ -13,7 +13,7 @@ function resetTurnPlayer(player: Player): void {
     player.normalSummonUsed = false;
     player.hiddenSummonUsed = false;
     player.pawnZones.forEach(zone => {
-        if (zone) { zone.hasAttacked = false; zone.hasChangedPosition = false; }
+        if (zone) { zone.hasAttacked = false; zone.hasChangedPosition = false; delete zone.nextBattleAttacks; delete zone.attacksRemaining; }
     });
 }
 
@@ -127,7 +127,9 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
         }
         for (const player of updatedPlayers) player.pawnZones.forEach((zone, index) => {
             if (!zone?.returnToOwnerEndPhase) return;
-            sendToOwnerPile({ ...prev, players: updatedPlayers as [Player, Player] }, zone.card, 'discard');
+            const leaving = { ...prev, players: updatedPlayers as [Player, Player] };
+            sendToOwnerPile(leaving, zone.card, 'discard');
+            prev.pendingReactions = leaving.pendingReactions;
             player.pawnZones[index] = null;
         });
         const effectsToResolve = currentPendingEffects.filter(e => !e.duePhase && e.dueTurn === prev.turnNumber && (e.type === 'RESET_ATK' || e.type === 'RESET_DEF'));

@@ -1,4 +1,4 @@
-import { canTributeForSummon, fieldStats } from './cardHelpers';
+import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, needsChoice, resolveChain, resolveChainStep, runEffect } from './chains';
@@ -62,7 +62,7 @@ export function evaluatePosition(state: GameState, player: number): number {
         if (!zones.length) return threats.reduce((a, b) => a + b, 0);
         return Math.max(0, ...zones.map(z => z!.position === Position.ATTACK ? largest - fieldStats(state, z!).atk : 0));
     };
-    const attackPower = own.pawnZones.reduce((n, z) => n + (z?.position === Position.ATTACK ? fieldStats(state, z).atk * (z.nextBattleAttacks ?? z.attacksRemaining ?? 1) : 0), 0);
+    const attackPower = own.pawnZones.reduce((n, z) => n + (z?.position === Position.ATTACK && canPawnAttack(state, player, z) ? fieldStats(state, z).atk * (z.nextBattleAttacks ?? z.attacksRemaining ?? 1) : 0), 0);
     const unblocked = !opp.pawnZones.some(Boolean);
     const strongestVisibleAttack = (index: number) => Math.max(0, ...state.players[index].pawnZones.map(z => z && z.position !== Position.HIDDEN ? fieldStats(state, z).atk : 0));
     const ownStrongest = strongestVisibleAttack(player), enemyStrongest = strongestVisibleAttack(1 - player);
@@ -127,7 +127,21 @@ export function simulateAttack(state: GameState, index: number, target: number |
         const defender = estimate.players[1 - estimate.activePlayerIndex].pawnZones[target];
         if (defender?.card.id === 'unknown') defender.card = { ...defender.card, atk: 100, def: 100 };
     }
-    return resolveCombat(estimate, index, target);
+    let next = resolveCombat(estimate, index, target);
+    // Complete mandatory battle reactions through the same card contracts as gameplay.
+    for (let step = 0; step < 8 && !next.winner; step++) {
+        const reaction = next.pendingReactions?.find(entry => cardRegistry.getEffect(entry.card.id)?.mandatoryReactions);
+        if (!reaction) break;
+        const choices = effectChoices(next, reaction.card, reaction.trigger, 24);
+        if (!choices.length) {
+            next = { ...next, pendingReactions: next.pendingReactions?.filter(entry => entry !== reaction) };
+            continue;
+        }
+        const outcomes = choices.map(context => resolveChain(addChainLink({ ...next, response: undefined }, context, reaction.trigger)));
+        outcomes.sort((a, b) => evaluatePosition(b, reaction.playerIndex) - evaluatePosition(a, reaction.playerIndex));
+        next = outcomes[0];
+    }
+    return next;
 }
 
 /** Retain only identities that the AI has actually seen on the opponent's field. */
@@ -141,10 +155,11 @@ export function updateKnownCards(state: GameState, viewer: number, knownCards: M
 
 function attackChoices(state: GameState): Extract<AIDecision, { kind: 'attack' }>[] {
     const p = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
-    const targets: (number | 'direct')[] = opp.pawnZones.some(Boolean) ? opp.pawnZones.flatMap((z, i) => z ? [i] : []) : ['direct'];
+    const targets = opp.pawnZones.flatMap((z, i) => z ? [i] : []);
     return p.pawnZones.flatMap((z, index) => z?.position === Position.ATTACK
         && (!state.attackReplay || state.attackReplay.attackerId === z.card.instanceId)
-        && (z.attacksRemaining ?? (z.hasAttacked ? 0 : 1)) > 0 ? targets.map(target => ({ kind: 'attack' as const, index, target })) : []);
+        && (z.attacksRemaining ?? (z.hasAttacked ? 0 : 1)) > 0 && canPawnAttack(state, state.activePlayerIndex, z)
+        ? [...targets, ...(canAttackDirectly(state, state.activePlayerIndex, z.card) ? ['direct' as const] : [])].map(target => ({ kind: 'attack' as const, index, target })) : []);
 }
 
 function scoreAfterResponse(state: GameState, player: number): number {
@@ -153,7 +168,7 @@ function scoreAfterResponse(state: GameState, player: number): number {
     const own = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
     const index = own.pawnZones.findIndex(z => z?.card.instanceId === action.attackerId && z.position === Position.ATTACK);
     const target = action.targetId === 'direct' ? 'direct' : opp.pawnZones.findIndex(z => z?.card.instanceId === action.targetId);
-    if (index < 0 || target === 'direct' && opp.pawnZones.some(Boolean) || target !== 'direct' && target < 0) return evaluatePosition(state, player);
+    if (index < 0 || target === 'direct' && !canAttackDirectly(state, state.activePlayerIndex, own.pawnZones[index]!.card) || target !== 'direct' && target < 0) return evaluatePosition(state, player);
     return evaluatePosition(simulateAttack(state, index, target), player);
 }
 

@@ -17,6 +17,7 @@ import { GameSidebar } from './GameSidebar';
 import { HealthHud } from './HealthHud';
 import { SavedDeck } from '../../decks';
 import { fieldActivations } from '../../game/chains';
+import { canAttackDirectly } from '../../game/cardHelpers';
 import { canAttack, canChangePosition as canChangePawnPosition } from '../../game/engine';
 import { QuitDuelDialog } from './MatchModals';
 import { getSettings } from '../../desktop/storage';
@@ -303,6 +304,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                       </ContextMenu> : showFieldMenu ? <ContextMenu title={z!.card.name}>
                         {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && <ContextMenuButton label={z!.position === Position.HIDDEN ? 'Switch Summon' : 'Change Position'} onClick={() => changePawnPosition(i)} disabled={actionsDisabled || !canChangePosition} />}
                         {(gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && hasOnActivateEffect(z!.card) && <ContextMenuButton label="Activate Effect" onClick={() => actions.activateOnField(viewIndex, 'pawn', i)} disabled={actionsDisabled || !canActivateEffect} tone="purple" />}
+                        {gameState.currentPhase === Phase.BATTLE && attackReady && opponent.pawnZones.some(Boolean) && canAttackDirectly(gameState, viewIndex, z.card) && <ContextMenuButton label="Attack Directly" onClick={() => actions.handleAttack(i, 'direct')} disabled={actionsDisabled} tone="red" />}
                         {gameState.currentPhase === Phase.BATTLE && <ContextMenuButton label={attackReady ? 'Attack' : 'Cannot Attack'} onClick={() => actions.setTargetSelectMode('attack')} disabled={actionsDisabled || !attackReady} tone="red" />}
                       </ContextMenu> : null}
                       onClick={() => {

@@ -1,0 +1,41 @@
+import { IEffect, CardType, PawnType } from '../../../types';
+import { CardModule } from '../../CardRegistry';
+import { buildEffect, EffectStep, activationCost } from '../../engine/Builder';
+import { Effect } from '../../engine/Effects';
+import { Condition } from '../../engine/Requirements';
+
+const payHalfLp: EffectStep = (draftState, context) => {
+    const p = draftState.players[context.playerIndex];
+    const cost = Math.floor(p.lp / 2);
+    p.lp -= cost;
+};
+
+const effect: IEffect = {
+    onFieldActivate: buildEffect([
+        activationCost(payHalfLp),
+        Effect.SetSoftOncePerTurn(),
+        Effect.SearchDeck((c) => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST)
+    ]),
+    canActivate: (state, context) => {
+        const p = state.players[context.playerIndex];
+        if (!Condition.SoftOncePerTurn()(state, context)) return false;
+        if (p.lp <= 1) return false;
+        return p.deck.some(c => c.type === CardType.PAWN && c.level >= 5 && c.pawnType === PawnType.BEAST);
+    }
+};
+
+export default [
+    {
+        cardData: {
+            id: 'action_03',
+            name: 'Mark of the Forest Hunter',
+            type: CardType.ACTION,
+            rarity: 'Epic',
+            isLingering: true,
+            level: 0,
+            atk: 0,
+            def: 0,
+            effectText: 'Once per turn: pay half your LP, then add 1 level 5 or higher Beast type Pawn from your deck to your hand.',
+        }, effect
+    }
+] satisfies CardModule;

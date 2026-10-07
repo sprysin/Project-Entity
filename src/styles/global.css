@@ -27,6 +27,7 @@
 }
 
 :root {
+  --increased-stat-color: #52caff;
   --scrollbar-track: #070a0f;
   --scrollbar-thumb: #475569;
   --scrollbar-thumb-hover: #ca8a04;

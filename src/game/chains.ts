@@ -20,6 +20,7 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
         if (source) source.position = Position.FACE_UP;
     }
     const effect = cardRegistry.getEffect(context.card.id);
+    context = { ...context, battleAttacker: context.battleAttacker ?? state.pendingReactions?.find(entry => entry.card.instanceId === context.card.instanceId && entry.trigger === trigger)?.battleAttacker };
     if (trigger === 'battle_destroy') {
         if (!context.destroyedCard || context.execution === 'costs' || context.execution === 'reserve') return { newState: state };
         return effect?.onBattleDestroy?.(state, { ...context, destroyedCard: context.destroyedCard }) ?? { newState: state };
@@ -28,6 +29,8 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
         : trigger === 'switch' ? effect?.onSwitch
         : trigger === 'destroyed' ? effect?.onDestroyed
         : trigger === 'battle_destroyed' ? effect?.onBattleDestroyed
+        : trigger === 'attack_completed' ? effect?.onAttackCompleted
+        : trigger === 'sent_discard' ? effect?.onSentToDiscard
         : trigger === 'phase' ? effect?.onPhaseChange
         : trigger === 'discard' ? effect?.onDiscard
         : trigger === 'tribute' ? effect?.onTribute
@@ -66,9 +69,15 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
         const selectedTarget = context.targets?.[targetIndex] ?? (targetIndex === 0 ? context.target : undefined);
         if (result.requireEffectChoice && !context.effectId) {
             result.requireEffectChoice.filter(choice => !choice.disabled).forEach(choice => visit({ ...context, effectId: choice.id }, depth + 1));
-        } else if (result.requirePawnPlacement && !context.pawnPlacement) {
-            result.newState.players[result.requirePawnPlacement.playerIndex].pawnZones.forEach((zone, slot) => {
-                if (!zone) for (const position of result.requirePawnPlacement!.position ? [result.requirePawnPlacement!.position] : [Position.ATTACK, Position.DEFENSE]) visit({ ...context, pawnPlacement: { slot, position } }, depth + 1);
+        } else if (result.requirePawnPlacement) {
+            const req = result.requirePawnPlacement;
+            result.newState.players[req.playerIndex].pawnZones.forEach((zone, slot) => {
+                if (req.slots ? !req.slots.includes(slot) : !!zone) return;
+                for (const position of req.position ? [req.position] : [Position.ATTACK, Position.DEFENSE]) {
+                    const pawnPlacements = [...(context.pawnPlacements ?? [])];
+                    if (req.placementIndex !== undefined) pawnPlacements[req.placementIndex] = { slot, position };
+                    visit({ ...context, ...(req.placementIndex === undefined ? { pawnPlacement: { slot, position } } : { pawnPlacements }) }, depth + 1);
+                }
             });
         } else if (result.requireTarget && !selectedTarget) {
             state.players.forEach((player, pi) => (['pawn', 'action'] as const).forEach(type => {
@@ -110,10 +119,13 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             const req = result.requireEffectTribute;
             const indices = state.players[req.playerIndex].pawnZones.flatMap((z, i) => z && (!req.filter || req.filter(z.card)) ? [i] : []);
             combinations(indices, req.count).forEach(tributeIndices => visit({ ...context, tributeIndices }, depth + 1));
-        } else if (result.requireDiscardSelection && context.discardIndex === undefined) {
+        } else if (result.requireDiscardSelection) {
             const req = result.requireDiscardSelection;
             state.players[req.playerIndex].discard.forEach((c, discardIndex) => {
-                if (req.filter(c)) visit({ ...context, discardIndex }, depth + 1);
+                if (!req.filter(c)) return;
+                const discardCardIds = [...(context.discardCardIds ?? [])];
+                if (req.selectionIndex !== undefined) discardCardIds[req.selectionIndex] = c.instanceId;
+                visit({ ...context, ...(req.selectionIndex === undefined ? { discardIndex } : { discardCardIds }) }, depth + 1);
             });
         } else if (result.requireDeckSelection && context.deckIndex === undefined) {
             const req = result.requireDeckSelection;
@@ -122,7 +134,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             });
         } else if (!needsChoice(result)) choices.push(context);
     };
-    visit(resolutionContext ? { ...resolutionContext, execution: 'resolve' } : { card, playerIndex }, 0);
+    visit(resolutionContext ? { ...resolutionContext, execution: 'resolve' } : { card, playerIndex, battleAttacker: state.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId && entry.trigger === trigger)?.battleAttacker }, 0);
     return choices;
 }
 
@@ -165,7 +177,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     if (state.pendingActivation) return state;
     if (state.winner || state.resolvingChain || state.pendingVoidReturns?.length || state.pendingVoidSelections?.length || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
     if (trigger === 'summon' && !cardRegistry.getEffect(context.card.id)?.onSummon) return state;
-    if (['switch', 'battle_destroyed', 'destroyed'].includes(trigger) && !state.pendingReactions?.some(entry => entry.card.instanceId === context.card.instanceId && entry.playerIndex === context.playerIndex && entry.trigger === trigger)) return state;
+    if (['switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard'].includes(trigger) && !state.pendingReactions?.some(entry => entry.card.instanceId === context.card.instanceId && entry.playerIndex === context.playerIndex && entry.trigger === trigger)) return state;
     if (!buildingTriggers && state.response && state.response.priority !== context.playerIndex) return state;
     if (!buildingTriggers && state.response && !fieldActivations(state, context.playerIndex, true).some(a => a.card.instanceId === context.card.instanceId && a.trigger === trigger)) return state;
     const effect = cardRegistry.getEffect(context.card.id);
@@ -179,7 +191,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const reserved = runEffect(state, { ...context, execution: 'reserve' }, trigger);
     if (reserved.halted || needsChoice(reserved)) return state;
     let next = structuredClone(reserved.newState);
-    if (['summon', 'switch', 'battle_destroyed', 'destroyed'].includes(trigger)) next.pendingReactions = next.pendingReactions?.filter(entry => entry.card.instanceId !== context.card.instanceId);
+    if (['summon', 'switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard'].includes(trigger)) next.pendingReactions = next.pendingReactions?.filter(entry => entry.card.instanceId !== context.card.instanceId);
     const p = next.players[context.playerIndex];
     const tributeCards = context.materialIds
         ? levelTributeCandidates(state, context.playerIndex).filter(entry => context.materialIds!.includes(entry.card.instanceId)).map(entry => entry.card)

@@ -1,9 +1,21 @@
 # Adding cards
 
 Keep card metadata and behavior together in a TypeScript module under
-`src/cards/pawns`, `src/cards/actions`, or `src/cards/conditions`. Nested set folders
-are supported, for example `src/cards/pawns/core/YourCard.ts`. Adjust relative
-imports when using nested folders.
+`src/cards/pawns`, `src/cards/actions`, or `src/cards/conditions`.
+
+All three card types use lowercase alphabetic folders based on the first letter
+of the printed card name, with PascalCase module filenames: for example,
+`src/cards/pawns/s/SolsticeSentinel.ts`, `src/cards/actions/t/ThunderStrike.ts`,
+or `src/cards/conditions/d/DarkDraw.ts`. Create a letter folder when first needed;
+use `0-9` for names beginning with a digit. Include leading words such as "The"
+and archetype prefixes when choosing the letter. For example, High Voltage -
+Charged Dragon lives in `pawns/h/ChargedDragon.ts`. Keep associated tokens in the
+source Pawn's module (Golem Token stays with `pawns/s/SplitGolem.ts`).
+
+This keeps locations predictable across a large catalog without grouping cards
+by mutable stats, attributes, rarity, or overlapping archetypes. Nested folders
+are discovered automatically; adjust relative imports to match the module's depth. The example
+below belongs in `src/cards/pawns/e/ExamplePawn.ts`.
 
 The three type entry points eagerly discover modules with Vite's `import.meta.glob`.
 Do not add manual imports or call `cardRegistry.register` inside card files.
@@ -12,11 +24,11 @@ tokens may share a module. Loading is synchronous, so the full catalog is availa
 before deck creation and gameplay. The loader runs in both Vite and Vitest.
 
 ```ts
-import { Attribute, CardType, IEffect, PawnType } from '../../types';
-import { CardModule } from '../CardRegistry';
-import { buildEffect } from '../engine/Builder';
-import { Effect } from '../engine/Effects';
-import { Query } from '../engine/Queries';
+import { Attribute, CardType, IEffect, PawnType } from '../../../types';
+import { CardModule } from '../../CardRegistry';
+import { buildEffect } from '../../engine/Builder';
+import { Effect } from '../../engine/Effects';
+import { Query } from '../../engine/Queries';
 
 const effect: IEffect = {
     onSummon: buildEffect([
@@ -73,6 +85,41 @@ For continuous field-only stat bonuses, define `fieldStatModifier` in the card's
 effect object. Return ATK and/or DEF deltas from the current board. Shared combat,
 AI, and field display read them through `fieldStats`; do not add card-specific
 checks to those consumers or mutate the card's printed stats.
+
+For combat rules, use `canAttack`, `canAttackDirectly`,
+`canManuallyChangePosition`, or `preventsBattleDestructionOfOpponent` on the
+card effect. Shared combat, AI planning, and field controls read these contracts.
+`onAttackCompleted` runs after a resolved attack (including zero-damage attacks),
+and `onSentToDiscard` runs for every route to the Discard, including tributes and
+discard costs. Set `mandatoryReactions` for effects without optional wording.
+Battle-destruction reactions receive `context.battleAttacker` by identity.
+
+Use `Effect.GrantSelfAttacks` for turn-limited attack grants and
+`Effect.ChangePawnAttribute` for field attribute changes. Changed attributes show
+the shared boosted-stat blue rim and restore their original value on leaving
+the field. `opposingPawnInColumn` locates the Pawn across the board without
+opening a targeting prompt. `Effect.SummonToken(id, count)` supports independent
+zone and position selections for multiple tokens and requires room for all of them.
+
+`Effect.randomSelection({ location, filter, count, playerIndex, candidateIds, isTarget })`
+chooses distinct cards from `deck`, `hand`, `field`, `reserve`, or `discard`.
+It stores identities in `context.selections` for subsequent steps, and does not
+move cards or deal damage. `isTarget` defaults to false; enable it only when the
+card explicitly targets. Field selections marked as targets also populate
+`context.targets` and respect targeting protection.
+
+Compose selection with any effect step. For example, choose placement with
+`Effect.RequirePawnPlacement(Position.ATTACK)`, then use
+`Effect.randomSelection({ location: 'hand', filter: pawnFilter })` and
+`Effect.SummonSelected(Position.ATTACK)`. To shuffle a random Discard card into
+its owner's deck, use `Effect.randomSelection({ location: 'discard' })` followed
+by `Effect.MoveSelectedTo('deck')`. Custom steps can consume `context.selections`
+for other effects. `selectionIndex` lets multiple selections coexist.
+
+Gather all interactive choices before the random-selection step. Randomness is
+consumed only during resolution; previews and AI activation choices are deterministic.
+`Effect.SelectDiscardCards` gathers candidate identities in `discardCardIds`,
+which can be supplied through `candidateIds` without making them targets.
 
 `buildEffect` works on a cloned draft. Selection requests suspend execution;
 the effect may be replayed with supplied choices. Mark activation costs through

@@ -89,6 +89,9 @@ export function formatEffectLog(
         const defDelta = changed.placed.card.def - located.placed.card.def;
         if (atkDelta) details.push(`${quote(changed.placed.card.name)} ${atkDelta > 0 ? '+' : ''}${atkDelta} ATK`);
         if (defDelta) details.push(`${quote(changed.placed.card.name)} ${defDelta > 0 ? '+' : ''}${defDelta} DEF`);
+        if (changed.placed.card.attribute !== located.placed.card.attribute && changed.placed.position !== Position.HIDDEN) {
+            details.push(`${quote(changed.placed.card.name)} becomes ${changed.placed.card.attribute}`);
+        }
         if (changed.placed.position !== located.placed.position) details.push(
             changed.zone === 'action' && changed.placed.position === Position.FACE_UP
                 ? `${quote(changed.placed.card.name)} turns face-up`

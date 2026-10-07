@@ -120,10 +120,10 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     act(() => reserveChapter.props.onClick());
     expect(root.root.findByType('h1').props.children).toBe('The Reserve');
     const reserveRules = root.root.findByProps({ className: 'rulebook-rule-list' }).findAllByType('p').map(rule => rule.props.children).join(' ');
-    expect(reserveRules).toContain('up to 10 Vassal Pawns');
-    expect(reserveRules).toContain('no more than 3 copies');
+    expect(reserveRules).toContain('up to 10 extra Pawns');
+    expect(reserveRules).toContain('either Vassal or Merge Pawns');
     expect(reserveRules).toContain('Contract Action');
-    expect(reserveRules).toContain('does not use your Normal Summon');
+    expect(reserveRules).toContain('This is counted as a special summon.');
     act(() => root.unmount());
     vi.unstubAllGlobals();
     for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }, { rarity: 'Unknown' }]) {

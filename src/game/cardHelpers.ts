@@ -10,6 +10,19 @@ export const matchesCardGroup = (card: Card, group: string): boolean => card.nam
 export const canTargetWithEffect = (card: Card): boolean => !card.effectTargetBlockedThisTurn;
 export const canSetPawn = (card: Card): boolean => !isToken(card);
 
+export const canPawnAttack = (state: GameState, playerIndex: number, zone: PlacedCard): boolean =>
+    cardRegistry.getEffect(zone.card.id)?.canAttack?.(state, { card: zone.card, playerIndex }, zone) ?? true;
+
+export const canAttackDirectly = (state: GameState, playerIndex: number, card: Card): boolean =>
+    !state.players[1 - playerIndex].pawnZones.some(Boolean)
+    || (cardRegistry.getEffect(card.id)?.canAttackDirectly?.(state, { card, playerIndex }) ?? false);
+
+/** Both rows use left-to-right board indices, so equal indices share a column. */
+export function opposingPawnInColumn(state: GameState, context: CardContext): PlacedCard | null {
+    const index = state.players[context.playerIndex].pawnZones.findIndex(zone => zone?.card.instanceId === context.card.instanceId);
+    return index < 0 ? null : state.players[1 - context.playerIndex].pawnZones[index];
+}
+
 /** Current combat stats, including a card's continuous field modifier. */
 export function fieldStats(state: GameState, placement: PlacedCard): { atk: number; def: number } {
     const { card } = placement;
@@ -45,8 +58,8 @@ export function setPawnPosition(zone: PlacedCard, position: Position): void {
 }
 
 export function clearFieldReduction(card: Card): Card {
-    const { fieldAtkReduction, tributeBlockedThisTurn, effectTargetBlockedThisTurn, ...rest } = card;
-    return { ...rest, atk: card.atk + (fieldAtkReduction ?? 0) };
+    const { fieldAtkReduction, fieldOriginalAttribute, tributeBlockedThisTurn, effectTargetBlockedThisTurn, ...rest } = card;
+    return { ...rest, atk: card.atk + (fieldAtkReduction ?? 0), ...(fieldOriginalAttribute === undefined ? {} : { attribute: fieldOriginalAttribute }) };
 }
 
 /**

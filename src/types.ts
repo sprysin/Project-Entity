@@ -53,7 +53,7 @@ export enum PawnType {
   BEAST = 'BEAST',
   ELEMENTAL = 'ELEMENTAL',
   PRIMAL = 'PRIMAL',
-  AVION = 'AVION',
+  AVIAN = 'AVIAN',
   UNDEAD = 'UNDEAD',
   BUG = 'BUG'
 }
@@ -89,6 +89,8 @@ export interface Card {
   effectTargetBlockedThisTurn?: boolean;
   /** ATK lost to field-only reductions; restored when this card leaves the field. */
   fieldAtkReduction?: number;
+  /** Printed attribute restored when an attribute-changing Pawn leaves the field. */
+  fieldOriginalAttribute?: Attribute;
 }
 
 export interface PlacedCard {
@@ -155,7 +157,7 @@ export interface GameState {
   attackReplay?: { attackerId: string; choosingTarget?: boolean };
   pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
   pendingHandSummons?: { sourceId: string; playerIndex: number }[];
-  pendingReactions?: { card: Card; playerIndex: number; trigger: 'summon' | 'switch' | 'battle_destroyed' | 'destroyed' }[];
+  pendingReactions?: { card: Card; playerIndex: number; trigger: 'summon' | 'switch' | 'battle_destroyed' | 'destroyed' | 'attack_completed' | 'sent_discard'; battleAttacker?: Card }[];
   /** Triggered effects wait until the current chain and deferred action have finished. */
   pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute' | 'battle_destroy'> }[];
   drawProgress?: { turn: number; remaining: number };
@@ -193,6 +195,8 @@ export type CardFilter = (card: Card) => boolean;
 
 export interface CardSelectionRequest {
   purpose?: 'summon';
+  /** Sequential selections share the existing pile picker without reusing a card. */
+  selectionIndex?: number;
   playerIndex: number;
   title?: string;
   prompt?: string;
@@ -208,6 +212,13 @@ export interface HandSelectionRequest {
 }
 
 export type ShuffleLocation = 'hand' | 'field' | 'discard';
+export type SelectionLocation = 'deck' | 'hand' | 'field' | 'reserve' | 'discard';
+export interface SelectedCard {
+  playerIndex: number;
+  location: SelectionLocation;
+  card: Card;
+  isTarget: boolean;
+}
 export interface ShuffleSelectionRequest {
   playerIndex: number;
   location: ShuffleLocation;
@@ -242,7 +253,7 @@ export interface LevelTributeSelectionRequest {
   totalLevel: number;
 }
 
-export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
+export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'attack_completed' | 'sent_discard' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
@@ -251,7 +262,7 @@ export type TargetSelectScope = 'active' | 'opponent' | 'both';
 export type EffectResult = {
   requireEffectChoice?: { id: string; label: string; disabled: boolean }[];
   newState: GameState;
-  requirePawnPlacement?: { playerIndex: number; position?: Position.ATTACK | Position.DEFENSE; slots?: number[] };
+  requirePawnPlacement?: { playerIndex: number; position?: Position.ATTACK | Position.DEFENSE; slots?: number[]; placementIndex?: number };
   halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
@@ -271,6 +282,8 @@ export type EffectResult = {
 export interface CardContext {
   effectId?: string;
   pawnPlacement?: { slot: number; position: Position };
+  pawnPlacements?: { slot: number; position: Position }[];
+  battleAttacker?: Card;
   execution?: 'reserve' | 'costs' | 'resolve';
   tributeCards?: Card[];
   /** Battle-event identity retained while player reactions are decided. */
@@ -280,6 +293,8 @@ export interface CardContext {
   target?: CardTarget;
   targets?: CardTarget[];
   discardIndex?: number;
+  discardCardIds?: string[];
+  selections?: SelectedCard[];
   handIndex?: number;
   peekIndex?: number;
   deckIndex?: number;
@@ -290,6 +305,14 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  canAttack?(state: GameState, context: CardContext, placement: PlacedCard): boolean;
+  canAttackDirectly?(state: GameState, context: CardContext): boolean;
+  canManuallyChangePosition?(state: GameState, context: CardContext, placement: PlacedCard): boolean;
+  preventsBattleDestructionOfOpponent?: boolean;
+  /** Reactions without optional wording must be completed when legal choices exist. */
+  mandatoryReactions?: boolean;
+  onAttackCompleted?(state: GameState, context: CardContext): EffectResult;
+  onSentToDiscard?(state: GameState, context: CardContext): EffectResult;
   /** Immediate, selection-free observers while this source is face-up. */
   onEffectActivated?(state: GameState, context: CardContext & { activatedCard: Card; activatingPlayerIndex: number }): EffectResult;
   onEffectDamage?(state: GameState, context: CardContext & { damageCard: Card; damageEffectId?: string; damagedPlayerIndex: number; amount: number }): EffectResult;

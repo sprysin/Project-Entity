@@ -359,6 +359,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => game.actions.handleSummon(summonTrigger, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(summonTrigger.instanceId);
     act(() => game.actions.cancelEffect());
+
 });
 
 it('holds attacks and battle-destruction choices before mandatory effects move the defeated card', async () => {

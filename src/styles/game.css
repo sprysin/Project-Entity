@@ -197,7 +197,7 @@ body {
 }
 
 .field-pawn-overlay__stats .is-increased {
-  color: #52caff;
+  color: var(--increased-stat-color);
 }
 
 .field-pawn-overlay__stats .is-decreased {

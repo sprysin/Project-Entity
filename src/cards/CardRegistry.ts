@@ -1,6 +1,6 @@
 import { IEffect, Card, CardType, ActionSubtype, CARD_RARITIES } from '../types';
 
-export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId' | 'tributedByAction' | 'fieldAtkReduction'>;
+export type CardDefinition = Omit<Card, 'instanceId' | 'ownerId' | 'tributedByAction' | 'fieldAtkReduction' | 'fieldOriginalAttribute'>;
 
 interface RegisteredCard {
     cardData: CardDefinition;

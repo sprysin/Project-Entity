@@ -1,5 +1,6 @@
 import { Card, GameState } from '../types';
 import { clearFieldReduction, isToken } from './cardHelpers';
+import { cardRegistry } from '../cards/CardRegistry';
 
 /** Cards keep their original owner even while controlled by the other player. */
 export function sendToOwnerPile(state: GameState, card: Card, pile: 'discard' | 'void' | 'hand' | 'deck'): void {
@@ -19,4 +20,9 @@ export function sendToOwnerPile(state: GameState, card: Card, pile: 'discard' | 
         atk: Math.max(0, cleared.atk - bonuses.reduce((sum, bonus) => sum + bonus.atk, 0)),
         def: Math.max(0, cleared.def - bonuses.reduce((sum, bonus) => sum + bonus.def, 0))
     } : cleared);
+    if (owner && pile === 'discard' && cardRegistry.getEffect(card.id)?.onSentToDiscard) {
+        state.pendingReactions = [...(state.pendingReactions ?? []), {
+            card: cleared, playerIndex: state.players.indexOf(owner), trigger: 'sent_discard'
+        }];
+    }
 }

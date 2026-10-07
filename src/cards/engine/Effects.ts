@@ -1,6 +1,6 @@
 import { activationReservation, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { ActionSubtype, Card, CardContext, CardFilter, CardType, GameState, PawnSubtype, Phase, Position, ShuffleLocation, TargetSelectScope } from '../../types';
+import { ActionSubtype, Attribute, Card, CardContext, CardFilter, CardType, GameState, PawnSubtype, Phase, PlacedCard, Position, ShuffleLocation, TargetSelectScope } from '../../types';
 import { canSetPawn, cardsAtLocation, isReservePawn, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
 import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
@@ -8,8 +8,61 @@ import { drawCards } from '../../game/draw';
 import { sendToOwnerPile } from '../../game/cardOwnership';
 import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 import { notifyFieldEvent } from '../../game/fieldEvents';
+import { cardsForSelection, randomSelection, takeSelectedCard } from './Selections';
 
 export const Effect = {
+    randomSelection,
+    /** Gather player-selected candidates independently of their eventual effect. */
+    SelectDiscardCards: (filter: CardFilter, count: number, purpose?: 'summon'): EffectStep => (state, context) => {
+        const player = state.players[context.playerIndex];
+        const ids = context.discardCardIds ?? [];
+        if (!Number.isInteger(count) || count < 1 || player.discard.filter(filter).length < count
+            || ids.length > count || new Set(ids).size !== ids.length
+            || ids.some(id => !player.discard.some(card => card.instanceId === id && filter(card)))) return { halt: true };
+        if (ids.length < count) return { requireDiscardSelection: {
+            playerIndex: context.playerIndex, purpose, selectionIndex: ids.length,
+            prompt: `Select card ${ids.length + 1} of ${count} from your Discard`,
+            filter: card => filter(card) && !ids.includes(card.instanceId)
+        } };
+    },
+    /** Choose placement before sampling, so suspended effects do not reroll a selection. */
+    RequirePawnPlacement: (position: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
+        const player = state.players[context.playerIndex];
+        if (!player.pawnZones.includes(null)) return { halt: true };
+        const placement = context.pawnPlacement;
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position } };
+        if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
+            || player.pawnZones[placement.slot] || placement.position !== position) return { halt: true };
+    },
+    /** Summon a previously selected Pawn from any off-field pile. */
+    SummonSelected: (position: Position.ATTACK | Position.DEFENSE, selectionIndex = 0): EffectStep => (state, context) => {
+        const selection = context.selections?.[selectionIndex];
+        const placement = context.pawnPlacement;
+        const player = state.players[context.playerIndex];
+        if (!selection || selection.location === 'field' || selection.card.type !== CardType.PAWN
+            || !placement || !Number.isInteger(placement.slot) || placement.slot < 0
+            || placement.slot >= player.pawnZones.length || player.pawnZones[placement.slot]
+            || placement.position !== position) return { halt: true };
+        const card = takeSelectedCard(state, context, selectionIndex);
+        if (!card) return { halt: true };
+        player.pawnZones[placement.slot] = { card, position, hasAttacked: false,
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+        if (selection.location === 'deck') shuffleDeck(state.players[selection.playerIndex].deck);
+    },
+    /** Move a selection to its owner's pile; deck moves shuffle by default. */
+    MoveSelectedTo: (destination: 'deck' | 'hand' | 'discard' | 'void', selectionIndex = 0, shuffle = destination === 'deck'): EffectStep => (state, context) => {
+        const selection = context.selections?.[selectionIndex];
+        if (!selection) return { halt: true };
+        const card = cardsForSelection(state, selection.playerIndex, selection.location)
+            .find(candidate => candidate.instanceId === selection.card.instanceId);
+        if (!card) return { halt: true };
+        // Keep the original placement visible while restoring field-only stats.
+        sendToOwnerPile(state, card, destination);
+        takeSelectedCard(state, context, selectionIndex);
+        if (selection.location === 'field') Object.assign(state, destroyOrphanedAttachments(state));
+        const owner = state.players.find(player => player.id === card.ownerId);
+        if (shuffle && destination === 'deck' && owner) shuffleDeck(owner.deck);
+    },
     /** Contract summon from Reserve; selections and freed zones are checked again on resolution. */
     SummonFromReserve: (subtype: PawnSubtype, filter: CardFilter): EffectStep => (state, context) => {
         if (context.card.type !== CardType.ACTION || context.card.actionSubtype !== ActionSubtype.CONTRACT) return { halt: true };
@@ -122,18 +175,43 @@ export const Effect = {
     }),
 
     /** Placement is chosen before activation; both humans and AI use the same request. */
-    SummonToken: (id: string): EffectStep => (state, context) => {
+    SummonToken: (id: string, count = 1): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
-        const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex } };
         const definition = cardRegistry.getCard(id);
-        if (!definition || !Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
-            || player.pawnZones[placement.slot] || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
-        const card: Card = { ...definition, ownerId: player.id, instanceId: crypto.randomUUID() };
-        player.pawnZones[placement.slot] = {
-            card, position: placement.position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
-        };
+        if (!definition || definition.pawnSubtype !== PawnSubtype.TOKEN || !Number.isInteger(count) || count < 1) return { halt: true };
+        const available = player.pawnZones.filter(zone => !zone).length;
+        if (available < count) return { halt: true };
+        const placements = count === 1 ? [context.pawnPlacement] : context.pawnPlacements ?? [];
+        for (let index = 0; index < count; index++) {
+            const placement = placements[index];
+            const slots = player.pawnZones.flatMap((zone, slot) => !zone && !placements.slice(0, index).some(value => value?.slot === slot) ? [slot] : []);
+            if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, slots, ...(count > 1 ? { placementIndex: index } : {}) } };
+            if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
+        }
+        for (const placement of placements.slice(0, count)) {
+            const card: Card = { ...definition, ownerId: player.id, instanceId: crypto.randomUUID() };
+            player.pawnZones[placement!.slot] = {
+                card, position: placement!.position, hasAttacked: false,
+                hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
+            };
+        }
+    },
+    /** Grants attacks for this turn without bypassing other combat restrictions. */
+    GrantSelfAttacks: (count: number): EffectStep => (state, context) => {
+        const zone = state.players[context.playerIndex].pawnZones.find(value => value?.card.instanceId === context.card.instanceId);
+        if (!zone) return;
+        if (zone.position === Position.HIDDEN) return { halt: true };
+        zone.effectUsedTurn = { ...zone.effectUsedTurn, attackGrant: state.turnNumber };
+        if (state.currentPhase === Phase.BATTLE) zone.attacksRemaining = (zone.attacksRemaining ?? (zone.hasAttacked ? 0 : 1)) + count;
+        else zone.nextBattleAttacks = (zone.nextBattleAttacks ?? 0) + count;
+        zone.hasAttacked = false;
+    },
+    /** Attribute changes expire when the affected identity leaves the field. */
+    ChangePawnAttribute: (attribute: Attribute, locate: (state: GameState, context: CardContext) => PlacedCard | null): EffectStep => (state, context) => {
+        const zone = locate(state, context);
+        if (!zone) return { halt: true };
+        zone.card.fieldOriginalAttribute ??= zone.card.attribute;
+        zone.card.attribute = attribute;
     },
     /** Destroys the selected field card. */
     DestroyTarget: (targetIndex = 0): EffectStep => (draftState, context) => {
