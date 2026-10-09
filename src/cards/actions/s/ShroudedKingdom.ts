@@ -14,7 +14,7 @@ export default [{ cardData: {
     actionSubtype: ActionSubtype.LAND, rarity: 'Rare', level: 0, atk: 0, def: 0,
     effectText: 'Once per turn: Void 2 DARK Pawns from your Discard pile; special summon 1 DARK Pawn from your hand in face-down Defense.\nDARK Pawns gain 20 DEF.'
 }, effect: {
-    auraStatModifier: (_state, _context, target) => ({ def: darkPawn(target.card) ? 20 : 0 }),
+    LingeringStatModifier: (_state, _context, target) => ({ def: darkPawn(target.card) ? 20 : 0 }),
     canActivate: (state, context) => {
         const player = state.players[context.playerIndex];
         return Condition.SoftOncePerTurn('summon')(state, context)

@@ -322,7 +322,8 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         }
         if (opponentMode === 'ai' && pending.playerIndex === 1) {
             const action = chooseAIAction(observeGame(gameState, 1), 1, pending.card, trigger);
-            const context = action.kind === 'effect' ? action.context
+            const context = action.kind === 'effect' ? { ...action.context,
+                deckIndex: action.deckId ? gameState.players[1].deck.findIndex(card => card.instanceId === action.deckId) : undefined }
                 : (trigger === 'switch' && pending.card.switchMandatory || cardRegistry.getEffect(pending.card.id)?.mandatoryReactions) ? choices[0] : undefined;
             setGameState(prev => prev === gameState ? applyCommand(prev, 1, context
                 ? { type: 'activate', context, trigger }

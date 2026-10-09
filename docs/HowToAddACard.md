@@ -134,7 +134,7 @@ that index to the matching effect operation. Reuse the existing selection UI.
 
 The complete contract is `IEffect` in `src/types.ts`.
 
-- `onSummon`: the source Pawn's normal summon effect.
+- `onSummon`: the Pawn's normal summon effect.
 - `onActivate`: initial Action/Condition activation or Pawn ignition effect.
 - `onFieldActivate`: an existing face-up Lingering Action's manual effect.
 - `onPhaseChange`: automatic phase effects; check the relevant phase as needed.

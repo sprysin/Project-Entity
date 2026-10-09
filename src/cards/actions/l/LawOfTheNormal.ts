@@ -17,7 +17,7 @@ export default [{
         def: 0,
         effectText: 'During your turn, all NORMAL Pawns you control gain 20 ATK.\nOnce: Target 1 Pawn on either field whose ATK differs from its original ATK; its ATK becomes its original ATK for the rest of the turn.'
     }, effect: {
-        auraStatModifier: (state, _context, target, controllerIndex) => ({
+        LingeringStatModifier: (state, _context, target, controllerIndex) => ({
             atk: controllerIndex === state.activePlayerIndex && target.card.attribute === Attribute.NORMAL ? 20 : 0
         }),
         canActivate: Condition.OnceWhileOnField(),

@@ -654,7 +654,7 @@ it('shares a face-up Land stack, suspends covered effects, and preserves identit
         kingdom.currentPhase = Phase.MAIN1;
         expect(effectChoices(kingdom, cover, 'field_activate').length).toBeGreaterThan(0);
         kingdom.players[actor].hand = [law];
-        // Removing the top Land restores Law's aura and suspends Kingdom's.
+        // Removing the top Land restores Law's Lingering Stat Modifier and suspends Kingdom's.
         const uncovered = buildEffect([Require.Target('action'), Effect.DestroyTarget()])(kingdom, {
             card: law, playerIndex: actor, target: { playerIndex: actor, type: 'land', index: 0 }
         }).newState;

@@ -7,6 +7,11 @@ export const activationCost = (step: EffectStep): EffectStep => Object.assign(st
 export const activationReservation = (step: EffectStep): EffectStep => Object.assign(step, { activationReservation: true });
 export type ConditionStep = (state: GameState, context: CardContext) => boolean;
 
+/** The builder and chain runner suspend for the same set of player choices. */
+export function needsChoice(result: Omit<EffectResult, 'newState'>): boolean {
+    return !!(result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireReserveSelection || result.requireLevelTribute || result.requireEffectTribute || result.requireShuffleSelection);
+}
+
 export const buildEffect = (steps: EffectStep[]) => {
     const execute = (state: GameState, context: CardContext): EffectResult => {
         context = { ...context };
@@ -18,7 +23,7 @@ export const buildEffect = (steps: EffectStep[]) => {
             if (context.execution === 'resolve' && (step.activationCost || step.activationReservation)) continue;
             const result = step(draftState, context);
             if (result) {
-                if (result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireDiscardSelection || result.requireHandSelection || result.requirePeekSelection || result.requireDeckSelection || result.requireReserveSelection || result.requireLevelTribute || result.requireEffectTribute || result.requireShuffleSelection) {
+                if (needsChoice(result)) {
                     return { ...result, newState: draftState };
                 }
 

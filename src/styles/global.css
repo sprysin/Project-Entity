@@ -63,8 +63,8 @@
 }
 
 .card-travel {
-  position: fixed;
-  z-index: 150;
+  position: absolute;
+  z-index: 40;
   pointer-events: none;
   transform-origin: top left;
   opacity: 0;
@@ -72,9 +72,9 @@
   filter: drop-shadow(0 10px 12px #0009);
 }
 @keyframes card-zone-travel {
-  from { opacity: 1; transform: translate(0, 0); }
+  from { opacity: 1; transform: translate(0, 0) scale(var(--travel-scale-x), var(--travel-scale-y)); }
   45% { filter: drop-shadow(0 24px 18px #000b) brightness(1.12); }
-  75%, to { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)) scale(var(--travel-scale-x), var(--travel-scale-y)); }
+  75%, to { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)); }
 }
 .card-travel-face { animation: card-zone-turn 490ms ease-out forwards; animation-duration: inherit; animation-delay: inherit; }
 @keyframes card-zone-turn { from { transform: rotate(var(--from-rotation)); } 75%, to { transform: rotate(var(--to-rotation)); } }

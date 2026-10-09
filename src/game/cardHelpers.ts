@@ -35,9 +35,9 @@ export function fieldStats(state: GameState, placement: PlacedCard): { atk: numb
     let atk = card.atk + (bonus.atk ?? 0), def = card.def + (bonus.def ?? 0);
     for (const entry of fieldEntries(state)) {
         if (entry.zone.position === Position.HIDDEN) continue;
-        const aura = cardRegistry.getEffect(entry.zone.card.id)?.auraStatModifier?.(state,
+        const modifier = cardRegistry.getEffect(entry.zone.card.id)?.LingeringStatModifier?.(state,
             { card: entry.zone.card, playerIndex: entry.target.playerIndex }, placement, playerIndex);
-        atk += aura?.atk ?? 0; def += aura?.def ?? 0;
+        atk += modifier?.atk ?? 0; def += modifier?.def ?? 0;
     }
     return { atk: Math.max(0, placement.attackOverride?.turn === state.turnNumber ? placement.attackOverride.value : atk), def: Math.max(0, def) };
 }

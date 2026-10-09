@@ -348,6 +348,69 @@ describe('fair general AI', () => {
             expect(chooseAIAction(observeGame(pending, 1), 1)).toEqual({ kind: 'pass' });
         }
 
+        const defenseBoostId = 'test-defensive-last-resort';
+        cardRegistry.register({ ...cardRegistry.getCard('condition_last_resort')!, id: defenseBoostId, name: 'Defensive boost' }, {
+            ...cardRegistry.getEffect('condition_last_resort'),
+            onActivate: buildEffect([Cost.PayLP(50), Require.Target('pawn'), Effect.ModifyTargetStats(0, 50, 0, Phase.BATTLE)])
+        });
+        for (const stat of ['atk', 'def'] as const) for (const position of [Position.DEFENSE, Position.ATTACK]) {
+            const boost = game();
+            boost.currentPhase = Phase.BATTLE;
+            const attacker = card('pawn_01'), defender = card('pawn_01', 1);
+            attacker.atk = 130; defender.atk = 100; defender.def = stat === 'atk' ? 150 : 100;
+            boost.players[0].pawnZones[0] = zone(attacker);
+            boost.players[1].pawnZones[0] = zone(defender, position);
+            boost.players[1].actionZones[0] = zone(card(stat === 'atk' ? 'condition_last_resort' : defenseBoostId, 1), Position.HIDDEN, 1);
+            const responding = openResponse(boost, { kind: 'attack', attackerId: attacker.instanceId, targetId: defender.instanceId }, 'Attack', 'attack');
+            const matches = position === (stat === 'atk' ? Position.ATTACK : Position.DEFENSE);
+            expect(chooseAIAction(observeGame(responding, 1), 1).kind).toBe(matches ? 'effect' : 'pass');
+        }
+
+        // New cards need no AI metadata: all boost shapes and both stats use
+        // actual effect outcomes and legal follow-up commands.
+        for (const stat of ['atk', 'def'] as const) for (const shape of ['target', 'self', 'all'] as const) {
+            const id = `test-position-boost-${stat}-${shape}`;
+            const steps = shape === 'target' ? [Require.Target('pawn', undefined, 'active'), Effect.ModifyTargetStats(stat === 'atk' ? 200 : 0, stat === 'def' ? 200 : 0)]
+                : shape === 'self' ? [Effect.ModifySelfStats(stat === 'atk' ? 200 : 0, stat === 'def' ? 200 : 0)]
+                    : [Effect.ModifyAllPawnStats('active', stat === 'atk' ? 200 : 0, stat === 'def' ? 200 : 0)];
+            cardRegistry.register({ ...cardRegistry.getCard(shape === 'self' ? 'pawn_01' : 'action_01')!, id, name: id }, {
+                canActivate: (state, context) => !state.players[context.playerIndex].pawnZones.find(z => z?.card.instanceId === context.card.instanceId)?.hasUsedWhileOnField,
+                onActivate: buildEffect(shape === 'self' ? [Effect.SetOnceWhileOnField(), ...steps] : steps)
+            });
+            const correct = stat === 'atk' ? Position.ATTACK : Position.DEFENSE;
+            const wrong = stat === 'atk' ? Position.DEFENSE : Position.ATTACK;
+            for (const mode of ['matching', 'locked', 'manual', 'effect'] as const) {
+                const board = game(); board.activePlayerIndex = 1; board.currentPhase = Phase.MAIN2;
+                const pawn = shape === 'self' ? card(id, 1) : { ...card('pawn_01', 1), atk: 100, def: 100 };
+                board.players[1].pawnZones[0] = zone(pawn, mode === 'matching' ? correct : wrong);
+                board.players[1].pawnZones[0]!.hasChangedPosition = mode !== 'manual';
+                if (shape !== 'self') board.players[1].hand = [card(id, 1)];
+                if (mode === 'effect') {
+                    const switchId = `test-position-switch-${stat}-${shape}`;
+                    if (!cardRegistry.getCard(switchId)) cardRegistry.register({ ...cardRegistry.getCard('action_01')!, id: switchId, name: switchId },
+                        { onActivate: buildEffect([Require.Target('pawn', undefined, 'active'), Effect.ChangeTargetPosition(correct)]) });
+                    board.players[1].hand.push(card(switchId, 1));
+                }
+                let current = board;
+                const first = chooseAIAction(observeGame(current, 1), 1);
+                if (mode === 'locked') {
+                    expect(first.kind === 'effect' && first.context.card.id === id, `${id}: locked`).toBe(false);
+                    continue;
+                }
+                for (let step = 0; step < 3; step++) {
+                    const action = chooseAIAction(observeGame(current, 1), 1);
+                    if (action.kind === 'position') current = applyCommand(current, 1, { type: 'position', index: action.index }).state;
+                    else if (action.kind === 'effect') {
+                        if (action.fromHand) current = applyCommand(current, 1, { type: 'play', cardId: action.context.card.instanceId, set: false, slot: current.players[1].actionZones.indexOf(null) }).state;
+                        current = resolveChain(addChainLink(current, action.context, action.trigger));
+                    } else break;
+                    current = { ...current, response: undefined, pendingResponse: undefined };
+                }
+                expect(current.players[1].pawnZones[0]?.position, `${id}: ${mode}`).toBe(correct);
+                expect(current.players[1].pawnZones[0]!.card[stat], `${id}: ${mode}`).toBeGreaterThan(pawn[stat]);
+            }
+        }
+
         const guarded = game();
         guarded.activePlayerIndex = 1;
         guarded.players[0].pawnZones[0] = zone(card('pawn_07'), Position.DEFENSE);

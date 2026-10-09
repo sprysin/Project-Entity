@@ -67,6 +67,10 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   const summonReverbs = useSummonReverb(gameState);
   const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
   const [viewingLand, setViewingLand] = React.useState(false);
+  const arenaRef = React.useRef<HTMLDivElement>(null);
+  const arenaBounds = arenaRef.current?.getBoundingClientRect();
+  const arenaScale = arenaBounds && arenaRef.current?.offsetWidth
+    ? arenaBounds.width / arenaRef.current.offsetWidth : 1;
   const xray = opponentMode === 'ai' && !!debugSettings?.xray;
 
   const effectCard = state.pendingEffectCard ?? state.triggeredEffect;
@@ -183,7 +187,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
 
       <div className="flex-1 flex relative overflow-hidden">
         {/* Main Play Area */}
-        <div className="duel-arena flex-1 flex flex-col items-center justify-between p-4 relative overflow-hidden">
+        <div ref={arenaRef} className="duel-arena flex-1 flex flex-col items-center justify-between p-4 relative overflow-hidden">
           <HealthHud
             key={opponent.id}
             player={opponent}
@@ -432,28 +436,28 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
           </div>
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
-          {createPortal(<>
           {state.cardMotions.map(motion => (
             <div key={motion.id} className={`card-travel ${motion.activation ? 'card-travel-activation' : ''}`}
               onAnimationEnd={event => { if (event.target === event.currentTarget && event.animationName === 'card-zone-travel') state.finishMotion(motion.id); }}
               style={{
-                left: motion.from.left, top: motion.from.top, width: motion.from.width, height: motion.from.height,
+                left: (motion.from.left - (arenaBounds?.left ?? 0)) / arenaScale,
+                top: (motion.from.top - (arenaBounds?.top ?? 0)) / arenaScale,
+                width: motion.to.width / arenaScale, height: motion.to.height / arenaScale,
                 animationDelay: `${motion.delay ?? 0}ms`, animationDuration: `${motion.duration ?? 490}ms`,
-                '--travel-x': `${motion.to.left - motion.from.left}px`,
-                '--travel-y': `${motion.to.top - motion.from.top}px`,
-                '--travel-scale-x': motion.to.width / motion.from.width,
-                '--travel-scale-y': motion.to.height / motion.from.height,
+                '--travel-x': `${(motion.to.left - motion.from.left) / arenaScale}px`,
+                '--travel-y': `${(motion.to.top - motion.from.top) / arenaScale}px`,
+                '--travel-scale-x': motion.from.width / motion.to.width,
+                '--travel-scale-y': motion.from.height / motion.to.height,
                 '--from-rotation': `${motion.fromRotation}deg`,
                 '--to-rotation': `${motion.rotation}deg`,
               } as React.CSSProperties}>
               <div className="card-travel-face w-full h-full">
-                {motion.hidden ? <div className="card-back w-full h-full rounded border-2 border-slate-400" /> : <CardDetail card={motion.card} compact className="w-full h-full" />}
+                {motion.hidden ? <div className="card-back w-full h-full" /> : <CardDetail card={motion.card} compact className="w-full h-full" />}
               </div>
             </div>
           ))}
 
-          <ShatterOverlay effects={state.shatterEffects} />
-          </>, document.body)}
+          {createPortal(<ShatterOverlay effects={state.shatterEffects} />, document.body)}
 
           <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} viewerIndex={viewIndex} onQuit={onQuit} />
         </div>

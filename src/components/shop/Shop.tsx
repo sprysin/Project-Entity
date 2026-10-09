@@ -16,7 +16,7 @@ function PackArtwork({ pack, size = PACK_SIZE }: { pack: Pack; size?: number }) 
     <div className="pack-art__halo" /><div className="pack-art__wrapper">
       <span className="pack-art__brand">PROJECT ENTITY</span>
       <div className="pack-art__sigil"><i className={`fa-solid ${pack.icon}`} /></div>
-      <strong>{pack.name}</strong><span className="pack-art__edition">{size} CARDS / ALPHA EDITION</span>
+      <strong>{pack.name}</strong><span className="pack-art__edition">{size} CARDS / BASE EDITION</span>
     </div><span className="pack-art__floor" />
   </div>;
 }

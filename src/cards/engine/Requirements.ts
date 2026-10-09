@@ -5,6 +5,13 @@ import { Card, PlacedCard, Position, TargetSelectScope } from '../../types';
 import { getEffectTarget } from './Targets';
 import { canTargetWithEffect } from '../../game/cardHelpers';
 
+const rowMatchesFilter = (row: 'pawnZones' | 'actionZones', scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep =>
+    (state, context) => state.players.some((player, index) => {
+        if (scope === 'active' && index !== context.playerIndex) return false;
+        if (scope === 'opponent' && index !== (context.playerIndex + 1) % 2) return false;
+        return player[row].some(zone => zone !== null && filter(zone));
+    });
+
 export const Require = {
     /** Prompts the player to select a target on the field. */
     Target: (
@@ -48,19 +55,12 @@ export const Require = {
     },
 
     /** Generically checks if a numerical evaluation matches the required threshold, halting if it fails. */
-    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): EffectStep => activationCost((draftState, context) => {
-        const val1 = resolveDynamic(valueFn, draftState, context);
-        const val2 = resolveDynamic(compareTo, draftState, context);
-
-        let pass = false;
-        if (operator === '>=') pass = val1 >= val2;
-        else if (operator === '<=') pass = val1 <= val2;
-        else if (operator === '>') pass = val1 > val2;
-        else if (operator === '<') pass = val1 < val2;
-        else pass = val1 === val2;
-
-        if (!pass) return { halt: true };
-    })
+    CompareValue: (valueFn: Dynamic<number>, operator: '>=' | '<=' | '==' | '>' | '<', compareTo: Dynamic<number>): EffectStep => {
+        const condition = Condition.CompareValue(valueFn, operator, compareTo);
+        return activationCost((state, context) => {
+            if (!condition(state, context)) return { halt: true };
+        });
+    }
 };
 
 export const Condition = {
@@ -80,16 +80,8 @@ export const Condition = {
     },
 
     /** Checks if a specific attribute exists on any valid Pawn on the provided player scope field. */
-    PawnMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, context) => {
-        const activeIdx = context.playerIndex;
-        const oppIdx = (activeIdx + 1) % 2;
-
-        return state.players.some((player, idx) => {
-            if (scope === 'active' && idx !== activeIdx) return false;
-            if (scope === 'opponent' && idx !== oppIdx) return false;
-            return player.pawnZones.some(z => z !== null && filter(z));
-        });
-    },
+    PawnMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep =>
+        rowMatchesFilter('pawnZones', scope, filter),
 
     /** Verifies a specific item exists in a specific player's discard. */
     DiscardMatchesFilter: (scope: 'active' | 'opponent', filter: (card: Card) => boolean): ConditionStep => (state, context) => {
@@ -98,16 +90,8 @@ export const Condition = {
     },
 
     /** Checks if a specific Action/Condition is on the board. */
-    ActionMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep => (state, context) => {
-        const activeIdx = context.playerIndex;
-        const oppIdx = (activeIdx + 1) % 2;
-
-        return state.players.some((player, idx) => {
-            if (scope === 'active' && idx !== activeIdx) return false;
-            if (scope === 'opponent' && idx !== oppIdx) return false;
-            return player.actionZones.some(z => z !== null && filter(z));
-        });
-    },
+    ActionMatchesFilter: (scope: 'active' | 'opponent' | 'both', filter: (zone: PlacedCard) => boolean): ConditionStep =>
+        rowMatchesFilter('actionZones', scope, filter),
 
     /** Checks if this specific card instance has activated its effect this turn. */
     SoftOncePerTurn: (effectId?: string, cooldownTurns = 0): ConditionStep => (state, context) => {

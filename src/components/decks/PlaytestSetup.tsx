@@ -95,7 +95,7 @@ export default function PlaytestSetup({ onBack, onStart }: PlaytestSetupProps) {
 
       <section className="training-debug">
         <button type="button" data-sound="toggle" aria-label="Debug settings" aria-expanded={debugOpen} aria-controls="playtest-debug-settings" className="training-debug__toggle" onClick={() => setDebugOpen(open => !open)}>
-          <i className="fa-solid fa-sliders" aria-hidden="true" /><span><strong>PRACTICE MODIFIERS</strong><small>Optional debug controls for AI matches</small></span><i className={`fa-solid ${debugOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`} aria-hidden="true" />
+          <i className="fa-solid fa-sliders" aria-hidden="true" /><span><strong>PRACTICE MODIFIERS</strong></span><i className={`fa-solid ${debugOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`} aria-hidden="true" />
         </button>
         {debugOpen && <div id="playtest-debug-settings" className="training-debug__options">
           {debugOptions.map(([key, label, description]) => <label key={key} className="training-debug__option">
@@ -105,7 +105,7 @@ export default function PlaytestSetup({ onBack, onStart }: PlaytestSetupProps) {
         </div>}
       </section>
 
-      <footer className="training-footer"><span></span><button type="button" data-sound="select" aria-label="Begin playtest" onClick={start}>BEGIN TRAINING <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button></footer>
+      <footer className="training-footer"><span></span><button type="button" data-sound="select" aria-label="Begin playtest" onClick={start}>START DUEL <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button></footer>
     </div>
   </main>;
 }

@@ -310,7 +310,7 @@ export interface CardContext {
 
 export interface IEffect {
   /** Continuous bonus from this face-up source to another field Pawn. */
-  auraStatModifier?(state: GameState, context: CardContext, target: PlacedCard, controllerIndex: number): { atk?: number; def?: number };
+  LingeringStatModifier?(state: GameState, context: CardContext, target: PlacedCard, controllerIndex: number): { atk?: number; def?: number };
   canAttack?(state: GameState, context: CardContext, placement: PlacedCard): boolean;
   canAttackDirectly?(state: GameState, context: CardContext): boolean;
   canManuallyChangePosition?(state: GameState, context: CardContext, placement: PlacedCard): boolean;

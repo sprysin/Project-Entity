@@ -8,6 +8,9 @@ import { notifyAttachedActivation } from './attachments';
 import { isDrawingForTurn } from './phases';
 import { notifyFieldEvent } from './fieldEvents';
 import { levelTributeCandidates, levelTributeChoices } from './levelTributes';
+import { needsChoice } from '../cards/engine/Builder';
+
+export { needsChoice } from '../cards/engine/Builder';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
     if (isLand(context.card) && ['activate', 'field_activate', 'phase'].includes(trigger)
@@ -41,10 +44,6 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
     // Legacy/custom handlers are resolution-only; the builder explicitly exposes cost staging.
     if ((context.execution === 'costs' || context.execution === 'reserve') && fn && !('staged' in fn)) return { newState: state };
     return fn?.(state, context) ?? { newState: state };
-}
-
-export function needsChoice(result: EffectResult) {
-    return !!(result.requireEffectChoice || result.requirePawnPlacement || result.requireTarget || result.requireHandSelection || result.requirePeekSelection || result.requireDiscardSelection || result.requireDeckSelection || result.requireReserveSelection || result.requireLevelTribute || result.requireEffectTribute || result.requireShuffleSelection);
 }
 
 export function combinations<T>(values: T[], count: number): T[][] {

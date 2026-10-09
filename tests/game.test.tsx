@@ -6,6 +6,7 @@ import { useGameLogic } from '../src/hooks/useGameLogic';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { Attribute, Card, GameState, Phase, Position, OpponentMode, PlaytestDebugSettings } from '../src/types';
 import { Zone } from '../src/components/game/Zone';
+import * as audio from '../src/audio';
 import PlaytestSetup from '../src/components/decks/PlaytestSetup';
 import { DeckPile } from '../src/components/game/Pile';
 import { XrayOverlay } from '../src/components/game/XrayOverlay';
@@ -18,6 +19,7 @@ import { GameOverlays } from '../src/components/game/GameOverlays';
 import { DiscardSelectionModal } from '../src/components/game/SelectionModals';
 import { HealthHud } from '../src/components/game/HealthHud';
 import { useAnimations } from '../src/hooks/useAnimations';
+import { useCardMotion } from '../src/hooks/useCardMotion';
 vi.mock('../src/desktop/files', () => ({ showMessage: vi.fn() }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -475,11 +477,59 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
     act(() => vi.advanceTimersByTime(200));
     expect(lpValue()).toBe('350');
 
+    const placementSound = vi.spyOn(audio, 'playSound').mockImplementation(() => {});
+    for (const [id, type] of [['action_shrouded_kingdom', 'land'], ['action_06', 'action']] as const) {
+        const zoneCard = placed(card(id));
+        act(() => root.update(<Zone card={null} type={type} />));
+        placementSound.mockClear();
+        act(() => root.update(<Zone card={zoneCard} type={type} />));
+        expect(placementSound).toHaveBeenCalledExactlyOnceWith('hide-card');
+        act(() => root.update(<Zone card={{ ...zoneCard }} type={type} />));
+        expect(placementSound).toHaveBeenCalledTimes(1);
+    }
+    act(() => root.update(<Zone card={null} type="action" />));
+    placementSound.mockClear();
+    act(() => root.update(<Zone card={placed(card('action_01'))} type="action" />));
+    expect(placementSound).not.toHaveBeenCalled();
+    placementSound.mockRestore();
+
+    // Placement has one direct trip; only effects that leave the field need a stop.
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    const motionCard = card('action_01');
+    const motionState = structuredClone(game.gameState!);
+    motionState.players[0].hand = [motionCard];
+    motionState.players[0].actionZones.fill(null);
+    const rect = { left: 0, top: 0, width: 100, height: 150 } as DOMRect;
+    const motionRefs = { current: new Map(['0-hand-0', '0-action-0', 'discard-0'].map(key =>
+        [key, { getBoundingClientRect: () => rect, querySelector: () => null } as unknown as HTMLElement])) };
+    let movement!: ReturnType<typeof useCardMotion>;
+    function MotionHarness({ state }: { state: GameState }) { movement = useCardMotion(state, motionRefs, 0); return null; }
+    for (const position of [Position.HIDDEN, Position.ATTACK]) {
+        act(() => root.update(<MotionHarness state={structuredClone(motionState)} />));
+        movement.recordMovement('0-hand-0', '0-action-0', 'discard', motionCard);
+        const onField = structuredClone(motionState);
+        onField.players[0].hand = [];
+        onField.players[0].actionZones[0] = { ...placed(motionCard), position };
+        act(() => root.update(<MotionHarness state={onField} />));
+        expect(movement.motions).toHaveLength(1);
+        expect(movement.motions[0].hidden).toBe(position === Position.HIDDEN);
+        expect(movement.motions[0].delay).toBeUndefined();
+        act(() => root.update(<div />));
+    }
+    act(() => root.update(<MotionHarness state={motionState} />));
+    movement.recordMovement('0-hand-0', '0-action-0', 'discard', motionCard);
+    const resolved = structuredClone(motionState);
+    resolved.players[0].hand = [];
+    resolved.players[0].discard = [motionCard];
+    act(() => root.update(<MotionHarness state={resolved} />));
+    expect(movement.motions).toHaveLength(2);
+    expect(movement.motions[1].delay).toBe(650);
+    vi.unstubAllGlobals();
+
     // Overlapping shatters retain each card's face and clean up independently.
     let animations!: ReturnType<typeof useAnimations>;
     function AnimationHarness() { animations = useAnimations(); return null; }
     act(() => root.update(<AnimationHarness />));
-    const rect = { left: 0, top: 0, width: 100, height: 150 } as DOMRect;
     act(() => {
         for (const [index, rotated] of [false, true, false].entries()) {
             animations.triggerShatter('', { rect, cardMarkup: `<div>Card ${index}</div>`, rotated, faceDown: index === 2 });
@@ -641,6 +691,28 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
         if (withEnemy) expect(game.gameState!.players[0].pawnZones[0]?.card.atk).toBe(enemy.atk - 20);
         expect(game.gameState!.pendingReactions).toEqual([]);
     }
+    // Destruction reactions complete private choices on the human's turn.
+    for (const sourceId of ['pawn_cockroach_knight', 'pawn_soldier_of_the_high_ground']) {
+        const source = card(sourceId, 1);
+        const recruit = sourceId === 'pawn_cockroach_knight'
+            ? { ...card('pawn_01', 1), attribute: Attribute.EARTH, atk: 100 }
+            : card('pawn_infantry_soldier', 1);
+        setup(s => {
+            s.activePlayerIndex = 0; s.currentPhase = Phase.BATTLE;
+            s.players[1].discard = [source];
+            if (sourceId === 'pawn_cockroach_knight') s.players[1].deck = [recruit, card('action_01', 1)];
+            else s.players[1].discard.push(recruit);
+            s.pendingReactions = [{ card: source, playerIndex: 1,
+                trigger: sourceId === 'pawn_cockroach_knight' ? 'battle_destroyed' : 'destroyed' }];
+        });
+        for (let i = 0; i < 10; i++) act(() => vi.advanceTimersByTime(0));
+        expect(game.gameState!.pendingReactions).toEqual([]);
+        expect(game.gameState!.chain).toEqual([]);
+        expect(game.state.pendingEffectCard).toBeNull();
+        if (sourceId === 'pawn_cockroach_knight') {
+            expect(game.gameState!.players[1].pawnZones.some(z => z?.card.instanceId === recruit.instanceId)).toBe(true);
+        } else expect(game.gameState!.players[1].hand.map(c => c.instanceId)).toContain(recruit.instanceId);
+    }
     // The live AI chooses a target after the human's later protection link resolves.
     const future = card('pawn_future_outlander', 1), protectedDragon = card('pawn_everlasting_dragonlord'), exposed = card('pawn_08');
     act(() => game.actions.setActivationPopupMode('on'));
@@ -682,6 +754,7 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     const fieldOverlay = root.root.findByType(Zone).findByType(XrayOverlay);
     expect(fieldOverlay.parent.props.className).toContain('rotate-90');
     expect(fieldOverlay.parent.props['data-field-card-id']).toBe(hidden.card.instanceId);
+    expect(root.root.findByType(Zone).findAllByType('i').some(icon => icon.props.className.includes('fa-lock'))).toBe(false);
     expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(false);
     const viewer = root.root.findByType(GameSidebar);
     act(() => viewer.findByProps({ 'aria-label': `Preview ${hidden.card.name}` }).props.onClick());

@@ -53,7 +53,8 @@ export function evaluatePosition(state: GameState, player: number): number {
     const field = (index: number) => state.players[index].pawnZones.reduce((n, z) => {
         if (!z) return n;
         const stats = fieldStats(state, z);
-        return n + pawnValue(z.card, stats.atk, stats.def);
+        return n + pawnValue(z.card, stats.atk, stats.def)
+            + (z.position === Position.ATTACK ? stats.atk : stats.def) * .1;
     }, 0);
     const exposed = (index: number) => {
         const p = state.players[index], enemy = state.players[1 - index];
@@ -282,6 +283,12 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
         const choice = chooseAIAction(observeGame(pending, link.context.playerIndex), link.context.playerIndex);
         return choice.kind === 'effect' ? choice.context.targets ?? (choice.context.target ? [choice.context.target] : []) : [];
     });
+    function* effectOutcomes(board: GameState, activations: { card: Card; trigger: EffectTrigger }[], limit: number) {
+        for (const { card, trigger } of activations) for (const choice of effectChoices(board, card, trigger, limit)) {
+            const queued = addChainLink(board, choice, trigger);
+            if (queued !== board) yield queued.response ? settleChain(queued, choice) : queued;
+        }
+    }
     const response = !!state.response;
     const battleDecision = !reactionCard && !response && state.currentPhase === Phase.BATTLE ? planBattle(state, player) : undefined;
     const baseline = response && !resolvingLink ? settleChain(state) : state;
@@ -323,11 +330,8 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
         const seen = new Set<string>();
         for (let depth = 0; depth < Math.min(6, start.players[player].hand.length) && frontier.length; depth++) {
             const candidates: GameState[] = [];
-            for (const board of frontier) for (const activation of fieldActivations(board, player)) {
-                for (const choice of effectChoices(board, activation.card, activation.trigger, 8)) {
-                    const queued = addChainLink(board, choice, activation.trigger);
-                    if (queued === board) continue;
-                    const after = queued.response ? settleChain(queued, choice) : queued;
+            for (const board of frontier) {
+                for (const after of effectOutcomes(board, fieldActivations(board, player), 8)) {
                     if (!raisedOwnAttack(board, after)) continue;
                     const key = after.players[player].pawnZones.map(z => z ? `${z.card.instanceId}:${z.card.atk}:${z.position}` : '').join('|')
                         + '/' + after.players[player].hand.map(c => c.instanceId).sort().join('|');
@@ -348,12 +352,59 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
             const queued = resolvingLink ? resolveChainStep(base, context.targets ?? (context.target ? [context.target] : []))
                 : addChainLink(base, context, trigger);
             if (queued === base) continue;
-            const next = queued.response ? settleChain(queued, context) : queued;
+            let next = queued.response ? settleChain(queued, context) : queued;
             // A legal target is not necessarily a sensible one. In particular,
             // optional broad targeting must never turn an ATK reduction on the
             // AI's own Pawn just because no opponent target is available.
             const preview = runEffect(base, context, trigger).newState;
             if (!resolvingLink && (lowersOwnPawnStats(base, preview) || raisesOpponentPawnAttack(base, preview))) continue;
+            // Detect boosts through resulting field stats: targeted and self effects,
+            // non-targeting Stat Modifiers and Lingering Stat Modifiers use the same positional rule.
+            const boosts = base.players[player].pawnZones.flatMap(original => {
+                if (!original) return [];
+                const boosted = preview.players[player].pawnZones.find(z => z?.card.instanceId === original.card.instanceId);
+                if (!boosted) return [];
+                const before = fieldStats(base, original), after = fieldStats(preview, boosted);
+                return after.atk > before.atk || after.def > before.def
+                    ? [{ id: original.card.instanceId, before, atk: after.atk > before.atk, def: after.def > before.def }] : [];
+            });
+            const usesBoosts = (board: GameState) => boosts.every(({ id, before, atk, def }) => {
+                const zone = board.players[player].pawnZones.find(z => z?.card.instanceId === id);
+                if (!zone) return false;
+                const stats = fieldStats(board, zone);
+                return atk && zone.position === Position.ATTACK && stats.atk > before.atk
+                    || def && zone.position === Position.DEFENSE && stats.def > before.def;
+            });
+            if (boosts.length && !usesBoosts(next)) {
+                const followUps: GameState[] = [];
+                const sources: { board: GameState; activations: { card: Card; trigger: EffectTrigger }[] }[] = [];
+                // Main-phase follow-ups run only after the activation window closes.
+                // Never invent a manual switch during attack declaration.
+                if (!response && !resolvingLink && !next.pendingReactions?.length && !next.pendingHandSummons?.length) {
+                    const settled: GameState = { ...next, response: undefined, pendingResponse: undefined };
+                    for (const { id } of boosts) {
+                        const index = settled.players[player].pawnZones.findIndex(z => z?.card.instanceId === id);
+                        const changed = applyCommand(settled, player, { type: 'position', index }).state;
+                        if (changed !== settled) followUps.push(changed);
+                    }
+                    sources.push({ board: settled, activations: fieldActivations(settled, player) });
+                    for (const held of settled.players[player].hand) {
+                        if (held.type !== CardType.ACTION) continue;
+                        const board = applyCommand(settled, player, { type: 'play', cardId: held.instanceId,
+                            set: false, slot: settled.players[player].actionZones.indexOf(null) }).state;
+                        if (board !== settled) sources.push({ board, activations: [{ card: held, trigger: 'activate' }] });
+                    }
+                }
+                // Quick position effects can also join the same response chain.
+                if (response && !resolvingLink && queued.response && !queued.resolvingChain) {
+                    const priority = { ...queued, response: { ...queued.response, priority: player, ready: false } };
+                    sources.push({ board: priority, activations: fieldActivations(priority, player, true) });
+                }
+                for (const { board, activations } of sources) followUps.push(...effectOutcomes(board, activations, 24));
+                const useful = followUps.filter(usesBoosts).sort((a, b) => scoreAfterResponse(b, player) - scoreAfterResponse(a, player));
+                if (!useful.length) continue;
+                next = useful[0];
+            }
             if (!resolvingLink && (context.targets ?? (context.target ? [context.target] : [])).some(target => {
                 if (target.playerIndex !== player || target.type !== 'pawn') return false;
                 const id = base.players[player].pawnZones[target.index]?.card.instanceId;
@@ -465,8 +516,7 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
             }
         }
     });
-    own.pawnZones.forEach((z, index) => {
-        if (!z || z.hasChangedPosition || z.hasAttacked || z.summonedTurn === state.turnNumber) return;
+    own.pawnZones.forEach((_, index) => {
         const next = applyCommand(state, player, { type: 'position', index }).state;
         if (next === state) return;
         const zone = next.players[player].pawnZones[index]!;

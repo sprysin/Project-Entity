@@ -10,7 +10,7 @@ export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRec
 export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number, suppressedCardIds: string[] = [], onActionDestroyed?: (key: string, source: ShatterSource) => void) {
     const previous = useRef<Map<string, Location>>(new Map());
     const previousGame = useRef<GameState | null>(null);
-    const waypoints = useRef(new Map<string, DOMRect>());
+    const waypoints = useRef(new Map<string, { key: string; rect: DOMRect }>());
     const activated = useRef(new Set<string>());
     const [motions, setMotions] = useState<CardMotion[]>([]);
     const [landings, setLandings] = useState<Animation[]>([]);
@@ -77,7 +77,8 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
                 }
             }
             if (!src.rect || !dest.rect) return;
-            const waypoint = waypoints.current.get(id);
+            const recordedStop = waypoints.current.get(id);
+            const waypoint = recordedStop?.key !== dest.key ? recordedStop?.rect : undefined;
             const activation = activated.current.has(id);
             const token = `${id}-${performance.now()}`;
             if (waypoint) {
@@ -121,7 +122,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         recordMovement: (_source: string, target: string, _type: 'discard' | 'void' | 'retrieve', card?: Card) => {
             if (!card) return;
             const rect = refs.current.get(target)?.getBoundingClientRect();
-            if (rect) waypoints.current.set(card.instanceId, rect);
+            if (rect) waypoints.current.set(card.instanceId, { key: target, rect });
         },
         recordActivation: (card: Card) => activated.current.add(card.instanceId),
         finishMotion: (id: string) => setMotions(current => current.filter(m => m.id !== id))

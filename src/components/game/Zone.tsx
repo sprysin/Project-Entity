@@ -50,6 +50,11 @@ export const Zone: React.FC<{
             && (prevPlacement.current?.id !== card.card.instanceId || prevPlacement.current.position !== Position.HIDDEN)) {
             playSound('hide-card');
         }
+        if (card.position !== Position.HIDDEN
+            && (type === 'land' || (card.card.type === CardType.ACTION && card.card.isLingering))
+            && prevPlacement.current?.id !== card.card.instanceId) {
+            playSound('hide-card');
+        }
         if (card.card.type === CardType.CONDITION
             && card.position !== Position.HIDDEN
             && prevPlacement.current?.id === card.card.instanceId
@@ -74,7 +79,7 @@ export const Zone: React.FC<{
         }
         prevStats.current = { id: card.card.instanceId, atk: displayedAtk, def: displayedDef };
         prevPlacement.current = { id: card.card.instanceId, position: card.position };
-    }, [card, displayedAtk, displayedDef, schedule]);
+    }, [card, displayedAtk, displayedDef, schedule, type]);
 
     return (
         <div ref={domRef} onClick={onClick} className={`field-zone field-zone--${type} ${visibleCard ? 'field-zone--occupied' : 'field-zone--empty'} w-32 aspect-[2/3] rounded border-2 transition-all cursor-pointer flex flex-col relative hover:z-50 ${isSelected ? 'border-yellow-400 scale-105 z-40' : isTributeSelected ? 'border-green-400 scale-105 animate-pulse z-40' : isSelectable ? 'border-red-500 animate-pulse z-40' : isDropTarget ? 'zone-drop-target z-40' : 'field-zone--idle border-white/5 bg-black/40 hover:border-white/20'} ${isActivatable ? 'glow-activatable z-30' : 'z-10'}`}>
@@ -99,11 +104,7 @@ export const Zone: React.FC<{
             {visibleCard && (
                 <div key={visibleCard.card.instanceId} data-card-face className="absolute inset-0">
                 <div data-field-card-id={visibleCard.card.instanceId} data-attached-to={visibleCard.position !== Position.HIDDEN ? visibleCard.attachedToInstanceIds?.length ? JSON.stringify(visibleCard.attachedToInstanceIds) : undefined : undefined} className={`absolute inset-0 w-full h-full transition-all duration-700 z-20 ${visibleCard.position === Position.HIDDEN ? 'card-back' : ''} ${(visibleCard.position === Position.DEFENSE || (visibleCard.position === Position.HIDDEN && visibleCard.card.type === CardType.PAWN)) ? 'rotate-90' : ''}`}>
-                    {visibleCard.position === Position.HIDDEN ? (
-                        <div className="w-full h-full flex items-center justify-center opacity-40">
-                            <i className="fa-solid fa-lock text-2xl text-slate-800"></i>
-                        </div>
-                    ) : (
+                    {visibleCard.position !== Position.HIDDEN && (
                         <CardDetail
                             card={visibleCard.card}
                             counters={visibleCard.counters}
