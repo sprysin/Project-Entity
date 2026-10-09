@@ -1,3 +1,4 @@
+import { activeLand, isLand, removeFieldIdentity } from '../../game/field';
 import { Card, CardContext, CardFilter, GameState, SelectedCard, SelectionLocation } from '../../types';
 import { EffectStep } from './Builder';
 import { canTargetWithEffect } from '../../game/cardHelpers';
@@ -7,7 +8,7 @@ import { Dynamic, resolveDynamic } from './Dynamic';
 export function cardsForSelection(state: GameState, playerIndex: number, location: SelectionLocation): Card[] {
     const player = state.players[playerIndex];
     return location === 'field'
-        ? [...player.pawnZones, ...player.actionZones].flatMap(zone => zone ? [zone.card] : [])
+        ? [...player.pawnZones, ...player.actionZones, activeLand(state)].flatMap(zone => zone ? [zone.card] : [])
         : player[location];
 }
 
@@ -38,7 +39,7 @@ export const randomSelection = (options: {
         context.selections[selectionIndex] = { playerIndex, location: options.location, card, isTarget: options.isTarget ?? false };
         if (options.isTarget && options.location === 'field') {
             const pawnIndex = state.players[playerIndex].pawnZones.findIndex(zone => zone?.card.instanceId === card.instanceId);
-            const target = pawnIndex >= 0 ? { playerIndex, type: 'pawn' as const, index: pawnIndex }
+            const target = isLand(card) ? { playerIndex: state.activePlayerIndex, type: 'land' as const, index: 0 } : pawnIndex >= 0 ? { playerIndex, type: 'pawn' as const, index: pawnIndex }
                 : { playerIndex, type: 'action' as const, index: state.players[playerIndex].actionZones.findIndex(zone => zone?.card.instanceId === card.instanceId) };
             context.targets = [...(context.targets ?? [])];
             context.targets[selectionIndex] = target;
@@ -53,10 +54,7 @@ export function takeSelectedCard(state: GameState, context: CardContext, index =
     if (!selected) return;
     const player = state.players[selected.playerIndex];
     if (selected.location === 'field') {
-        for (const zones of [player.pawnZones, player.actionZones]) {
-            const slot = zones.findIndex(zone => zone?.card.instanceId === selected.card.instanceId);
-            if (slot >= 0) { const card = zones[slot]!.card; zones[slot] = null; return card; }
-        }
+        return removeFieldIdentity(state, selected.card.instanceId);
     } else {
         const pile = player[selected.location];
         const slot = pile.findIndex(card => card.instanceId === selected.card.instanceId);

@@ -10,7 +10,7 @@
     radial-gradient(circle at 80% 4%, rgba(245,189,72,.13), transparent 28rem),
     radial-gradient(circle at 5% 35%, rgba(73,104,165,.12), transparent 32rem),
     #08090d;
-  font-family: Roboto, sans-serif;
+  font-family: var(--font-card-text);
 }
 
 .rulebook-shell { max-width: 1260px; margin: 0 auto; padding: 0 32px 56px; }

@@ -1,4 +1,4 @@
-/* Duel field: the original card-back board, framed with the new gold interface. */
+/* One arena surface connects both fields through the shared Land dock. */
 .duel-screen {
   isolation: isolate;
   color: #f4f6fa;
@@ -41,24 +41,51 @@
 }
 .duel-screen--light .duel-arena::after { opacity: .55; }
 
-.duel-screen .game-player-field { position: relative; isolation: isolate; }
-.duel-screen .game-player-field::before {
+.game-field-surface {
+  --field-surface: #10181e;
+  --field-line: #b59b6055;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.game-board--compact .game-field-surface { gap: 28px; }
+.game-field-surface::before,
+.game-field-surface::after {
   content: '';
   position: absolute;
-  inset: -12px calc(-1 * var(--field-frame-padding)) -12px calc(-1 * (var(--field-frame-padding) + var(--reserve-width) + var(--reserve-gap)));
+  inset: -24px calc(-1 * var(--field-frame-padding)) -24px calc(-1 * (var(--field-frame-padding) + var(--reserve-width) + var(--reserve-gap)));
+  z-index: -2;
+  /* The phase seam cuts into the right edge; the Land side stays continuous. */
+  clip-path: polygon(
+    24px 0, calc(100% - 24px) 0, 100% 24px,
+    100% calc(50% - 36px), calc(100% - 14px) calc(50% - 22px),
+    calc(100% - 14px) calc(50% + 22px), 100% calc(50% + 36px),
+    100% calc(100% - 24px), calc(100% - 24px) 100%,
+    24px 100%, 0 calc(100% - 24px), 0 24px
+  );
+  background: var(--field-line);
+  pointer-events: none;
+}
+.game-field-surface::after {
+  inset: -23px calc(1px - var(--field-frame-padding)) -23px calc(1px - (var(--field-frame-padding) + var(--reserve-width) + var(--reserve-gap)));
   z-index: -1;
-  border: 1px solid #facc1580;
-  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
-  background: linear-gradient(110deg, #1a2229df, #0c1117e8 53%, #1b201edc);
-  box-shadow: 0 18px 40px #0008, inset 0 0 35px #d6a8490d;
+  clip-path: polygon(
+    23px 0, calc(100% - 23px) 0, 100% 23px,
+    100% calc(50% - 37px), calc(100% - 14px) calc(50% - 23px),
+    calc(100% - 14px) calc(50% + 23px), 100% calc(50% + 37px),
+    100% calc(100% - 23px), calc(100% - 23px) 100%,
+    23px 100%, 0 calc(100% - 23px), 0 23px
+  );
+  background: var(--field-surface);
 }
-.duel-screen--light .game-player-field::before {
-  border-color: #936f33aa;
-  background: linear-gradient(110deg, #e9ecebdc, #cfd6d8e8 53%, #e9e8e0da);
-  box-shadow: 0 14px 30px #15222c38, inset 0 0 35px #ad88471a;
-}
+.duel-screen--light .game-field-surface { --field-surface: #d8e0df; --field-line: #6c795d66; }
+.duel-screen .game-player-field { position: relative; isolation: isolate; }
 .duel-screen .field-zone { border-radius: 2px; }
 .duel-screen .field-zone--pawn { --zone-accent: #d8ad5b; }
+.duel-screen .field-zone--land { --zone-accent: #9ebfa6; }
 .duel-screen .field-zone--action { --zone-accent: #72c3a5; }
 .duel-screen .field-zone--idle {
   border-color: color-mix(in srgb, var(--zone-accent) 43%, transparent);
@@ -74,20 +101,31 @@
   pointer-events: none;
 }
 .duel-screen--light .field-zone--idle { background: linear-gradient(145deg, #f4f0e6a8, #c0c8c8ad); box-shadow: inset 0 0 20px #8f77592b; }
-.duel-screen--light .field-zone--empty > div:first-child { opacity: .32; }
-.duel-screen--light .field-zone--empty > div:first-child :is(i, span, svg) { color: #414d57; }
+.duel-screen--light .field-zone--empty > .field-zone-placeholder { opacity: .32; }
+.duel-screen--light .field-zone--empty > .field-zone-placeholder :is(i, span, svg) { color: #414d57; }
 
 .duel-screen .phase-track {
   height: 44px;
-  border-block-color: #ffe04ba1;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.duel-screen .phase-track::before {
+  content: '';
+  position: absolute;
+  /* Meet the plate's 14px right-edge notch without a closing border there. */
+  inset: 0 calc(14px - var(--field-frame-padding)) 0 calc(var(--reserve-width) + var(--reserve-gap) + 12px);
+  border-block: 1px solid #ffe04ba1;
+  border-left: 1px solid #ffe04ba1;
   background: linear-gradient(90deg, #171c21, #080b0f 52%, #171c21);
   box-shadow: 0 8px 22px #0009, 0 0 12px #facc1515, inset 0 1px #ffe04b21;
+  pointer-events: none;
 }
 .duel-screen .phase-track__step { height: 32px; color: #e8e4d8; background: #c4a333; }
 .duel-screen .phase-track__step::before { background: #171c22; }
 .duel-screen .phase-track__step.is-current { color: #fff; background: #ffe04b; text-shadow: 0 0 10px #facc1590; }
 .duel-screen .phase-track__step.is-current::before { background: linear-gradient(110deg, #332b0a, #17170e, #332b0a); box-shadow: inset 0 0 14px #facc1533; }
-.duel-screen--light .phase-track { border-block-color: #8d6b37; background: #d7d6cc; }
+.duel-screen--light .phase-track::before { border-color: #8d6b37; background: #d7d6cc; }
 
 .duel-screen .history-pile { border-radius: 0; border-color: #b89b686e; background: #0d131aeb; }
 .duel-screen .history-pile--purple { border-color: #a57ed180; background: #3a294bc9; }
@@ -144,3 +182,47 @@
   .summon-reverb__ring { display: none; }
   .summon-reverb__zones span { animation: none; opacity: .16; }
 }
+
+/* Shared Land sits in the Reserve column, immediately left of Draw. */
+.duel-screen .game-board .phase-track { grid-template-rows: minmax(0, 1fr); position: relative; z-index: auto; transform: none; margin-left: calc(2 * var(--board-center-offset)); grid-template-columns: calc(var(--reserve-width) + var(--reserve-gap)) repeat(6, minmax(0, 1fr)); }
+.game-land-zone { margin-left: calc(var(--field-frame-padding) - 7px); position: relative; isolation: isolate; width: var(--reserve-width); align-self: center; z-index: 12; }
+.game-land-zone .field-zone { width: 100%; }
+.game-land-zone > .history-pile__counter { z-index: 51; color: #fff; }
+.duel-screen .field-zone--land { border-radius: 0; }
+.duel-screen .field-zone--land.field-zone--idle {
+  background: radial-gradient(ellipse at center, #9ebfa60c, transparent 68%), #090f1499;
+  border-color: #9ebfa666;
+  box-shadow: inset 0 0 18px #0005;
+}
+.duel-screen .field-zone--land.field-zone--idle:hover { border-color: var(--zone-accent); }
+.duel-screen .field-zone--land.field-zone--empty > .field-zone-placeholder { opacity: .45; }
+.duel-screen .field-zone--land.field-zone--empty > .field-zone-placeholder :is(svg, span) { color: var(--zone-accent); }
+.duel-screen--light .field-zone--land.field-zone--idle { background: radial-gradient(ellipse at center, #9ebfa620, transparent 68%), #c6d2ce; border-color: #55796388; box-shadow: inset 0 0 18px #536a5c14; }
+.duel-screen--light .field-zone--land.field-zone--empty > .field-zone-placeholder :is(svg, span) { color: #476353; }
+/* Elevate only the field opening a menu, so the phase row never covers it. */
+.duel-screen .game-player-field:has(.field-context-menu) { z-index: 30; }
+.game-land-stack.game-corner-button {
+  position: absolute;
+  top: calc(100% + 4px);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 22px;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 2px;
+  border: 1px solid #ffffff18;
+  border-radius: 2px;
+  color: #939eaa;
+  background: #0b1117;
+  box-shadow: none;
+  clip-path: none;
+  font-size: 8px;
+  letter-spacing: 0;
+  text-shadow: none;
+  text-transform: none;
+  white-space: nowrap;
+}
+.game-land-stack.game-corner-button::before,
+.game-land-stack.game-corner-button::after { content: none; }
+.game-land-stack.game-corner-button:hover { color: #e2e8f0; background: #182129; box-shadow: none; filter: none; }

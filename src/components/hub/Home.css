@@ -562,7 +562,7 @@
 
 .home-nav-button__text small {
   color: #a4aab3;
-  font: 400 13px Roboto, sans-serif;
+  font: 400 13px var(--font-card-text);
   letter-spacing: .04em;
 }
 

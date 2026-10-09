@@ -1,3 +1,4 @@
+import { isLand } from '../game/field';
 import { canTributeForSummon } from '../game/cardHelpers';
 import { Dispatch, SetStateAction, useRef } from 'react';
 import { Card, CardTarget, EffectTrigger, GameState, TargetSelectMode } from '../types';
@@ -94,8 +95,8 @@ export function useCardActions(
     const placeAction = (card: Card, mode: 'activate' | 'set', slot: number) => {
         if (!commit({ type: 'play', cardId: card.instanceId, set: mode === 'set', slot })) return false;
         const actor = gameState!.activePlayerIndex;
-        triggerVisual(`${actor}-hand-container`, `${actor}-action-${slot}`, 'discard', card);
-        if (mode === 'activate' && cardRegistry.getEffect(card.id)?.onActivate) {
+        triggerVisual(`${actor}-hand-container`, isLand(card) ? 'land' : `${actor}-action-${slot}`, 'discard', card);
+        if (mode === 'activate' && !isLand(card) && cardRegistry.getEffect(card.id)?.onActivate) {
             resolveEffect(card, undefined, undefined, undefined, undefined, 'activate');
         }
         setSelectedHandIndex(null);
@@ -103,6 +104,7 @@ export function useCardActions(
     };
     const handleActionFromHand = (card: Card, mode: 'activate' | 'set', selection: PlaySelection, slot?: number) => {
         if (!gameState || blocked || gameState.winner) return;
+        if (isLand(card)) { if (mode !== 'set') placeAction(card, mode, 0); return; }
         if (slot !== undefined) { placeAction(card, mode, slot); return; }
         selection.setPendingPlayCard(card);
         selection.setPlayMode(mode);
@@ -120,7 +122,7 @@ export function useCardActions(
         selection.setPlayMode(null);
         if (mode !== 'activate') setTargetSelectMode(null);
     };
-    const activateOnField = (playerIndex: number, type: 'pawn' | 'action', index: number) => {
+    const activateOnField = (playerIndex: number, type: 'pawn' | 'action' | 'land', index: number) => {
         if (!gameState || blocked) return;
         const activation = fieldActivations(gameState, playerIndex).find(a => a.slot.type === type && a.slot.index === index);
         if (!activation) return;

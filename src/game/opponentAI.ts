@@ -1,3 +1,4 @@
+import { isLand } from './field';
 import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
@@ -448,13 +449,13 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
                 }
                 if (score > bestScore) { bestScore = score; decision = { kind: 'summon', card, hidden, tributes: tribute }; }
             }
-        } else if (own.actionZones.includes(null)) {
+        } else if (isLand(card) || own.actionZones.includes(null)) {
             if (card.type === CardType.ACTION) {
                 const base = applyCommand(state, player, { type: 'play', cardId: card.instanceId, set: false, slot: own.actionZones.indexOf(null) }).state;
                 if (base === state) return;
                 considerEffect(base, card, 'activate', true);
                 // Lingering actions with separate field effects may first need to enter play.
-                if (card.isLingering && !cardRegistry.getEffect(card.id)?.onActivate && bestScore < evaluatePosition(state, player) + 2) {
+                if ((card.isLingering || isLand(card)) && !cardRegistry.getEffect(card.id)?.onActivate && bestScore < evaluatePosition(state, player) + 2) {
                     bestScore = evaluatePosition(state, player) + 2;
                     decision = { kind: 'effect', context: { card, playerIndex: player }, trigger: 'activate', fromHand: true };
                 }

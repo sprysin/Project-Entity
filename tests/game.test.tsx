@@ -683,6 +683,13 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     expect(fieldOverlay.parent.props.className).toContain('rotate-90');
     expect(fieldOverlay.parent.props['data-field-card-id']).toBe(hidden.card.instanceId);
     expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(false);
+    const viewer = root.root.findByType(GameSidebar);
+    act(() => viewer.findByProps({ 'aria-label': `Preview ${hidden.card.name}` }).props.onClick());
+    const previewDialog = viewer.findByType('dialog');
+    expect(previewDialog.props['aria-label']).toBe(hidden.card.name);
+    expect(previewDialog.findByProps({ 'aria-label': `${hidden.card.name} effect text` }).findByType('p').props.children).toBe(hidden.card.effectText);
+    act(() => previewDialog.findAllByType('button').find(button => button.props.children === 'Close Preview')!.props.onClick());
+    expect(viewer.findAllByType('dialog')).toHaveLength(0);
     act(() => root.root.findByProps({ 'aria-label': 'Deck: 35 cards. Inspect top card' }).props.onClick());
     expect(inspect).toHaveBeenCalledOnce();
     expect(hidden.position).toBe(Position.HIDDEN);
@@ -700,6 +707,7 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => root.update(<><Zone card={hidden} type="pawn" /><DeckPile count={0} label="Deck" /><GameSidebar gameState={debugGame} viewerIndex={0} selectedCard={null} selectedFieldSlot={{ playerIndex: 1, type: 'pawn', index: 0 }} isOpen setIsOpen={() => {}} /></>));
     expect(root.root.findAllByType(XrayOverlay)).toHaveLength(0);
     expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(true);
+    expect(root.root.findByType(GameSidebar).findByProps({ 'aria-label': 'Hidden card' }).props.disabled).toBe(true);
 });
 
 it('ranks the winning duel MVP and reveals it after one second', () => {

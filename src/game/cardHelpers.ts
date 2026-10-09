@@ -1,3 +1,4 @@
+import { activeLand, fieldEntries } from './field';
 import { GameState, Card, CardContext, PawnSubtype, PlacedCard, Player, Position, ShuffleLocation } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 
@@ -26,19 +27,25 @@ export function opposingPawnInColumn(state: GameState, context: CardContext): Pl
 /** Current combat stats, including a card's continuous field modifier. */
 export function fieldStats(state: GameState, placement: PlacedCard): { atk: number; def: number } {
     const { card } = placement;
-    if (placement.position === Position.HIDDEN) return { atk: card.atk, def: card.def };
+    if (placement.position === Position.HIDDEN) return { atk: placement.attackOverride?.turn === state.turnNumber ? placement.attackOverride.value : card.atk, def: card.def };
     const modifier = cardRegistry.getEffect(card.id)?.fieldStatModifier;
-    if (!modifier) return { atk: card.atk, def: card.def };
     const playerIndex = state.players.findIndex(player => player.pawnZones.some(zone => zone?.card.instanceId === card.instanceId));
     if (playerIndex < 0) return { atk: card.atk, def: card.def };
-    const bonus = modifier(state, { card, playerIndex }, placement);
-    return { atk: Math.max(0, card.atk + (bonus.atk ?? 0)), def: Math.max(0, card.def + (bonus.def ?? 0)) };
+    const bonus = modifier?.(state, { card, playerIndex }, placement) ?? {};
+    let atk = card.atk + (bonus.atk ?? 0), def = card.def + (bonus.def ?? 0);
+    for (const entry of fieldEntries(state)) {
+        if (entry.zone.position === Position.HIDDEN) continue;
+        const aura = cardRegistry.getEffect(entry.zone.card.id)?.auraStatModifier?.(state,
+            { card: entry.zone.card, playerIndex: entry.target.playerIndex }, placement, playerIndex);
+        atk += aura?.atk ?? 0; def += aura?.def ?? 0;
+    }
+    return { atk: Math.max(0, placement.attackOverride?.turn === state.turnNumber ? placement.attackOverride.value : atk), def: Math.max(0, def) };
 }
 
-export function cardsAtLocation(player: Player, location: ShuffleLocation): { card: Card; index: number }[] {
+export function cardsAtLocation(player: Player, location: ShuffleLocation, state?: GameState): { card: Card; index: number }[] {
     if (location === 'hand') return player.hand.map((card, index) => ({ card, index }));
     if (location === 'discard') return player.discard.map((card, index) => ({ card, index }));
-    return [...player.pawnZones, ...player.actionZones].flatMap((zone, index) => zone ? [{ card: zone.card, index }] : []);
+    return [...player.pawnZones, ...player.actionZones, ...(state ? [activeLand(state)] : [])].flatMap((zone, index) => zone ? [{ card: zone.card, index }] : []);
 }
 
 export function shuffleDeck(deck: Card[]): void {

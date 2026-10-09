@@ -1,3 +1,4 @@
+import { activeLand, fieldEntries, isLand, sourceZone, targetZone, targetZones } from './field';
 import { Card, CardContext, CardTarget, CardType, ChainLink, EffectResult, EffectTrigger, GameState, Phase, Position, ResponseTiming } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { finishEffect, checkVictory } from './finishEffect';
@@ -9,8 +10,10 @@ import { notifyFieldEvent } from './fieldEvents';
 import { levelTributeCandidates, levelTributeChoices } from './levelTributes';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
+    if (isLand(context.card) && ['activate', 'field_activate', 'phase'].includes(trigger)
+        && activeLand(state)?.card.instanceId !== context.card.instanceId) return { newState: state, halted: true };
     if (context.execution !== 'costs' && (context.targets ?? (context.target ? [context.target] : [])).some(target => {
-        const zone = state.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
+        const zone = targetZone(state, target);
         return zone && !canTargetWithEffect(zone.card);
     })) return { newState: state, halted: true };
     // Activating a set Action/Condition reveals it before targets and requirements are checked.
@@ -55,7 +58,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
         || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
         || state.pendingReactions?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === state.players.indexOf(p)));
     const reactionIndex = state.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId && entry.trigger === trigger)?.playerIndex;
-    const playerIndex = resolutionContext?.playerIndex ?? reactionIndex ?? (controllerIndex >= 0 ? controllerIndex : state.players.findIndex(p => p.id === card.ownerId));
+    const playerIndex = resolutionContext?.playerIndex ?? reactionIndex ?? (isLand(card) ? state.activePlayerIndex : undefined) ?? (controllerIndex >= 0 ? controllerIndex : state.players.findIndex(p => p.id === card.ownerId));
     if (playerIndex < 0) return [];
     const effect = cardRegistry.getEffect(card.id);
     if (trigger !== 'phase' && !resolutionContext && effect?.canActivate && !effect.canActivate(state, { card, playerIndex })) return [];
@@ -80,21 +83,19 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
                 }
             });
         } else if (result.requireTarget && !selectedTarget) {
-            state.players.forEach((player, pi) => (['pawn', 'action'] as const).forEach(type => {
+            fieldEntries(state).forEach(({ zone, target }) => {
+                const type = target.type === 'land' ? 'action' : target.type;
                 if (result.requireTarget !== 'any' && type !== result.requireTarget) return;
-                const isOpponent = pi !== playerIndex;
+                const isOpponent = target.playerIndex !== playerIndex;
                 if (result.requireTargetScope === 'active' && isOpponent || result.requireTargetScope === 'opponent' && !isOpponent) return;
-                player[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((zone, index) => {
-                    if (!zone || !canTargetWithEffect(zone.card)) return;
-                    if (result.requireTargetPosition === 'hidden' && zone.position !== Position.HIDDEN) return;
-                    if (result.requireTargetPosition === 'faceup' && zone.position === Position.HIDDEN) return;
-                    if (result.requireTargetFilter && !result.requireTargetFilter(zone.card)) return;
-                    const target = { playerIndex: pi, type, index };
-                    const targets = [...(context.targets ?? [])];
-                    targets[targetIndex] = target;
-                    visit({ ...context, target: targets[0], targets }, depth + 1);
-                });
-            }));
+                if (!canTargetWithEffect(zone.card)) return;
+                if (result.requireTargetPosition === 'hidden' && zone.position !== Position.HIDDEN) return;
+                if (result.requireTargetPosition === 'faceup' && zone.position === Position.HIDDEN) return;
+                if (result.requireTargetFilter && !result.requireTargetFilter(zone.card)) return;
+                const targets = [...(context.targets ?? [])];
+                targets[targetIndex] = target;
+                visit({ ...context, target: targets[0], targets }, depth + 1);
+            });
         } else if (result.requireHandSelection && context.handIndex === undefined) {
             const req = result.requireHandSelection;
             state.players[req.playerIndex].hand.forEach((c, handIndex) => {
@@ -105,7 +106,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             state.players[req.playerIndex].hand.forEach((_c, peekIndex) => visit({ ...context, peekIndex }, depth + 1));
         } else if (result.requireShuffleSelection && !context.shuffleCardIds) {
             const req = result.requireShuffleSelection;
-            const cardIds = cardsAtLocation(state.players[req.playerIndex], req.location)
+            const cardIds = cardsAtLocation(state.players[req.playerIndex], req.location, state)
                 .filter(entry => req.filter(entry.card)).map(entry => entry.card.instanceId);
             combinations(cardIds, req.count).forEach(shuffleCardIds => visit({ ...context, shuffleCardIds }, depth + 1));
         } else if (result.requireLevelTribute && !context.materialIds) {
@@ -146,7 +147,7 @@ export function fieldActivations(state: GameState, playerIndex: number, respondi
     if (state.winner || state.attackReplay || state.resolvingChain || state.pendingVoidReturns?.length || state.pendingVoidSelections?.length) return [];
     const main = state.activePlayerIndex === playerIndex && [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase);
     const pending = new Set(state.chain?.map(link => link.context.card.instanceId));
-    return (['pawn', 'action'] as const).flatMap(type => state.players[playerIndex][type === 'pawn' ? 'pawnZones' : 'actionZones'].flatMap((zone, index) => {
+    return fieldEntries(state).filter(entry => entry.target.type === 'land' || entry.target.playerIndex === playerIndex).flatMap(({ zone, target: { type, index } }) => {
         if (!zone || pending.has(zone.card.instanceId)) return [];
         const effect = cardRegistry.getEffect(zone.card.id);
         if (type === 'pawn' && (zone.position === Position.HIDDEN || (responding ? effect?.timing !== 'quick' : !main && effect?.timing !== 'quick'))) return [];
@@ -164,7 +165,7 @@ export function fieldActivations(state: GameState, playerIndex: number, respondi
         if (!(trigger === 'field_activate' ? effect?.onFieldActivate : effect?.onActivate)) return [];
         if (!effectChoices(state, zone.card, trigger, 1).length) return [];
         return [{ card: zone.card, trigger, slot: { playerIndex, type, index } }];
-    }));
+    });
 }
 
 /** Reserve usage and selections at announcement. Costs wait for this link to resolve. */
@@ -174,6 +175,8 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
 
 function appendChainLink(state: GameState, context: CardContext, trigger: EffectTrigger, buildingTriggers: boolean): GameState {
     if (isDrawingForTurn(state)) return state;
+    if (isLand(context.card) && trigger === 'field_activate'
+        && (context.playerIndex !== state.activePlayerIndex || ![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase))) return state;
     if (state.pendingActivation) return state;
     if (state.winner || state.resolvingChain || state.pendingVoidReturns?.length || state.pendingVoidSelections?.length || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
     if (trigger === 'summon' && !cardRegistry.getEffect(context.card.id)?.onSummon) return state;
@@ -196,7 +199,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const tributeCards = context.materialIds
         ? levelTributeCandidates(state, context.playerIndex).filter(entry => context.materialIds!.includes(entry.card.instanceId)).map(entry => entry.card)
         : context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
-    const source = [...p.pawnZones, ...p.actionZones].find(z => z?.card.instanceId === context.card.instanceId);
+    const source = sourceZone(next, context);
     if (source && context.card.type !== CardType.PAWN) source.position = Position.FACE_UP;
     const targets = context.targets ?? (context.target ? [context.target] : []);
     const target = targets[0];
@@ -205,9 +208,9 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
         handId: context.handIndex !== undefined && p.hand.some(card => card.instanceId === state.players[context.playerIndex].hand[context.handIndex!]?.instanceId)
             ? state.players[context.playerIndex].hand[context.handIndex]?.instanceId : undefined,
         context: { ...context, target, targets, tributeCards }, trigger,
-        targetId: target ? state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]?.card.instanceId : undefined,
+        targetId: target ? targetZone(state, target)?.card.instanceId : undefined,
         targetIds: targets.map(selected => selected
-            ? state.players[selected.playerIndex][selected.type === 'pawn' ? 'pawnZones' : 'actionZones'][selected.index]?.card.instanceId
+            ? targetZone(state, selected)?.card.instanceId
             : undefined),
         discardId: context.discardIndex === undefined ? undefined : state.players[context.playerIndex].discard[context.discardIndex]?.instanceId,
         deckId: context.deckIndex === undefined ? undefined : state.players[context.playerIndex].deck[context.deckIndex]?.instanceId,
@@ -299,7 +302,7 @@ export function resolveChainStep(state: GameState, selectedTargets?: CardTarget[
         if (targets.length && !effect?.targetsAtResolution) {
             context.targets = targets.map((target, targetIndex) => {
                 const id = link.targetIds?.[targetIndex] ?? (targetIndex === 0 ? link.targetId : undefined);
-                const index = next.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'].findIndex(z => z?.card.instanceId === id);
+                const index = targetZones(next, target).findIndex(z => z?.card.instanceId === id);
                 if (index < 0) invalid = true;
                 return { ...target, index };
             });
@@ -370,7 +373,7 @@ export function queueEventResponses(before: GameState, after: GameState): GameSt
     // End Phase maintenance also catches counters earned after phase entry.
     if (after.currentPhase === Phase.END) {
         const pending = [...(after.pendingTriggers ?? [])];
-        for (const [playerIndex, player] of after.players.entries()) for (const zone of [...player.pawnZones, ...player.actionZones]) {
+        for (const { zone, target: { playerIndex } } of fieldEntries(after)) {
             if (!zone || zone.position === Position.HIDDEN
                 || pending.some(entry => entry.trigger === 'phase' && entry.context.card.instanceId === zone.card.instanceId)
                 || after.chain?.some(entry => entry.trigger === 'phase' && entry.context.card.instanceId === zone.card.instanceId)) continue;

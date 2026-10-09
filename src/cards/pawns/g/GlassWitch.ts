@@ -28,7 +28,7 @@ export default [
     rarity: 'Rare',
     level: 4,
     attribute: Attribute.AIR,
-    pawnType: PawnType.MAGICIAN,
+    pawnType: PawnType.ARCANE,
     atk: 0,
     def: 110,
     effectText: 'EITHER PLAYER\'S MAIN PHASE: You can destroy this card; then your opponent selects 1 card in their hand for you to view. You can only activate the effect of "Glass Witch" once per turn.'

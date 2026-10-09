@@ -6,6 +6,9 @@ import { Card, CardType, Attribute } from '../../types';
 import { cardSubtype, cardTypeLabel } from '../../cards/CardRegistry';
 import { cardRegistry } from '../../cards/CardRegistry';
 
+export const cardFrameClass = (card: Pick<Card, 'type' | 'pawnSubtype'>) =>
+    isToken(card) ? 'card-token' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
+
 const getAttributeColor = (attr?: Attribute) => {
     switch (attr) {
         case Attribute.FIRE: return 'bg-red-500 text-white shadow-[0_0_10px_rgba(239,68,68,0.8)]';
@@ -152,7 +155,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
     return (
         <ScaledCard className={className} onClick={onClick} domRef={domRef}>
         <div
-            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${isToken(card) ? 'card-token' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn glow-gold' : card.type === CardType.ACTION ? 'card-action glow-green' : card.type === CardType.CONDITION ? 'card-condition glow-pink' : ''}`}
+            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${cardFrameClass(card)} ${isToken(card) || isReservePawn(card) ? '' : card.type === CardType.PAWN ? 'glow-gold' : card.type === CardType.ACTION ? 'glow-green' : 'glow-pink'}`}
         >
             {/* Header: Name + Level */}
             <div className="card-inner-border"></div>
@@ -196,6 +199,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                 <div className={`card-artwork-symbol${framedArtwork ? ' card-artwork-symbol--framed' : ''}`} data-subtype={artworkSubtype ?? undefined} aria-hidden="true">
                     {framedArtwork && <svg className="card-artwork-subtype-frame" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3">
                         {artworkSubtype === 'Attach' ? <polygon points="50,4 97,94 3,94" strokeLinejoin="round" />
+                            : artworkSubtype === 'Land' ? <polygon points="26,4 74,4 98,50 74,96 26,96 2,50" strokeLinejoin="round" />
                             : artworkSubtype === 'Lingering' ? <circle cx="50" cy="50" r="46" />
                             : <rect x="4" y="4" width="92" height="92" />}
                         {artworkSubtype === 'Contract' && <path d="M -8 15 V 85 M 108 15 V 85" />}

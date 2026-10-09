@@ -8,12 +8,14 @@ export const PileViewModal: React.FC<{
     onSelectCard: (card: Card) => void;
     viewingReserveIdx?: number | null;
     setViewingReserveIdx?: (index: number | null) => void;
-}> = ({ viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx = null, gameState, setViewingDiscardIdx, setViewingVoidIdx, setViewingReserveIdx, onSelectCard }) => {
+    viewingLand?: boolean;
+    setViewingLand?: (open: boolean) => void;
+}> = ({ viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx = null, viewingLand = false, gameState, setViewingDiscardIdx, setViewingVoidIdx, setViewingReserveIdx, setViewingLand, onSelectCard }) => {
     const panelRef = React.useRef<HTMLElement>(null);
-    const close = React.useCallback(() => { setViewingDiscardIdx(null); setViewingVoidIdx(null); setViewingReserveIdx?.(null); }, [setViewingDiscardIdx, setViewingVoidIdx, setViewingReserveIdx]);
+    const close = React.useCallback(() => { setViewingDiscardIdx(null); setViewingVoidIdx(null); setViewingReserveIdx?.(null); setViewingLand?.(false); }, [setViewingDiscardIdx, setViewingVoidIdx, setViewingReserveIdx, setViewingLand]);
 
     React.useEffect(() => {
-        if (viewingDiscardIdx === null && viewingVoidIdx === null && viewingReserveIdx === null) return;
+        if (viewingDiscardIdx === null && viewingVoidIdx === null && viewingReserveIdx === null && !viewingLand) return;
         const outside = (event: PointerEvent) => { if (!panelRef.current?.contains(event.target as Node)) close(); };
         const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
         document.addEventListener('pointerdown', outside);
@@ -22,21 +24,22 @@ export const PileViewModal: React.FC<{
             document.removeEventListener('pointerdown', outside);
             document.removeEventListener('keydown', escape);
         };
-    }, [viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx, close]);
+    }, [viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx, viewingLand, close]);
 
     const playerIndex = viewingReserveIdx ?? viewingDiscardIdx ?? viewingVoidIdx;
-    if (!gameState || playerIndex === null) return null;
+    if (!gameState || (!viewingLand && playerIndex === null)) return null;
     const isReserve = viewingReserveIdx !== null;
     const isVoid = !isReserve && viewingDiscardIdx === null;
-    const pile = isReserve ? 'Reserve' : isVoid ? 'Void' : 'Discard';
-    const cards = gameState.players[playerIndex][isReserve ? 'reserve' : isVoid ? 'void' : 'discard'];
+    const pile = viewingLand ? 'Land' : isReserve ? 'Reserve' : isVoid ? 'Void' : 'Discard';
+    const cards = viewingLand ? (gameState.landStack ?? []).map(zone => zone.card)
+        : gameState.players[playerIndex!][isReserve ? 'reserve' : isVoid ? 'void' : 'discard'];
 
     return (
         <aside ref={panelRef} aria-label={`${pile} pile contents`} className="pile-drawer absolute inset-y-0 right-0 z-[110] flex w-80 flex-col border-l border-white/20 bg-slate-950 text-white shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-white/15 p-5">
                 <div>
-                    <p className="text-xs text-slate-400">{gameState.players[playerIndex].name}</p>
-                    <h2 className={`font-orbitron text-lg ${isReserve ? 'text-red-400' : isVoid ? 'text-purple-400' : 'text-yellow-400'}`}>{pile.toUpperCase()} · {cards.length}</h2>
+                    <p className="text-xs text-slate-400">{viewingLand ? 'Shared field' : gameState.players[playerIndex!].name}</p>
+                    <h2 className={`font-orbitron text-lg ${viewingLand ? 'text-green-300' : isReserve ? 'text-red-400' : isVoid ? 'text-purple-400' : 'text-yellow-400'}`}>{pile.toUpperCase()} · {cards.length}</h2>
                 </div>
                 <button data-sound="cancellation" aria-label="Close pile" onClick={close} className="rounded px-3 py-2 hover:bg-white/10">✕</button>
             </div>

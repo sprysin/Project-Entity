@@ -1,3 +1,4 @@
+import { isLand, activeLand } from '../../game/field';
 import { canTribute, canTributeForSummon, canTargetWithEffect } from '../../game/cardHelpers';
 import React from 'react';
 import { activationPopupModes } from '../../game/responseTiming';
@@ -6,7 +7,8 @@ import { CardType, Phase, Position, OpponentMode, PlaytestDebugSettings, GameSta
 import { useGameLogic } from '../../hooks/useGameLogic';
 import { checkActivationConditions, hasOnActivateEffect } from '../../game/cardHelpers';
 import { CardDetail } from '../cards/CardDetail';
-import { Pile, DeckPile } from './Pile';
+import { LandCardIcon } from '../icons/LandCardIcon';
+import { Pile, DeckPile, PileCounter } from './Pile';
 import { Zone } from './Zone';
 import { AttachmentOverlay } from './AttachmentOverlay';
 import { AttackOverlay } from './AttackOverlay';
@@ -64,6 +66,7 @@ type DuelBoardProps = GameViewProps & Pick<ReturnType<typeof useGameLogic>, 'sta
 const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit, initialDecks, opponentMode, debugSettings }) => {
   const summonReverbs = useSummonReverb(gameState);
   const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
+  const [viewingLand, setViewingLand] = React.useState(false);
   const xray = opponentMode === 'ai' && !!debugSettings?.xray;
 
   const effectCard = state.pendingEffectCard ?? state.triggeredEffect;
@@ -73,7 +76,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
     zone && zone.card.instanceId === pendingConditionId && zone.position === Position.HIDDEN
       ? { ...zone, position: Position.FACE_UP }
       : zone;
-  const selectingPlayer = effectCard ? gameState.pendingReactions?.find(entry => entry.card.instanceId === effectCard.instanceId)?.playerIndex
+  const selectingPlayer = effectCard && isLand(effectCard) ? gameState.activePlayerIndex : effectCard ? gameState.pendingReactions?.find(entry => entry.card.instanceId === effectCard.instanceId)?.playerIndex
     ?? gameState.players.findIndex((p, index) =>
       p.pawnZones.some(z => z?.card.instanceId === effectCard.instanceId)
       || p.actionZones.some(z => z?.card.instanceId === effectCard.instanceId)
@@ -94,6 +97,10 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
   const actionsDisabled = !turnIsMine || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!gameState.peekEvents?.some(event => event.viewerPlayerIndex === viewIndex);
+  const land = activeLand(gameState) ?? null;
+  const landSelected = state.selectedFieldSlot?.type === 'land';
+  const landPlayable = !!selectedCard && isLand(selectedCard) && !actionsDisabled && actions.canPlayCard(selectedCard);
+  const landActivatable = availableFieldEffects.some(entry => entry.slot.type === 'land');
   const selectedPawnCanSummon = selectedCard?.type === CardType.PAWN && !actionsDisabled && actions.canPlayCard(selectedCard);
   const handSummonCard = gameState.pendingHandSummons?.[0]?.playerIndex === viewIndex
     ? activePlayer.hand.find(card => card.instanceId === state.handSummonCardId) : undefined;
@@ -135,7 +142,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   };
 
   return (
-    <div className={`duel-screen ${isLightTheme ? 'duel-screen--light' : 'duel-screen--dark'} flex-1 flex flex-col relative overflow-hidden font-roboto select-none transition-colors duration-1000`}>
+    <div className={`duel-screen ${isLightTheme ? 'duel-screen--light' : 'duel-screen--dark'} flex-1 flex flex-col relative overflow-hidden font-mono select-none transition-colors duration-1000`}>
       {/* HUD: Exit Control */}
       <OpeningCoin gameState={gameState} opponentMode={opponentMode} onChoose={actions.chooseTurnOrder} />
       <AttachmentOverlay />
@@ -205,6 +212,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
           </div>
 
           <div inert={state.cardMovementPending} className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
+            <div className="game-field-surface">
             {/* Opponent Field View */}
             <div className={`game-player-field duel-player-field--opponent flex flex-col items-center ${fannedOutPiles ? 'gap-4' : 'gap-7'} opacity-90`}>
               <div className="game-field-reserve game-field-reserve--opponent">
@@ -248,6 +256,33 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
             </div>
 
             <div className="phase-track" role="group" aria-label="Turn phases">
+              <div className="game-land-zone" aria-label={`Land Zone: ${land?.card.name ?? 'empty'}, ${gameState.landStack?.length ?? 0} cards`}>
+                <Zone card={land} type="land" domRef={actions.setRef('land')}
+                  isSelected={landSelected} isDropTarget={landPlayable} isActivatable={landActivatable}
+                  isSelectable={checkIsSelectable(land, 'action', gameState.activePlayerIndex)}
+                  contextualActions={landSelected && !state.targetSelectMode && (landPlayable || landActivatable) ? <ContextMenu compact={landPlayable} title={landPlayable ? undefined : land!.card.name}>
+                    {landPlayable && <ContextMenuButton label="Activate Land" onClick={() => actions.handleActionFromHand(selectedCard!, 'activate')} tone="green" />}
+                    {!landPlayable && landActivatable && <ContextMenuButton label="Activate Effect" disabled={actionsDisabled} onClick={() => actions.activateOnField(viewIndex, 'land', 0)} tone="green" />}
+                  </ContextMenu> : null}
+                  onClick={() => {
+                    if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
+                      if (checkIsSelectable(land, 'action', gameState.activePlayerIndex)) actions.resolveEffect(state.pendingEffectCard,
+                        { playerIndex: gameState.activePlayerIndex, type: 'land', index: 0 }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
+                    } else {
+                      actions.setSelectedFieldSlot(land || landPlayable ? { playerIndex: viewIndex, type: 'land', index: 0 } : null);
+                      if (!landPlayable) actions.setSelectedHandIndex(null);
+                    }
+                  }} />
+                {(gameState.landStack?.length ?? 0) > 1 && <PileCounter label="Land" count={gameState.landStack!.length} compact={!fannedOutPiles} icon={<LandCardIcon className="h-4 w-4" />} />}
+                {(gameState.landStack?.length ?? 0) > 1 && <button type="button" data-sound="select-small"
+                  className="game-land-stack game-corner-button game-corner-button--secondary" aria-label="View Land stack"
+                  aria-expanded={viewingLand} onClick={() => {
+                    actions.setViewingDiscardIdx(null);
+                    actions.setViewingVoidIdx(null);
+                    actions.setViewingReserveIdx(null);
+                    setViewingLand(true);
+                  }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>View Stack</span></button>}
+              </div>
               {[
                 [Phase.DRAW, 'Draw'],
                 [Phase.STANDBY, 'Standby'],
@@ -336,12 +371,12 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                   {activePlayer.actionZones.map((z, i) => {
                     const selected = isSelectedZone('action', i);
                     const canActivateFieldCard = availableFieldEffects.some(a => a.slot.type === 'action' && a.slot.index === i);
-                    const showHandMenu = selected && !z && !!selectedCard && selectedCard.type !== CardType.PAWN && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
+                    const showHandMenu = selected && !z && !!selectedCard && selectedCard.type !== CardType.PAWN && !isLand(selectedCard) && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
                     const showFieldMenu = !state.responseFieldMode && selected && !!z && !selectedCard && !state.targetSelectMode && canActivateFieldCard;
                     return <Zone key={i} card={displayActionCard(z)} type="action" domRef={actions.setRef(`${viewIndex}-action-${i}`)}
                       isSelected={selected}
                       isSelectable={checkIsSelectable(z, 'action', viewIndex)}
-                      isDropTarget={((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null) || (state.targetSelectMode === 'place_action' && z === null)}
+                      isDropTarget={((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && !isLand(selectedCard) && z === null) || (state.targetSelectMode === 'place_action' && z === null)}
                       isActivatable={canActivateFieldCard}
                       contextualActions={showHandMenu ? <ContextMenu title="Choose card action">
                         {selectedCard.type !== CardType.CONDITION && <ContextMenuButton label="Activate" onClick={() => actions.handleActionFromHand(selectedCard, 'activate', i)} disabled={actionsDisabled || !checkActivationConditions(gameState, selectedCard, viewIndex)} tone="green" />}
@@ -354,7 +389,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                           actions.handlePlacement(i);
                         } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                           if (checkIsSelectable(z, 'action', viewIndex)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: viewIndex, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
-                        } else if ((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && z === null && !state.targetSelectMode) {
+                        } else if ((selectedCard?.type === CardType.ACTION || selectedCard?.type === CardType.CONDITION) && !isLand(selectedCard) && z === null && !state.targetSelectMode) {
                           actions.setSelectedFieldSlot({ playerIndex: viewIndex, type: 'action', index: i });
                         } else {
                           actions.setSelectedFieldSlot(z ? { playerIndex: viewIndex, type: 'action', index: i } : null);
@@ -367,6 +402,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                   <DeckPile count={activePlayer.deck.length} label="Your deck" domRef={actions.setRef(`deck-${viewIndex}`)} xrayCard={xray ? activePlayer.deck[0] : undefined} onInspect={() => actions.inspectPileCard(activePlayer.deck[0])} />
                 </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -426,6 +462,8 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
       </div>
 
       <PileViewModal
+        viewingLand={viewingLand && (gameState.landStack?.length ?? 0) > 1}
+        setViewingLand={setViewingLand}
         viewingDiscardIdx={state.viewingDiscardIdx}
         viewingVoidIdx={state.viewingVoidIdx}
         viewingReserveIdx={state.viewingReserveIdx}

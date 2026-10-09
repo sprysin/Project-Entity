@@ -4,7 +4,7 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  font-family: Roboto, sans-serif;
+  font-family: var(--font-card-text);
 }
 
 .database-topbar { flex: none; }

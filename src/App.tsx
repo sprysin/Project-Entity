@@ -9,11 +9,12 @@ import DeckCreator from './components/decks/DeckCreator';
 import PlaytestSetup from './components/decks/PlaytestSetup';
 import Settings from './components/settings/Settings';
 import Account from './components/account/Account';
+import Shop from './components/shop/Shop';
 import { OpponentMode, PlaytestDebugSettings } from './types';
 import { SavedDeck } from './decks';
 import { useUiSounds } from './hooks/useUiSounds';
 
-type View = 'HOME' | 'DEBUG_HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS' | 'ACCOUNT' | 'PREVIEW';
+type View = 'HOME' | 'DEBUG_HUB' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS' | 'ACCOUNT' | 'PREVIEW' | 'SHOP';
 
 const GAME_WIDTH = 2048;
 const GAME_HEIGHT = 1152;
@@ -51,9 +52,11 @@ const App: React.FC = () => {
         onRules={() => { setReturnView('HOME'); setCurrentView('RULES'); }}
         onSettings={() => { setReturnView('HOME'); setCurrentView('SETTINGS'); }}
         onAccount={() => setCurrentView('ACCOUNT')}
+        onShop={() => setCurrentView('SHOP')}
         onPreview={feature => { setPreview(feature); setCurrentView('PREVIEW'); }}
       />}
       {currentView === 'PREVIEW' && <WorkInProgress feature={preview} onBack={() => setCurrentView('HOME')} />}
+      {currentView === 'SHOP' && <Shop onBack={() => setCurrentView('HOME')} />}
       {currentView === 'DEBUG_HUB' && (
         <Hub
           onStartGame={() => { setReturnView('DEBUG_HUB'); setCurrentView('PLAYTEST_SETUP'); }}

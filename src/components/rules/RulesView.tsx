@@ -23,7 +23,7 @@ const topics: Topic[] = [
     id: 'basics', title: 'Starting Info', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
       'Start with 800 Life Points (LP). Reduce your opponent’s LP to 0 or below to win, through combat or card effects.',
       'A deck contains 40–60 cards, with no more than 3 copies of any one card.',
-      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes; Actions also have Contracts.',
+      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes; Actions also have Contract and Land subtypes.',
     ]
   },
   {
@@ -133,9 +133,19 @@ const topics: Topic[] = [
         ['Attach subtype', 'Stays face-up attached to a field card. Hover to see its target.', 'Stays face-up attached to a field card. Hover to see its target.'],
       ]
     }, rules: [
-      'Use an empty Action/Condition zone to play or set a card.',
+      'Use an empty Action/Condition zone to play or set a card, except Lands, which use the shared Land Zone.',
       'There is no general per-turn limit on playing Actions or setting and activating Conditions. Individual cards may impose limits.',
       'Every activation must meet the card’s requirements and pay its costs.',
+    ]
+  },
+  {
+    id: 'land', title: 'Land cards', subtitle: 'One shared active Land', icon: 'fa-mountain-sun', rules: [
+      'Lands are Action Cards. Play them face-up during your Main Phase into the Land Zone above the Reserve, left of Draw. Lands can never be set.',
+      'Each new Land covers the previous Land. Only the top card is active; covered Lands keep their place and their effects stop applying.',
+      'A Land name may appear only once anywhere in the stack. Different Lands have no stack limit.',
+      'Removing or destroying the active Land removes only that card. The Land underneath immediately becomes active again.',
+      'Either player can activate the active Land during their own Main Phase when its requirements are met. Its original owner does not have exclusive use.',
+      'Once means once for that copy while it remains in the stack, shared by both players. Covering it does not reset its use.',
     ]
   },
   {

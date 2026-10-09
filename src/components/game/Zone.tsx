@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlacedCard, Position, CardType } from '../../types';
 import { CardDetail } from '../cards/CardDetail';
 import { useManagedTimeout } from '../../hooks/useManagedTimeout';
+import { LandCardIcon } from '../icons/LandCardIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { playSound } from '../../audio';
 import { cardRegistry } from '../../cards/CardRegistry';
@@ -13,7 +14,7 @@ import { XrayOverlay } from './XrayOverlay';
 export const Zone: React.FC<{
     card: PlacedCard | null;
     fieldStats?: { atk: number; def: number };
-    type: 'pawn' | 'action';
+    type: 'pawn' | 'action' | 'land';
     onClick?: () => void;
     isSelected?: boolean;
     isSelectable?: boolean;
@@ -86,9 +87,10 @@ export const Zone: React.FC<{
                 </div>
             )}
             {/* Base Zone Content (Empty State) */}
-            <div className={`absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${visibleCard ? 'opacity-0' : 'opacity-20'}`}>
+            <div className={`field-zone-placeholder absolute inset-0 flex flex-col items-center justify-center space-y-2 transition-opacity duration-300 ${visibleCard ? 'opacity-0' : 'opacity-20'}`}>
                 {type === 'pawn'
                     ? <i className="fa-solid fa-chess-pawn text-3xl text-white"></i>
+                    : type === 'land' ? <LandCardIcon className="h-8 w-8 text-white" />
                     : <ActionCardIcon className="h-8 w-8 text-white" />}
                 <span className="text-[10px] font-orbitron tracking-widest text-white font-black">{type.toUpperCase()}</span>
             </div>

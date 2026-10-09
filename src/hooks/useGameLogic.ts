@@ -1,3 +1,4 @@
+import { isLand } from '../game/field';
 import { handSummonCandidates } from '../game/summonReactions';
 import { chooseAIAction, chooseAIHandSummon, observeGame } from '../game/opponentAI';
 import { canTribute } from '../game/cardHelpers';
@@ -34,7 +35,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
 
     // Selection States
     const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
-    const [selectedFieldSlot, setSelectedFieldSlot] = useState<{ playerIndex: number, type: 'pawn' | 'action', index: number } | null>(null);
+    const [selectedFieldSlot, setSelectedFieldSlot] = useState<{ playerIndex: number, type: 'pawn' | 'action' | 'land', index: number } | null>(null);
     const [targetSelectMode, setTargetSelectMode] = useState<TargetSelectMode>(null);
     const [targetSelectType, setTargetSelectType] = useState<TargetSelectType>('pawn');
     const [targetSelectPosition, setTargetSelectPosition] = useState<TargetSelectPosition>('both');
@@ -73,7 +74,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             const controller = previous.players.findIndex(player => [...player.pawnZones, ...player.actionZones]
                 .some(zone => zone?.card.instanceId === card.instanceId));
             const playerIndex = previous.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex
-                ?? (controller >= 0 ? controller : previous.players.findIndex(player => player.id === card.ownerId));
+                ?? (isLand(card) ? previous.activePlayerIndex : undefined) ?? (controller >= 0 ? controller : previous.players.findIndex(player => player.id === card.ownerId));
             if (playerIndex < 0 || previous.pendingActivation?.cardId === card.instanceId) return previous;
             return { ...previous, pendingActivation: { cardId: card.instanceId, playerIndex } };
         });

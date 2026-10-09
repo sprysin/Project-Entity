@@ -1,3 +1,4 @@
+import { fieldEntries } from './field';
 import { GameState, Phase, Player, Position } from '../types';
 import { notifyAttachedActivation } from './attachments';
 import { cardRegistry } from '../cards/CardRegistry';
@@ -99,9 +100,9 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
                     'onEffectActivated', { activatedCard: card, activatingPlayerIndex: activeIndex });
             }
         }
-        const fieldEffects = phaseState.players.flatMap((player, playerIndex) => player.actionZones.flatMap(zone =>
-            zone && zone.position !== Position.HIDDEN && cardRegistry.getEffect(zone.card.id)?.onPhaseChange
-                ? [{ card: zone.card, playerIndex }] : []));
+        const fieldEffects = fieldEntries(phaseState).flatMap(({ zone, target }) =>
+            target.type !== 'pawn' && zone.position !== Position.HIDDEN && cardRegistry.getEffect(zone.card.id)?.onPhaseChange
+                ? [{ card: zone.card, playerIndex: target.playerIndex }] : []);
         for (const context of fieldEffects) {
             const result = cardRegistry.getEffect(context.card.id)!.onPhaseChange!(phaseState, context);
             if (result.halted) continue;
@@ -120,8 +121,13 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
 
     // Expire only after End Phase responses finish, immediately before the next turn.
     if (prev.currentPhase === Phase.END) {
+        for (const land of prev.landStack ?? []) {
+            if (land.card.effectText.includes('Once per turn')) land.hasActivatedEffect = false;
+            delete land.card.effectTargetBlockedThisTurn;
+        }
         for (const player of updatedPlayers) for (const zone of [...player.pawnZones, ...player.actionZones]) {
             if (!zone) continue;
+            delete zone.attackOverride;
             delete zone.card.tributeBlockedThisTurn;
             delete zone.card.effectTargetBlockedThisTurn;
         }

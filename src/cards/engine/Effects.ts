@@ -1,3 +1,4 @@
+import { sourceZone, targetZone, removeFieldIdentity } from '../../game/field';
 import { activationReservation, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { ActionSubtype, Attribute, Card, CardContext, CardFilter, CardType, GameState, PawnSubtype, Phase, PlacedCard, Position, ShuffleLocation, TargetSelectScope } from '../../types';
@@ -11,6 +12,14 @@ import { notifyFieldEvent } from '../../game/fieldEvents';
 import { cardsForSelection, randomSelection, takeSelectedCard } from './Selections';
 
 export const Effect = {
+    /** A final stat override preserves underlying modifiers and expires with the turn. */
+    SetTargetOriginalAttack: (): EffectStep => (state, context) => {
+        const target = getEffectTarget(context);
+        const zone = target && targetZone(state, target);
+        const original = zone && cardRegistry.getCard(zone.card.id);
+        if (!zone || zone.card.type !== CardType.PAWN || !original) return { halt: true };
+        zone.attackOverride = { value: original.atk, turn: state.turnNumber };
+    },
     randomSelection,
     /** Gather player-selected candidates independently of their eventual effect. */
     SelectDiscardCards: (filter: CardFilter, count: number, purpose?: 'summon'): EffectStep => (state, context) => {
@@ -84,7 +93,7 @@ export const Effect = {
     ShuffleFrom: (location: ShuffleLocation, count: number, filter: CardFilter = () => true): EffectStep => (state, context) => {
         if (!Number.isInteger(count) || count < 1) return { halt: true };
         const player = state.players[context.playerIndex];
-        const candidates = cardsAtLocation(player, location);
+        const candidates = cardsAtLocation(player, location, state);
         const cardIds = context.shuffleCardIds;
         if (!cardIds) return { requireShuffleSelection: { playerIndex: context.playerIndex, location, count, filter } };
         if (cardIds.length !== count || new Set(cardIds).size !== count
@@ -93,8 +102,7 @@ export const Effect = {
         for (const index of selected.map(entry => entry.index).sort((a, b) => b - a)) {
             if (location === 'hand') player.hand.splice(index, 1);
             else if (location === 'discard') player.discard.splice(index, 1);
-            else if (index < player.pawnZones.length) player.pawnZones[index] = null;
-            else player.actionZones[index - player.pawnZones.length] = null;
+            else removeFieldIdentity(state, selected.find(entry => entry.index === index)!.card.instanceId);
         }
         for (const { card } of selected) sendToOwnerPile(state, card, 'deck');
         for (const ownerId of new Set(selected.map(entry => entry.card.ownerId))) {
@@ -105,18 +113,16 @@ export const Effect = {
     },
     CounterCount: (name: string, targetIndex?: number) => (state: GameState, context: CardContext): number => {
         const target = targetIndex === undefined ? undefined : getEffectTarget(context, targetIndex);
-        const zone = targetIndex !== undefined ? target && state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]
-            : [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
-                .find(candidate => candidate?.card.instanceId === context.card.instanceId);
+        const zone = targetIndex !== undefined ? target && targetZone(state, target)
+            : sourceZone(state, context);
         return zone && zone.position !== Position.HIDDEN ? zone.counters?.[name] ?? 0 : 0;
     },
     /** Changes a named counter on this card or an explicitly selected target. */
     ModulateCounter: (name: string, amount: Dynamic<number>, targetIndex?: number): EffectStep => (state, context) => {
         const target = targetIndex === undefined ? undefined : getEffectTarget(context, targetIndex);
         if (targetIndex !== undefined && !target) return { halt: true };
-        const zone = target ? state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]
-            : [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
-                .find(candidate => candidate?.card.instanceId === context.card.instanceId);
+        const zone = target ? targetZone(state, target)
+            : sourceZone(state, context);
         const delta = resolveDynamic(amount, state, context);
         if (!zone || zone.position === Position.HIDDEN || !Number.isSafeInteger(delta)) return { halt: true };
         const next = (zone.counters?.[name] ?? 0) + delta;
@@ -125,8 +131,7 @@ export const Effect = {
         if (!next) delete zone.counters[name];
     },
     RequireFaceUpSource: (): EffectStep => (state, context) => {
-        const zone = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
-            .find(candidate => candidate?.card.instanceId === context.card.instanceId);
+        const zone = sourceZone(state, context);
         if (!zone || zone.position === Position.HIDDEN) return { halt: true };
     },
     /** Select a Pawn from the Deck, choose an empty zone, then summon and shuffle. */
@@ -149,27 +154,28 @@ export const Effect = {
         };
         shuffleDeck(player.deck);
     },
-    SpecialSummonFromHand: (filter: CardFilter): EffectStep => (state, context) => {
+    SpecialSummonFromHand: (filter: CardFilter, position?: Position): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
-        const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card);
+        const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card)
+            && (position !== Position.HIDDEN || canSetPawn(card));
         if (context.handIndex === undefined) return {
             requireHandSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' }
         };
         const card = player.hand[context.handIndex];
         if (!card || !eligible(card)) return { halt: true };
         const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex } };
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position } };
         if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
-            || player.pawnZones[placement.slot] || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
+            || player.pawnZones[placement.slot] || (position ? placement.position !== position
+                : ![Position.ATTACK, Position.DEFENSE].includes(placement.position))) return { halt: true };
         player.hand.splice(context.handIndex, 1);
         player.pawnZones[placement.slot] = {
             card, position: placement.position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: placement.position === Position.HIDDEN
         };
     },
     SetOnceWhileOnField: (): EffectStep => activationReservation((state, context) => {
-        const zone = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
-            .find(z => z?.card.instanceId === context.card.instanceId);
+        const zone = sourceZone(state, context);
         if (!zone || zone.hasUsedWhileOnField) return { halt: true };
         zone.hasUsedWhileOnField = true;
     }),
@@ -217,8 +223,7 @@ export const Effect = {
     DestroyTarget: (targetIndex = 0): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context, targetIndex);
         if (!target) return { halt: true };
-        const zones = draftState.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'];
-        const zone = zones[target.index];
+        const zone = targetZone(draftState, target);
         if (!zone) return { halt: true };
         destroyFieldCard(draftState, zone.card.instanceId);
     },
@@ -247,7 +252,7 @@ export const Effect = {
     AttachToTarget: (targetIndex = 0): EffectStep => (state, context) => {
         const target = getEffectTarget(context, targetIndex);
         const source = state.players[context.playerIndex].actionZones.find(z => z?.card.instanceId === context.card.instanceId);
-        const destination = target && state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
+        const destination = target && targetZone(state, target);
         if (!context.card.isAttached || !destination || source === destination) return { halt: true };
         // AI previews legal hand plays before a field slot is chosen.
         if (!source) return context.execution !== 'resolve' && state.players[context.playerIndex].hand.some(c => c.instanceId === context.card.instanceId) ? undefined : { halt: true };
@@ -422,13 +427,11 @@ export const Effect = {
     BanishTargetToVoid: (targetIndex = 0): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context, targetIndex);
         if (target) {
-            const p = draftState.players[target.playerIndex];
-            const zones = target.type === 'pawn' ? p.pawnZones : p.actionZones;
-            const cardInZone = zones[target.index];
+            const cardInZone = targetZone(draftState, target);
 
             if (cardInZone) {
                 sendToOwnerPile(draftState, cardInZone.card, 'void');
-                zones[target.index] = null;
+                removeFieldIdentity(draftState, cardInZone.card.instanceId);
             }
         }
     },
@@ -468,8 +471,7 @@ export const Effect = {
 
     /** Marks the card instance as having used its effect this turn. */
     SetSoftOncePerTurn: (effectId?: string, cooldownTurns = 0): EffectStep => activationReservation((draftState, context) => {
-        const p = draftState.players[context.playerIndex];
-        const selfZone = p.pawnZones.find(z => z && z.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z && z.card.instanceId === context.card.instanceId);
+        const selfZone = sourceZone(draftState, context);
         if (selfZone && effectId) {
             const used = selfZone.effectUsedTurn?.[effectId];
             if (used !== undefined && draftState.turnNumber <= used + cooldownTurns) return { halt: true };
@@ -480,7 +482,7 @@ export const Effect = {
     /** Field-only restrictions expire after all End Phase responses finish. */
     RestrictForTurn: (restriction: 'tributeBlockedThisTurn' | 'effectTargetBlockedThisTurn', targetIndex?: number): EffectStep => (state, context) => {
         const target = targetIndex === undefined ? undefined : getEffectTarget(context, targetIndex);
-        const zone = target ? state.players[target.playerIndex][target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index]
+        const zone = target ? targetZone(state, target)
             : targetIndex === undefined ? state.players[context.playerIndex].pawnZones.find(z => z?.card.instanceId === context.card.instanceId) : undefined;
         if (!zone) return { halt: true };
         zone.card[restriction] = true;

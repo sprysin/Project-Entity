@@ -10,11 +10,11 @@ const tones: Record<MenuTone, string> = {
     red: 'border-red-500 bg-red-900 hover:bg-red-800'
 };
 
-export const ContextMenu: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="w-64 rounded border border-yellow-400/60 bg-slate-950/95 p-2 text-white shadow-[0_0_28px_rgba(0,0,0,0.85)] backdrop-blur-md">
-        <div className="overflow-hidden whitespace-nowrap px-2 pb-2 text-center font-orbitron text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400">
+export const ContextMenu: React.FC<{ title?: string; compact?: boolean; children: React.ReactNode }> = ({ title, compact = false, children }) => (
+    <div className={`${compact ? 'w-max' : 'w-64'} rounded border border-yellow-400/60 bg-slate-950 p-2 text-white shadow-[0_0_28px_rgba(0,0,0,0.85)]`}>
+        {title && <div className="overflow-hidden whitespace-nowrap px-2 pb-2 text-center font-orbitron text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400">
             <span className="inline-block whitespace-nowrap" style={{ transform: `scaleX(${Math.max(.58, Math.min(1, 22 / title.length))})` }}>{title}</span>
-        </div>
+        </div>}
         <div className="flex gap-2">{children}</div>
         <div className="absolute left-1/2 top-full -translate-x-1/2 border-x-8 border-t-8 border-x-transparent border-t-yellow-400/60" />
     </div>

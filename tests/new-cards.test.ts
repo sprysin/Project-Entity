@@ -1,3 +1,6 @@
+import { activeLand, fieldEntries } from '../src/game/field';
+import { destroyFieldCard } from '../src/game/attachments';
+import { Require } from '../src/cards/engine/Requirements';
 import { expect, it } from 'vitest';
 import '../src/cards/pawns';
 import '../src/cards/actions';
@@ -541,4 +544,156 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
     game.currentPhase = Phase.BATTLE;
     game.players[1].pawnZones[0] = placed(card('pawn_01', 1));
     expect(resolveCombat(game, 0, 0).players[1].lp).toBe(730);
+});
+
+
+it('shares a face-up Land stack, suspends covered effects, and preserves identity and Once usage', () => {
+    const law = card('action_law_of_the_normal');
+    const cover = card('action_shrouded_kingdom', 1);
+    let game = state();
+    const normal = card('pawn_01'); normal.attribute = Attribute.NORMAL;
+    game.players[0].pawnZones[0] = placed(normal);
+    const other = { ...normal, instanceId: 'opposing-normal', ownerId: 'player2' };
+    game.players[1].pawnZones[0] = placed(other);
+    game.players[0].pawnZones[1] = placed({ ...normal, instanceId: 'fire', attribute: Attribute.FIRE });
+    game.players[0].pawnZones[2] = placed({ ...normal, instanceId: 'hidden' }, Position.HIDDEN);
+    game.players[0].hand = [law];
+    game.players[0].actionZones = Array.from({ length: 5 }, () => placed(card('action_01'), Position.FACE_UP));
+    expect(canPlayCard(game, law)).toBe(true);
+    expect(applyCommand(game, 0, { type: 'play', cardId: law.instanceId, set: true, slot: 0 }).state).toBe(game);
+    game = applyCommand(game, 0, { type: 'play', cardId: law.instanceId, set: false, slot: -1 }).state;
+    expect(activeLand(game)).toMatchObject({ card: law, position: Position.FACE_UP });
+    expect(game.players[0].actionZones.filter(Boolean)).toHaveLength(5);
+    expect(fieldStats(game, game.players[0].pawnZones[0]!).atk).toBe(normal.atk + 20);
+    expect(fieldStats(game, game.players[1].pawnZones[0]!).atk).toBe(normal.atk);
+    expect(fieldStats(game, game.players[0].pawnZones[1]!).atk).toBe(normal.atk);
+    expect(fieldStats(game, game.players[0].pawnZones[2]!).atk).toBe(normal.atk);
+    expect(fieldActivations(game, 1).some(a => a.card.instanceId === law.instanceId)).toBe(false);
+    expect(effectChoices(game, law, 'field_activate').map(c => c.target)).toEqual([
+        { playerIndex: 0, type: 'pawn', index: 0 }
+    ]);
+    const unchanged = structuredClone(game);
+    unchanged.players[0].pawnZones[0]!.card.attribute = Attribute.FIRE;
+    expect(effectChoices(unchanged, law, 'field_activate')).toEqual([]);
+    expect(fieldActivations(unchanged, 0).some(a => a.slot.type === 'land')).toBe(false);
+    expect(applyCommand(unchanged, 0, { type: 'activate', trigger: 'field_activate', context: {
+        card: law, playerIndex: 0, target: { playerIndex: 1, type: 'pawn', index: 0 }
+    } }).state).toBe(unchanged);
+    unchanged.players[1].pawnZones[0]!.card.atk -= 10;
+    expect(effectChoices(unchanged, law, 'field_activate').map(c => c.target)).toEqual([
+        { playerIndex: 1, type: 'pawn', index: 0 }
+    ]);
+
+    // Either turn player may use the same owner-0 Land; reserve Once at announcement.
+    for (const actor of [0, 1]) {
+        const turn = structuredClone(game);
+        turn.activePlayerIndex = actor;
+        turn.players[actor].pawnZones[0]!.card.atk += 90;
+        expect(fieldStats(turn, turn.players[actor].pawnZones[0]!).atk).toBe(normal.atk + 110);
+        const activation = fieldActivations(turn, actor).find(a => a.slot.type === 'land')!;
+        expect(activation.card.instanceId).toBe(law.instanceId);
+        expect(fieldActivations({ ...turn, currentPhase: Phase.BATTLE }, actor).some(a => a.slot.type === 'land')).toBe(false);
+        const context = effectChoices(turn, law, 'field_activate').find(c => c.target?.playerIndex === actor && c.target.index === 0)!;
+        expect(context.playerIndex).toBe(actor);
+        expect(applyCommand(turn, 1 - actor, { type: 'activate', context: { ...context, playerIndex: 1 - actor }, trigger: 'field_activate' }).state).toBe(turn);
+        const queued = applyCommand(turn, actor, { type: 'activate', context, trigger: 'field_activate' }).state;
+        expect(activeLand(queued)?.hasUsedWhileOnField).toBe(true);
+        const resolved = resolveChain(queued);
+        expect(fieldStats(resolved, resolved.players[actor].pawnZones[0]!).atk).toBe(cardRegistry.getCard(normal.id)!.atk);
+        resolved.players[actor].pawnZones[0]!.card.atk += 50;
+        expect(fieldStats(resolved, resolved.players[actor].pawnZones[0]!).atk).toBe(cardRegistry.getCard(normal.id)!.atk);
+        resolved.currentPhase = Phase.END;
+        const nextTurn = advancePhaseState(resolved);
+        expect(fieldStats(nextTurn, nextTurn.players[actor].pawnZones[0]!).atk).toBe(normal.atk + 140);
+        expect(fieldStats(nextTurn, nextTurn.players[1 - actor].pawnZones[0]!).atk).toBe(normal.atk + 20);
+        nextTurn.currentPhase = Phase.MAIN1;
+        expect(fieldActivations(nextTurn, 1 - actor).some(a => a.slot.type === 'land')).toBe(false);
+    }
+    game.players[0].hand = [cover];
+    game = applyCommand(game, 0, { type: 'play', cardId: cover.instanceId, set: false, slot: 0 }).state;
+    expect(game.landStack?.map(z => z.card.instanceId)).toEqual([law.instanceId, cover.instanceId]);
+    expect(fieldStats(game, game.players[0].pawnZones[0]!).atk).toBe(normal.atk);
+    expect(runEffect(game, { card: law, playerIndex: 0 }, 'field_activate').halted).toBe(true);
+    // The real second Land works for either turn player and reserves its use at announcement.
+    for (const actor of [0, 1]) {
+        let kingdom = structuredClone(game);
+        kingdom.activePlayerIndex = actor;
+        const dark = (owner: number) => ({ ...card('pawn_01', owner), attribute: Attribute.DARK });
+        const summon = dark(actor);
+        const materials = [dark(actor), dark(actor)];
+        kingdom.players[actor].hand = [summon, card('pawn_01', actor)];
+        kingdom.players[actor].discard = [materials[0]];
+        expect(effectChoices(kingdom, cover, 'field_activate')).toEqual([]);
+        kingdom.players[actor].discard.push(materials[1], card('pawn_01', actor));
+        for (const owner of [0, 1]) kingdom.players[owner].pawnZones[0]!.card.attribute = Attribute.DARK;
+        for (const owner of [0, 1]) expect(fieldStats(kingdom, kingdom.players[owner].pawnZones[0]!).def).toBe(normal.def + 20);
+        const choices = effectChoices(kingdom, cover, 'field_activate');
+        expect(choices.length).toBeGreaterThan(0);
+        expect(choices.every(c => c.handIndex === 0 && c.pawnPlacement?.position === Position.HIDDEN
+            && c.discardCardIds?.length === 2 && c.discardCardIds.every(id => materials.some(m => m.instanceId === id)))).toBe(true);
+        const context = choices[0];
+        for (const invalid of [
+            { ...context, discardCardIds: [materials[0].instanceId, materials[0].instanceId] },
+            { ...context, handIndex: 1 },
+            { ...context, pawnPlacement: { ...context.pawnPlacement!, position: Position.DEFENSE } }
+        ]) expect(applyCommand(kingdom, actor, { type: 'activate', context: invalid, trigger: 'field_activate' }).state).toBe(kingdom);
+        const queued = applyCommand(kingdom, actor, { type: 'activate', context, trigger: 'field_activate' }).state;
+        expect(activeLand(queued)?.effectUsedTurn?.summon).toBe(kingdom.turnNumber);
+        kingdom = resolveChain(queued);
+        expect(kingdom.players[actor].void.map(c => c.instanceId).sort()).toEqual(materials.map(c => c.instanceId).sort());
+        expect(kingdom.players[actor].discard).toHaveLength(1);
+        expect(kingdom.players[actor].pawnZones[context.pawnPlacement!.slot]).toMatchObject({
+            card: summon, position: Position.HIDDEN, isSetTurn: true
+        });
+        kingdom.players[actor].hand.push(dark(actor));
+        kingdom.players[actor].discard.push(dark(actor), dark(actor));
+        expect(effectChoices(kingdom, cover, 'field_activate')).toEqual([]);
+        kingdom.currentPhase = Phase.END;
+        kingdom = advancePhaseState(kingdom);
+        kingdom.activePlayerIndex = actor;
+        kingdom.currentPhase = Phase.MAIN1;
+        expect(effectChoices(kingdom, cover, 'field_activate').length).toBeGreaterThan(0);
+        kingdom.players[actor].hand = [law];
+        // Removing the top Land restores Law's aura and suspends Kingdom's.
+        const uncovered = buildEffect([Require.Target('action'), Effect.DestroyTarget()])(kingdom, {
+            card: law, playerIndex: actor, target: { playerIndex: actor, type: 'land', index: 0 }
+        }).newState;
+        expect(activeLand(uncovered)?.card.instanceId).toBe(law.instanceId);
+        expect(fieldStats(uncovered, uncovered.players[actor].pawnZones[0]!).def).toBe(normal.def);
+    }
+    const duplicate = { ...law, instanceId: 'duplicate', ownerId: 'player2' };
+    for (const actor of [0, 1]) {
+        game.activePlayerIndex = actor;
+        game.players[actor].hand = [duplicate];
+        expect(canPlayCard(game, duplicate)).toBe(false);
+        expect(applyCommand(game, actor, { type: 'play', cardId: duplicate.instanceId, set: false, slot: 0 }).state).toBe(game);
+    }
+    // Same name with a different definition ID is also a duplicate.
+    expect(canPlayCard(game, { ...duplicate, id: 'alternate-printing' })).toBe(false);
+    destroyFieldCard(game, law.instanceId);
+    expect(game.landStack).toHaveLength(2);
+    const remover = card('action_01', 1);
+    const removal = buildEffect([Require.Target('action'), Effect.DestroyTarget()]);
+    const target = { playerIndex: 1, type: 'land' as const, index: 0 };
+    const removed = removal(game, { card: remover, playerIndex: 1, target }).newState;
+    expect(activeLand(removed)?.card.instanceId).toBe(law.instanceId);
+    expect(removed.players[1].discard.some(c => c.instanceId === cover.instanceId)).toBe(true);
+    expect(fieldStats(removed, removed.players[1].pawnZones[0]!).atk).toBe(normal.atk + 20);
+    expect(fieldEntries(removed).filter(e => e.target.type === 'land')).toHaveLength(1);
+    // Void and generic field selection remove only the visible top card too.
+    const banished = buildEffect([Require.Target('action'), Effect.BanishTargetToVoid()])(removed, { card: remover, playerIndex: 1, target }).newState;
+    expect(banished.landStack).toEqual([]);
+    expect(banished.players[0].void.some(c => c.instanceId === law.instanceId)).toBe(true);
+    expect(canPlayCard(banished, duplicate)).toBe(true);
+    const moved = buildEffect([Effect.randomSelection({ location: 'field', filter: c => c.instanceId === cover.instanceId }), Effect.MoveSelectedTo('hand')])(
+        game, { card: remover, playerIndex: 1 }).newState;
+    expect(moved.landStack?.map(z => z.card.instanceId)).toEqual([law.instanceId]);
+    expect(moved.players[1].hand.some(c => c.instanceId === cover.instanceId)).toBe(true);
+    // Stack capacity is unrelated to the five personal Action zones.
+    for (let index = 0; index < 40; index++) {
+        const next = { ...law, id: `test-land-${index}`, name: `Test Land ${index}`, instanceId: `test-land-${index}` };
+        game.players[1].hand = [next];
+        game = applyCommand(game, 1, { type: 'play', cardId: next.instanceId, set: false, slot: -1 }).state;
+    }
+    expect(game.landStack).toHaveLength(42);
 });

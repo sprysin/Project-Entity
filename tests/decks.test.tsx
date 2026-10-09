@@ -6,14 +6,54 @@ import CatalogFilters, { useCatalogFilters } from '../src/components/catalog/Cat
 import DeckCreator from '../src/components/decks/DeckCreator';
 import PlaytestSetup from '../src/components/decks/PlaytestSetup';
 import RulesView from '../src/components/rules/RulesView';
+import Shop from '../src/components/shop/Shop';
+import { CardDetail } from '../src/components/cards/CardDetail';
 import * as storage from '../src/desktop/storage';
 import { expect, it, vi } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable, createRuntimeDeck, createRuntimeReserve, reserveSize } from '../src/decks';
 import { isReservePawn } from '../src/game/cardHelpers';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { CardType, CARD_RARITIES, CARD_RARITY_TIERS } from '../src/types';
+import { PACKS, DEBUG_PACK } from '../src/shop/packs';
+import { rarityColor, packCards, packTiers, openPack, advanceRotation, ROTATION_MS } from '../src/shop/PackLogic';
 
 it('validates a 1000-card catalog, paginates full search results, and preserves deck copy limits', () => {
+    // Pack pools stay in sync with the catalog while remaining individually editable.
+    expect([...PACKS[0].cardIds].sort()).toEqual(sortedCards().map(card => card.id).sort());
+    for (const pack of PACKS) {
+        const cards = packCards(pack);
+        expect(new Set(pack.cardIds).size).toBe(cards.length);
+        expect(pack.chaseCardIds).toHaveLength(3);
+        expect(new Set(pack.chaseCardIds).size).toBe(3);
+        expect(pack.chaseCardIds.every(id => cards.some(card => card.id === id))).toBe(true);
+        expect(cards.every(card => card.pawnSubtype !== 'Token')).toBe(true);
+        const tiers = packTiers(pack);
+        const total = tiers.reduce((sum, tier) => sum + tier.weight, 0);
+        for (let i = 1; i < tiers.length; i++) {
+            expect(tiers[i].weight / tiers[i].cards.length).toBeLessThan(tiers[i - 1].weight / tiers[i - 1].cards.length);
+        }
+        let boundary = 0;
+        for (const tier of tiers) {
+            const random = vi.fn().mockReturnValueOnce((boundary + tier.weight / 2) / total).mockReturnValue(0);
+            expect(CARD_RARITY_TIERS[openPack(pack, random)[0].rarity]).toBe(tier.tier);
+            boundary += tier.weight;
+        }
+        expect(openPack(pack, () => 0)).toHaveLength(5);
+        expect(openPack(pack, () => .999999).every(card => pack.cardIds.includes(card.id))).toBe(true);
+    }
+    const debugCards = packCards(DEBUG_PACK);
+    expect(debugCards.map(card => card.rarity)).toEqual([...CARD_RARITIES]);
+    expect(packCards(DEBUG_PACK)).toEqual(debugCards);
+    expect(PACKS).not.toContain(DEBUG_PACK);
+    expect(CARD_RARITIES.map(rarityColor)).toEqual([
+        '#b8c3d4', '#88dca2', '#77bbff', '#c28bff', '#edc56f', '#30F0DD', '#D35400',
+    ]);
+    const initial = advanceRotation(null, 1000);
+    expect(initial.packIds).toEqual(['master', 'fire', 'grave']);
+    expect(advanceRotation(initial, initial.expiresAt - 1)).toBe(initial);
+    expect(advanceRotation(initial, initial.expiresAt, () => .7499).packIds).toEqual(['master', 'fire', 'fire']);
+    expect(advanceRotation(initial, initial.expiresAt, () => .75).packIds).toEqual(['master', 'grave', 'grave']);
+    expect(advanceRotation(initial, initial.expiresAt + 1000000).expiresAt).toBe(initial.expiresAt + 1000000 + ROTATION_MS);
     expect(sortedCards().every(card => card.pawnSubtype !== 'Token')).toBe(true);
     expect(sortedCards().every(card => CARD_RARITIES.includes(card.rarity))).toBe(true);
     const pawns = sortedCards().filter(card => card.type === CardType.PAWN);
@@ -126,6 +166,72 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     expect(reserveRules).toContain('This is counted as a special summon.');
     act(() => root.unmount());
     vi.unstubAllGlobals();
+    // A batch remains available after rotation and retains every pull in rarity order.
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { setInterval, clearInterval, setTimeout, clearTimeout, addEventListener() {}, removeEventListener() {} });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem() {} });
+    const random = vi.spyOn(Math, 'random');
+    let roll = 0;
+    random.mockImplementation(() => ((roll++ * 37) % 100) / 100);
+    try {
+        act(() => { root = create(<Shop onBack={() => {}} />); });
+        const button = (text: string) => root.root.findAllByType('button').find(entry => entry.props['aria-label'] === text || entry.props.children === text)!;
+        const chooseMaster = () => root.root.findAllByProps({ className: 'shop-pack' })[0];
+        act(() => chooseMaster().props.onClick());
+        expect(root.root.findByProps({ 'aria-label': 'Pack details' })).toBeTruthy();
+        expect(root.root.findAllByProps({ 'aria-label': 'Pack opening' })).toHaveLength(0);
+        const showcase = () => root.root.findByProps({ className: 'pack-showcase' });
+        const previewIds = () => showcase().findAllByType(CardDetail).map(entry => entry.props.card.id);
+        expect(previewIds()).toEqual([]);
+        for (const id of PACKS[0].chaseCardIds) {
+            act(() => button('Next showcase item').props.onClick());
+            expect(previewIds()).toEqual([id]);
+            expect(showcase().findByProps({ 'aria-label': `${cardRegistry.getCard(id)!.name} description` }).findByType('p').props.children).toBe(cardRegistry.getCard(id)!.effectText);
+            expect(button(`Inspect ${cardRegistry.getCard(id)!.name}, ${cardRegistry.getCard(id)!.rarity}`)).toBeTruthy();
+        }
+        act(() => button('Next showcase item').props.onClick());
+        expect(previewIds()).toEqual([]);
+        act(() => button('Previous showcase item').props.onClick());
+        expect(previewIds()).toEqual([PACKS[0].chaseCardIds[2]]);
+        act(() => showcase().props.onKeyDown({ key: 'ArrowLeft', preventDefault() {} }));
+        expect(previewIds()).toEqual([PACKS[0].chaseCardIds[1]]);
+        act(() => button('Preview pack artwork').props.onClick());
+        expect(previewIds()).toEqual([]);
+        act(() => button('OPEN 5 PACKS').props.onClick());
+        const pulls: string[] = [];
+        for (let pack = 0; pack < 5; pack++) {
+            act(() => vi.advanceTimersByTime(pack === 1 ? ROTATION_MS + 1 : 850));
+            expect(button('REVEAL ALL').props.disabled).toBe(false);
+            act(() => button('REVEAL ALL').props.onClick());
+            const cards = root.root.findByProps({ 'aria-label': 'Pack opening' }).findAllByType(CardDetail);
+            pulls.push(...cards.map(entry => entry.props.card.id));
+            expect(cards).toHaveLength(5);
+            const next = root.root.findAllByType('button').find(entry => entry.props.children?.[0] === 'CONTINUE ')!;
+            act(() => next.props.onClick());
+        }
+        const results = root.root.findByProps({ 'aria-label': 'Session pulls' }).findAllByType(CardDetail).map(entry => entry.props.card);
+        expect(results).toHaveLength(25);
+        expect(results.map(card => card.id).sort()).toEqual(pulls.sort());
+        expect(results.map(card => CARD_RARITY_TIERS[card.rarity])).toEqual(results.map(card => CARD_RARITY_TIERS[card.rarity]).sort((a, b) => b - a));
+        for (const tier of new Set(results.map(card => CARD_RARITY_TIERS[card.rarity]))) {
+            const names = results.filter(card => CARD_RARITY_TIERS[card.rarity] === tier).map(card => card.name);
+            expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+        }
+        act(() => button('CONTINUE').props.onClick());
+        act(() => chooseMaster().props.onClick());
+        expect(previewIds()).toEqual([]);
+        act(() => button('OPEN 1 PACK').props.onClick());
+        act(() => vi.advanceTimersByTime(850));
+        act(() => button('REVEAL ALL').props.onClick());
+        act(() => root.root.findAllByType('button').find(entry => entry.props.children?.[0] === 'CONTINUE ')!.props.onClick());
+        expect(root.root.findAllByProps({ className: 'shop-pack' })).toHaveLength(3);
+        expect(root.root.findAllByProps({ 'aria-label': 'Session pulls' })).toHaveLength(0);
+    } finally {
+        act(() => root.unmount());
+        random.mockRestore();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    }
     for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }, { rarity: 'Unknown' }]) {
         expect(() => registry.register({ ...definition, ...invalid, id: 'invalid' } as typeof definition, {})).toThrow('Invalid');
     }

@@ -1,3 +1,4 @@
+import { fieldEntries, sourceZone } from './field';
 import { Card, CardContext, CardType, GameState, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { isReservePawn } from './cardHelpers';
@@ -17,14 +18,12 @@ export function handSummonCandidates(state: GameState, request: { sourceId: stri
 }
 
 export function notifyPawnSummoned(state: GameState, summonedCard: Card, summoningPlayerIndex: number, tributeCount: number): GameState {
-    const sources: CardContext[] = state.players.flatMap((player, playerIndex) =>
-        [...player.pawnZones, ...player.actionZones].flatMap(zone => zone && zone.position !== Position.HIDDEN
-            ? [{ card: zone.card, playerIndex }] : []));
+    const sources: CardContext[] = fieldEntries(state).flatMap(({ zone, target }) => zone.position !== Position.HIDDEN
+            ? [{ card: zone.card, playerIndex: target.playerIndex }] : []);
     let next = state;
     for (const context of sources) {
         if (next.winner) break;
-        const source = [...next.players[context.playerIndex].pawnZones, ...next.players[context.playerIndex].actionZones]
-            .find(zone => zone?.card.instanceId === context.card.instanceId && zone.position !== Position.HIDDEN);
+        const source = sourceZone(next, context);
         const handler = source && cardRegistry.getEffect(source.card.id)?.onPawnSummoned;
         if (handler) next = handler(next, { ...context, card: source.card, summonedCard, summoningPlayerIndex, tributeCount }).newState;
     }

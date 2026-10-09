@@ -1,3 +1,4 @@
+import { sourceZone, targetZone } from '../../game/field';
 import { activationCost, ConditionStep, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, PlacedCard, Position, TargetSelectScope } from '../../types';
@@ -15,10 +16,10 @@ export const Require = {
     ): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context, targetIndex);
         if (!target) return { requireTarget: type, requireTargetPosition: set, requireTargetScope: scope, requireTargetIndex: targetIndex, requireTargetFilter: filter };
-        if (type !== 'any' && target.type !== type) return { halt: true };
+        if (type !== 'any' && (target.type === 'land' ? 'action' : target.type) !== type) return { halt: true };
         const isOpponent = target.playerIndex !== context.playerIndex;
         if (scope === 'active' && isOpponent || scope === 'opponent' && !isOpponent) return { halt: true };
-        const zone = draftState.players[target.playerIndex]?.[target.type === 'pawn' ? 'pawnZones' : 'actionZones'][target.index];
+        const zone = targetZone(draftState, target);
         if (!zone || !canTargetWithEffect(zone.card) || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
@@ -36,8 +37,7 @@ export const Require = {
     TargetMatchesPosition: (position: Position, invert = false): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context);
         if (target) {
-            const p = draftState.players[target.playerIndex];
-            const t = target.type === 'pawn' ? p.pawnZones[target.index] : p.actionZones[target.index];
+            const t = targetZone(draftState, target);
             if (!t) return { halt: true };
 
             const matches = t.position === position;
@@ -65,8 +65,7 @@ export const Require = {
 
 export const Condition = {
     OnceWhileOnField: (): ConditionStep => (state, context) => {
-        const zone = [...state.players[context.playerIndex].pawnZones, ...state.players[context.playerIndex].actionZones]
-            .find(z => z?.card.instanceId === context.card.instanceId);
+        const zone = sourceZone(state, context);
         return !!zone && !zone.hasUsedWhileOnField;
     },
     /** Generically checks if a numerical evaluation matches the required threshold. */
@@ -112,8 +111,7 @@ export const Condition = {
 
     /** Checks if this specific card instance has activated its effect this turn. */
     SoftOncePerTurn: (effectId?: string, cooldownTurns = 0): ConditionStep => (state, context) => {
-        const p = state.players[context.playerIndex];
-        const selfZone = p.pawnZones.find(z => z?.card.instanceId === context.card.instanceId) || p.actionZones.find(z => z?.card.instanceId === context.card.instanceId);
+        const selfZone = sourceZone(state, context);
         if (!selfZone) return true;
         const used = effectId ? selfZone.effectUsedTurn?.[effectId] : undefined;
         return effectId ? used === undefined || state.turnNumber > used + cooldownTurns : !selfZone.hasActivatedEffect;

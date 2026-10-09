@@ -1,3 +1,4 @@
+import { activeLand, hasLand, isLand, sourceZone } from './field';
 import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
 import { canTributeForSummon, isToken, isReservePawn, canPawnAttack, canAttackDirectly } from './cardHelpers';
 import { Card, CardContext, CardTarget, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
@@ -50,7 +51,7 @@ export function createGame(players: [
     });
     return { players: [makePlayer(players[0]), makePlayer(players[1])], activePlayerIndex: 0,
         ...(coinWinner === undefined ? {} : { openingCoin: { winnerIndex: coinWinner, stage: 'flipping' as const } }),
-        currentPhase: Phase.DRAW, turnNumber: 1, winner: null, pendingEffects: [],
+        currentPhase: Phase.DRAW, turnNumber: 1, winner: null, pendingEffects: [], landStack: [],
         log: ['Turn 1', `Duel initialized. ${players[0].name}: ${players[0].deckName ?? 'Random test deck'}; ${players[1].name}: ${players[1].deckName ?? 'Random test deck'}.`] };
 }
 
@@ -76,6 +77,7 @@ export function canPlayCard(state: GameState, card: Card): boolean {
     const actor = state.activePlayerIndex, player = state.players[actor];
     if (!isMain(state, actor) || !player.hand.some(c => c.instanceId === card.instanceId)) return false;
     if (isReservePawn(card)) return false;
+    if (isLand(card)) return !hasLand(state, card);
     if (card.type === CardType.PAWN) return card.level <= 4
         ? player.pawnZones.includes(null) && (!player.normalSummonUsed || !player.hiddenSummonUsed)
         : player.pawnZones.filter(z => z && canTributeForSummon(z.card, card)).length >= (card.level <= 7 ? 1 : 2);
@@ -173,9 +175,20 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             return destroyOrphanedAttachments(command.hidden ? next : notifyPawnSummoned(next, card, actor, required));
         }
         case 'play': {
-            if (!isMain(state, actor) || !validSlot(command.slot) || player.actionZones[command.slot]) return state;
+            if (!isMain(state, actor)) return state;
             const card = player.hand.find(c => c.instanceId === command.cardId);
             if (!card || card.type === CardType.PAWN || !command.set && card.type === CardType.CONDITION) return state;
+            if (isLand(card)) {
+                if (command.set || hasLand(state, card)) return state;
+                const next = structuredClone(state);
+                next.landStack = [...(next.landStack ?? []), { card: { ...card }, position: Position.FACE_UP,
+                    hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false }];
+                next.players[actor].hand = next.players[actor].hand.filter(value => value.instanceId !== card.instanceId);
+                next.pendingResponse = { timing: 'activation', reason: `${card.name} entered the Land Zone` };
+                next.log = [`"${card.name}" became the active Land.`, ...next.log].slice(0, 50);
+                return next;
+            }
+            if (!validSlot(command.slot) || player.actionZones[command.slot]) return state;
             const effect = cardRegistry.getEffect(card.id);
             if (!command.set && effect?.canActivate && !effect.canActivate(state, { card, playerIndex: actor })) return state;
             const next = structuredClone(state), p = next.players[actor];
@@ -195,7 +208,9 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
         }
         case 'activate': {
             if (command.context.playerIndex !== actor) return state;
-            const source = [...player.pawnZones, ...player.actionZones].find(z => z?.card.instanceId === command.context.card.instanceId);
+            const source = isLand(command.context.card) ? activeLand(state) : sourceZone(state, command.context);
+            if (source && source.card.instanceId !== command.context.card.instanceId) return state;
+            if (source && !isLand(source.card) && ![...player.pawnZones, ...player.actionZones].includes(source)) return state;
             const pendingReaction = state.pendingReactions?.find(entry => entry.card.instanceId === command.context.card.instanceId && entry.playerIndex === actor && entry.trigger === command.trigger);
             if (!source && !pendingReaction) return state;
             const context = { ...command.context, card: source?.card ?? pendingReaction!.card };
@@ -206,7 +221,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             } else if (!fieldActivations(state, actor, !!state.response).some(a => a.card.instanceId === source.card.instanceId && a.trigger === command.trigger)) {
                 // A newly played Action may have no onActivate (e.g. a Lingering Action).
                 if (!(command.trigger === 'activate' && isMain(state, actor) && source.card.type === CardType.ACTION
-                    && source.position !== Position.HIDDEN && source.summonedTurn === state.turnNumber)) return state;
+                    && !isLand(source.card) && source.position !== Position.HIDDEN && source.summonedTurn === state.turnNumber)) return state;
             }
             return addChainLink(state, context, command.trigger);
         }
@@ -217,7 +232,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (state.pendingReactions?.some(entry => entry.card.instanceId === command.cardId && entry.playerIndex === actor)) return {
                 ...state, pendingReactions: state.pendingReactions.filter(entry => entry.card.instanceId !== command.cardId)
             };
-            const source = player.actionZones.find(z => z?.card.instanceId === command.cardId);
+            const source = [...player.actionZones, activeLand(state)].find(z => z?.card.instanceId === command.cardId);
             return source ? finishEffect(state, source.card) : state;
         }
         case 'attackReplay': {

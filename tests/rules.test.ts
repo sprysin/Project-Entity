@@ -20,7 +20,7 @@ function state(): GameState {
 const card = (id = 'rules-card', owner = 0): Card => ({ id, instanceId: id, ownerId: `p${owner}`,
     name: id, type: CardType.PAWN, rarity: 'Common', level: 1, atk: 100, def: 100, effectText: '' });
 
-it('loses only on a required missing draw, including partially fulfilled draws', () => {
+it('handles missing draws and simultaneous lethal LP match results', () => {
     const game = state();
     game.players[0].deck = [card()];
     const last = drawCards(game, 0, 1);
@@ -34,9 +34,7 @@ it('loses only on a required missing draw, including partially fulfilled draws',
     const result = buildEffect([Effect.DrawCards(1), Effect.RestoreLP(0, 100)])(state(), { card: card(), playerIndex: 0 });
     expect(result.newState.winner).toBe('Player 2');
     expect(result.newState.players[0].lp).toBe(800);
-});
 
-it('records simultaneous lethal LP as a draw independent of turn player', () => {
     for (const activePlayerIndex of [0, 1]) {
         const game = state();
         game.activePlayerIndex = activePlayerIndex;

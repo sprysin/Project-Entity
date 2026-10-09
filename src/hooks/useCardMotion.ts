@@ -55,6 +55,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
                     z.position === Position.DEFENSE || (z.position === Position.HIDDEN && z.card.type === CardType.PAWN) ? 90 : 0, !!z.attachedToInstanceIds?.length);
             }));
         });
+        game.landStack?.forEach(zone => add(zone.card, 'land'));
         const batch: CardMotion[] = [];
         next.forEach((dest, id) => {
             const src = previous.current.get(id);

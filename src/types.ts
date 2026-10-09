@@ -43,7 +43,7 @@ export enum Attribute {
 
 export enum PawnType {
   WARRIOR = 'WARRIOR',
-  MAGICIAN = 'MAGICIAN',
+  ARCANE = 'ARCANE',
   DRAGON = 'DRAGON',
   MECHANICAL = 'MECHANICAL',
   DEMON = 'DEMON',
@@ -60,7 +60,7 @@ export enum PawnType {
 
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal' }
-export enum ActionSubtype { CONTRACT = 'Contract' }
+export enum ActionSubtype { CONTRACT = 'Contract', LAND = 'Land' }
 
 export interface Card {
   instanceId: string;
@@ -94,6 +94,8 @@ export interface Card {
 }
 
 export interface PlacedCard {
+  /** Final ATK override, evaluated after continuous modifiers until turn end. */
+  attackOverride?: { value: number; turn: number };
   counters?: Record<string, number>;
   effectUsedTurn?: Record<string, number>;
   returnToOwnerEndPhase?: boolean;
@@ -149,6 +151,8 @@ export interface ResponseWindow {
 }
 
 export interface GameState {
+  /** Bottom to top; only the final entry is active. Optional for older snapshots. */
+  landStack?: PlacedCard[];
   /** Only this activation's controller may finish or cancel while choosing its effect. */
   pendingActivation?: { cardId: string; playerIndex: number };
   temporaryVoidReturns?: { cardId: string; playerIndex: number; position: Position; phase: Phase; dueTurn: number }[];
@@ -187,7 +191,7 @@ export interface GameState {
 
 export type CardTarget = {
   playerIndex: number;
-  type: 'pawn' | 'action';
+  type: 'pawn' | 'action' | 'land';
   index: number;
 };
 
@@ -262,7 +266,7 @@ export type TargetSelectScope = 'active' | 'opponent' | 'both';
 export type EffectResult = {
   requireEffectChoice?: { id: string; label: string; disabled: boolean }[];
   newState: GameState;
-  requirePawnPlacement?: { playerIndex: number; position?: Position.ATTACK | Position.DEFENSE; slots?: number[]; placementIndex?: number };
+  requirePawnPlacement?: { playerIndex: number; position?: Position; slots?: number[]; placementIndex?: number };
   halted?: boolean;
   requireTarget?: TargetSelectType;
   requireTargetPosition?: TargetSelectPosition;
@@ -305,6 +309,8 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Continuous bonus from this face-up source to another field Pawn. */
+  auraStatModifier?(state: GameState, context: CardContext, target: PlacedCard, controllerIndex: number): { atk?: number; def?: number };
   canAttack?(state: GameState, context: CardContext, placement: PlacedCard): boolean;
   canAttackDirectly?(state: GameState, context: CardContext): boolean;
   canManuallyChangePosition?(state: GameState, context: CardContext, placement: PlacedCard): boolean;

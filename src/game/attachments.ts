@@ -1,15 +1,15 @@
+import { fieldEntries, removeFieldIdentity } from './field';
 import { Card, GameState, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { sendToOwnerPile } from './cardOwnership';
 
 /** Destroy a field identity and notify its face-up attachments before orphan cleanup. */
 export function destroyFieldCard(state: GameState, instanceId: string): void {
-    for (const player of state.players) for (const zones of [player.pawnZones, player.actionZones]) {
-        const index = zones.findIndex(zone => zone?.card.instanceId === instanceId);
-        if (index < 0) continue;
-        const card = zones[index]!.card;
+    for (const { zone } of fieldEntries(state)) {
+        if (zone.card.instanceId !== instanceId) continue;
+        const card = zone.card;
         sendToOwnerPile(state, card, 'discard');
-        zones[index] = null;
+        removeFieldIdentity(state, instanceId);
         const owner = state.players.findIndex(candidate => candidate.discard.some(value => value.instanceId === card.instanceId));
         if (owner >= 0 && cardRegistry.getEffect(card.id)?.onDestroyed) {
             state.pendingReactions = [...(state.pendingReactions ?? []), { card, playerIndex: owner, trigger: 'destroyed' }];
@@ -41,9 +41,7 @@ export function notifyAttachedActivation(before: GameState, after: GameState, ac
 
 /** Destroy Attach cards whose target left the field or turned face-down. */
 export function destroyOrphanedAttachments(state: GameState): GameState {
-    const field = () => new Map(state.players.flatMap(player =>
-        [...player.pawnZones, ...player.actionZones].flatMap(zone => zone ? [[zone.card.instanceId, zone] as const] : [])
-    ));
+    const field = () => new Map(fieldEntries(state).map(({ zone }) => [zone.card.instanceId, zone] as const));
 
     let destroyed = true;
     while (destroyed) {

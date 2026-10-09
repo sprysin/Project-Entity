@@ -62,7 +62,7 @@ export const ShuffleSelectionModal: React.FC<{
     const [selected, setSelected] = useState<number[]>([]);
     useEffect(() => setSelected([]), [request]);
     if (!request) return null;
-    const choices = cardsAtLocation(gameState.players[request.playerIndex], request.location).filter(entry => request.filter(entry.card));
+    const choices = cardsAtLocation(gameState.players[request.playerIndex], request.location, gameState).filter(entry => request.filter(entry.card));
     return <CardSelectionModal
         title={`Shuffle from ${request.location} (${selected.length}/${request.count})`}
         cards={choices.map(entry => entry.card)}

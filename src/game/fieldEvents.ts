@@ -1,3 +1,4 @@
+import { fieldEntries } from './field';
 import { CardContext, EffectResult, GameState, IEffect, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { formatEffectLog } from './effectLog';
@@ -7,9 +8,8 @@ export function notifyFieldEvent<K extends 'onEffectActivated' | 'onEffectDamage
     state: GameState, event: K, details: Omit<Parameters<NonNullable<IEffect[K]>>[1], keyof CardContext>
 ): GameState {
     let next = state;
-    const observers = state.players.flatMap((player, playerIndex) =>
-        [...player.pawnZones, ...player.actionZones].flatMap(zone =>
-            zone && zone.position !== Position.HIDDEN ? [{ card: zone.card, playerIndex }] : []));
+    const observers = fieldEntries(state).flatMap(({ zone, target }) =>
+        zone.position !== Position.HIDDEN ? [{ card: zone.card, playerIndex: target.playerIndex }] : []);
     for (const context of observers) {
         const handler = cardRegistry.getEffect(context.card.id)?.[event] as
             ((state: GameState, context: Parameters<NonNullable<IEffect[K]>>[1]) => EffectResult) | undefined;

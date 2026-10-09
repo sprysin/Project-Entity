@@ -2,7 +2,7 @@ body {
   overflow: hidden;
   color: #e2e8f0;
   background-color: #050507;
-  font-family: Roboto, sans-serif;
+  font-family: var(--font-card-text);
 }
 
 .font-orbitron {
@@ -70,6 +70,10 @@ body {
   width: 1.2em;
   height: 1.2em;
 }
+
+.game-viewer-preview { display: block; width: 100%; text-align: left; }
+.game-viewer-preview:focus-visible { outline: 2px solid #edc56f; outline-offset: 4px; }
+.game-viewer-preview:disabled { cursor: default; }
 
 .card-artwork-symbol--framed {
   position: relative;
@@ -539,7 +543,7 @@ body {
 .duel-prompt__chain {
   margin: 0 0 14px;
   color: #cbd5e1;
-  font: 400 13px/1.55 Roboto, sans-serif;
+  font: 400 13px/1.55 var(--font-card-text);
 }
 
 .duel-prompt__actions {
@@ -646,7 +650,7 @@ body {
   font: 500 12px/1.5 Orbitron, sans-serif;
 }
 .card-search__summary p { margin: 0; }
-.card-search__summary span { color: #aca89d; font: 400 12px Roboto, sans-serif; }
+.card-search__summary span { color: #aca89d; font: 400 12px var(--font-card-text); }
 .card-search__grid {
   display: grid;
   flex: 1 1 auto;
@@ -1018,12 +1022,12 @@ body {
   pointer-events: none;
 }
 
-.history-pile--compact .history-pile__counter {
+.history-pile__counter--compact {
   right: 3px;
   bottom: 3px;
 }
 
-.history-pile--compact .history-pile__count {
+.history-pile__counter--compact .history-pile__count {
   width: auto;
   height: 22px;
   min-width: 22px;
@@ -1031,8 +1035,10 @@ body {
   font-size: 10px;
 }
 
-.history-pile--compact .history-pile__count i {
+.history-pile__counter--compact .history-pile__count :is(i, svg) {
   font-size: 10px;
+  width: 10px;
+  height: 10px;
 }
 
 .phase-track {
@@ -2345,6 +2351,7 @@ body {
 }
 
 .card-scale-face {
+  text-align: left;
   position: absolute;
   left: 50%;
   top: 50%;
@@ -2354,6 +2361,7 @@ body {
 }
 
 .card-effect-content {
+  text-align: left;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }

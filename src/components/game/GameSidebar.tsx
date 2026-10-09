@@ -1,7 +1,9 @@
+import { targetZone } from '../../game/field';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardTarget, GameState, Position } from '../../types';
 import { cardRegistry } from '../../cards/CardRegistry';
 import { CardDetail } from '../cards/CardDetail';
+import { CardPreview } from '../cards/CardPreview';
 
 interface GameSidebarProps {
     viewerIndex?: number;
@@ -16,11 +18,13 @@ interface GameSidebarProps {
 
 export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, xray, selectedCard, inspectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
     const [logCard, setLogCard] = useState<Card | null>(null);
+    const [preview, setPreview] = useState<{ card: Card; showOriginalStats: boolean } | null>(null);
     const cardsByName = useMemo(() => new Map(cardRegistry.getAllCards().map(card => [card.name, card])), []);
     const selectedZone = selectedFieldSlot
-        ? gameState.players[selectedFieldSlot.playerIndex][selectedFieldSlot.type === 'pawn' ? 'pawnZones' : 'actionZones'][selectedFieldSlot.index]
+        ? targetZone(gameState, selectedFieldSlot)
         : null;
     const revealedCard = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewerIndex)?.card;
+    useEffect(() => setPreview(null), [viewerIndex, xray]);
     useEffect(() => setLogCard(null), [selectedCard?.instanceId, inspectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
 
     const renderLogEntry = (entry: string) => {
@@ -33,6 +37,13 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
         });
     };
 
+    const renderViewerCard = (card: Card, hidden = false, showOriginalStats = false) => (
+        <button type="button" className="game-viewer-preview" disabled={hidden} aria-label={hidden ? 'Hidden card' : `Preview ${card.name}`} data-sound="select-small"
+            onClick={() => { if (!hidden) setPreview({ card, showOriginalStats }); }}>
+            <CardDetail card={card} isSet={hidden} showOriginalStats={showOriginalStats} />
+        </button>
+    );
+
     return (
         <aside className={`game-data-sidebar relative z-40 flex flex-col border-l border-white/10 bg-black/80 backdrop-blur-2xl transition-all duration-300 ease-in-out ${isOpen ? 'w-80' : 'w-10'}`}>
             <button aria-label={isOpen ? 'Collapse system data' : 'Expand system data'} onClick={() => setIsOpen(!isOpen)} className="absolute -left-3 top-1/2 z-50 flex h-12 w-6 items-center justify-center rounded-l-md border-l border-y border-yellow-400 bg-yellow-600 text-black shadow-lg transition-colors hover:bg-yellow-500">
@@ -44,24 +55,24 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                         <div className="flex-none p-6 pb-2">
                             {revealedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={revealedCard} />
+                                    {renderViewerCard(revealedCard)}
                                 </div>
                             ) : logCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={logCard} />
+                                    {renderViewerCard(logCard)}
                                     <button data-sound="cancellation" type="button" onClick={() => setLogCard(null)} className="w-full font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-yellow-400">Close log preview</button>
                                 </div>
                             ) : selectedZone && selectedFieldSlot ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={selectedZone.card} isSet={!xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex} showOriginalStats={selectedFieldSlot.type === 'pawn'} />
+                                    {renderViewerCard(selectedZone.card, !xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex, selectedFieldSlot.type === 'pawn')}
                                 </div>
                             ) : selectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={selectedCard} />
+                                    {renderViewerCard(selectedCard)}
                                 </div>
                             ) : inspectedCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    <CardDetail card={inspectedCard} />
+                                    {renderViewerCard(inspectedCard)}
                                 </div>
                             ) : (
                                 <div className="flex h-64 flex-col items-center justify-center space-y-6 opacity-30 grayscale">
@@ -91,6 +102,7 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                     </button>
                 )}
             </div>
+            {preview && <CardPreview card={preview.card} showOriginalStats={preview.showOriginalStats} onClose={() => setPreview(null)} />}
         </aside>
     );
 };

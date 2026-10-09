@@ -3,7 +3,7 @@ import { getSettings } from '../../desktop/storage';
 import ProfileAvatar from '../common/ProfileAvatar';
 import './Home.css';
 
-export type HomePreview = 'multiplayer' | 'towers' | 'shop';
+export type HomePreview = 'multiplayer' | 'towers';
 
 interface HomeProps {
   onTraining: () => void;
@@ -12,6 +12,7 @@ interface HomeProps {
   onRules: () => void;
   onSettings: () => void;
   onAccount: () => void;
+  onShop: () => void;
   onPreview: (preview: HomePreview) => void;
 }
 
@@ -20,20 +21,20 @@ const navigation = [
   { number: '02', label: 'TRAINING', detail: 'Practice against the AI', icon: 'fa-crosshairs', kind: 'training', featured: true },
   { number: '03', label: 'TOWERS', detail: '[WORKING ON]', icon: 'fa-chess-rook', kind: 'towers', featured: true, badge: 'COMING SOON' },
   { number: '04', label: 'DECK EDITOR', detail: 'View your custom decks', icon: 'fa-layer-group', kind: 'deck' },
-  { number: '05', label: 'SHOP', detail: '[WORKING ON]', icon: 'fa-bag-shopping', kind: 'shop', badge: 'COMING SOON' },
+  { number: '05', label: 'SHOP', detail: 'Discover packs', icon: 'fa-bag-shopping', kind: 'shop' },
   { number: '06', label: 'CARD DATABASE', detail: 'View all cards in game', icon: 'fa-table-cells-large', kind: 'cards' },
   { number: '07', label: 'RULES', detail: 'Learn how to play', icon: 'fa-book-open', kind: 'rules' },
   { number: '08', label: 'SETTINGS', detail: 'Tweak audio & visuals', icon: 'fa-gear', kind: 'settings' },
 ] as const;
 
-export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules, onSettings, onAccount, onPreview }: HomeProps) {
+export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules, onSettings, onAccount, onShop, onPreview }: HomeProps) {
   const actions = {
     multiplayer: () => onPreview('multiplayer'),
     training: onTraining,
     deck: onDeckEditor,
     cards: onCardDatabase,
     towers: () => onPreview('towers'),
-    shop: () => onPreview('shop'),
+    shop: onShop,
     rules: onRules,
     settings: onSettings,
   };
@@ -95,7 +96,6 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
 const previewDetails: Record<HomePreview, { label: string; icon: string }> = {
   multiplayer: { label: 'MULTIPLAYER', icon: 'fa-globe' },
   towers: { label: 'TOWERS', icon: 'fa-chess-rook' },
-  shop: { label: 'SHOP', icon: 'fa-bag-shopping' },
 };
 
 export function WorkInProgress({ feature, onBack }: { feature: HomePreview; onBack: () => void }) {

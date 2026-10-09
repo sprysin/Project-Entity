@@ -123,28 +123,28 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         {busy && <div role="status" style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', background: '#020617aa' }}>Saving deck…</div>}
         {!deck ? <main className="deck-library">
             <header className="entity-topbar deck-library-topbar">
-                <PageBrand section="DECK EDITOR / LIBRARY" />
+                <PageBrand section="DECK EDITOR" />
                 <BackToHubButton onClick={onBack} />
             </header>
             <div className="deck-library-main">
-            <div className="deck-library-header">
-                <div><span className="deck-eyebrow">BUILD YOUR STRATEGY / 01</span><h1>YOUR <em>DECKS</em></h1><p>Create a deck, open a saved build, or bring in a JSON file.</p></div>
-                <span className="deck-library-total">{String(library.length).padStart(2, '0')} <small>SAVED DECKS</small></span>
-            </div>
-            <div className="deck-library-actions">
-                <button data-sound="select" className="deck-primary" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-plus" aria-hidden="true" /> New deck</button>
-                <button data-sound="select-small" className="deck-secondary" onClick={importFile}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
-                <IconButton sound={deleteMode ? 'cancellation' : undefined} label={deleteMode ? 'Cancel deleting' : 'Delete a deck'} icon={deleteMode ? 'fa-xmark' : 'fa-trash-can'} active={deleteMode} disabled={!library.length} onClick={() => { setDeleteMode(value => !value); setNotice(deleteMode ? '' : 'Select a deck to delete'); }} />
-            </div>
-            <div className="deck-library-grid">
-                {library.map(item => <div key={item.id} className={`deck-library-tile${deleteMode ? ' is-delete-mode' : ''}`}>
-                    <button data-sound={deleteMode ? undefined : 'select-small'} className="deck-library-open" aria-label={`${deleteMode ? 'Delete' : 'Open'} ${item.name}`} onClick={() => deleteMode ? deleteDeck(item) : open(item)}>
-                    <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ transform: `translateX(${(i - 1) * 45}px) rotate(${(i - 1) * 9}deg)` }}>{face(cards.find(c => c.id === entry.cardId)!, true)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
-                    <div className="deck-tile-caption"><strong>{item.name}</strong><span>{total(item)} cards <i className={`fa-solid ${deleteMode ? 'fa-trash-can' : 'fa-arrow-right'}`} aria-hidden="true" /></span></div>
-                    </button>
-                </div>)}
-                {!library.length && <button data-sound="select" className="deck-empty-library" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Build your first deck</span><i className="fa-solid fa-plus" aria-hidden="true" /></button>}
-            </div>
+                <div className="deck-library-header">
+                    <div><span className="deck-eyebrow"></span><h1>DECK <em>EDITOR</em></h1></div>
+                    <span className="deck-library-total">{String(library.length).padStart(2, '0')} <small>SAVED DECKS</small></span>
+                </div>
+                <div className="deck-library-actions">
+                    <button data-sound="select" className="deck-primary" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-plus" aria-hidden="true" /> New deck</button>
+                    <button data-sound="select-small" className="deck-secondary" onClick={importFile}><i className="fa-solid fa-folder-open" aria-hidden="true" /> Open JSON</button>
+                    <IconButton sound={deleteMode ? 'cancellation' : undefined} label={deleteMode ? 'Cancel deleting' : 'Delete a deck'} icon={deleteMode ? 'fa-xmark' : 'fa-trash-can'} active={deleteMode} disabled={!library.length} onClick={() => { setDeleteMode(value => !value); setNotice(deleteMode ? '' : 'Select a deck to delete'); }} />
+                </div>
+                <div className="deck-library-grid">
+                    {library.map(item => <div key={item.id} className={`deck-library-tile${deleteMode ? ' is-delete-mode' : ''}`}>
+                        <button data-sound={deleteMode ? undefined : 'select-small'} className="deck-library-open" aria-label={`${deleteMode ? 'Delete' : 'Open'} ${item.name}`} onClick={() => deleteMode ? deleteDeck(item) : open(item)}>
+                            <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ transform: `translateX(${(i - 1) * 45}px) rotate(${(i - 1) * 9}deg)` }}>{face(cards.find(c => c.id === entry.cardId)!, true)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
+                            <div className="deck-tile-caption"><strong>{item.name}</strong><span>{total(item)} cards <i className={`fa-solid ${deleteMode ? 'fa-trash-can' : 'fa-arrow-right'}`} aria-hidden="true" /></span></div>
+                        </button>
+                    </div>)}
+                    {!library.length && <button data-sound="select" className="deck-empty-library" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Build your first deck</span><i className="fa-solid fa-plus" aria-hidden="true" /></button>}
+                </div>
             </div>
         </main> : <div className="deck-editor">
             <header className="entity-topbar deck-editor-topbar">
@@ -169,13 +169,13 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                 <div className="deck-counts"><span>{total(deck)} <span className="text-slate-500">cards</span></span>{types.map((type, i) => <span key={type} title={type} aria-label={`${type} count`}><TypeIcon type={type} icon={icons[i]} className={`deck-type-${type}`} /> {deck.cards.filter(e => cards.find(c => c.id === e.cardId)?.type === type).reduce((sum, e) => sum + e.quantity, 0)}</span>)}</div>
                 <div className="deck-content" style={{ '--deck-rows': Math.max(4, Math.ceil(total(deck) / 10)) } as React.CSSProperties}>
                     {(['cards', 'reserve'] as const).map(pile => <section key={pile} className={pile === 'reserve' ? 'deck-reserve' : 'deck-main'} aria-label={pile === 'reserve' ? 'Reserve contents' : 'Main deck cards'}>
-                    {pile === 'reserve' && <h2 className="deck-reserve-heading">Reserve · {reserveSize(deck)}/{MAX_RESERVE_SIZE}</h2>}
-                    {pile === 'cards' && !deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
-                    <div className="deck-owned-grid">{cards.filter(card => isReservePawn(card) === (pile === 'reserve')).flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
-                        <div key={`${card.id}-${copy}-${cardMotion?.id === card.id ? cardMotion.key : ''}`} className={`deck-owned-card${cardMotion?.id === card.id ? ` deck-card-${cardMotion.direction}` : ''}`}>
-                            <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}; right click to remove`} title="Right click to remove" onClick={() => setSelected(card)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, -1); }}>{face(card, true)}</button>
-                        </div>
-                    ))}{pile === 'reserve' && Array.from({ length: Math.max(0, MAX_RESERVE_SIZE - reserveSize(deck)) }, (_, index) => <div key={`empty-${index}`} className="deck-reserve-slot" aria-hidden="true" />)}</div>
+                        {pile === 'reserve' && <h2 className="deck-reserve-heading">Reserve · {reserveSize(deck)}/{MAX_RESERVE_SIZE}</h2>}
+                        {pile === 'cards' && !deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
+                        <div className="deck-owned-grid">{cards.filter(card => isReservePawn(card) === (pile === 'reserve')).flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
+                            <div key={`${card.id}-${copy}-${cardMotion?.id === card.id ? cardMotion.key : ''}`} className={`deck-owned-card${cardMotion?.id === card.id ? ` deck-card-${cardMotion.direction}` : ''}`}>
+                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}; right click to remove`} title="Right click to remove" onClick={() => setSelected(card)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, -1); }}>{face(card, true)}</button>
+                            </div>
+                        ))}{pile === 'reserve' && Array.from({ length: Math.max(0, MAX_RESERVE_SIZE - reserveSize(deck)) }, (_, index) => <div key={`empty-${index}`} className="deck-reserve-slot" aria-hidden="true" />)}</div>
                     </section>)}
                 </div>
             </main>

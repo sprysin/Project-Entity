@@ -1,3 +1,4 @@
+import { isLand } from '../game/field';
 import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import { Card, GameState, Phase } from '../types';
 import { chooseAIAction, hasWorthwhileAttack, observeGame, simulateSummon, updateKnownCards } from '../game/opponentAI';
@@ -55,7 +56,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
                     if (!prev) return prev;
                     const card = action.kind === 'set' ? action.card : action.context.card;
                     const next = applyCommand(prev, 1, { type: 'play', cardId: card.instanceId, set: action.kind === 'set', slot: prev.players[1].actionZones.indexOf(null) }).state;
-                    if (next === prev || action.kind === 'set') return next;
+                    if (next === prev || action.kind === 'set' || isLand(card)) return next;
                     const context = { ...action.context, deckIndex: action.deckId ? next.players[1].deck.findIndex(c => c.instanceId === action.deckId) : undefined };
                     return applyCommand(next, 1, { type: 'activate', context, trigger: action.trigger }).state;
                 });

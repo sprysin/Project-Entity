@@ -1,3 +1,4 @@
+import { isLand } from '../game/field';
 import { useCallback, useState, Dispatch, SetStateAction, useRef } from 'react';
 import {
     GameState, Card, CardContext, CardSelectionRequest, CardTarget, CardType,
@@ -89,7 +90,7 @@ export const useEffectResolution = (
             || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
             || gameState.pendingReactions?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === index));
         const reactionIndex = gameState.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex;
-        const activeIndex = resolvingLink?.context.playerIndex ?? reactionIndex ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
+        const activeIndex = resolvingLink?.context.playerIndex ?? reactionIndex ?? (isLand(card) ? gameState.activePlayerIndex : undefined) ?? (controllerIndex >= 0 ? controllerIndex : gameState.players.findIndex(p => p.id === card.ownerId));
         if (activeIndex < 0) return;
 
         const actualTargets = [...(providedTargets ?? pendingContext.current.targets ?? (pendingContext.current.target ? [pendingContext.current.target] : []))];
@@ -393,7 +394,7 @@ export const useEffectResolution = (
         if (gameState?.pendingChainTarget) setGameState(prev => prev?.pendingChainTarget ? applyCommand(prev,
             prev.chain!.at(-1)!.context.playerIndex, { type: 'chainTargets', targets: [] }).state : prev);
         if (card && !card.switchMandatory) setGameState(prev => prev && !prev.response ? applyCommand(prev,
-            prev.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? prev.players.findIndex(p => p.id === card.ownerId),
+            prev.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex ?? (isLand(card) ? prev.activePlayerIndex : prev.players.findIndex(p => p.id === card.ownerId)),
             { type: 'cancelEffect', cardId: card.instanceId }).state : prev);
         pendingContext.current = {};
         setPawnPlacementReq(null);

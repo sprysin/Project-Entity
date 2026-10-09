@@ -1,3 +1,4 @@
+import { isLand } from './field';
 import { Card, CardType, GameState } from '../types';
 import { destroyOrphanedAttachments } from './attachments';
 import { sendToOwnerPile } from './cardOwnership';
@@ -6,7 +7,7 @@ import { sendToOwnerPile } from './cardOwnership';
 export function finishEffect(state: GameState, card: Card, log?: string): GameState {
     const next: GameState = structuredClone(state);
     const attached = next.players.some(p => p.actionZones.some(z => z?.card.instanceId === card.instanceId && z.attachedToInstanceIds?.length));
-    if (card.type !== CardType.PAWN && !card.isLingering && !(card.isAttached && attached)) {
+    if (card.type !== CardType.PAWN && !isLand(card) && !card.isLingering && !(card.isAttached && attached)) {
         for (const player of next.players) {
             const index = player.actionZones.findIndex(z => z?.card.instanceId === card.instanceId);
             if (index !== -1) {

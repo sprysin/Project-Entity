@@ -1,7 +1,9 @@
+import { fieldEntries, targetZone } from './field';
+import { fieldStats } from './cardHelpers';
 import { isToken } from './cardHelpers';
 import { Card, CardContext, EffectTrigger, GameState, PlacedCard, Position } from '../types';
 
-type LocatedCard = { playerIndex: number; zone: 'pawn' | 'action'; placed: PlacedCard };
+type LocatedCard = { playerIndex: number; zone: 'pawn' | 'action' | 'land'; placed: PlacedCard };
 
 const quote = (value: string) => `"${value}"`;
 
@@ -9,10 +11,7 @@ const joinNames = (cards: Card[]) => cards.map(card => quote(card.name)).join(',
 
 function fieldCards(state: GameState): Map<string, LocatedCard> {
     const cards = new Map<string, LocatedCard>();
-    state.players.forEach((player, playerIndex) => {
-        player.pawnZones.forEach(placed => placed && cards.set(placed.card.instanceId, { playerIndex, zone: 'pawn', placed }));
-        player.actionZones.forEach(placed => placed && cards.set(placed.card.instanceId, { playerIndex, zone: 'action', placed }));
-    });
+    fieldEntries(state).forEach(({ zone, target }) => cards.set(zone.card.instanceId, { playerIndex: target.playerIndex, zone: target.type, placed: zone }));
     return cards;
 }
 
@@ -38,9 +37,7 @@ export function formatEffectLog(
     const afterField = fieldCards(after);
     const selectedTargets = context.targets ?? (context.target ? [context.target] : []);
     const targets = selectedTargets.flatMap(target => {
-        const zone = target.type === 'pawn'
-            ? before.players[target.playerIndex].pawnZones[target.index]
-            : before.players[target.playerIndex].actionZones[target.index];
+        const zone = targetZone(before, target);
         return zone ? [zone.card] : [];
     });
 
@@ -75,13 +72,13 @@ export function formatEffectLog(
     for (const [instanceId, located] of beforeField) {
         const changed = afterField.get(instanceId);
         if (!changed) {
-            const wasBanished = after.players[located.playerIndex].void.some(c => c.instanceId === instanceId);
+            const wasBanished = after.players.some(player => player.void.some(c => c.instanceId === instanceId));
             if (isToken(located.placed.card)) details.push(`removes ${quote(located.placed.card.name)} from the game`);
             else if (wasBanished) details.push(`sends ${quote(located.placed.card.name)} to the Void`);
-            else if (!tributes.some(tribute => tribute.instanceId === instanceId) && after.players[located.playerIndex].discard.some(c => c.instanceId === instanceId)) details.push(`destroys ${quote(located.placed.card.name)}`);
+            else if (!tributes.some(tribute => tribute.instanceId === instanceId) && after.players.some(player => player.discard.some(c => c.instanceId === instanceId))) details.push(`destroys ${quote(located.placed.card.name)}`);
             continue;
         }
-        const atkDelta = changed.placed.card.atk - located.placed.card.atk;
+        const atkDelta = fieldStats(after, changed.placed).atk - fieldStats(before, located.placed).atk;
         for (const name of new Set([...Object.keys(located.placed.counters ?? {}), ...Object.keys(changed.placed.counters ?? {})])) {
             const delta = (changed.placed.counters?.[name] ?? 0) - (located.placed.counters?.[name] ?? 0);
             if (delta) details.push(`${quote(changed.placed.card.name)} ${delta > 0 ? '+' : ''}${delta} ${name}`);
@@ -101,6 +98,7 @@ export function formatEffectLog(
 
     for (const [instanceId, located] of afterField) {
         if (beforeField.has(instanceId) || instanceId === card.instanceId) continue;
+        if (located.zone === 'land') { details.push(`${quote(located.placed.card.name)} becomes the active Land`); continue; }
         details.push(`${before.players[located.playerIndex].reserve.some(value => value.instanceId === instanceId) ? 'Vassal summons' : 'special summons'} ${quote(located.placed.card.name)}`);
     }
 

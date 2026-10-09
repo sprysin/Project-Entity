@@ -1,7 +1,5 @@
 @import '@fontsource/orbitron/latin-400.css';
 @import '@fontsource/orbitron/latin-700.css';
-@import '@fontsource/roboto/latin-400.css';
-@import '@fontsource/roboto/latin-700.css';
 @import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 @import '@fortawesome/fontawesome-free/css/solid.min.css';
 @import './game.css';
@@ -27,6 +25,7 @@
 }
 
 :root {
+  --font-card-text: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --increased-stat-color: #52caff;
   --scrollbar-track: #070a0f;
   --scrollbar-thumb: #475569;

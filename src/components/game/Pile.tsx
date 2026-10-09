@@ -3,6 +3,14 @@ import { Card } from '../../types';
 import { CardDetail } from '../cards/CardDetail';
 import { XrayOverlay } from './XrayOverlay';
 
+/** Shared overlay for the visible count on field piles. */
+export const PileCounter: React.FC<{ label: string; count: number; icon: React.ReactNode; compact?: boolean }> = ({ label, count, icon, compact }) => (
+    <span className={`history-pile__counter ${compact ? 'history-pile__counter--compact' : ''}`} aria-hidden="true">
+        <span className="history-pile__label">{label}</span>
+        <span className="history-pile__count">{icon}{count}</span>
+    </span>
+);
+
 /**
  * DeckPile Sub-component: Visualizes the deck with a card count.
  */
@@ -39,9 +47,6 @@ export const Pile: React.FC<{
                 </span>
             ))}
         </span>
-        <span className="history-pile__counter" aria-hidden="true">
-            <span className="history-pile__label">{label}</span>
-            <span className="history-pile__count"><i className={`fa-solid ${icon}`} />{cards.length}</span>
-        </span>
+        <PileCounter label={label} count={cards.length} compact={!fannedOut} icon={<i className={`fa-solid ${icon}`} />} />
     </button>
 );

@@ -27,7 +27,7 @@ const Settings: React.FC<{ onBack: () => void; onDebugHub: () => void }> = ({ on
     }
   };
 
-  return <main className="settings-page entity-page flex-1 overflow-y-auto font-roboto">
+  return <main className="settings-page entity-page flex-1 overflow-y-auto font-mono">
     <div className="entity-topbar settings-topbar"><PageBrand section="SYSTEM / PREFERENCES" /><BackToHubButton onClick={onBack} disabled={saving} /></div>
     <form className="settings-shell" onSubmit={save} onChange={() => { setMessage(''); setError(''); }}>
       <header className="settings-header">

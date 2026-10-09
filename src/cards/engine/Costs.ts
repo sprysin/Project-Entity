@@ -10,6 +10,16 @@ import { levelTributeCandidates } from '../../game/levelTributes';
 import { destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Cost = {
+    /** Select and Void distinct cards from the activating player's Discard. */
+    VoidDiscardCards: (count: number, filter: CardFilter): EffectStep => activationCost((state, context) => {
+        const selection = Effect.SelectDiscardCards(filter, count)(state, context);
+        if (selection) return selection;
+        const player = state.players[context.playerIndex];
+        for (const id of context.discardCardIds!) {
+            const index = player.discard.findIndex(card => card.instanceId === id);
+            sendToOwnerPile(state, player.discard.splice(index, 1)[0], 'void');
+        }
+    }),
     TributeExactLevels: (totalLevel: number): EffectStep => activationCost((state, context) => {
         if (!context.materialIds) return { requireLevelTribute: { playerIndex: context.playerIndex, totalLevel } };
         const candidates = levelTributeCandidates(state, context.playerIndex);
