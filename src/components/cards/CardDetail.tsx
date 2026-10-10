@@ -1,4 +1,4 @@
-import { isToken, isReservePawn } from '../../game/cardHelpers';
+import { isGeneratedCard, isReservePawn } from '../../game/cardHelpers';
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
@@ -6,8 +6,8 @@ import { Card, CardType, Attribute } from '../../types';
 import { cardSubtype, cardTypeLabel } from '../../cards/CardRegistry';
 import { cardRegistry } from '../../cards/CardRegistry';
 
-export const cardFrameClass = (card: Pick<Card, 'type' | 'pawnSubtype'>) =>
-    isToken(card) ? 'card-token' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
+export const cardFrameClass = (card: Pick<Card, 'type' | 'pawnSubtype' | 'actionSubtype'>) =>
+    isGeneratedCard(card) ? 'card-token' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
 
 const getAttributeColor = (attr?: Attribute) => {
     switch (attr) {
@@ -154,7 +154,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
     return (
         <ScaledCard className={className} onClick={onClick} domRef={domRef}>
         <div
-            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${cardFrameClass(card)} ${isToken(card) || isReservePawn(card) ? '' : card.type === CardType.PAWN ? 'glow-gold' : card.type === CardType.ACTION ? 'glow-green' : 'glow-pink'}`}
+            className={`p-2 border-4 w-full h-full rounded shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col space-y-1 relative overflow-hidden transition-all aspect-[2/3] ${cardFrameClass(card)} ${isGeneratedCard(card) || isReservePawn(card) ? '' : card.type === CardType.PAWN ? 'glow-gold' : card.type === CardType.ACTION ? 'glow-green' : 'glow-pink'}`}
         >
             {/* Header: Name + Level */}
             <div className="card-inner-border"></div>

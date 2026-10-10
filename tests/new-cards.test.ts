@@ -6,7 +6,7 @@ import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { addChainLink, effectChoices, fieldActivations, passPriority, queueEventResponses, resolveChain, runEffect } from '../src/game/chains';
+import { addChainLink, effectChoices, fieldActivations, handActivations, passPriority, queueEventResponses, resolveChain, runEffect, startPendingTriggers } from '../src/game/chains';
 import { checkVictory } from '../src/game/finishEffect';
 import { sendToOwnerPile } from '../src/game/cardOwnership';
 import { applyCommand, applySystemCommand, canPlayCard, createGame } from '../src/game/engine';
@@ -14,6 +14,9 @@ import { resolveCombat } from '../src/game/combat';
 import { fieldStats } from '../src/game/cardHelpers';
 import { chooseAIAction, observeGame } from '../src/game/opponentAI';
 import { advancePhaseState } from '../src/game/phases';
+import { drawCards } from '../src/game/draw';
+import { canAddCard, newDeck, parseDeck, sortedCards } from '../src/decks';
+import { cardTypeLabel } from '../src/cards/CardRegistry';
 import { Effect } from '../src/cards/engine/Effects';
 import { Cost } from '../src/cards/engine/Costs';
 import { buildEffect } from '../src/cards/engine/Builder';
@@ -696,4 +699,144 @@ it('shares a face-up Land stack, suspends covered effects, and preserves identit
         game = applyCommand(game, 1, { type: 'play', cardId: next.instanceId, set: false, slot: -1 }).state;
     }
     expect(game.landStack).toHaveLength(42);
+
+    // Land phase targeting, hand ignition, and return reactions use the same shared flow.
+    cardRegistry.register({ ...cardRegistry.getCard('A_Jet_Explosive')!, id: 'test-another-bomb' }, {
+        onDraw: buildEffect([Effect.LoseLP(25)])
+    });
+    for (const actor of [0, 1]) {
+        let bombs = state();
+        bombs.activePlayerIndex = actor;
+        const bomber = card('P_Justice_Jet_Bomber', actor);
+        const ally = card('P_Justice_Jet_Fighter', actor);
+        bombs.players[actor].pawnZones[0] = placed(bomber);
+        expect(effectChoices(bombs, bomber, 'activate')).toEqual([]);
+        bombs.players[actor].pawnZones[1] = placed(ally);
+        const bombChoices = effectChoices(bombs, bomber, 'activate');
+        expect(bombChoices).toHaveLength(2);
+        bombs = resolveChain(applyCommand(bombs, actor, { type: 'activate', context: bombChoices[0], trigger: 'activate' }).state);
+        expect(bombs.players[actor].discard).toHaveLength(1);
+        const opponent = 1 - actor;
+        const explosives = bombs.players[opponent].deck;
+        expect(explosives).toHaveLength(2);
+        expect(new Set(explosives.map(value => value.instanceId)).size).toBe(2);
+        expect(explosives.every(value => value.id === 'A_Jet_Explosive' && value.ownerId === bombs.players[opponent].id)).toBe(true);
+        expect(cardTypeLabel(explosives[0])).toBe('Bomb Action');
+        expect(canAddCard(newDeck(), explosives[0].id)).toBe(false);
+        expect(sortedCards().some(value => value.id === explosives[0].id)).toBe(false);
+        expect(() => parseDeck({ ...newDeck(), cards: [{ cardId: explosives[0].id, quantity: 1 }] })).toThrow();
+        for (const lethal of [false, true]) {
+            const drawing = structuredClone(bombs);
+            drawing.players[opponent].lp = lethal ? 80 : 800;
+            const normal = card('P_Solstice_Sentinel', opponent);
+            drawing.players[opponent].deck.push(normal);
+            const drawn = drawCards(drawing, opponent, 3);
+            expect(drawn.players[opponent].lp).toBe(lethal ? 0 : 640);
+            expect(drawn.players[opponent].hand).toEqual(lethal ? [] : [normal]);
+            expect(drawn.players[opponent].discard).toEqual([]);
+            expect(drawn.players[opponent].void).toEqual([]);
+            expect(drawn.drawnBombs).toHaveLength(lethal ? 1 : 2);
+            expect(drawn.winner).toBe(lethal ? drawn.players[actor].name : null);
+            expect(drawing.players[opponent].deck).toHaveLength(3);
+        }
+        const effectDraw = buildEffect([Effect.DrawCards(1)])(bombs, { card: ally, playerIndex: opponent }).newState;
+        expect(effectDraw.players[opponent].lp).toBe(720);
+        expect(effectDraw.players[opponent].hand).toEqual([]);
+        expect(effectDraw.players[opponent].deck).toHaveLength(1);
+        const handGame = state();
+        handGame.activePlayerIndex = actor;
+        handGame.players[actor].hand = [bomber];
+        expect(handActivations(handGame, actor)).toEqual([]);
+        handGame.players[actor].pawnZones[0] = placed(ally);
+        expect(handActivations(handGame, actor).some(entry => entry.card.instanceId === bomber.instanceId)).toBe(true);
+        const handChoice = effectChoices(handGame, bomber, 'hand_activate')[0];
+        const summonedBomber = resolveChain(applyCommand(handGame, actor, { type: 'activate', context: handChoice, trigger: 'hand_activate' }).state);
+        expect(summonedBomber.players[actor].pawnZones.some(zone => zone?.card.instanceId === bomber.instanceId && zone.specialSummoned)).toBe(true);
+        expect(summonedBomber.players[actor].hand).toContainEqual(ally);
+        const anotherBomb = buildEffect([Effect.ShuffleBombsIntoDeck('test-another-bomb', 1, actor)])(state(), { card: bomber, playerIndex: actor }).newState;
+        const anotherDraw = drawCards(anotherBomb, actor, 1);
+        expect(anotherDraw.players[actor].lp).toBe(775);
+        expect(anotherDraw.players[actor].hand).toEqual([]);
+        expect(anotherDraw.drawnBombs?.[0].card.id).toBe('test-another-bomb');
+
+        let jets = state();
+        jets.activePlayerIndex = actor;
+        const peaks = card('A_Windy_Peaks');
+        const barrier = card('A_Justice_Jet_Sound_Barrier', actor);
+        const zero = card('P_Justice_Jet_Zero_Day', actor);
+        const fighter = card('P_Justice_Jet_Fighter', actor);
+        const extraFighter = card('P_Justice_Jet_Fighter', actor);
+        jets.landStack = [placed(peaks, Position.FACE_UP)];
+        jets.players[actor].actionZones[0] = placed(barrier, Position.FACE_UP);
+        jets.players[actor].pawnZones[0] = placed(zero);
+        jets.players[actor].hand = [fighter, extraFighter];
+        jets.players[actor].deck = [card('P_Justice_Jet_Fighter', actor)];
+        const choices = handActivations(jets, actor);
+        expect(choices.map(entry => entry.card.instanceId)).toEqual([fighter.instanceId, extraFighter.instanceId]);
+        expect(handActivations({ ...jets, currentPhase: Phase.BATTLE }, actor)).toEqual([]);
+        expect(handActivations(jets, 1 - actor)).toEqual([]);
+        const context = effectChoices(jets, fighter, 'hand_activate')[0];
+        const announced = applyCommand(jets, actor, { type: 'activate', context, trigger: 'hand_activate' }).state;
+        expect(announced.peekEvents?.[0]).toMatchObject({ card: fighter, viewerPlayerIndex: 1 - actor, kind: 'hand_activation' });
+        expect(announced.players[actor].hand).toHaveLength(2);
+        expect(announced.players[actor].pawnZones[0]?.card.instanceId).toBe(zero.instanceId);
+        expect(announced.players[actor].activatedHardOncePerTurns).toContain(fighter.id);
+        jets = resolveChain(announced);
+        expect(jets.players[actor].hand.map(c => c.instanceId)).toEqual([extraFighter.instanceId, zero.instanceId]);
+        expect(jets.players[actor].normalSummonUsed).toBe(false);
+        const summoned = jets.players[actor].pawnZones.find(zone => zone?.card.instanceId === fighter.instanceId)!;
+        expect(fieldStats(jets, summoned).atk).toBe(220);
+        expect(fieldStats({ ...jets, currentPhase: Phase.BATTLE }, summoned).atk).toBe(240);
+        expect(handActivations({ ...jets, response: undefined, pendingReactions: [] }, actor)).toEqual([]);
+        expect(jets.pendingReactions?.[0]).toMatchObject({ card: barrier, trigger: 'hand_return' });
+        const reaction = effectChoices(jets, barrier, 'hand_return')[0];
+        jets = resolveChain(applyCommand(jets, actor, { type: 'activate', context: reaction, trigger: 'hand_return' }).state);
+        expect(jets.players[actor].hand).toHaveLength(3);
+        const request = jets.pendingHandSummons![0];
+        expect(request).toMatchObject({ sourceId: barrier.instanceId, playerIndex: actor, mandatory: true });
+        expect(applyCommand(jets, actor, { type: 'declineHandSummon', sourceId: barrier.instanceId }).state).toBe(jets);
+        jets = applyCommand(jets, actor, { type: 'confirmHandSummon', sourceId: barrier.instanceId,
+            cardId: extraFighter.instanceId, slot: 4, position: Position.DEFENSE }).state;
+        expect(fieldStats(jets, jets.players[actor].pawnZones[4]!).atk).toBe(220);
+        jets.currentPhase = Phase.END;
+        jets = advancePhaseState(jets);
+        expect(jets.players[actor].pawnZones.filter(Boolean).map(zone => zone!.card.atk)).toEqual([110, 110]);
+
+        // Special-summon boosts clear on departure and apply again on a fresh entry.
+        const returned = buildEffect([Require.Target('pawn'), Effect.ReturnTargetToHand()])(jets, {
+            card: peaks, playerIndex: actor, target: { playerIndex: actor, type: 'pawn', index: 4 }
+        }).newState;
+        expect(returned.players[actor].hand.find(c => c.instanceId === extraFighter.instanceId)?.atk).toBe(110);
+
+        // Standby targets belong to the turn player regardless of who owns the Land.
+        let standby = state();
+        standby.activePlayerIndex = actor;
+        standby.currentPhase = Phase.DRAW;
+        standby.turnNumber = 1;
+        standby.landStack = [placed(peaks, Position.FACE_UP)];
+        standby.players[actor].pawnZones[3] = placed(zero);
+        standby = startPendingTriggers(advancePhaseState(standby));
+        expect(standby.chain?.[0]).toMatchObject({ trigger: 'phase', context: { playerIndex: actor } });
+        standby = resolveChain(standby, () => [{ playerIndex: actor, type: 'pawn', index: 3 }]);
+        expect(standby.players[actor].pawnZones[3]).toBeNull();
+        expect(standby.players[actor].hand[0].instanceId).toBe(zero.instanceId);
+
+        // Search first, then permit discarding the searched card even from an empty hand.
+        let search = state();
+        search.activePlayerIndex = actor;
+        search.players[actor].pawnZones[0] = placed(zero);
+        search.players[actor].deck = [fighter, barrier];
+        const searchChoices = effectChoices(search, zero, 'activate');
+        expect(searchChoices).toHaveLength(2);
+        search = resolveChain(applyCommand(search, actor, {
+            type: 'activate', context: searchChoices[0], trigger: 'activate'
+        }).state);
+        expect(search.players[actor].hand).toEqual([]);
+        expect(search.players[actor].discard[0].instanceId).toBe(fighter.instanceId);
+        expect(search.players[actor].deck.map(c => c.instanceId)).toEqual([barrier.instanceId]);
+        expect(effectChoices(search, zero, 'activate')).toEqual([]);
+        search.players[actor].activatedHardOncePerTurns = [];
+        search.players[actor].pawnZones[1] = placed(extraFighter);
+        expect(effectChoices(search, zero, 'activate')).toEqual([]);
+    }
 });

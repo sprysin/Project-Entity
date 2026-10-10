@@ -2,7 +2,7 @@ import { isLand } from './field';
 import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
-import { addChainLink, combinations, effectChoices, fieldActivations, needsChoice, resolveChain, resolveChainStep, runEffect } from './chains';
+import { addChainLink, combinations, effectChoices, fieldActivations, handActivations, needsChoice, resolveChain, resolveChainStep, runEffect } from './chains';
 import { applyCommand, GameCommand } from './engine';
 import { handSummonCandidates } from './summonReactions';
 import { resolveCombat } from './combat';
@@ -24,13 +24,15 @@ export function observeGame(state: GameState, viewer: number, knownCards: Readon
         { ...state.players[0], initialDeck: [] }, { ...state.players[1], initialDeck: [] },
     ] });
     const unknown = (card: Card, type: CardType): Card => ({ instanceId: card.instanceId, ownerId: card.ownerId, id: 'unknown', name: 'Unknown card', type, rarity: 'Common', level: 0, atk: 0, def: 0, effectText: '' });
+    const revealedHands = new Map(state.chain?.filter(link => link.trigger === 'hand_activate')
+        .map(link => [link.context.card.instanceId, link.context.card]));
     view.players.forEach((p, index) => {
         if (index === viewer) {
             // The deck's composition is known, but its current draw order is not.
             p.deck.sort((a, b) => a.id.localeCompare(b.id) || a.instanceId.localeCompare(b.instanceId));
             return;
         }
-        p.hand = p.hand.map(c => unknown(c, CardType.ACTION));
+        p.hand = p.hand.map(c => revealedHands.get(c.instanceId) ?? unknown(c, CardType.ACTION));
         p.deck = p.deck.map(c => unknown(c, CardType.ACTION));
         p.reserve = p.reserve.map(c => unknown(c, CardType.PAWN));
         p.pawnZones = p.pawnZones.map(z => z?.position === Position.HIDDEN ? { ...z, card: knownCards.get(z.card.instanceId) ?? unknown(z.card, CardType.PAWN) } : z);
@@ -258,7 +260,7 @@ export function chooseAIHandSummon(state: GameState, player: number): GameComman
     const request = state.pendingHandSummons?.[0];
     if (!request || request.playerIndex !== player || state.response || state.resolvingChain) return;
     let command: GameCommand = { type: 'declineHandSummon', sourceId: request.sourceId };
-    let best = evaluatePosition(state, player);
+    let best = request.mandatory ? -Infinity : evaluatePosition(state, player);
     const slot = state.players[player].pawnZones.indexOf(null);
     if (slot < 0) return command;
     for (const card of handSummonCandidates(state, request)) for (const position of [Position.ATTACK, Position.DEFENSE]) {
@@ -475,6 +477,7 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
     }
     if (reactionCard) { considerEffect(state, reactionCard, reactionTrigger); return decision; }
     fieldActivations(state, player, response).forEach(a => considerEffect(state, a.card, a.trigger));
+    handActivations(state, player).forEach(a => considerEffect(state, a.card, a.trigger));
     if (response) return decision;
     if (![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)) return decision;
     const biggestEnemy = Math.max(0, ...state.players[1 - player].pawnZones.map(z => z && z.position !== Position.HIDDEN ? fieldStats(state, z).atk : 0));

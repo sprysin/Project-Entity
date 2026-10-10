@@ -81,7 +81,8 @@ export const useEffectResolution = (
         reserveIndex?: number,
         materialIds?: string[],
         pawnPlacements?: CardContext['pawnPlacements'],
-        discardCardIds?: string[]
+        discardCardIds?: string[],
+        handSelectionId?: string
     ) => {
         if (!gameState || gameState.winner) return;
         const resolvingLink = gameState.pendingChainTarget && gameState.chain?.at(-1)?.context.card.instanceId === card.instanceId
@@ -114,6 +115,7 @@ export const useEffectResolution = (
             : pendingContext.current.tributeCards ?? [];
 
         pendingContext.current = {
+            handSelectionId: handSelectionId ?? pendingContext.current.handSelectionId,
             effectId: actualEffectId,
             reserveIndex: actualReserveIndex,
             materialIds: actualMaterialIds,
@@ -134,6 +136,7 @@ export const useEffectResolution = (
 
         // Peek at the effect result to check if we need a selection mode
         const contextForPeek: CardContext = { card, effectId: actualEffectId, playerIndex: activeIndex, target: actualTarget, targets: actualTargets, discardIndex: actualDiscardIndex, handIndex: actualHandIndex, deckIndex: actualDeckIndex, peekIndex: actualPeekIndex, tributeIndices: actualTributeIndices, shuffleCardIds: actualShuffleCardIds, pawnPlacement: actualPawnPlacement,
+            handSelectionId: pendingContext.current.handSelectionId,
             reserveIndex: actualReserveIndex, materialIds: actualMaterialIds, pawnPlacements: actualPawnPlacements,
             battleAttacker: gameState.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.battleAttacker,
             discardCardIds: actualDiscardCardIds,
@@ -196,7 +199,7 @@ export const useEffectResolution = (
         }
         if (peekResult?.requireHandSelection && actualHandIndex === undefined) {
             setPendingEffectCard(card);
-            setHandSelectionReq({ ...peekResult.requireHandSelection, title: card.name, prompt: peekResult.requireHandSelection.prompt ?? 'Select a card to discard' });
+            setHandSelectionReq({ ...peekResult.requireHandSelection, cards: peekResult.newState.players[peekResult.requireHandSelection.playerIndex].hand, title: card.name, prompt: peekResult.requireHandSelection.prompt ?? 'Select a card to discard' });
             setSelectedHandSelectionIndex(null);
             setPendingTriggerType(actualTriggerType);
             return;
@@ -234,7 +237,7 @@ export const useEffectResolution = (
             setPendingEffectCard(card);
             setEffectTributeReq({
                 ...peekResult.requireEffectTribute,
-                title: peekResult.requireEffectTribute.title ?? `${card.name}: Select ${peekResult.requireEffectTribute.count} Pawn(s) to tribute`
+                title: peekResult.requireEffectTribute.title ?? 'Select pawn(s) to tribute'
             });
             setTargetSelectMode('tribute');
             setPendingTriggerType(actualTriggerType);
@@ -340,7 +343,7 @@ export const useEffectResolution = (
         if (!gameState || !selectionState.pendingEffectCard) return;
 
         const pIdx = selectionState.handSelectionReq?.playerIndex ?? gameState.players.findIndex(p => p.id === selectionState.pendingEffectCard!.ownerId);
-        const card = gameState.players[pIdx].hand[index];
+        const card = (selectionState.handSelectionReq?.cards ?? gameState.players[pIdx].hand)[index];
         if (!card || (selectionState.handSelectionReq?.filter && !selectionState.handSelectionReq.filter(card))) return;
 
         setHandSelectionReq(null);
@@ -351,6 +354,8 @@ export const useEffectResolution = (
 
         const pendingCard = selectionState.pendingEffectCard;
         const pendingTrigger = selectionState.pendingTriggerType || 'activate';
+        if (selectionState.handSelectionReq?.cards?.map(card => card.instanceId).join('|')
+            !== gameState.players[pIdx].hand.map(card => card.instanceId).join('|')) pendingContext.current.handSelectionId = card.instanceId;
         resolveEffect(pendingCard, undefined, undefined, index, undefined, pendingTrigger);
     }, [gameState, selectionState.pendingEffectCard, selectionState.pendingTriggerType, resolveEffect, triggerVisual, setHandSelectionReq, setSelectedHandSelectionIndex, setPendingEffectCard]);
 

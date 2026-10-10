@@ -77,6 +77,33 @@
   75%, to { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)); }
 }
 .card-travel-face { animation: card-zone-turn 490ms ease-out forwards; animation-duration: inherit; animation-delay: inherit; }
+.card-travel--deck-insertion {
+  animation-name: bomb-zone-travel;
+  animation-timing-function: linear;
+  perspective: 900px;
+}
+@keyframes bomb-zone-travel {
+  from { opacity: 1; transform: translate(0, 0) scale(var(--travel-scale-x), var(--travel-scale-y)); }
+  to { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)); }
+}
+.bomb-deck-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: bomb-deck-flip 600ms ease-in-out var(--bomb-flip-delay) forwards;
+}
+.bomb-deck-flip__front,
+.bomb-deck-flip__back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.bomb-deck-flip__back { transform: rotateY(180deg); }
+@keyframes bomb-deck-flip {
+  from { transform: rotateY(0); }
+  to { transform: rotateY(180deg); }
+}
 @keyframes card-zone-turn { from { transform: rotate(var(--from-rotation)); } 75%, to { transform: rotate(var(--to-rotation)); } }
 .card-travel-activation::after { content: ''; position: absolute; inset: 0; background: #fde68a66; border: 2px solid #fef3c7; opacity: 0; animation: effect-activation 220ms 420ms; }
 .effect-marker { position: absolute; inset: -5px; z-index: 80; pointer-events: none; border-radius: 5px; }

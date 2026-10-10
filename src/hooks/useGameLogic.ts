@@ -305,7 +305,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         } else resolveEffect(link.context.card, undefined, undefined, undefined, undefined, link.trigger);
     }, [gameState, pendingEffectCard, targetSelectMode, opponentMode, resolveEffect]);
     useEffect(() => {
-        if (!gameState?.resolvingChain || cardMotion.isMoving || effectDecisionPending || isAwaitingDecision(gameState)) return;
+        if (!gameState?.resolvingChain || gameState.peekEvents?.some(event => event.kind === 'hand_activation') || cardMotion.isMoving || effectDecisionPending || isAwaitingDecision(gameState)) return;
         // Yield for committed movement to be measured, then resolve as soon as the board settles.
         const timeout = setTimeout(() => setGameState(previous => previous === gameState ? resolveChainStep(previous) : previous), 0);
         return () => clearTimeout(timeout);
@@ -401,6 +401,8 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             isRightPanelOpen, isDeckViewerOpen, activationPopupMode, showResponsePopup, effectTributeReq, shuffleSelectionReq,
         },
         actions: {
+            destroyDrawnBomb: (source: Parameters<typeof animations.triggerShatter>[1]) => animations.triggerShatter('drawn-bomb', source, 'card-destruction'),
+            dismissDrawnBomb: (id: string) => setGameState(prev => prev ? { ...prev, drawnBombs: prev.drawnBombs?.filter(event => event.card.instanceId !== id) } : prev),
             chooseAttackReplay: (retry: boolean) => {
                 if (!gameState?.attackReplay) return;
                 setGameState(prev => prev ? applyCommand(prev, prev.activePlayerIndex, { type: 'attackReplay', retry }).state : prev);

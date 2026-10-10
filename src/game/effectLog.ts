@@ -35,6 +35,7 @@ export function formatEffectLog(
     const details: string[] = [];
     const beforeField = fieldCards(before);
     const afterField = fieldCards(after);
+    const destroyed = new Set((after.destroyedCardIds ?? []).slice(before.destroyedCardIds?.length ?? 0));
     const selectedTargets = context.targets ?? (context.target ? [context.target] : []);
     const targets = selectedTargets.flatMap(target => {
         const zone = targetZone(before, target);
@@ -43,6 +44,14 @@ export function formatEffectLog(
 
     if (targets.length) details.push(`targets ${joinNames(targets)}`);
     if (tributes.length) details.push(`tributes ${joinNames(tributes)}`);
+
+    for (const insertion of (after.bombInsertions ?? []).slice(before.bombInsertions?.length ?? 0)) {
+        const names = new Map<string, number>();
+        for (const bomb of insertion.cards) names.set(bomb.name, (names.get(bomb.name) ?? 0) + 1);
+        for (const [name, count] of names) {
+            details.push(`shuffles ${count} ${quote(name)} ${count === 1 ? 'Bomb' : 'Bombs'} into ${quote(after.players[insertion.playerIndex].name)}'s deck`);
+        }
+    }
 
     const selected = selectedCard(before, context);
     if (selected && context.handIndex !== undefined && !after.players[context.playerIndex].hand.some(c => c.instanceId === selected.instanceId)) {
@@ -73,9 +82,10 @@ export function formatEffectLog(
         const changed = afterField.get(instanceId);
         if (!changed) {
             const wasBanished = after.players.some(player => player.void.some(c => c.instanceId === instanceId));
-            if (isToken(located.placed.card)) details.push(`removes ${quote(located.placed.card.name)} from the game`);
+            if (destroyed.has(instanceId)) details.push(`destroys ${quote(located.placed.card.name)}`);
+            else if (isToken(located.placed.card)) details.push(`removes ${quote(located.placed.card.name)} from the game`);
             else if (wasBanished) details.push(`sends ${quote(located.placed.card.name)} to the Void`);
-            else if (!tributes.some(tribute => tribute.instanceId === instanceId) && after.players.some(player => player.discard.some(c => c.instanceId === instanceId))) details.push(`destroys ${quote(located.placed.card.name)}`);
+            else if (!tributes.some(tribute => tribute.instanceId === instanceId) && after.players.some(player => player.discard.some(c => c.instanceId === instanceId))) details.push(`sends ${quote(located.placed.card.name)} to the Discard`);
             continue;
         }
         const atkDelta = fieldStats(after, changed.placed).atk - fieldStats(before, located.placed).atk;

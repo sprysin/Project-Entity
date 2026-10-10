@@ -60,7 +60,7 @@ export enum PawnType {
 
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal' }
-export enum ActionSubtype { CONTRACT = 'Contract', LAND = 'Land' }
+export enum ActionSubtype { CONTRACT = 'Contract', LAND = 'Land', BOMB = 'Bomb' }
 
 export interface Card {
   instanceId: string;
@@ -94,6 +94,7 @@ export interface Card {
 }
 
 export interface PlacedCard {
+  specialSummoned?: boolean;
   /** Final ATK override, evaluated after continuous modifiers until turn end. */
   attackOverride?: { value: number; turn: number };
   counters?: Record<string, number>;
@@ -151,6 +152,12 @@ export interface ResponseWindow {
 }
 
 export interface GameState {
+  /** Committed Bomb creation, retained so presentation can animate its source and deck. */
+  bombInsertions?: { sourceId: string; playerIndex: number; cards: Card[] }[];
+  /** Ordered destruction events; sending to the Discard does not record one. */
+  destroyedCardIds?: string[];
+  /** Public draw reveals shown before the card's destruction animation. */
+  drawnBombs?: { card: Card; playerIndex: number }[];
   /** Bottom to top; only the final entry is active. Optional for older snapshots. */
   landStack?: PlacedCard[];
   /** Only this activation's controller may finish or cancel while choosing its effect. */
@@ -160,8 +167,8 @@ export interface GameState {
   attacksThisTurn?: { turn: number; card: Card; playerIndex: number }[];
   attackReplay?: { attackerId: string; choosingTarget?: boolean };
   pendingVoidSelections?: { source: Card; playerIndex: number; pilePlayerIndex: number }[];
-  pendingHandSummons?: { sourceId: string; playerIndex: number }[];
-  pendingReactions?: { card: Card; playerIndex: number; trigger: 'summon' | 'switch' | 'battle_destroyed' | 'destroyed' | 'attack_completed' | 'sent_discard'; battleAttacker?: Card }[];
+  pendingHandSummons?: { sourceId: string; playerIndex: number; mandatory?: boolean }[];
+  pendingReactions?: { card: Card; playerIndex: number; trigger: 'summon' | 'switch' | 'battle_destroyed' | 'destroyed' | 'attack_completed' | 'sent_discard' | 'hand_return'; battleAttacker?: Card }[];
   /** Triggered effects wait until the current chain and deferred action have finished. */
   pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute' | 'battle_destroy'> }[];
   drawProgress?: { turn: number; remaining: number };
@@ -208,6 +215,8 @@ export interface CardSelectionRequest {
 }
 
 export interface HandSelectionRequest {
+  /** Cards available after earlier instructions in this effect. */
+  cards?: Card[];
   purpose?: 'discard' | 'summon';
   filter?: CardFilter;
   playerIndex: number;
@@ -240,6 +249,7 @@ export interface PeekSelectionRequest {
 }
 
 export interface PeekEvent {
+  kind?: 'hand_activation';
   id: string;
   card: Card;
   ownerPlayerIndex: number;
@@ -257,7 +267,7 @@ export interface LevelTributeSelectionRequest {
   totalLevel: number;
 }
 
-export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'attack_completed' | 'sent_discard' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
+export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'attack_completed' | 'sent_discard' | 'hand_return' | 'hand_activate' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
 export type TargetSelectMode = 'attack' | 'tribute' | 'effect' | 'place_pawn' | 'place_action' | null;
 export type TargetSelectType = 'pawn' | 'action' | 'any';
 export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
@@ -284,6 +294,7 @@ export type EffectResult = {
 };
 
 export interface CardContext {
+  handSelectionId?: string;
   effectId?: string;
   pawnPlacement?: { slot: number; position: Position };
   pawnPlacements?: { slot: number; position: Position }[];
@@ -309,6 +320,16 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Immediate, selection-free effect when this card is drawn. */
+  onDraw?(state: GameState, context: CardContext): EffectResult;
+  /** Pawn ignition effects announced while the source remains in hand. */
+  onHandActivate?(state: GameState, context: CardContext): EffectResult;
+  canActivateFromHand?(state: GameState, context: CardContext): boolean;
+  /** Selection-free effect applied to a successful face-up special summon. */
+  onSpecialSummon?(state: GameState, context: CardContext): EffectResult;
+  /** Face-up sources observe cards sent to their owner's hand. */
+  onCardSentToHand?(state: GameState, context: CardContext & { returnedCard: Card; receivingPlayerIndex: number }): EffectResult;
+  onHandReturn?(state: GameState, context: CardContext): EffectResult;
   /** Continuous bonus from this face-up source to another field Pawn. */
   LingeringStatModifier?(state: GameState, context: CardContext, target: PlacedCard, controllerIndex: number): { atk?: number; def?: number };
   canAttack?(state: GameState, context: CardContext, placement: PlacedCard): boolean;
@@ -370,6 +391,7 @@ export interface IEffect {
 }
 
 export interface ChainLink {
+  sourceHandId?: string;
   handId?: string;
   tributeIds?: string[];
   context: CardContext;

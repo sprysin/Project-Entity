@@ -143,7 +143,7 @@ interface HandSelectionModalProps {
 
 export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, setHandSelectionReq, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal searchLabel="Hand selection" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} filter={selectionReq.filter} />;
+    return <CardSelectionModal searchLabel="Hand selection" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} filter={selectionReq.filter} />;
 };
 
 export const PeekSelectionModal: React.FC<{

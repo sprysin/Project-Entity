@@ -18,6 +18,7 @@ const effect: IEffect = {
             hasChangedPosition: false,
             summonedTurn: draftState.turnNumber,
             isSetTurn: false,
+            specialSummoned: true,
         };
         return { newState: draftState };
     }

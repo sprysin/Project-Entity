@@ -4,7 +4,7 @@ import { playSound } from '../audio';
 import type { ShatterSource } from './useAnimations';
 
 type Location = { key: string; card: Card; hidden: boolean; rotation: number; rect?: DOMRect; shatter?: ShatterSource; attached?: boolean };
-export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean };
+export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean; deckFlipDelay?: number };
 
 /** Observe committed zone changes only. Animation never delays or mutates game state. */
 export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number, suppressedCardIds: string[] = [], onActionDestroyed?: (key: string, source: ShatterSource) => void) {
@@ -40,9 +40,13 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             const el = refs.current.get(key);
             if (!measured.has(key)) measured.set(key, el?.getBoundingClientRect());
             const face = /-(pawn|action)-/.test(key) ? el?.querySelector<HTMLElement>('[data-card-face] [data-field-card-id]') : undefined;
-            next.set(card.instanceId, { card, key, hidden, rotation, rect: measured.get(key), attached,
-                shatter: face ? { rect: face.getBoundingClientRect(), cardMarkup: face.innerHTML,
-                    rotated: face.classList.contains('rotate-90'), faceDown: face.classList.contains('card-back') } : undefined });
+            next.set(card.instanceId, {
+                card, key, hidden, rotation, rect: measured.get(key), attached,
+                shatter: face ? {
+                    rect: face.getBoundingClientRect(), cardMarkup: face.innerHTML,
+                    rotated: face.classList.contains('rotate-90'), faceDown: face.classList.contains('card-back')
+                } : undefined
+            });
         };
         game.players.forEach((p, pi) => {
             p.hand.forEach((c, i) => add(c, `${pi}-hand-${i}`, pi !== (viewerIndex ?? game.activePlayerIndex)));
@@ -57,6 +61,38 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         });
         game.landStack?.forEach(zone => add(zone.card, 'land'));
         const batch: CardMotion[] = [];
+        const reducedMotion = typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (previousGame.current && !reducedMotion) {
+            const insertions = (game.bombInsertions ?? []).slice(previousGame.current.bombInsertions?.length ?? 0);
+            for (const insertion of insertions) {
+                const source = previous.current.get(insertion.sourceId) ?? next.get(insertion.sourceId);
+                const from = source?.shatter?.rect ?? source?.rect;
+                const deck = refs.current.get(`deck-${insertion.playerIndex}`);
+                const to = deck?.getBoundingClientRect();
+                if (!from || !to) continue;
+                const flipDelay = 100 + (insertion.cards.length - 1) * 200 + 300;
+                insertion.cards.forEach((card, index) => batch.push({
+                    id: `${card.instanceId}-insert`, card, hidden: false, from, to,
+                    rotation: 0, fromRotation: source?.rotation ?? 0, delay: index * 200, duration: 1000,
+                    deckFlipDelay: flipDelay
+                }));
+                // All Bombs arrive, hold, then flip together before the deck shuffles.
+                const shuffle = deck?.animate?.([
+                    { transform: 'translateY(0)' },
+                    { transform: 'translateY(-12px)' },
+                    { transform: 'translateY(12px)' },
+                    { transform: 'translateY(-8px)' },
+                    { transform: 'translateY(8px)' },
+                    { transform: 'translateY(0)' }
+                ], { duration: 450, delay: flipDelay + 600 + 150, easing: 'ease-out' });
+                if (shuffle) {
+                    setLandings(current => [...current, shuffle]);
+                    const finish = () => setLandings(current => current.filter(animation => animation !== shuffle));
+                    void shuffle.finished.then(finish, finish);
+                }
+            }
+        }
+        const destroyed = new Set((game.destroyedCardIds ?? []).slice(previousGame.current?.destroyedCardIds?.length ?? 0));
         next.forEach((dest, id) => {
             const src = previous.current.get(id);
             if (previousGame.current && dest.card.type === CardType.PAWN && !dest.hidden
@@ -69,8 +105,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             if (!src || src.key === dest.key || src.key.replace(/-hand-\d+$/, '-hand') === dest.key.replace(/-hand-\d+$/, '-hand')) return;
             if (/^deck-\d+$/.test(src.key) && /^\d+-hand-\d+$/.test(dest.key)) playSound('draw-tick');
             if (/^\d+-action-\d+$/.test(src.key) && /^discard-\d+$/.test(dest.key)) {
-                const resolvedOwnEffect = activated.current.has(id) || previousGame.current?.chain?.some(link => link.context.card.instanceId === id);
-                if (!resolvedOwnEffect || src.attached || src.hidden || src.card.isLingering) {
+                if (destroyed.has(id)) {
                     if (src.shatter) onActionDestroyed?.(src.key, src.shatter);
                     else playSound('action-condition-destroyed');
                     return;
@@ -82,13 +117,19 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             const activation = activated.current.has(id);
             const token = `${id}-${performance.now()}`;
             if (waypoint) {
-                batch.push({ id: `${token}-field`, card: dest.card, hidden: false, from: src.rect, to: waypoint,
-                    rotation: 0, fromRotation: src.rotation, duration: 650, activation });
-                batch.push({ id: token, card: dest.card, hidden: dest.hidden, from: waypoint, to: dest.rect,
-                    rotation: dest.rotation, fromRotation: 0, delay: 650 });
+                batch.push({
+                    id: `${token}-field`, card: dest.card, hidden: false, from: src.rect, to: waypoint,
+                    rotation: 0, fromRotation: src.rotation, duration: 650, activation
+                });
+                batch.push({
+                    id: token, card: dest.card, hidden: dest.hidden, from: waypoint, to: dest.rect,
+                    rotation: dest.rotation, fromRotation: 0, delay: 650
+                });
             } else {
-                batch.push({ id: token, card: dest.card, hidden: dest.hidden,
-                    from: src.rect, to: dest.rect, rotation: dest.rotation, fromRotation: src.rotation, activation });
+                batch.push({
+                    id: token, card: dest.card, hidden: dest.hidden,
+                    from: src.rect, to: dest.rect, rotation: dest.rotation, fromRotation: src.rotation, activation
+                });
             }
             const el = refs.current.get(dest.key);
             if (el && /-(pawn|action)-/.test(dest.key) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -111,7 +152,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         previousGame.current = game;
         waypoints.current.clear();
         activated.current.clear();
-        if (!batch.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if (!batch.length || reducedMotion) return;
         setMotions(current => [...current, ...batch]);
     }, [game, refs, viewerIndex, suppressedCardIds]);
     return {

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "src/components/cards/CardDetail.tsx"
+        ],
+        "createdAt": "2026-10-10T13:17:02.076Z",
+        "reason": "Codex review: the three reported attribute badges use existing near-black slate-900 on bright cyan or yellow, providing high contrast; retain the established card palette"
+      }
+    ]
+  }
+}

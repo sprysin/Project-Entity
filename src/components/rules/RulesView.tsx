@@ -23,7 +23,7 @@ const topics: Topic[] = [
     id: 'basics', title: 'Starting Info', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
       'Start with 800 Life Points (LP). Reduce your opponent’s LP to 0 or below to win, through combat or card effects.',
       'A deck contains 40–60 cards, with no more than 3 copies of any one card.',
-      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes; Actions also have Contract and Land subtypes.',
+      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes; Actions also have Contract, Land and Bomb subtypes.',
     ]
   },
   {
@@ -31,10 +31,10 @@ const topics: Topic[] = [
     table: {
       headings: ['Draw Phase', 'What to draw'], rows: [
         ['First turn of the game', 'The starting player skips drawing.'],
-        ['Later turns: fewer than 5 cards in hand', 'Draw until you have 5 cards.'],
+        ['Later turns: fewer than 5 cards in hand', 'Draw the number of cards needed to reach 5, based on your starting hand size.'],
         ['Later turns: 5 or more cards in hand', 'Draw 1 card.'],
       ]
-    }
+    }, note: 'Bombs are generated Action cards with grey borders, shuffled into a deck by card effects. When drawn, a Bomb applies its ON DRAW effect, is revealed, then destroyed and disappears. It consumes one draw and does not enter your hand or Discard; you do not draw a replacement.'
   },
   {
     id: 'turn', title: 'The turn', subtitle: 'Breakdown of all six phases', icon: 'fa-repeat',

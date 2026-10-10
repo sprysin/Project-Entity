@@ -1,10 +1,10 @@
-import { isToken, isReservePawn, shuffleDeck } from './game/cardHelpers';
+import { isGeneratedCard, isReservePawn, shuffleDeck } from './game/cardHelpers';
 import { Card } from './types';
 import { cardRegistry } from './cards/CardRegistry';
 
 export const createDeck = (playerId: string): Card[] => {
   const deck: Card[] = [];
-  const baseCards = cardRegistry.getAllCards().filter(card => !isToken(card) && !isReservePawn(card));
+  const baseCards = cardRegistry.getAllCards().filter(card => !isGeneratedCard(card) && !isReservePawn(card));
   if (baseCards.length === 0) return deck;
 
   const cardCounts: Record<string, number> = {};

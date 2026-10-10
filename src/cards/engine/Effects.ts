@@ -2,7 +2,7 @@ import { sourceZone, targetZone, removeFieldIdentity } from '../../game/field';
 import { activationReservation, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { ActionSubtype, Attribute, Card, CardContext, CardFilter, CardType, GameState, PawnSubtype, Phase, PlacedCard, Position, ShuffleLocation, TargetSelectScope } from '../../types';
-import { canSetPawn, cardsAtLocation, isReservePawn, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
+import { canSetPawn, cardsAtLocation, fieldStats, isReservePawn, setPawnPosition, shuffleDeck } from '../../game/cardHelpers';
 import { cardRegistry } from '../CardRegistry';
 import { getEffectTarget } from './Targets';
 import { drawCards } from '../../game/draw';
@@ -10,8 +10,74 @@ import { sendToOwnerPile } from '../../game/cardOwnership';
 import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 import { notifyFieldEvent } from '../../game/fieldEvents';
 import { cardsForSelection, randomSelection, takeSelectedCard } from './Selections';
+import { handSummonCandidates } from '../../game/summonReactions';
 
 export const Effect = {
+    /** Create Bombs owned by the specified deck's player, then shuffle that deck. */
+    ShuffleBombsIntoDeck: (id: string, count: number, playerIndex: Dynamic<number>): EffectStep => (state, context) => {
+        const definition = cardRegistry.getCard(id);
+        const destination = resolveDynamic(playerIndex, state, context);
+        const player = state.players[destination];
+        if (!player || definition?.actionSubtype !== ActionSubtype.BOMB || !Number.isInteger(count) || count < 1) return { halt: true };
+        const cards = Array.from({ length: count }, () => ({ ...definition, instanceId: crypto.randomUUID(), ownerId: player.id }));
+        player.deck.push(...cards);
+        shuffleDeck(player.deck);
+        state.bombInsertions = [...(state.bombInsertions ?? []), { sourceId: context.card.instanceId, playerIndex: destination, cards }];
+    },
+    /** LP loss does not count as effect damage. */
+    LoseLP: (amount: number): EffectStep => (state, context) => {
+        state.players[context.playerIndex].lp -= amount;
+    },
+    SendTargetToDiscard: (targetIndex = 0): EffectStep => (state, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        const zone = target && targetZone(state, target);
+        if (!zone) return { halt: true };
+        sendToOwnerPile(state, zone.card, 'discard');
+        removeFieldIdentity(state, zone.card.instanceId);
+        Object.assign(state, destroyOrphanedAttachments(state));
+    },
+    ReturnTargetToHand: (targetIndex = 0): EffectStep => (state, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        const zone = target && targetZone(state, target);
+        if (!zone) return { halt: true };
+        sendToOwnerPile(state, zone.card, 'hand');
+        removeFieldIdentity(state, zone.card.instanceId);
+        Object.assign(state, destroyOrphanedAttachments(state));
+    },
+    SpecialSummonSelfFromHand: (): EffectStep => (state, context) => {
+        const index = state.players[context.playerIndex].hand.findIndex(card => card.instanceId === context.card.instanceId);
+        if (index < 0) return { halt: true };
+        return Effect.SpecialSummonFromHand(card => card.instanceId === context.card.instanceId)(state, { ...context, handIndex: index, handSelectionId: context.card.instanceId });
+    },
+    QueueHandSummon: (mandatory = false): EffectStep => (state, context) => {
+        if (!handSummonCandidates(state, { sourceId: context.card.instanceId, playerIndex: context.playerIndex }).length) return;
+        state.pendingHandSummons = [...(state.pendingHandSummons ?? []), {
+            sourceId: context.card.instanceId, playerIndex: context.playerIndex, mandatory
+        }];
+    },
+    MultiplySelfAttackForTurn: (factor: number): EffectStep => (state, context) => {
+        const zone = sourceZone(state, context);
+        if (!zone) return { halt: true };
+        const delta = fieldStats(state, zone).atk * (factor - 1);
+        const value = zone.card.atk;
+        zone.card.atk += delta;
+        state.pendingEffects.push({ type: 'RESET_ATK', targetInstanceId: zone.card.instanceId,
+            value, delta, dueTurn: state.turnNumber });
+    },
+    DiscardFromHand: (filter: CardFilter = () => true): EffectStep => (state, context) => {
+        if (context.handIndex === undefined && !context.handSelectionId) return { requireHandSelection: {
+            playerIndex: context.playerIndex, filter, purpose: 'discard', prompt: 'Select 1 card to send to the Discard'
+        } };
+        const player = state.players[context.playerIndex];
+        const index = context.handSelectionId ? player.hand.findIndex(card => card.instanceId === context.handSelectionId) : context.handIndex!;
+        const card = player.hand[index];
+        if (!card || !filter(card)) return { halt: true };
+        player.hand.splice(index, 1);
+        sendToOwnerPile(state, card, 'discard');
+        if (cardRegistry.getEffect(card.id)?.onDiscard) state.pendingTriggers = [...(state.pendingTriggers ?? []), {
+            context: { card, playerIndex: context.playerIndex }, trigger: 'discard'
+        }];
+    },
     /** A final stat override preserves underlying modifiers and expires with the turn. */
     SetTargetOriginalAttack: (): EffectStep => (state, context) => {
         const target = getEffectTarget(context);
@@ -39,7 +105,7 @@ export const Effect = {
         const player = state.players[context.playerIndex];
         if (!player.pawnZones.includes(null)) return { halt: true };
         const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position } };
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position, slots: player.pawnZones.flatMap((zone, slot) => zone ? [] : [slot]) } };
         if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
             || player.pawnZones[placement.slot] || placement.position !== position) return { halt: true };
     },
@@ -55,7 +121,7 @@ export const Effect = {
         const card = takeSelectedCard(state, context, selectionIndex);
         if (!card) return { halt: true };
         player.pawnZones[placement.slot] = { card, position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
         if (selection.location === 'deck') shuffleDeck(state.players[selection.playerIndex].deck);
     },
     /** Move a selection to its owner's pile; deck moves shuffle by default. */
@@ -87,7 +153,7 @@ export const Effect = {
         if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
         player.reserve.splice(context.reserveIndex, 1);
         player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
     },
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
     ShuffleFrom: (location: ShuffleLocation, count: number, filter: CardFilter = () => true): EffectStep => (state, context) => {
@@ -143,14 +209,14 @@ export const Effect = {
         const card = player.deck[context.deckIndex];
         if (!card || !eligible(card)) return { halt: true };
         const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position } };
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position, slots: player.pawnZones.flatMap((zone, slot) => zone ? [] : [slot]) } };
         if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
             || player.pawnZones[placement.slot] || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)
             || position && placement.position !== position) return { halt: true };
         player.deck.splice(context.deckIndex, 1);
         player.pawnZones[placement.slot] = {
             card, position: placement.position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true
         };
         shuffleDeck(player.deck);
     },
@@ -158,20 +224,21 @@ export const Effect = {
         const player = state.players[context.playerIndex];
         const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card)
             && (position !== Position.HIDDEN || canSetPawn(card));
-        if (context.handIndex === undefined) return {
+        if (context.handIndex === undefined && !context.handSelectionId) return {
             requireHandSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' }
         };
-        const card = player.hand[context.handIndex];
+        const handIndex = context.handSelectionId ? player.hand.findIndex(card => card.instanceId === context.handSelectionId) : context.handIndex!;
+        const card = player.hand[handIndex];
         if (!card || !eligible(card)) return { halt: true };
         const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position } };
+        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position, slots: player.pawnZones.flatMap((zone, slot) => zone ? [] : [slot]) } };
         if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
             || player.pawnZones[placement.slot] || (position ? placement.position !== position
                 : ![Position.ATTACK, Position.DEFENSE].includes(placement.position))) return { halt: true };
-        player.hand.splice(context.handIndex, 1);
+        player.hand.splice(handIndex, 1);
         player.pawnZones[placement.slot] = {
             card, position: placement.position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: placement.position === Position.HIDDEN
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: placement.position === Position.HIDDEN, specialSummoned: true
         };
     },
     SetOnceWhileOnField: (): EffectStep => activationReservation((state, context) => {
@@ -198,7 +265,7 @@ export const Effect = {
             const card: Card = { ...definition, ownerId: player.id, instanceId: crypto.randomUUID() };
             player.pawnZones[placement!.slot] = {
                 card, position: placement!.position, hasAttacked: false,
-                hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false
+                hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true
             };
         }
     },
@@ -443,7 +510,7 @@ export const Effect = {
             const card = p.discard[context.discardIndex];
             if (card) {
                 p.discard.splice(context.discardIndex, 1);
-                p.hand.push(card);
+                sendToOwnerPile(draftState, card, 'hand');
             } else return { halt: true };
         }
     },
@@ -504,7 +571,7 @@ export const Effect = {
         const card = player.deck[context.deckIndex];
         if (!card || !filter(card)) return { halt: true };
         player.deck.splice(context.deckIndex, 1);
-        player.hand.push(card);
+        sendToOwnerPile(draftState, card, 'hand');
         shuffleDeck(player.deck);
     }
 };

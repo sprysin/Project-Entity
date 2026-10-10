@@ -34,7 +34,8 @@ const specialSummonFromDiscard: EffectStep = (draftState, context) => {
                     hasAttacked: false,
                     hasChangedPosition: false,
                     summonedTurn: draftState.turnNumber,
-                    isSetTurn: false
+                    isSetTurn: false,
+                    specialSummoned: true
                 };
             } else {
                 return { halt: true };

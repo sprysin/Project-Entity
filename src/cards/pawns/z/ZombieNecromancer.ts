@@ -17,7 +17,7 @@ const effect: IEffect = {
         if (!revived) return { newState: next };
         own.pawnZones[slot] = { card: revived, position: Position.DEFENSE, hasAttacked: false,
             hasChangedPosition: false, summonedTurn: next.turnNumber, isSetTurn: false,
-            returnToOwnerEndPhase: true };
+            returnToOwnerEndPhase: true, specialSummoned: true };
         return { newState: next };
     }
 };

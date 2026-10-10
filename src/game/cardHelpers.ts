@@ -1,8 +1,10 @@
 import { activeLand, fieldEntries } from './field';
-import { GameState, Card, CardContext, PawnSubtype, PlacedCard, Player, Position, ShuffleLocation } from '../types';
+import { ActionSubtype, GameState, Card, CardContext, PawnSubtype, PlacedCard, Player, Position, ShuffleLocation } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 
 export const isToken = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.TOKEN;
+export const isBomb = (card: Pick<Card, 'actionSubtype'>): boolean => card.actionSubtype === ActionSubtype.BOMB;
+export const isGeneratedCard = (card: Pick<Card, 'pawnSubtype' | 'actionSubtype'>): boolean => isToken(card) || isBomb(card);
 export const isReservePawn = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.VASSAL;
 export const canTribute = (card: Card): boolean => !card.cannotBeTributed && !card.tributeBlockedThisTurn;
 export const canTributeForSummon = (card: Card, summoned: Card): boolean => canTribute(card) && (cardRegistry.getEffect(summoned.id)?.tributeSummonFilter?.(card) ?? true);

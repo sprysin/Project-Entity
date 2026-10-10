@@ -1,5 +1,6 @@
 import { fieldEntries } from './field';
 import { GameState, Phase, Player, Position } from '../types';
+import { needsChoice } from '../cards/engine/Builder';
 import { notifyAttachedActivation } from './attachments';
 import { cardRegistry } from '../cards/CardRegistry';
 import { formatEffectLog } from './effectLog';
@@ -106,6 +107,10 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
         for (const context of fieldEffects) {
             const result = cardRegistry.getEffect(context.card.id)!.onPhaseChange!(phaseState, context);
             if (result.halted) continue;
+            if (needsChoice(result)) {
+                phaseState.pendingTriggers = [...(phaseState.pendingTriggers ?? []), { context, trigger: 'phase' }];
+                continue;
+            }
             const next = notifyFieldEvent(notifyAttachedActivation(phaseState, result.newState, context.card),
                 'onEffectActivated', { activatedCard: context.card, activatingPlayerIndex: context.playerIndex });
             next.log = [formatEffectLog(phaseState, next, context.card, context, 'phase'), ...next.log].slice(0, 50);

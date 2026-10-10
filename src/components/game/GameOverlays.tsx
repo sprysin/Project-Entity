@@ -14,16 +14,6 @@ type GameLogic = ReturnType<typeof useGameLogic>;
 
 const HOLD_TO_END_MS = 650;
 
-const PeekAutoDismiss: React.FC<{ eventId: string; dismiss: (id: string) => void }> = ({ eventId, dismiss }) => {
-    const dismissRef = useRef(dismiss);
-    dismissRef.current = dismiss;
-    useEffect(() => {
-        const timer = setTimeout(() => dismissRef.current(eventId), 3100);
-        return () => clearTimeout(timer);
-    }, [eventId]);
-    return null;
-};
-
 const PhaseAdvanceButton: React.FC<{
     disabled: boolean;
     phase: GameState['currentPhase'];
@@ -97,7 +87,7 @@ export const GameOverlays: React.FC<{
     actionsDisabled: boolean;
     viewerIndex: number;
     onQuit: () => void;
-}> = ({ gameState, state, actions, actionsDisabled, viewerIndex, onQuit }) => {
+}> = ({ gameState, state, actions, actionsDisabled, onQuit }) => {
     const [responseSelection, setResponseSelection] = useState<{ request: GameState['response']; cardId: string } | null>(null);
     const selectedResponse = responseSelection?.request === gameState.response
         ? state.responseOptions.find(option => option.card.instanceId === responseSelection?.cardId)
@@ -114,7 +104,7 @@ export const GameOverlays: React.FC<{
             </div>
         )}
 
-        {!state.cardMovementPending && <>
+        {!state.cardMovementPending && !gameState.drawnBombs?.length && <>
         {gameState.attackReplay && !(state.opponentMode === 'ai' && gameState.activePlayerIndex === 1) && (
             gameState.attackReplay.choosingTarget
                 ? <div className="absolute bottom-4 left-1/2 z-50 -translate-x-1/2"><button data-sound="cancellation" className="border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase text-slate-200 hover:bg-slate-700" onClick={() => actions.chooseAttackReplay(false)}>Cancel attack</button></div>
@@ -181,7 +171,7 @@ export const GameOverlays: React.FC<{
         <ShuffleSelectionModal request={state.shuffleSelectionReq} gameState={gameState} onConfirm={actions.handleShuffleSelection} />
         <LevelTributeSelectionModal request={state.levelTributeReq} gameState={gameState} onConfirm={actions.handleLevelTribute} onCancel={actions.cancelEffect} />
         <ReserveSelectionModal request={state.reserveSelectionReq} gameState={gameState} onConfirm={actions.handleReserveSelection} onCancel={actions.cancelEffect} />
-        {gameState.pendingHandSummons?.length && !state.handSummonCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
+        {!!gameState.pendingHandSummons?.length && !state.handSummonCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
             && !(state.opponentMode === 'ai' && gameState.pendingHandSummons[0].playerIndex === 1)
             && <PeekSelectionModal
                 selectionReq={{
@@ -197,11 +187,10 @@ export const GameOverlays: React.FC<{
                 handlePeekSelection={actions.handSummonChooseCard}
                 filter={card => handSummonCandidates(gameState, gameState.pendingHandSummons[0]).some(candidate => candidate.instanceId === card.instanceId)}
                 confirmLabel="Choose Pawn"
-                cancellable
+                cancellable={!gameState.pendingHandSummons[0].mandatory}
             />}
         <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} setHandSelectionReq={actions.cancelEffect} handleHandSelection={actions.handleHandSelection} />
         <PeekSelectionModal selectionReq={state.peekSelectionReq} gameState={gameState} selectedPeekIndex={state.selectedPeekIndex} setSelectedPeekIndex={actions.setSelectedPeekIndex} cancelEffect={actions.cancelEffect} handlePeekSelection={actions.handlePeekSelection} />
-        {gameState.peekEvents?.filter(event => event.viewerPlayerIndex === viewerIndex).slice(0, 1).map(event => <PeekAutoDismiss key={event.id} eventId={event.id} dismiss={actions.dismissPeek} />)}
         <DiscardSelectionModal selectionReq={state.discardSelectionReq} gameState={gameState} selectedDiscardIndex={state.selectedDiscardIndex} setSelectedDiscardIndex={actions.setSelectedDiscardIndex} handleDiscardSelection={actions.handleDiscardSelection} />
         <DeckSelectionModal selectionReq={state.deckSelectionReq} gameState={gameState} selectedDeckIndex={state.selectedDeckIndex} setSelectedDeckIndex={actions.setSelectedDeckIndex} handleDeckSelection={actions.handleDeckSelection} />
         <EffectModal triggeredEffect={state.triggeredEffect} gameState={gameState} isPeekingField={state.isPeekingField} resolveEffect={card => actions.resolveEffect(card, undefined, undefined, undefined, undefined, state.pendingTriggerType || 'activate')} checkActivationConditions={checkActivationConditions} setIsPeekingField={actions.setIsPeekingField} setTriggeredEffect={actions.setTriggeredEffect} setPendingEffectCard={actions.setPendingEffectCard} declineReaction={actions.declineReaction} />
@@ -242,7 +231,7 @@ export const GameOverlays: React.FC<{
             {state.handSummonCardId && gameState.pendingHandSummons?.[0] && (
                 <div className="w-44 border border-yellow-500 bg-slate-950 p-2 text-right shadow-lg" role="status">
                     <div className="mb-2 font-orbitron text-[10px] font-bold uppercase leading-relaxed tracking-widest text-yellow-400">Select an empty Pawn slot</div>
-                    <button data-sound="cancellation" onClick={() => actions.declineHandSummon(gameState.pendingHandSummons![0].sourceId)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase text-slate-200 hover:bg-slate-700">Decline</button>
+                    {!gameState.pendingHandSummons![0].mandatory && <button data-sound="cancellation" onClick={() => actions.declineHandSummon(gameState.pendingHandSummons![0].sourceId)} className="w-full border border-white/10 bg-slate-800 px-4 py-2 font-orbitron text-[10px] font-bold uppercase text-slate-200 hover:bg-slate-700">Decline</button>}
                 </div>
             )}
             {state.targetSelectMode === 'effect' && <div className="animate-pulse border-2 border-red-500 bg-red-900 px-4 py-2 text-center font-orbitron text-[10px] font-black uppercase tracking-widest text-white shadow-lg">{state.pendingEffectCard?.name}: Select target</div>}

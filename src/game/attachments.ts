@@ -8,6 +8,7 @@ export function destroyFieldCard(state: GameState, instanceId: string): void {
     for (const { zone } of fieldEntries(state)) {
         if (zone.card.instanceId !== instanceId) continue;
         const card = zone.card;
+        state.destroyedCardIds = [...(state.destroyedCardIds ?? []), instanceId];
         sendToOwnerPile(state, card, 'discard');
         removeFieldIdentity(state, instanceId);
         const owner = state.players.findIndex(candidate => candidate.discard.some(value => value.instanceId === card.instanceId));

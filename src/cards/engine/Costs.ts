@@ -2,12 +2,11 @@ import { canSetPawn, canTribute, setPawnPosition } from '../../game/cardHelpers'
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, CardFilter, Position, ShuffleLocation, TargetSelectPosition, TargetSelectScope } from '../../types';
-import { cardRegistry } from '../CardRegistry';
 import { Effect } from './Effects';
 import { getEffectTarget } from './Targets';
 import { sendToOwnerPile } from '../../game/cardOwnership';
 import { levelTributeCandidates } from '../../game/levelTributes';
-import { destroyOrphanedAttachments } from '../../game/attachments';
+import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Cost = {
     /** Select and Void distinct cards from the activating player's Discard. */
@@ -43,8 +42,7 @@ export const Cost = {
         const player = draftState.players[context.playerIndex];
         const index = player.pawnZones.findIndex(zone => zone?.card.instanceId === context.card.instanceId);
         if (index < 0) return { halt: true };
-        sendToOwnerPile(draftState, player.pawnZones[index]!.card, 'discard');
-        player.pawnZones[index] = null;
+        destroyFieldCard(draftState, context.card.instanceId);
     }),
 
     /** Selects a controlled Pawn and changes its position as an activation cost. */
@@ -104,31 +102,7 @@ export const Cost = {
 
     /** Prompts the player to discard a card matching a specific filter. */
     DiscardCardFilter: (filter?: (c: Card) => boolean): EffectStep => activationCost((draftState, context) => {
-        if (context.handIndex === undefined) {
-            return {
-                requireHandSelection: {
-                    playerIndex: context.playerIndex,
-                    filter: card => canTribute(card) && (!filter || filter(card))
-                }
-            };
-        }
-
-        const activePlayer = draftState.players[context.playerIndex];
-        const discardedCard = activePlayer.hand[context.handIndex];
-
-        if (discardedCard && (!filter || filter(discardedCard))) {
-            activePlayer.hand.splice(context.handIndex, 1);
-            sendToOwnerPile(draftState, discardedCard, 'discard');
-
-            if (cardRegistry.getEffect(discardedCard.id)?.onDiscard) {
-                draftState.pendingTriggers = [...(draftState.pendingTriggers ?? []), {
-                    context: { card: discardedCard, playerIndex: context.playerIndex }, trigger: 'discard'
-                }];
-            }
-            return;
-        }
-
-        return { halt: true };
+        return Effect.DiscardFromHand(card => canTribute(card) && (!filter || filter(card)))(draftState, context);
     }),
 
     /** Request selection of a card from the discard. */

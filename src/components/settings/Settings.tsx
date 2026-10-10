@@ -5,7 +5,7 @@ import { getSettings, saveSettings } from '../../desktop/storage';
 import { playSound } from '../../audio';
 import './Settings.css';
 
-const Settings: React.FC<{ onBack: () => void; onDebugHub: () => void }> = ({ onBack, onDebugHub }) => {
+const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [preferences, setPreferences] = useState(getSettings);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -85,10 +85,6 @@ const Settings: React.FC<{ onBack: () => void; onDebugHub: () => void }> = ({ on
           <input id="fanned-out-piles" data-sound="toggle" type="checkbox" aria-describedby="fanned-out-piles-help" checked={preferences.fannedOutPiles} onChange={event => setPreferences({ ...preferences, fannedOutPiles: event.target.checked })} className="settings-toggle" />
         </div>
       </fieldset>
-      <section className="settings-debug" aria-labelledby="settings-debug-title">
-        <div><h2 id="settings-debug-title">DEBUG ROOM</h2><p>Open the debug room and its development tools.</p></div>
-        <button type="button" data-sound="select" onClick={onDebugHub} disabled={saving}>OPEN DEBUG ROOM <i className="fa-solid fa-arrow-up-right" aria-hidden="true" /></button>
-      </section>
     </form>
   </main>;
 };

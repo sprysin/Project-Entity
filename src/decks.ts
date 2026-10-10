@@ -1,4 +1,4 @@
-import { isToken, isReservePawn, shuffleDeck } from './game/cardHelpers';
+import { isGeneratedCard, isReservePawn, shuffleDeck } from './game/cardHelpers';
 import { cardRegistry, CardDefinition } from './cards/CardRegistry';
 import { LEGACY_CARD_IDS } from './cards/legacyIds';
 import { Card, CardType } from './types';
@@ -22,7 +22,7 @@ export const deckSize = (deck: SavedDeck) => deck.cards.reduce((sum, entry) => s
 export const reserveSize = (deck: SavedDeck) => (deck.reserve ?? []).reduce((sum, entry) => sum + entry.quantity, 0);
 export const canAddCard = (deck: SavedDeck, cardId: string) => {
     const card = cardRegistry.getCard(cardId);
-    if (!card || isToken(card)) return false;
+    if (!card || isGeneratedCard(card)) return false;
     const entries = isReservePawn(card) ? deck.reserve ?? [] : deck.cards;
     return (isReservePawn(card) ? reserveSize(deck) < MAX_RESERVE_SIZE : deckSize(deck) < MAX_DECK_SIZE)
         && (entries.find(e => e.cardId === cardId)?.quantity ?? 0) < MAX_COPIES;
@@ -36,7 +36,7 @@ let catalogSize = -1;
 let catalog: readonly CardDefinition[] = [];
 export function sortedCards(): readonly CardDefinition[] {
     if (catalogSize !== cardRegistry.size) {
-        catalog = Object.freeze(cardRegistry.getAllCards().filter(card => !isToken(card))
+        catalog = Object.freeze(cardRegistry.getAllCards().filter(card => !isGeneratedCard(card))
             .sort((a, b) => order[a.type] - order[b.type]
                 || Number(isReservePawn(a)) - Number(isReservePawn(b))
                 || a.name.localeCompare(b.name)));

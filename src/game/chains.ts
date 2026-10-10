@@ -31,7 +31,9 @@ export function runEffect(state: GameState, context: CardContext, trigger: Effec
         if (!context.destroyedCard || context.execution === 'costs' || context.execution === 'reserve') return { newState: state };
         return effect?.onBattleDestroy?.(state, { ...context, destroyedCard: context.destroyedCard }) ?? { newState: state };
     }
-    const fn = trigger === 'summon' ? effect?.onSummon
+    const fn = trigger === 'hand_activate' ? effect?.onHandActivate
+        : trigger === 'hand_return' ? effect?.onHandReturn
+        : trigger === 'summon' ? effect?.onSummon
         : trigger === 'switch' ? effect?.onSwitch
         : trigger === 'destroyed' ? effect?.onDestroyed
         : trigger === 'battle_destroyed' ? effect?.onBattleDestroyed
@@ -60,7 +62,8 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
     const playerIndex = resolutionContext?.playerIndex ?? reactionIndex ?? (isLand(card) ? state.activePlayerIndex : undefined) ?? (controllerIndex >= 0 ? controllerIndex : state.players.findIndex(p => p.id === card.ownerId));
     if (playerIndex < 0) return [];
     const effect = cardRegistry.getEffect(card.id);
-    if (trigger !== 'phase' && !resolutionContext && effect?.canActivate && !effect.canActivate(state, { card, playerIndex })) return [];
+    const eligibility = trigger === 'hand_activate' ? effect?.canActivateFromHand : trigger === 'hand_return' ? undefined : effect?.canActivate;
+    if (trigger !== 'phase' && !resolutionContext && eligibility && !eligibility(state, { card, playerIndex })) return [];
     const choices: CardContext[] = [];
     let visited = 0;
     const visit = (context: CardContext, depth: number) => {
@@ -97,8 +100,10 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             });
         } else if (result.requireHandSelection && context.handIndex === undefined) {
             const req = result.requireHandSelection;
-            state.players[req.playerIndex].hand.forEach((c, handIndex) => {
-                if (!req.filter || req.filter(c)) visit({ ...context, handIndex }, depth + 1);
+            const changedHand = result.newState.players[req.playerIndex].hand.map(card => card.instanceId).join('|')
+                !== state.players[req.playerIndex].hand.map(card => card.instanceId).join('|');
+            result.newState.players[req.playerIndex].hand.forEach((c, handIndex) => {
+                if (!req.filter || req.filter(c)) visit({ ...context, handIndex, ...(changedHand ? { handSelectionId: c.instanceId } : {}) }, depth + 1);
             });
         } else if (result.requirePeekSelection && context.peekIndex === undefined) {
             const req = result.requirePeekSelection;
@@ -140,6 +145,17 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
 
 export interface Activation { card: Card; trigger: EffectTrigger; slot: CardTarget }
 
+export function handActivations(state: GameState, playerIndex: number): { card: Card; trigger: 'hand_activate' }[] {
+    if (state.winner || state.openingCoin || state.pendingActivation || state.response || state.chain?.length
+        || state.resolvingChain || state.pendingReactions?.length || state.pendingTriggers?.length
+        || state.pendingHandSummons?.length || state.pendingVoidReturns?.length || state.pendingVoidSelections?.length
+        || state.attackReplay || state.activePlayerIndex !== playerIndex
+        || ![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)) return [];
+    return state.players[playerIndex].hand.flatMap(card => card.type === CardType.PAWN
+        && cardRegistry.getEffect(card.id)?.onHandActivate && effectChoices(state, card, 'hand_activate', 1).length
+        ? [{ card, trigger: 'hand_activate' as const }] : []);
+}
+
 export function fieldActivations(state: GameState, playerIndex: number, responding = false): Activation[] {
     if (isDrawingForTurn(state)) return [];
     if (state.pendingActivation) return [];
@@ -179,11 +195,13 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     if (state.pendingActivation) return state;
     if (state.winner || state.resolvingChain || state.pendingVoidReturns?.length || state.pendingVoidSelections?.length || state.chain?.some(link => link.context.card.instanceId === context.card.instanceId)) return state;
     if (trigger === 'summon' && !cardRegistry.getEffect(context.card.id)?.onSummon) return state;
-    if (['switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard'].includes(trigger) && !state.pendingReactions?.some(entry => entry.card.instanceId === context.card.instanceId && entry.playerIndex === context.playerIndex && entry.trigger === trigger)) return state;
+    if (trigger === 'hand_activate' && !handActivations(state, context.playerIndex).some(entry => entry.card.instanceId === context.card.instanceId)) return state;
+    if (['switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard', 'hand_return'].includes(trigger) && !state.pendingReactions?.some(entry => entry.card.instanceId === context.card.instanceId && entry.playerIndex === context.playerIndex && entry.trigger === trigger)) return state;
     if (!buildingTriggers && state.response && state.response.priority !== context.playerIndex) return state;
     if (!buildingTriggers && state.response && !fieldActivations(state, context.playerIndex, true).some(a => a.card.instanceId === context.card.instanceId && a.trigger === trigger)) return state;
     const effect = cardRegistry.getEffect(context.card.id);
-    if (trigger !== 'phase' && effect?.canActivate && !effect.canActivate(state, context)) return state;
+    const eligibility = trigger === 'hand_activate' ? effect?.canActivateFromHand : trigger === 'hand_return' ? undefined : effect?.canActivate;
+    if (trigger !== 'phase' && eligibility && !eligibility(state, context)) return state;
     if (effect?.targetsAtResolution) {
         if (!effectChoices(state, context.card, trigger, 1).length) return state;
         context = { ...context, target: undefined, targets: undefined };
@@ -193,8 +211,17 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const reserved = runEffect(state, { ...context, execution: 'reserve' }, trigger);
     if (reserved.halted || needsChoice(reserved)) return state;
     let next = structuredClone(reserved.newState);
-    if (['summon', 'switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard'].includes(trigger)) next.pendingReactions = next.pendingReactions?.filter(entry => entry.card.instanceId !== context.card.instanceId);
     const p = next.players[context.playerIndex];
+    if (['summon', 'switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard', 'hand_return'].includes(trigger)) {
+        const index = next.pendingReactions?.findIndex(entry => entry.card.instanceId === context.card.instanceId && entry.trigger === trigger) ?? -1;
+        if (index >= 0) next.pendingReactions!.splice(index, 1);
+    }
+    if (trigger === 'hand_activate') {
+        next.peekEvents = [...(next.peekEvents ?? []), { id: `${context.card.instanceId}:activation:${state.turnNumber}`,
+            card: { ...context.card }, ownerPlayerIndex: context.playerIndex,
+            viewerPlayerIndex: 1 - context.playerIndex, kind: 'hand_activation' }];
+        next.log = [`${p.name} revealed "${context.card.name}" and activated its effect from hand.`, ...next.log].slice(0, 50);
+    }
     const tributeCards = context.materialIds
         ? levelTributeCandidates(state, context.playerIndex).filter(entry => context.materialIds!.includes(entry.card.instanceId)).map(entry => entry.card)
         : context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
@@ -203,9 +230,10 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     const targets = context.targets ?? (context.target ? [context.target] : []);
     const target = targets[0];
     const link: ChainLink = {
+        sourceHandId: trigger === 'hand_activate' ? context.card.instanceId : undefined,
         tributeIds: tributeCards.map(card => card.instanceId),
-        handId: context.handIndex !== undefined && p.hand.some(card => card.instanceId === state.players[context.playerIndex].hand[context.handIndex!]?.instanceId)
-            ? state.players[context.playerIndex].hand[context.handIndex]?.instanceId : undefined,
+        handId: context.handSelectionId ? p.hand.find(card => card.instanceId === context.handSelectionId)?.instanceId
+            : context.handIndex !== undefined ? state.players[context.playerIndex].hand[context.handIndex]?.instanceId : undefined,
         context: { ...context, target, targets, tributeCards }, trigger,
         targetId: target ? targetZone(state, target)?.card.instanceId : undefined,
         targetIds: targets.map(selected => selected
@@ -295,6 +323,7 @@ export function resolveChainStep(state: GameState, selectedTargets?: CardTarget[
         }
         const p = next.players[context.playerIndex];
         let invalid = false;
+        if (link.sourceHandId) invalid ||= !p.hand.some(card => card.instanceId === link.sourceHandId);
         if (link.handId) { context.handIndex = p.hand.findIndex(card => card.instanceId === link.handId); invalid ||= context.handIndex < 0; }
         if (link.tributeIds?.length) context.tributeIndices = link.tributeIds.map(id => p.pawnZones.findIndex(zone => zone?.card.instanceId === id));
         const targets = context.targets ?? (context.target ? [context.target] : []);
@@ -386,6 +415,11 @@ export function queueEventResponses(before: GameState, after: GameState): GameSt
     const summoned = after.players.flatMap((player, playerIndex) => player.pawnZones.flatMap(zone =>
         zone && zone.position !== Position.HIDDEN && !fieldIds.has(zone.card.instanceId) ? [{ card: zone.card, playerIndex }] : []));
     if (summoned.length) {
+        for (const { card, playerIndex } of summoned) {
+            const zone = after.players[playerIndex].pawnZones.find(value => value?.card.instanceId === card.instanceId);
+            const handler = zone?.specialSummoned && cardRegistry.getEffect(card.id)?.onSpecialSummon;
+            if (handler) after = handler(after, { card, playerIndex }).newState;
+        }
         return { ...after, pendingResponse: { timing: 'summon', reason: summoned.map(entry => entry.card.name).join(', ') + ' summoned' } };
     }
     if (before.currentPhase !== after.currentPhase || before.turnNumber !== after.turnNumber) {

@@ -237,55 +237,6 @@
   }
 }
 
-.settings-debug {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  margin-top: 1.5rem;
-  padding: 1.5rem 1.6rem;
-  border: 1px solid #76603d;
-  background: #151b22e6;
-}
-
-.settings-debug h2 {
-  color: #eab308;
-  font: 800 .95rem Orbitron, sans-serif;
-  letter-spacing: .12em;
-}
-
-.settings-debug p {
-  margin-top: .5rem;
-  color: #94a3b8;
-  font-size: .85rem;
-}
-
-.settings-debug button {
-  flex: none;
-  padding: 1rem 1.4rem;
-  border: 1px solid #eab3088c;
-  color: #facc15;
-  background: #29220e;
-  font: 700 .75rem Orbitron, sans-serif;
-  letter-spacing: .07em;
-}
-
-.settings-debug button:hover {
-  background: #503910;
-}
-
-.settings-debug button:focus-visible {
-  outline: 2px solid #facc15;
-  outline-offset: 3px;
-}
-
-@media (max-width: 680px) {
-  .settings-debug {
-    align-items: stretch;
-    flex-direction: column;
-  }
-}
-
 /* Settings keeps its slate controls inside the home screen's gold interface. */
 .settings-page.entity-page {
   padding: 0;
@@ -379,27 +330,6 @@
 
 .settings-toggle {
   border-color: #768da3;
-}
-
-.settings-debug {
-  margin-top: 24px;
-  border: 1px solid #b38d4f;
-  background: linear-gradient(110deg, #242011e8, #121923e8);
-}
-
-.settings-debug h2 {
-  color: #f4c765;
-}
-
-.settings-debug p {
-  color: #aab2bd;
-}
-
-.settings-debug button {
-  clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 13px 100%, 0 calc(100% - 13px));
-  border-color: #e4b854;
-  background: #211e17;
-  color: #f8d67e;
 }
 
 @media (max-width: 800px) {

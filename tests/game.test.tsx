@@ -11,6 +11,7 @@ import PlaytestSetup from '../src/components/decks/PlaytestSetup';
 import { DeckPile } from '../src/components/game/Pile';
 import { XrayOverlay } from '../src/components/game/XrayOverlay';
 import { GameSidebar } from '../src/components/game/GameSidebar';
+import { CardReveal } from '../src/components/game/CardReveal';
 import { CardDetail } from '../src/components/cards/CardDetail';
 import { detectSummonReverbs } from '../src/components/game/SummonReverb';
 import { WinnerModal } from '../src/components/game/MatchModals';
@@ -20,6 +21,8 @@ import { DiscardSelectionModal } from '../src/components/game/SelectionModals';
 import { HealthHud } from '../src/components/game/HealthHud';
 import { useAnimations } from '../src/hooks/useAnimations';
 import { useCardMotion } from '../src/hooks/useCardMotion';
+import { buildEffect } from '../src/cards/engine/Builder';
+import { Effect } from '../src/cards/engine/Effects';
 vi.mock('../src/desktop/files', () => ({ showMessage: vi.fn() }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -533,6 +536,62 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
     act(() => root.update(<MotionHarness state={resolved} />));
     expect(movement.motions).toHaveLength(2);
     expect(movement.motions[1].delay).toBe(650);
+    const actionSound = vi.spyOn(audio, 'playSound');
+    for (const destroy of [false, true]) {
+        act(() => root.update(<div />));
+        const onField = structuredClone(motionState);
+        onField.players[0].hand = [];
+        onField.players[0].actionZones[0] = { ...placed(motionCard), position: Position.HIDDEN };
+        act(() => root.update(<MotionHarness state={onField} />));
+        actionSound.mockClear();
+        const removed = structuredClone(onField);
+        removed.players[0].actionZones[0] = null;
+        removed.players[0].discard.push(motionCard);
+        if (destroy) removed.destroyedCardIds = [...(removed.destroyedCardIds ?? []), motionCard.instanceId];
+        act(() => root.update(<MotionHarness state={removed} />));
+        expect(actionSound.mock.calls.some(([sound]) => sound === 'action-condition-destroyed')).toBe(destroy);
+        expect(movement.motions).toHaveLength(destroy ? 0 : 1);
+    }
+    actionSound.mockRestore();
+    // Generated Bombs originate from their source even when it leaves in the same effect.
+    for (const destination of [0, 1]) {
+        act(() => root.update(<div />));
+        const sourceRect = { ...rect, left: 50, top: 80 } as DOMRect;
+        const deckRect = { ...rect, left: 400, top: 200 } as DOMRect;
+        let finishShuffle!: () => void;
+        const shuffle = vi.fn(() => ({ finished: new Promise<void>(resolve => { finishShuffle = resolve; }) }));
+        motionRefs.current.set(`deck-${destination}`, { getBoundingClientRect: () => deckRect, animate: shuffle } as unknown as HTMLElement);
+        motionRefs.current.set('0-action-0', { getBoundingClientRect: () => sourceRect, querySelector: () => null } as unknown as HTMLElement);
+        const beforeBombs = structuredClone(motionState);
+        beforeBombs.players[0].hand = [];
+        beforeBombs.players[0].actionZones[0] = placed(motionCard);
+        act(() => root.update(<MotionHarness state={beforeBombs} />));
+        const afterBombs = buildEffect([Effect.SendTargetToDiscard(), Effect.ShuffleBombsIntoDeck('A_Jet_Explosive', 2, destination)])(beforeBombs, {
+            card: motionCard, playerIndex: 0, target: { playerIndex: 0, type: 'action', index: 0 }
+        }).newState;
+        act(() => root.update(<MotionHarness state={afterBombs} />));
+        const bombMotions = movement.motions.filter(motion => motion.card.id === 'A_Jet_Explosive');
+        expect(bombMotions).toHaveLength(2);
+        expect(bombMotions.every(motion => !motion.hidden && motion.from === sourceRect && motion.to === deckRect)).toBe(true);
+        expect(bombMotions.map(motion => motion.delay)).toEqual([0, 200]);
+        expect(shuffle).toHaveBeenCalledOnce();
+        expect(bombMotions.every(motion => motion.duration === 1000 && motion.deckFlipDelay === 1500)).toBe(true);
+        expect(shuffle.mock.calls[0]).toEqual([expect.any(Array), expect.objectContaining({ delay: 2250, duration: 450 })]);
+        act(() => root.update(<MotionHarness state={structuredClone(afterBombs)} />));
+        expect(shuffle).toHaveBeenCalledOnce();
+        act(() => movement.motions.forEach(motion => movement.finishMotion(motion.id)));
+        expect(movement.isMoving).toBe(true);
+        await act(async () => { finishShuffle(); });
+        expect(movement.isMoving).toBe(false);
+        // Reduced motion skips both travel and shuffle without changing deck contents.
+        act(() => root.update(<div />));
+        vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) });
+        act(() => root.update(<MotionHarness state={beforeBombs} />));
+        act(() => root.update(<MotionHarness state={afterBombs} />));
+        expect(movement.motions).toEqual([]);
+        expect(shuffle).toHaveBeenCalledOnce();
+        vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    }
     vi.unstubAllGlobals();
 
     // Overlapping shatters retain each card's face and clean up independently.
@@ -607,9 +666,76 @@ it('discard and tribute costs are paid once after all activation selections are 
     expect(game.gameState!.players[0].pawnZones[2]).toMatchObject({ card: { instanceId: patron.instanceId }, position: Position.DEFENSE });
     expect(game.gameState!.players[0].discard).toHaveLength(3);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
+
+    const zero = card('P_Justice_Jet_Zero_Day'), fighter = card('P_Justice_Jet_Fighter');
+    setup(s => { s.players[0].pawnZones[0] = placed(zero); s.players[0].deck = [fighter]; });
+    act(() => game.actions.activateOnField(0, 'pawn', 0));
+    expect(game.state.deckSelectionReq).not.toBeNull();
+    act(() => game.actions.handleDeckSelection(0));
+    expect(game.state.handSelectionReq?.cards?.map(card => card.instanceId)).toEqual([fighter.instanceId]);
+    expect(game.gameState!.players[0].hand).toEqual([]);
+    act(() => game.actions.handleHandSelection(0));
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.gameState!.players[0].discard[0].instanceId).toBe(fighter.instanceId);
+    expect(game.gameState!.players[0].hand).toEqual([]);
+    expect(game.gameState!.players[0].deck).toEqual([]);
+
+    setup(s => {
+        s.players[0].hand = [fighter];
+        s.players[0].pawnZones = Array.from({ length: 5 }, (_, index) => placed(index === 2 ? zero : card('P_Solstice_Sentinel')));
+    });
+    act(() => game.actions.resolveEffect(fighter, undefined, undefined, undefined, undefined, 'hand_activate'));
+    expect(game.state.targetSelectMode).toBe('effect');
+    act(() => game.actions.resolveEffect(fighter, { playerIndex: 0, type: 'pawn', index: 2 }));
+    expect(game.state.pawnPlacementReq?.slots).toEqual([2]);
+    act(() => game.actions.handlePawnPlacement(2, Position.ATTACK));
+    expect(game.gameState!.peekEvents?.[0].card.instanceId).toBe(fighter.instanceId);
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.gameState!.players[0].pawnZones[2]?.card.instanceId).toBe(zero.instanceId);
+    act(() => game.actions.dismissPeek(game.gameState!.peekEvents![0].id));
+    act(() => vi.advanceTimersByTime(500));
+    expect(game.gameState!.players[0].pawnZones[2]?.card.instanceId).toBe(fighter.instanceId);
+    expect(game.gameState!.players[0].pawnZones[2]?.card.atk).toBe(220);
 });
 
 it('opening turns, AI-only debug setup, and automated drawing preserve hands and hidden card rules', () => {
+    const openingGame = game.gameState;
+    const destructionSound = vi.spyOn(audio, 'playSound');
+    const face = { getBoundingClientRect: () => ({ width: 160, height: 240, left: 200, top: 100 }), innerHTML: 'Jet Explosive' };
+    for (const playerIndex of [0, 1]) {
+        destructionSound.mockClear();
+        const bomb = card('A_Jet_Explosive', playerIndex);
+        setup(s => { s.drawnBombs = [{ card: bomb, playerIndex }]; });
+        let revealView: ReturnType<typeof create>;
+        act(() => { revealView = create(<>
+            <GameOverlays gameState={game.gameState!} state={game.state} actions={game.actions}
+                activePlayer={game.gameState!.players[0]} actionsDisabled viewerIndex={0} onQuit={() => {}} />
+            <CardReveal card={bomb} revealed onDestroy={game.actions.destroyDrawnBomb} onDismiss={() => game.actions.dismissDrawnBomb(bomb.instanceId)} />
+            <GameSidebar gameState={game.gameState!} viewerIndex={0} selectedCard={null} selectedFieldSlot={null} isOpen={false} setIsOpen={() => {}} />
+        </>, { createNodeMock: element => element.props.className?.includes('card-reveal-front') ? { querySelector: () => face } : null }); });
+        expect(revealView!.root.findAllByProps({ 'aria-label': 'Bomb drawn' })).toHaveLength(0);
+        expect(revealView!.root.findByType(CardReveal).findByType(CardDetail).props.card.id).toBe(bomb.id);
+        expect(revealView!.root.findByType(GameSidebar).findByType(CardDetail).props.card.id).toBe(bomb.id);
+        act(() => vi.advanceTimersByTime(1799));
+        expect(destructionSound).not.toHaveBeenCalledWith('card-destruction');
+        act(() => vi.advanceTimersByTime(1));
+        expect(destructionSound).toHaveBeenCalledWith('card-destruction');
+        act(() => vi.advanceTimersByTime(1300));
+        expect(game.gameState!.drawnBombs).toEqual([]);
+        act(() => revealView!.unmount());
+    }
+    const peeked = card('P_Solstice_Sentinel', 1);
+    setup(s => { s.peekEvents = [{ id: 'witch-reveal', card: peeked, ownerPlayerIndex: 1, viewerPlayerIndex: 0 }]; });
+    destructionSound.mockClear();
+    let peekView: ReturnType<typeof create>;
+    act(() => { peekView = create(<CardReveal card={peeked} revealed onDismiss={() => game.actions.dismissPeek('witch-reveal')} />); });
+    act(() => vi.advanceTimersByTime(3100));
+    expect(game.gameState!.peekEvents).toEqual([]);
+    expect(destructionSound).not.toHaveBeenCalledWith('card-destruction');
+    act(() => peekView!.unmount());
+    destructionSound.mockRestore();
+    act(() => game.setGameState(openingGame));
+
     const winner = game.gameState!.openingCoin!.winnerIndex;
     act(() => { game.actions.chooseTurnOrder('first'); game.actions.nextPhase(); vi.advanceTimersByTime(2399); });
     expect(game.gameState!.openingCoin?.stage).toBe('flipping');

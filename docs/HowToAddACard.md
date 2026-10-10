@@ -54,6 +54,11 @@ export default [{
 
 ## Definitions and IDs
 
+Card reveals use the shared `CardReveal` in-place hand flip and the sidebar card
+viewer (the Glass Witch presentation). Use `peekEvents` for reveals to a specific
+viewer; drawn Bombs use the same component with destruction after the reveal.
+Do not introduce a separate reveal prompt, modal, or card-specific reveal UI.
+
 - IDs are case-sensitive save-file identifiers: `P_` for Pawns (including tokens),
   `A_` for Actions, and `C_` for Conditions. Separate name words with underscores
   and capitalize each word, preserving internal capitals and acronyms. For example:
@@ -71,6 +76,12 @@ export default [{
   and Conditions. Neither flag means Normal.
 - Tokens use `pawnSubtype: PawnSubtype.TOKEN`; they are excluded from playable
   catalogs and decks. Use `Effect.SummonToken(id)` to place them.
+- Bombs use `actionSubtype: ActionSubtype.BOMB` and the grey Token frame. Define
+  generated Bombs in their source card module and use
+  `Effect.ShuffleBombsIntoDeck(id, count, playerIndex)` to create and shuffle them.
+  Their selection-free `onDraw` resolves for every draw; the Bomb consumes that
+  draw, is publicly revealed, then destroyed and disappears without entering a pile.
+  Bombs are excluded from playable catalogs, saved decks, and packs.
 
 ## Compose shared mechanics
 
@@ -145,6 +156,18 @@ The complete contract is `IEffect` in `src/types.ts`.
 - `onSwitch`, `onDiscard`, `onTribute`, `onBattleDestroy`, `onBattleDestroyed`: specialized existing events.
 - `onAttachedActivation`: an attachment observes activation by its target.
 - `canActivate`: shared player/AI activation eligibility.
+- `onHandActivate` / `canActivateFromHand`: Pawn effects activated from hand during
+  the controller's Main Phase. Clicking the card opens the shared hand menu. The
+  source stays in hand while its public reveal and chain are announced; resolution
+  verifies that the same instance is still there.
+- `onSpecialSummon`: a selection-free effect on a successful face-up special summon.
+  Special-summon placements must set `specialSummoned: true`; normal summons and
+  returns from temporary Void removal do not. `Effect.MultiplySelfAttackForTurn`
+  supplies a temporary ATK multiplier that clears on departure or turn end.
+- `onCardSentToHand`: a selection-free field observer with `returnedCard` and
+  `receivingPlayerIndex`. It may queue a `hand_return` reaction handled by
+  `onHandReturn`. `Effect.QueueHandSummon(true)` commits earlier instructions before
+  requiring a hand summon through the existing selection and placement UI.
 - `onPawnSummoned`: a face-up field source observes a successful face-up normal
   or tribute summon. Context includes `summonedCard`, `summoningPlayerIndex`, and
   `tributeCount`. Face-down tribute sets do not emit this event. This observer

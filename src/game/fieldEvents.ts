@@ -4,7 +4,7 @@ import { cardRegistry } from '../cards/CardRegistry';
 import { formatEffectLog } from './effectLog';
 
 /** Observe an event once using the face-up sources present when it happened. */
-export function notifyFieldEvent<K extends 'onEffectActivated' | 'onEffectDamage'>(
+export function notifyFieldEvent<K extends 'onEffectActivated' | 'onEffectDamage' | 'onCardSentToHand'>(
     state: GameState, event: K, details: Omit<Parameters<NonNullable<IEffect[K]>>[1], keyof CardContext>
 ): GameState {
     let next = state;

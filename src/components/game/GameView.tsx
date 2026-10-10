@@ -16,9 +16,10 @@ import { PileViewModal, DeckViewModal } from './CollectionModals';
 import { ContextMenu, ContextMenuButton } from './ContextMenu';
 import { GameOverlays } from './GameOverlays';
 import { GameSidebar } from './GameSidebar';
+import { CardReveal } from './CardReveal';
 import { HealthHud } from './HealthHud';
 import { SavedDeck } from '../../decks';
-import { fieldActivations } from '../../game/chains';
+import { fieldActivations, handActivations } from '../../game/chains';
 import { canAttackDirectly } from '../../game/cardHelpers';
 import { canAttack, canChangePosition as canChangePawnPosition } from '../../game/engine';
 import { QuitDuelDialog } from './MatchModals';
@@ -86,6 +87,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
     ?? gameState.players.findIndex((p, index) =>
       p.pawnZones.some(z => z?.card.instanceId === effectCard.instanceId)
       || p.actionZones.some(z => z?.card.instanceId === effectCard.instanceId)
+      || p.hand.some(card => card.instanceId === effectCard.instanceId)
       || gameState.pendingReactions?.some(entry => entry.card.instanceId === effectCard.instanceId && entry.playerIndex === index)) : undefined;
   const privatePeek = gameState.peekEvents?.[0];
   const handSummonViewer = gameState.pendingHandSummons?.[0] && !gameState.response && !gameState.resolvingChain
@@ -93,16 +95,28 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   const viewIndex = opponentMode === 'ai' ? 0 : gameState.pendingVoidReturns?.[0]?.playerIndex ?? gameState.pendingVoidSelections?.[0]?.playerIndex ?? state.peekSelectionReq?.playerIndex ?? privatePeek?.viewerPlayerIndex ?? selectingPlayer ?? handSummonViewer ?? gameState.response?.priority ?? gameState.activePlayerIndex;
   const turnIsMine = !gameState.openingCoin && viewIndex === gameState.activePlayerIndex;
   const availableFieldEffects = React.useMemo(() => fieldActivations(gameState, viewIndex), [gameState, viewIndex]);
+  const availableHandEffects = React.useMemo(() => handActivations(gameState, viewIndex), [gameState, viewIndex]);
   const pawnStats = React.useMemo(() => gameState.players.map(player =>
     player.pawnZones.map(zone => zone ? fieldStats(gameState, zone) : undefined)), [gameState]);
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
   const { fannedOutPiles, profileImage } = getSettings();
-  const revealedOpponentCardId = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex && event.ownerPlayerIndex === oppIdx)?.card.instanceId;
+  const reveal = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex);
+  const drawnBomb = gameState.drawnBombs?.[0];
+  const renderPendingReveal = (playerIndex: number) => {
+    const drawn = drawnBomb?.playerIndex === playerIndex ? drawnBomb : undefined;
+    const detached = !drawnBomb && reveal?.ownerPlayerIndex === playerIndex
+      && !gameState.players[playerIndex].hand.some(card => card.instanceId === reveal.card.instanceId) ? reveal : undefined;
+    const card = drawn?.card ?? detached?.card;
+    return card && <div key={card.instanceId} className={`card-reveal-slot w-28 aspect-[2/3] ${playerIndex === oppIdx ? '-translate-y-[60%]' : 'card-reveal-slot--active translate-y-[30%]'}`}>
+      <CardReveal card={card} revealed onDestroy={drawn ? actions.destroyDrawnBomb : undefined}
+        onDismiss={() => drawn ? actions.dismissDrawnBomb(card.instanceId) : actions.dismissPeek(detached!.id)} />
+    </div>;
+  };
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
-  const actionsDisabled = !turnIsMine || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!gameState.peekEvents?.some(event => event.viewerPlayerIndex === viewIndex);
+  const actionsDisabled = !turnIsMine || !!drawnBomb || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!reveal;
   const land = activeLand(gameState) ?? null;
   const landSelected = state.selectedFieldSlot?.type === 'land';
   const landPlayable = !!selectedCard && isLand(selectedCard) && !actionsDisabled && actions.canPlayCard(selectedCard);
@@ -209,12 +223,10 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
           <div data-player-hand-target={opponent.id} className="duel-opponent-hand absolute top-0 w-full flex justify-center space-x-[-10px] z-20 pointer-events-none">
             {opponent.hand.map((card, i) => (
               <div ref={actions.setRef(`${oppIdx}-hand-${i}`)} key={card.instanceId} role={xray ? 'button' : undefined} tabIndex={xray ? 0 : undefined} aria-label={xray ? `Inspect AI hand card ${i + 1}` : undefined} onClick={() => { if (xray) actions.inspectPileCard(card); }} onKeyDown={event => { if (xray && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); actions.inspectPileCard(card); } }} className="opponent-hand-slot w-28 aspect-[2/3] transform -translate-y-[60%] hover:translate-y-[-10%] transition-transform duration-300 cursor-pointer pointer-events-auto">
-                <div className={`opponent-hand-card ${revealedOpponentCardId === card.instanceId ? 'is-revealing' : ''}`}>
-                  <div className="opponent-hand-face opponent-hand-back card-back rounded shadow-2xl border-2 border-slate-300">{xray && <XrayOverlay card={card} />}</div>
-                  <div className="opponent-hand-face opponent-hand-front rounded shadow-2xl"><CardDetail card={card} className="h-full w-full" /></div>
-                </div>
+                <CardReveal card={card} revealed={!drawnBomb && reveal?.card.instanceId === card.instanceId} back={xray && <XrayOverlay card={card} />} onDismiss={() => { if (reveal) actions.dismissPeek(reveal.id); }} />
               </div>
             ))}
+            {renderPendingReveal(oppIdx)}
           </div>
 
           <div inert={state.cardMovementPending} className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
@@ -333,7 +345,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                         isTributeSelected={state.tributeSelection.includes(i)}
                         isSelectable={checkIsSelectable(z, 'pawn', viewIndex)}
                         isDropTarget={(choosingEffectPlacement && effectPlacementAvailable) || (!!handSummonCard && !z) || (selectedPawnCanSummon && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i))}
-                        isActivatable={attackReady}
+                        isActivatable={attackReady || (!actionsDisabled && canActivateEffect)}
                         contextualActions={showEffectPlacementMenu ? <ContextMenu title="Pawn position">
                           {(state.pawnPlacementReq?.position ? [state.pawnPlacementReq.position] : [Position.ATTACK, Position.DEFENSE]).map(position => <ContextMenuButton key={position} label={position} onClick={() => { actions.handlePawnPlacement(i, position); actions.setSelectedFieldSlot(null); }} tone={position === Position.ATTACK ? 'gold' : undefined} />)}
                         </ContextMenu> : showHandSummonMenu ? <ContextMenu title="Special summon position">
@@ -415,9 +427,20 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
           {/* Active Player Hand Display (Bottom) */}
           <div data-player-hand-target={activePlayer.id} className="health-hud-safe-hand duel-active-hand absolute bottom-0 w-full flex justify-center space-x-[-10px] z-50 pointer-events-none pb-0" ref={actions.setRef(`${viewIndex}-hand-container`)}>
             {activePlayer.hand.map((card, i) => {
-              const isActivatable = !actionsDisabled && actions.canPlayCard(card);
+              const canActivateHand = !actionsDisabled && availableHandEffects.some(entry => entry.card.instanceId === card.instanceId);
+              const isActivatable = !actionsDisabled && (actions.canPlayCard(card) || canActivateHand);
               return (
                 <div key={card.instanceId} className={`relative w-36 pointer-events-none transition-transform duration-300 ${state.selectedHandIndex === i ? 'translate-y-[-20%] z-20' : 'translate-y-[30%] hover:translate-y-[0%] z-10 hover:z-20'}`}>
+                  {state.selectedHandIndex === i && canActivateHand && (
+                    <div className="absolute bottom-full left-1/2 z-50 mb-3 -translate-x-1/2 pointer-events-auto">
+                      <ContextMenu title={card.name}>
+                        <ContextMenuButton label="Activate Hand Effect" disabled={!canActivateHand} tone="green" onClick={() => {
+                          actions.setSelectedHandIndex(null);
+                          actions.resolveEffect(card, undefined, undefined, undefined, undefined, 'hand_activate');
+                        }} />
+                      </ContextMenu>
+                    </div>
+                  )}
                   {state.selectedHandIndex === i && card.type === CardType.PAWN && card.level >= 5 && (
                     <div className="tribute-indicators" aria-label={`${card.level <= 7 ? 1 : 2} tribute pawns required`}>
                       {Array.from({ length: card.level <= 7 ? 1 : 2 }, (_, tribute) => (
@@ -434,11 +457,12 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                 </div>
               )
             })}
+            {renderPendingReveal(viewIndex)}
           </div>
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
           {state.cardMotions.map(motion => (
-            <div key={motion.id} className={`card-travel ${motion.activation ? 'card-travel-activation' : ''}`}
+            <div key={motion.id} className={`card-travel ${motion.deckFlipDelay !== undefined ? 'card-travel--deck-insertion' : ''} ${motion.activation ? 'card-travel-activation' : ''}`}
               onAnimationEnd={event => { if (event.target === event.currentTarget && event.animationName === 'card-zone-travel') state.finishMotion(motion.id); }}
               style={{
                 left: (motion.from.left - (arenaBounds?.left ?? 0)) / arenaScale,
@@ -451,9 +475,15 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                 '--travel-scale-y': motion.from.height / motion.to.height,
                 '--from-rotation': `${motion.fromRotation}deg`,
                 '--to-rotation': `${motion.rotation}deg`,
+                '--bomb-flip-delay': `${motion.deckFlipDelay ?? 0}ms`,
               } as React.CSSProperties}>
               <div className="card-travel-face w-full h-full">
-                {motion.hidden ? <div className="card-back w-full h-full" /> : <CardDetail card={motion.card} className="w-full h-full" />}
+                {motion.deckFlipDelay !== undefined ? <div className="bomb-deck-flip" onAnimationEnd={event => {
+                  if (event.target === event.currentTarget && event.animationName === 'bomb-deck-flip') state.finishMotion(motion.id);
+                }}>
+                  <div className="bomb-deck-flip__front"><CardDetail card={motion.card} className="w-full h-full" /></div>
+                  <div className="bomb-deck-flip__back card-back" />
+                </div> : motion.hidden ? <div className="card-back w-full h-full" /> : <CardDetail card={motion.card} className="w-full h-full" />}
               </div>
             </div>
           ))}

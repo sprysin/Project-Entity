@@ -23,7 +23,8 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
     const selectedZone = selectedFieldSlot
         ? targetZone(gameState, selectedFieldSlot)
         : null;
-    const revealedCard = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewerIndex)?.card;
+    const revealedCard = gameState.drawnBombs?.[0]?.card ?? gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewerIndex)?.card;
+    isOpen = isOpen || !!revealedCard;
     useEffect(() => setPreview(null), [viewerIndex, xray]);
     useEffect(() => setLogCard(null), [selectedCard?.instanceId, inspectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
 

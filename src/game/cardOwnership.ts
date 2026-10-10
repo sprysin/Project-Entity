@@ -1,16 +1,17 @@
 import { Card, GameState } from '../types';
-import { clearFieldReduction, isToken } from './cardHelpers';
+import { clearFieldReduction, isGeneratedCard } from './cardHelpers';
 import { cardRegistry } from '../cards/CardRegistry';
+import { notifyFieldEvent } from './fieldEvents';
 
 /** Cards keep their original owner even while controlled by the other player. */
 export function sendToOwnerPile(state: GameState, card: Card, pile: 'discard' | 'void' | 'hand' | 'deck'): void {
-    if (isToken(card)) return;
+    if (isGeneratedCard(card)) return;
     const owner = state.players.find(player => player.id === card.ownerId);
     const placement = state.players.flatMap(player => [...player.pawnZones, ...player.actionZones])
         .find(zone => zone?.card.instanceId === card.instanceId);
     const bonuses = placement?.attachmentStatBonuses ?? [];
     const cleared = { ...clearFieldReduction(card) };
-    const temporaryStats = state.pendingEffects.filter(effect => effect.duePhase && effect.targetInstanceId === card.instanceId);
+    const temporaryStats = state.pendingEffects.filter(effect => effect.targetInstanceId === card.instanceId);
     for (const effect of temporaryStats) {
         const stat = effect.type === 'RESET_ATK' ? 'atk' : 'def';
         cleared[stat] = effect.delta === undefined ? effect.value : cleared[stat] - effect.delta;
@@ -25,4 +26,7 @@ export function sendToOwnerPile(state: GameState, card: Card, pile: 'discard' | 
             card: cleared, playerIndex: state.players.indexOf(owner), trigger: 'sent_discard'
         }];
     }
+    if (owner && pile === 'hand') Object.assign(state, notifyFieldEvent(state, 'onCardSentToHand', {
+        returnedCard: cleared, receivingPlayerIndex: state.players.indexOf(owner)
+    }));
 }

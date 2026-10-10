@@ -9,6 +9,7 @@ import { checkVictory } from '../src/game/finishEffect';
 import { Effect } from '../src/cards/engine/Effects';
 import { buildEffect } from '../src/cards/engine/Builder';
 import { resolveCombat } from '../src/game/combat';
+import { formatEffectLog } from '../src/game/effectLog';
 
 const card = (id: string): Card => ({ ...cardRegistry.getCard(id)!, instanceId: id, ownerId: 'p0' });
 const zone = (card: Card) => ({ card, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: 1, isSetTurn: false });
@@ -33,6 +34,18 @@ it('discards an attachment that fizzles instead of linking to a replacement targ
 });
 
 it('destroys chained Attach cards when an attached target leaves the field', () => {
+    for (const destroy of [false, true]) {
+        const scenario = setup();
+        const victim = card('P_Soldier_Of_The_High_Ground');
+        scenario.state.players[0].pawnZones[0] = zone(victim);
+        const context = { card: scenario.source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn' as const, index: 0 } };
+        const after = buildEffect([destroy ? Effect.DestroyTarget() : Effect.SendTargetToDiscard()])(scenario.state, context).newState;
+        expect(after.players[0].discard).toContainEqual(victim);
+        expect(after.pendingReactions?.some(event => event.trigger === 'destroyed' && event.card.instanceId === victim.instanceId) ?? false).toBe(destroy);
+        const log = formatEffectLog(scenario.state, after, scenario.source, context, 'activate');
+        expect(log).toContain(destroy ? `destroys "${victim.name}"` : `sends "${victim.name}" to the Discard`);
+        expect(log.includes('destroys')).toBe(destroy);
+    }
     const { state, source, target } = setup();
     const secondSource = { ...source, instanceId: 'second-attachment' };
     state.players[0].actionZones[0]!.attachedToInstanceIds = [target.instanceId];
