@@ -7,7 +7,7 @@ import { Effect } from '../../engine/Effects';
 
 export default [{
     cardData: {
-        id: 'action_law_of_the_normal',
+        id: 'A_Law_Of_The_Normal',
         name: 'Law of the Normal',
         type: CardType.ACTION,
         actionSubtype: ActionSubtype.LAND,

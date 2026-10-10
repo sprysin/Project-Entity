@@ -4,7 +4,7 @@ import { buildEffect } from '../../engine/Builder';
 import { Effect } from '../../engine/Effects';
 import { Condition, Require } from '../../engine/Requirements';
 
-const CARD_ID = 'pawn_future_outlander';
+const CARD_ID = 'P_Future_Outlander';
 
 const effect: IEffect = {
     timing: 'quick',

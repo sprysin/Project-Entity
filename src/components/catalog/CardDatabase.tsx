@@ -71,7 +71,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                                 aria-label={`View ${card.name}`}
                                 aria-pressed={selectedCard?.id === card.id}
                                 onClick={() => setSelectedCard(card)}
-                            ><CardDetail card={card} compact /></button>)}</div>
+                            ><CardDetail card={card} /></button>)}</div>
                         </section>;
                     })}
                     {!filteredCards.length && <div className="database-empty" role="status"><i className="fa-solid fa-magnifying-glass" aria-hidden="true" /><strong>No cards found</strong><span>Try a different search or filter.</span></div>}

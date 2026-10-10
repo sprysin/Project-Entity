@@ -4,7 +4,7 @@ import { fieldStats } from '../../../game/cardHelpers';
 
 export default [{
     cardData: {
-        id: 'pawn_steadfast_hummingbird',
+        id: 'P_Steadfast_Hummingbird',
         name: 'Steadfast Hummingbird',
         type: CardType.PAWN,
         attribute: Attribute.ELECTRIC,

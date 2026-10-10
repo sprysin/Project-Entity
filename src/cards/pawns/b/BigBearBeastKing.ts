@@ -22,7 +22,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'pawn_07',
+            id: 'P_Big_Bear_Beast_King',
             name: 'Big Bear Beast King',
             type: CardType.PAWN,
             rarity: 'Legendary',

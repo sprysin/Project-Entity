@@ -8,7 +8,7 @@ import { canTribute } from '../../../game/cardHelpers';
 
 export default [{
     cardData: {
-        id: 'pawn_gluttonous_tyrano', name: 'Gluttonous Tyrano', type: CardType.PAWN,
+        id: 'P_Gluttonous_Tyrano', name: 'Gluttonous Tyrano', type: CardType.PAWN,
         attribute: Attribute.EARTH, pawnType: PawnType.PRIMAL, level: 6, atk: 230, def: 150, rarity: 'Common',
         effectText: 'This card cant attack. Once per turn: tribute a Pawn; this card can gains an attack, and you gain LP equal to the LV of the tributed Pawn x 10. If this card is in Defence it cant change its position to Attack, except with card effects.'
     },

@@ -7,17 +7,17 @@ import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Cost.SelectDiscardRecovery((c) => c.id === 'action_01'),
+        Cost.SelectDiscardRecovery((c) => c.id === 'A_Void_Blast'),
         Effect.RecoverFromDiscardToHand()
     ]),
     canActivate: buildCondition([
-        Condition.DiscardMatchesFilter('active', (c) => c.id === 'action_01')
+        Condition.DiscardMatchesFilter('active', (c) => c.id === 'A_Void_Blast')
     ])
 };
 
 export default [
 { cardData: {
-    id: 'pawn_04',
+    id: 'P_Void_Caster',
     name: 'Void Caster',
     type: CardType.PAWN,
     rarity: 'Uncommon',

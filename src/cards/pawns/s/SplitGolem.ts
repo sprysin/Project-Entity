@@ -17,19 +17,19 @@ const effect: IEffect = {
             source.card.fieldAtkReduction = (source.card.fieldAtkReduction ?? 0) + source.card.atk - reduced;
             source.card.atk = reduced;
         },
-        Effect.SummonToken('token_golem')
+        Effect.SummonToken('P_Golem_Token')
     ])
 };
 
 export default [
 { cardData: {
-    id: 'token_golem', name: 'Golem Token', type: CardType.PAWN, rarity: 'Common',
+    id: 'P_Golem_Token', name: 'Golem Token', type: CardType.PAWN, rarity: 'Common',
     pawnSubtype: PawnSubtype.TOKEN, level: 3, attribute: Attribute.EARTH,
     pawnType: PawnType.ELEMENTAL, atk: 60, def: 70, cannotBeTributed: true,
     effectText: 'This Token cannot be tributed.'
 }, effect: {} },
 { cardData: {
-    id: 'pawn_16', name: 'Split Golem', type: CardType.PAWN, rarity: 'Uncommon',
+    id: 'P_Split_Golem', name: 'Split Golem', type: CardType.PAWN, rarity: 'Uncommon',
     level: 3, attribute: Attribute.EARTH, pawnType: PawnType.ELEMENTAL, atk: 120, def: 140,
     effectText: 'Once while on the field: Halve this Pawn’s current ATK, then Special Summon 1 “Golem Token” (Elemental/EARTH/Level 3/ATK 60/DEF 70). This Token cannot be tributed.'
 }, effect }

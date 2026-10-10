@@ -1,7 +1,7 @@
 import { Attribute, CardType, PawnType, Position } from '../../../types';
 import { CardModule } from '../../CardRegistry';
 
-export const INFANTRY_SOLDIER_ID = 'pawn_infantry_soldier';
+export const INFANTRY_SOLDIER_ID = 'P_Infantry_Soldier';
 
 export default [{
     cardData: {

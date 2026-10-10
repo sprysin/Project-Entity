@@ -26,7 +26,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'pawn_08',
+    id: 'P_Quickstrike_Serpent',
     name: 'Quickstrike Serpent',
     type: CardType.PAWN,
     rarity: 'Rare',

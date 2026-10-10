@@ -11,7 +11,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'action_01',
+    id: 'A_Void_Blast',
     name: 'Void Blast',
     type: CardType.ACTION,
     rarity: 'Common',

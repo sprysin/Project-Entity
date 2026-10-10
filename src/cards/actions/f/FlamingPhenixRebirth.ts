@@ -8,7 +8,7 @@ const eligible = (card: Card) => card.type === CardType.PAWN && card.attribute =
 
 export default [{
     cardData: {
-        id: 'action_flaming_phenix_rebirth', name: 'Flaming Phenix Rebirth', type: CardType.ACTION,
+        id: 'A_Flaming_Phenix_Rebirth', name: 'Flaming Phenix Rebirth', type: CardType.ACTION,
         rarity: 'Rare', level: 0, atk: 0, def: 0,
         effectText: 'Select 2 FIRE Pawns in your Discard, randomly summon 1 of those Pawns in attack position and if you do take damage equal to its ATK.'
     },

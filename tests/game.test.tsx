@@ -53,20 +53,20 @@ beforeEach(() => { vi.useFakeTimers(); act(() => { root = create(<React.StrictMo
 afterEach(() => { act(() => root.unmount()); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it('prompts only after cards settle and honors a chosen special-summon slot', async () => {
-    const recovery = card('action_02');
-    setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('pawn_04')]; });
+    const recovery = card('A_Quick_Recovery');
+    setup(s => { s.players[0].hand = [recovery]; s.players[0].discard = [card('P_Void_Caster')]; });
     const previousLog = game.gameState!.log;
     act(() => game.actions.handleActionFromHand(recovery, 'activate', 0));
     expect(game.gameState!.log).toBe(previousLog);
     expect(game.gameState!.players[0].hand[0].instanceId).toBe(recovery.instanceId);
     expect(game.gameState!.players[0].actionZones[0]).toBeNull();
 
-    const caster = card('pawn_04');
+    const caster = card('P_Void_Caster');
     setup(s => { s.players[0].hand = [caster]; });
     act(() => game.actions.handleSummon(caster, 'normal', 0));
     expect(game.state.triggeredEffect).toBeNull();
 
-    const eligibleCaster = card('pawn_04');
+    const eligibleCaster = card('P_Void_Caster');
     vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
     let finishLanding!: () => void;
     const landing = { finished: new Promise<void>(resolve => { finishLanding = resolve; }), pause: vi.fn() };
@@ -80,8 +80,8 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     const measureDeck = vi.fn(() => rect);
     game.actions.setRef('deck-0')({ getBoundingClientRect: measureDeck } as unknown as HTMLElement);
     setup(s => {
-        s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('action_01')];
-        s.players[0].deck = Array.from({ length: 40 }, () => card('pawn_01'));
+        s.players[0].hand = [eligibleCaster]; s.players[0].discard = [card('A_Void_Blast')];
+        s.players[0].deck = Array.from({ length: 40 }, () => card('P_Solstice_Sentinel'));
     });
     expect(measureDeck).toHaveBeenCalledOnce();
     act(() => game.actions.handleSummon(eligibleCaster, 'normal', 0));
@@ -120,6 +120,15 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
         handleDiscardSelection={game.actions.handleDiscardSelection} />); });
     expect(discardModal!.root.findByProps({ 'aria-label': 'Discard pile search' }).props.className).toContain('duel-prompt--card-search');
     expect(discardModal!.root.findAllByType('button').filter(button => button.children.includes('Cancel'))).toHaveLength(0);
+    const promptEvents = Object.assign(new EventTarget(), { matchMedia: () => ({ matches: false }) });
+    vi.stubGlobal('window', promptEvents);
+    act(() => discardModal!.root.findByProps({ 'aria-label': 'Hide prompt and peek at field' }).props.onClick());
+    expect(discardModal!.root.findByProps({ 'aria-label': 'Discard pile search' }).props['aria-modal']).toBe(false);
+    const escape = new Event('keydown', { cancelable: true });
+    Object.defineProperty(escape, 'key', { value: 'Escape' });
+    act(() => promptEvents.dispatchEvent(escape));
+    expect(escape.defaultPrevented).toBe(true);
+    expect(discardModal!.root.findByProps({ 'aria-label': 'Discard pile search' }).props['aria-modal']).toBe(true);
     act(() => discardModal!.unmount());
     const waitingForSelection = game.gameState!;
     act(() => vi.advanceTimersByTime(5000));
@@ -130,7 +139,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     expect(game.gameState!.players[0].hand).toHaveLength(1);
 
     // A decision opened during Draw cancels queued draws and resumes them on decline.
-    setup(s => { s.currentPhase = Phase.DRAW; s.drawProgress = undefined; s.players[0].deck = Array.from({ length: 6 }, () => card('pawn_01')); });
+    setup(s => { s.currentPhase = Phase.DRAW; s.drawProgress = undefined; s.players[0].deck = Array.from({ length: 6 }, () => card('P_Solstice_Sentinel')); });
     act(() => game.actions.setTriggeredEffect(eligibleCaster));
     const waitingDuringDraw = game.gameState!;
     act(() => vi.advanceTimersByTime(5000));
@@ -139,10 +148,10 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => vi.advanceTimersByTime(300));
     expect(game.gameState!.players[0].hand).toHaveLength(1);
 
-    const tributeSummon: Card = { ...card('pawn_01'), level: 5 };
+    const tributeSummon: Card = { ...card('P_Solstice_Sentinel'), level: 5 };
     setup(s => {
         s.players[0].hand = [tributeSummon];
-        s.players[0].pawnZones = s.players[0].pawnZones.map(() => placed(card('pawn_01')));
+        s.players[0].pawnZones = s.players[0].pawnZones.map(() => placed(card('P_Solstice_Sentinel')));
     });
     act(() => game.actions.setTriggeredEffect(null));
     act(() => game.actions.handleSummon(tributeSummon, 'normal', 0));
@@ -155,8 +164,8 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     expect(game.gameState!.players[0].pawnZones[0]).not.toBeNull();
     expect(game.state.targetSelectMode).toBeNull();
 
-    const handSummon = card('condition_06', 1);
-    const light = card('pawn_01', 1);
+    const handSummon = card('C_Orcustrated_Frontline_Unit', 1);
+    const light = card('P_Solstice_Sentinel', 1);
     setup(s => {
         s.activePlayerIndex = 0;
         s.players[1].actionZones[0] = placed(handSummon);
@@ -180,8 +189,8 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
         expect(game.gameState!.pendingHandSummons).toEqual([]);
     }
 
-    const tribunal = card('action_06');
-    const pawn = { ...card('pawn_01'), level: 5 as const };
+    const tribunal = card('A_Tribute_Tribunal');
+    const pawn = { ...card('P_Solstice_Sentinel'), level: 5 as const };
     setup(s => {
         s.activePlayerIndex = 0;
         s.pendingHandSummons = [];
@@ -192,7 +201,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     expect(game.state.effectChoiceReq).toBeNull();
     act(() => game.setGameState(s => {
         const next = structuredClone(s!);
-        next.players[0].pawnZones[0] = placed(card('pawn_01'));
+        next.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel'));
         return next;
     }));
     act(() => game.actions.activateOnField(0, 'action', 0));
@@ -235,8 +244,8 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
 
     const beforeReverb = structuredClone(game.gameState!);
     beforeReverb.players.forEach(player => player.pawnZones.fill(null));
-    const boss = { ...card('pawn_01', 1), level: 8 as const, attribute: Attribute.WATER };
-    const ordinary = { ...card('pawn_01'), level: 7 as const };
+    const boss = { ...card('P_Solstice_Sentinel', 1), level: 8 as const, attribute: Attribute.WATER };
+    const ordinary = { ...card('P_Solstice_Sentinel'), level: 7 as const };
     const afterReverb = structuredClone(beforeReverb);
     afterReverb.players[1].pawnZones[3] = placed(boss);
     afterReverb.players[0].pawnZones[0] = placed(ordinary);
@@ -250,15 +259,15 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     moved.players[1].pawnZones[3] = null;
     expect(detectSummonReverbs(afterReverb, moved)).toEqual([]);
 
-    const responseCards = [card('condition_03'), card('condition_03'), card('condition_02')];
+    const responseCards = [card('C_Dark_Draw'), card('C_Dark_Draw'), card('C_Void_Call')];
     setup(s => {
         s.activePlayerIndex = 1;
         s.currentPhase = Phase.STANDBY;
         s.players[0].lp = 800;
-        s.players[0].pawnZones[0] = placed({ ...card('pawn_04'), attribute: Attribute.DARK });
-        s.players[0].deck = [card('pawn_01')];
+        s.players[0].pawnZones[0] = placed({ ...card('P_Void_Caster'), attribute: Attribute.DARK });
+        s.players[0].deck = [card('P_Solstice_Sentinel')];
         responseCards.forEach((c, index) => { s.players[0].actionZones[index] = { ...placed(c), position: Position.HIDDEN }; });
-        s.players[0].actionZones[3] = { ...placed(card('condition_03')), position: Position.HIDDEN, summonedTurn: 2 };
+        s.players[0].actionZones[3] = { ...placed(card('C_Dark_Draw')), position: Position.HIDDEN, summonedTurn: 2 };
         s.response = { priority: 0, passes: 0, reason: 'Leave STANDBY' };
         s.chain = [];
     });
@@ -316,7 +325,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
     act(() => overlay!.root.findAllByType('button').find(button => button.children.includes('Decline'))!.props.onClick());
     expect(game.gameState!.resolvingChain).toBeDefined();
     act(() => overlay!.unmount());
-    const outlander = card('pawn_future_outlander'), dragon = card('pawn_everlasting_dragonlord', 1), other = card('pawn_08', 1);
+    const outlander = card('P_Future_Outlander'), dragon = card('P_Everlasting_Dragonlord', 1), other = card('P_Quickstrike_Serpent', 1);
     act(() => game.actions.setActivationPopupMode('on'));
     setup(s => {
         s.activePlayerIndex = 0;
@@ -347,16 +356,16 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
         setup(() => {});
         act(() => game.actions.setActivationPopupMode(mode));
         setup(s => {
-            s.players[0].pawnZones[0] = placed(card('pawn_04'));
-            s.players[0].actionZones[0] = { ...placed(card('condition_03')), position: Position.HIDDEN };
-            s.players[0].deck = [card('pawn_01')];
+            s.players[0].pawnZones[0] = placed(card('P_Void_Caster'));
+            s.players[0].actionZones[0] = { ...placed(card('C_Dark_Draw')), position: Position.HIDDEN };
+            s.players[0].deck = [card('P_Solstice_Sentinel')];
             s.response = { priority: 0, passes: 0, timing, reason: timing };
         });
         expect(!!game.gameState!.response).toBe(mode === 'on' || mode === 'auto' && timing === 'activation');
         if (game.gameState!.response) act(() => game.actions.passResponse());
     }
     act(() => game.actions.setActivationPopupMode('off'));
-    const summonTrigger = card('pawn_01');
+    const summonTrigger = card('P_Solstice_Sentinel');
     setup(s => { s.activePlayerIndex = 0; s.players[0].hand = [summonTrigger]; });
     act(() => game.actions.handleSummon(summonTrigger, 'normal', 0));
     expect(game.state.triggeredEffect?.instanceId).toBe(summonTrigger.instanceId);
@@ -365,7 +374,7 @@ it('prompts only after cards settle and honors a chosen special-summon slot', as
 });
 
 it('holds attacks and battle-destruction choices before mandatory effects move the defeated card', async () => {
-    setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('pawn_01')); s.players[1].pawnZones[0] = placed(card('pawn_04', 1)); });
+    setup(s => { s.currentPhase = Phase.BATTLE; s.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel')); s.players[1].pawnZones[0] = placed(card('P_Void_Caster', 1)); });
     const before = game.gameState!;
     act(() => game.actions.handleAttack(0, 0));
     expect(before.players[1].lp).toBe(800);
@@ -395,9 +404,9 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
     expect(game.gameState!.players[1].lp).toBe(780);
 
     for (const accept of [false, true]) {
-        const necromancer = card('pawn_14');
-        const knight = card('pawn_cockroach_knight', 1);
-        const recruit = { ...card('pawn_01', 1), attribute: Attribute.EARTH, atk: 100 };
+        const necromancer = card('P_Zombie_Necromancer');
+        const knight = card('P_Cockroach_Knight', 1);
+        const recruit = { ...card('P_Solstice_Sentinel', 1), attribute: Attribute.EARTH, atk: 100 };
         let finishRecruitLanding!: () => void;
         if (accept) {
             vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
@@ -478,7 +487,7 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
     expect(lpValue()).toBe('350');
 
     const placementSound = vi.spyOn(audio, 'playSound').mockImplementation(() => {});
-    for (const [id, type] of [['action_shrouded_kingdom', 'land'], ['action_06', 'action']] as const) {
+    for (const [id, type] of [['A_Shrouded_Kingdom', 'land'], ['A_Tribute_Tribunal', 'action']] as const) {
         const zoneCard = placed(card(id));
         act(() => root.update(<Zone card={null} type={type} />));
         placementSound.mockClear();
@@ -489,13 +498,13 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
     }
     act(() => root.update(<Zone card={null} type="action" />));
     placementSound.mockClear();
-    act(() => root.update(<Zone card={placed(card('action_01'))} type="action" />));
+    act(() => root.update(<Zone card={placed(card('A_Void_Blast'))} type="action" />));
     expect(placementSound).not.toHaveBeenCalled();
     placementSound.mockRestore();
 
     // Placement has one direct trip; only effects that leave the field need a stop.
     vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
-    const motionCard = card('action_01');
+    const motionCard = card('A_Void_Blast');
     const motionState = structuredClone(game.gameState!);
     motionState.players[0].hand = [motionCard];
     motionState.players[0].actionZones.fill(null);
@@ -548,8 +557,8 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
 });
 
 it('discard and tribute costs are paid once after all activation selections are complete', () => {
-    const beast = card('pawn_06'); const cost = card('action_01');
-    setup(s => { s.players[0].pawnZones[0] = placed(beast); s.players[0].hand = [cost]; s.players[1].pawnZones[0] = placed(card('pawn_01', 1)); });
+    const beast = card('P_Dual_Mode_Beast'); const cost = card('A_Void_Blast');
+    setup(s => { s.players[0].pawnZones[0] = placed(beast); s.players[0].hand = [cost]; s.players[1].pawnZones[0] = placed(card('P_Solstice_Sentinel', 1)); });
     act(() => game.actions.activateOnField(0, 'pawn', 0));
     act(() => game.actions.handleHandSelection(0));
     expect(game.state.targetSelectMode).toBe('effect');
@@ -560,8 +569,8 @@ it('discard and tribute costs are paid once after all activation selections are 
     expect(game.gameState!.players[0].hand).toHaveLength(0);
     expect(game.gameState!.players[0].discard).toHaveLength(1);
     expect(game.gameState!.players[1].pawnZones[0]?.position).toBe(Position.DEFENSE);
-    const maintenance = card('action_04'); const recovered = card('pawn_01');
-    setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('pawn_01')); s.players[0].pawnZones[1] = placed(card('pawn_04')); });
+    const maintenance = card('A_Mechanical_Maintenance'); const recovered = card('P_Solstice_Sentinel');
+    setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel')); s.players[0].pawnZones[1] = placed(card('P_Void_Caster')); });
     act(() => game.actions.handleActionFromHand(maintenance, 'activate', 0));
     act(() => game.actions.setTributeSelection([0, 1]));
     act(() => game.actions.handleEffectTribute());
@@ -578,11 +587,11 @@ it('discard and tribute costs are paid once after all activation selections are 
     expect(game.gameState!.log[0]).toContain('tributes "Solstice Sentinel", "Void Caster"');
     expect(game.gameState!.log[0]).toContain('special summons "Solstice Sentinel"');
 
-    const contract = card('action_scripture_of_faith'), patron = card('pawn_patron_of_judgement');
-    const handMaterial = { ...card('pawn_01'), level: 4 as const }, fieldMaterial = { ...card('pawn_02'), level: 6 as const };
+    const contract = card('A_Scripture_Of_Faith'), patron = card('P_Patron_Of_Judgement');
+    const handMaterial = { ...card('P_Solstice_Sentinel'), level: 4 as const }, fieldMaterial = { ...card('P_High_King'), level: 6 as const };
     setup(s => {
         s.players[0].hand = [contract, handMaterial]; s.players[0].reserve = [patron];
-        s.players[0].pawnZones = Array.from({ length: 5 }, (_, i) => placed(i === 2 ? fieldMaterial : card('pawn_01')));
+        s.players[0].pawnZones = Array.from({ length: 5 }, (_, i) => placed(i === 2 ? fieldMaterial : card('P_Solstice_Sentinel')));
     });
     act(() => game.actions.handleActionFromHand(contract, 'activate', 0));
     expect(game.state.levelTributeReq?.totalLevel).toBe(10);
@@ -622,7 +631,7 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     expect(game.gameState!.activePlayerIndex).toBe(winner);
     expect(game.gameState!.turnNumber).toBe(2);
     act(() => game.setGameState(prev => ({ ...prev!, activePlayerIndex: 0, currentPhase: Phase.MAIN1, drawProgress: undefined })));
-    setup(s => { s.currentPhase = Phase.DRAW; s.players[0].hand = [card('action_01')]; s.players[0].deck = Array.from({ length: 10 }, () => card('pawn_01')); });
+    setup(s => { s.currentPhase = Phase.DRAW; s.players[0].hand = [card('A_Void_Blast')]; s.players[0].deck = Array.from({ length: 10 }, () => card('P_Solstice_Sentinel')); });
     act(() => vi.advanceTimersByTime(1700));
     expect(game.gameState!.players[0].hand).toHaveLength(5);
     expect(game.gameState!.currentPhase).toBe(Phase.STANDBY);
@@ -654,9 +663,9 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => game.actions.setActivationPopupMode('on'));
     setup(s => {
         s.activePlayerIndex = 0; s.currentPhase = Phase.DRAW; s.drawProgress = undefined;
-        s.players[0].hand = [card('action_01')];
-        s.players[0].deck = Array.from({ length: 10 }, () => card('pawn_01'));
-        s.players[1].pawnZones[0] = placed(card('pawn_everlasting_dragonlord', 1));
+        s.players[0].hand = [card('A_Void_Blast')];
+        s.players[0].deck = Array.from({ length: 10 }, () => card('P_Solstice_Sentinel'));
+        s.players[1].pawnZones[0] = placed(card('P_Everlasting_Dragonlord', 1));
     });
     let drawOverlay: ReturnType<typeof create>;
     const drawView = () => <GameOverlays gameState={game.gameState!} state={game.state} actions={game.actions}
@@ -675,9 +684,9 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => drawOverlay!.unmount());
     // Live triggered effects must use scored targets, not the first legal Pawn.
     for (const withEnemy of [true, false]) {
-        const king = card('pawn_02', 1);
-        const ally = card('pawn_01', 1);
-        const enemy = card('pawn_01');
+        const king = card('P_High_King', 1);
+        const ally = card('P_Solstice_Sentinel', 1);
+        const enemy = card('P_Solstice_Sentinel');
         setup(s => {
             s.activePlayerIndex = 1;
             s.players[1].pawnZones[0] = { ...placed(king), summonedTurn: s.turnNumber };
@@ -692,29 +701,29 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
         expect(game.gameState!.pendingReactions).toEqual([]);
     }
     // Destruction reactions complete private choices on the human's turn.
-    for (const sourceId of ['pawn_cockroach_knight', 'pawn_soldier_of_the_high_ground']) {
+    for (const sourceId of ['P_Cockroach_Knight', 'P_Soldier_Of_The_High_Ground']) {
         const source = card(sourceId, 1);
-        const recruit = sourceId === 'pawn_cockroach_knight'
-            ? { ...card('pawn_01', 1), attribute: Attribute.EARTH, atk: 100 }
-            : card('pawn_infantry_soldier', 1);
+        const recruit = sourceId === 'P_Cockroach_Knight'
+            ? { ...card('P_Solstice_Sentinel', 1), attribute: Attribute.EARTH, atk: 100 }
+            : card('P_Infantry_Soldier', 1);
         setup(s => {
             s.activePlayerIndex = 0; s.currentPhase = Phase.BATTLE;
             s.players[1].discard = [source];
-            if (sourceId === 'pawn_cockroach_knight') s.players[1].deck = [recruit, card('action_01', 1)];
+            if (sourceId === 'P_Cockroach_Knight') s.players[1].deck = [recruit, card('A_Void_Blast', 1)];
             else s.players[1].discard.push(recruit);
             s.pendingReactions = [{ card: source, playerIndex: 1,
-                trigger: sourceId === 'pawn_cockroach_knight' ? 'battle_destroyed' : 'destroyed' }];
+                trigger: sourceId === 'P_Cockroach_Knight' ? 'battle_destroyed' : 'destroyed' }];
         });
         for (let i = 0; i < 10; i++) act(() => vi.advanceTimersByTime(0));
         expect(game.gameState!.pendingReactions).toEqual([]);
         expect(game.gameState!.chain).toEqual([]);
         expect(game.state.pendingEffectCard).toBeNull();
-        if (sourceId === 'pawn_cockroach_knight') {
+        if (sourceId === 'P_Cockroach_Knight') {
             expect(game.gameState!.players[1].pawnZones.some(z => z?.card.instanceId === recruit.instanceId)).toBe(true);
         } else expect(game.gameState!.players[1].hand.map(c => c.instanceId)).toContain(recruit.instanceId);
     }
     // The live AI chooses a target after the human's later protection link resolves.
-    const future = card('pawn_future_outlander', 1), protectedDragon = card('pawn_everlasting_dragonlord'), exposed = card('pawn_08');
+    const future = card('P_Future_Outlander', 1), protectedDragon = card('P_Everlasting_Dragonlord'), exposed = card('P_Quickstrike_Serpent');
     act(() => game.actions.setActivationPopupMode('on'));
     setup(s => {
         s.activePlayerIndex = 0;
@@ -746,7 +755,7 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     act(() => root.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
     expect(started).toHaveBeenLastCalledWith([null, null], 'ai', debug);
 
-    const hidden = { ...placed(card('pawn_01', 1)), position: Position.HIDDEN };
+    const hidden = { ...placed(card('P_Solstice_Sentinel', 1)), position: Position.HIDDEN };
     debugGame.players[1].pawnZones[0] = hidden;
     const inspect = vi.fn();
     act(() => root.update(<><Zone card={hidden} type="pawn" xray /><DeckPile count={35} label="Deck" xrayCard={choices[0]} onInspect={inspect} /><GameSidebar gameState={debugGame} viewerIndex={0} xray selectedCard={null} selectedFieldSlot={{ playerIndex: 1, type: 'pawn', index: 0 }} isOpen setIsOpen={() => {}} /></>));
@@ -781,10 +790,18 @@ it('opening turns, AI-only debug setup, and automated drawing preserve hands and
     expect(root.root.findAllByType(XrayOverlay)).toHaveLength(0);
     expect(root.root.findByType(GameSidebar).findByType(CardDetail).props.isSet).toBe(true);
     expect(root.root.findByType(GameSidebar).findByProps({ 'aria-label': 'Hidden card' }).props.disabled).toBe(true);
+    const sidebar = (selectedCard: Card | null, field = false) => <GameSidebar gameState={debugGame} viewerIndex={0}
+        selectedCard={selectedCard} inspectedCard={choices[1]} selectedFieldSlot={field ? { playerIndex: 1, type: 'pawn', index: 0 } : null} isOpen setIsOpen={() => {}} />;
+    for (const [selected, field, expected] of [[choices[0], true, hidden.card], [choices[0], false, choices[0]], [null, false, choices[1]]] as const) {
+        act(() => root.update(sidebar(selected, field)));
+        expect(root.root.findByType(CardDetail).props.card).toBe(expected);
+        expect(root.root.findByType(CardDetail).props.isSet).toBe(field);
+    }
+
 });
 
 it('ranks the winning duel MVP and reveals it after one second', () => {
-    const a = card('action_01'); const b = card('action_02');
+    const a = card('A_Void_Blast'); const b = card('A_Quick_Recovery');
     const state = { winner: 'Winner', turnNumber: 4, players: [{ name: 'Winner' }, { name: 'Loser' }], damageEvents: [
         { card: a, playerIndex: 0, amount: 200, kind: 'battle' },
         { card: b, playerIndex: 0, amount: 250, kind: 'battle' },

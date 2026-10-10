@@ -38,7 +38,7 @@ const effect: IEffect = {
 
 export default [{
     cardData: {
-        id: 'core_example_pawn',
+        id: 'P_Example_Pawn',
         name: 'Example Pawn',
         type: CardType.PAWN,
         level: 2,
@@ -54,8 +54,12 @@ export default [{
 
 ## Definitions and IDs
 
-- IDs are permanent save-file identifiers. Existing `pawn_XX`, `action_XX`, and
-  `condition_XX` IDs remain valid. New IDs may use a set prefix and descriptive name.
+- IDs are case-sensitive save-file identifiers: `P_` for Pawns (including tokens),
+  `A_` for Actions, and `C_` for Conditions. Separate name words with underscores
+  and capitalize each word, preserving internal capitals and acronyms. For example:
+  `A_Void_Blast`, `C_Escape_Plan`, `P_Gilded_Glass_Paladin`. Treat punctuation
+  as a word separator (`P_Dual_Mode_Beast`). Once assigned, keep IDs stable.
+  Previous catalog IDs are translated when saved or imported decks are read.
   Never rename an existing ID just because its display name or file changes.
 - Duplicate IDs throw an error; they cannot overwrite another card.
 - Definitions are copied and frozen at registration. Match cards are separate

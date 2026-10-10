@@ -19,7 +19,7 @@ const effect: IEffect = {
 };
 
 export default [{ cardData: {
-    id: 'action_scripture_of_faith', name: 'Scripture of faith', type: CardType.ACTION,
+    id: 'A_Scripture_Of_Faith', name: 'Scripture of faith', type: CardType.ACTION,
     actionSubtype: ActionSubtype.CONTRACT, rarity: 'Common', level: 0, atk: 0, def: 0,
     effectText: 'Tribute Pawns from your hand or field whose levels total exactly 10, then Vassal summon "Patron of Judgement" from your Reserve.'
 }, effect }] satisfies CardModule;

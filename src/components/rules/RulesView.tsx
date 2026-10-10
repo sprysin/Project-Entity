@@ -27,13 +27,7 @@ const topics: Topic[] = [
     ]
   },
   {
-    id: 'drawing', title: 'Setup & drawing', subtitle: 'Start with five. Keep your hand moving.', icon: 'fa-layer-group',
-    rules: [
-      'Each player shuffles their deck and draws 5 cards as their opening hand.',
-      'Before the first turn, flip a coin: black belongs to Player 1 and white to Player 2. The winner chooses to go first or second.',
-      'If you must draw a card from an empty deck, you lose immediately. This applies to the Draw Phase and card effects. Drawing your last card does not itself cause a loss.',
-      'If both players reach 0 LP or below at the same time, the duel is a draw.',
-    ],
+    id: 'draw-phase', title: 'Drawing each turn', subtitle: 'Draw according to your hand size', icon: 'fa-layer-group',
     table: {
       headings: ['Draw Phase', 'What to draw'], rows: [
         ['First turn of the game', 'The starting player skips drawing.'],
@@ -43,7 +37,7 @@ const topics: Topic[] = [
     }
   },
   {
-    id: 'turn', title: 'The turn', subtitle: 'Six phases, one turn', icon: 'fa-repeat',
+    id: 'turn', title: 'The turn', subtitle: 'Breakdown of all six phases', icon: 'fa-repeat',
     table: {
       headings: ['Phase', 'What happens'], rows: [
         ['01 · Draw', 'Draw according to your hand size.'],
@@ -56,7 +50,7 @@ const topics: Topic[] = [
     }, note: 'First turn: go directly from Main 1 to End. Skip both Battle and Main 2.'
   },
   {
-    id: 'chains', title: 'Responses & chains', subtitle: 'Take turns responding. Resolve in reverse order.', icon: 'fa-link', rules: [
+    id: 'chains', title: 'Responses & chains', subtitle: 'The flow of compounding effects', icon: 'fa-link', rules: [
       'Simultaneous triggered effects form one chain in this order: turn player mandatory effects, opponent mandatory effects, turn player optional effects, opponent optional effects. Optional effects are included only if activated. Build the entire chain before resolving it in reverse order.',
       'Before an attack, phase change or effect resolves, the other player gets a response opportunity. A window appears only if that player has an eligible card, and shows the number of activatable cards.',
       'Eligible responses are Conditions set on an earlier turn and face-up Pawns with an explicitly designated quick effect. Ordinary Pawn effects and Actions cannot join a chain as responses.',
@@ -66,7 +60,7 @@ const topics: Topic[] = [
     ]
   },
   {
-    id: 'field', title: 'The field', subtitle: 'A place for every card', icon: 'fa-border-all', rules: [
+    id: 'field', title: 'The field', subtitle: 'Field layout and zone rules', icon: 'fa-border-all', rules: [
       'Each player has 5 Pawn zones and 5 shared Action/Condition zones. Each zone holds one card.',
       'Pawns can be in face-up Attack, face-up Defense or face-down Defense Position.',
       'Normal and Tribute Summons place Pawns in face-up Attack Position. Setting places them in face-down Defense Position.',
@@ -87,17 +81,17 @@ const topics: Topic[] = [
       'When you Tribute Summon or tribute set, the sacrificed Pawns go to the Discard Pile.',
       'You may tribute with all 5 Pawn zones occupied, then place the new Pawn in a zone freed by the tributes.',
       'A face-up Tribute Summon counts as a Normal Summon for “on Normal Summon” effects.',
-    ], note: 'Tribute Summons and tribute sets use neither your level 1–4 Normal Summon allowance nor your level 1–4 set allowance.'
+    ]
   },
   {
-    id: 'reserve', title: 'The Reserve', subtitle: 'Vassal Pawns & Contract summons', icon: 'fa-layer-group', rules: [
+    id: 'reserve', title: 'The Reserve', subtitle: 'An additional deck toolbox', icon: 'fa-layer-group', rules: [
       'Your Reserve is separate from your deck and holds up to 10 extra Pawns. A Reserve can hold either Vassal or Merge Pawns.',
       'Vassal Pawns are cards known for there red frame. To summon a Vassal from the Reserve you must use a Contract Action.',
       'When you use a Contract Action to Vassal summon you place the pawn in face-up Attack or Defense Position. This is counted as a special summon.'
     ]
   },
   {
-    id: 'pawn-info', title: 'Pawn Information', subtitle: 'Read every part of a Pawn card', icon: 'fa-address-card', rules: [
+    id: 'pawn-info', title: 'Pawn Information', subtitle: 'Pawn card breakdown', icon: 'fa-address-card', rules: [
       'During either Main Phase, each Pawn may manually change between Attack and Defense Position once per turn.',
       'A Pawn cannot manually change position on the turn it was summoned or set, or after it has attacked that turn.',
       'Manually turning a face-down Pawn face-up is a Switch Summon. It enters Attack Position and uses its manual position change for that turn.',
@@ -106,7 +100,7 @@ const topics: Topic[] = [
     ]
   },
   {
-    id: 'combat', title: 'Attacking & combat', subtitle: 'Compare stats. Resolve the outcome.', icon: 'fa-burst', rules: [
+    id: 'combat', title: 'Attacking & combat', subtitle: 'How to fight in the Battle Phase', icon: 'fa-burst', rules: [
       'Each Attack Position Pawn may attack once per turn, during its controller’s Battle Phase.',
       'A Pawn may attack on the turn it is summoned or flipped face-up, provided that turn has a Battle Phase.',
       'If your opponent controls any Pawns, attack one of them. Otherwise, attack directly and deal your Pawn’s ATK as LP damage.',
@@ -119,10 +113,10 @@ const topics: Topic[] = [
         ['Attack vs. Defense: ATK < DEF', 'Neither Pawn is destroyed.', 'The attacker’s controller loses the difference.'],
         ['Attack vs. Defense: ATK = DEF', 'Neither Pawn is destroyed.', 'None'],
       ]
-    }, note: 'Pawns destroyed in combat go to the Discard Pile.'
+    }
   },
   {
-    id: 'actions', title: 'Actions & Conditions', subtitle: 'Two card types. Different timing.', icon: 'fa-bolt',
+    id: 'actions', title: 'Actions & Conditions', subtitle: 'Card type breakdown', icon: 'fa-bolt',
     table: {
       headings: ['Rule', 'Actions', 'Conditions'], rows: [
         ['Play from hand', 'Activate in your own Main Phase, or set face-down.', 'Must be set face-down first.'],
@@ -194,136 +188,219 @@ const pawnCardFields = [
 
 const pawnTypes = Object.values(PawnType);
 
-const attributes: { value: Attribute; icon?: string; glyph?: string; color: string; description: string }[] = [
-  { value: Attribute.FIRE, icon: 'fa-fire', color: attributeColors[Attribute.FIRE], description: 'Fire-aligned Pawns.' },
-  { value: Attribute.WATER, icon: 'fa-droplet', color: attributeColors[Attribute.WATER], description: 'Water-aligned Pawns.' },
-  { value: Attribute.EARTH, icon: 'fa-mountain', color: attributeColors[Attribute.EARTH], description: 'Earth-aligned Pawns.' },
-  { value: Attribute.AIR, icon: 'fa-wind', color: attributeColors[Attribute.AIR], description: 'Air-aligned Pawns.' },
-  { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: attributeColors[Attribute.ELECTRIC], description: 'Electric-aligned Pawns.' },
-  { value: Attribute.NORMAL, glyph: <NormalAttributeIcon />, color: attributeColors[Attribute.NORMAL], description: 'Pawns without an elemental alignment.' },
-  { value: Attribute.DARK, icon: 'fa-moon', color: attributeColors[Attribute.DARK], description: 'Dark-aligned Pawns.' },
-  { value: Attribute.LIGHT, icon: 'fa-sun', color: attributeColors[Attribute.LIGHT], description: 'Light-aligned Pawns.' },
+const attributes: { value: Attribute; icon?: string; glyph?: string; color: string }[] = [
+  { value: Attribute.FIRE, icon: 'fa-fire', color: attributeColors[Attribute.FIRE] },
+  { value: Attribute.WATER, icon: 'fa-droplet', color: attributeColors[Attribute.WATER] },
+  { value: Attribute.EARTH, icon: 'fa-mountain', color: attributeColors[Attribute.EARTH] },
+  { value: Attribute.AIR, icon: 'fa-wind', color: attributeColors[Attribute.AIR] },
+  { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: attributeColors[Attribute.ELECTRIC] },
+  { value: Attribute.NORMAL, glyph: <NormalAttributeIcon />, color: attributeColors[Attribute.NORMAL] },
+  { value: Attribute.DARK, icon: 'fa-moon', color: attributeColors[Attribute.DARK] },
+  { value: Attribute.LIGHT, icon: 'fa-sun', color: attributeColors[Attribute.LIGHT] },
 ];
 
-const pawnInfoTabs = ['Pawn card', 'Types', 'Attributes', 'Changing position'];
+type RuleSection = Partial<Topic> & {
+  id: string; title: string; content?: 'pawn-card' | 'types' | 'attributes';
+  collapsible?: boolean; examples?: { id: string; label: string }[];
+};
+type Chapter = { id: string; title: string; subtitle: string; icon: string; sections: RuleSection[] };
+
+// Keep the authored rule text above intact. Chapters only organize that content.
+const topicById = Object.fromEntries(topics.map(topic => [topic.id, topic]));
+const referenceSections: RuleSection[] = [
+  { id: 'types', title: 'Pawn Types', content: 'types' },
+  { id: 'attributes', title: 'Pawn Attributes', content: 'attributes' },
+];
+const chapterGroups: { title: string; description: string; chapters: Chapter[] }[] = [
+  {
+    title: 'Duel Basics', description: 'Know your cards, your field and how to begin.', chapters: [
+      {
+        ...topicById.basics, title: 'Goal & deck', sections: [
+          { ...topicById.basics, title: 'Your objective & your deck' },
+        ]
+      },
+      {
+        ...topicById['pawn-info'], title: 'Pawns', sections: [
+          { id: 'pawn-card', title: 'Read a Pawn card', content: 'pawn-card' },
+          ...referenceSections,
+        ]
+      },
+      {
+        ...topicById.actions, sections: [
+          {
+            ...topicById.actions, title: 'Playing Actions & Conditions', examples: [
+              { id: 'A_Void_Blast', label: 'Normal Action' }, { id: 'C_Dark_Draw', label: 'Normal Condition' },
+            ]
+          },
+          { ...topicById.lingering, collapsible: true, examples: [{ id: 'A_Call_To_Arms', label: 'Lingering Action' }] },
+          { ...topicById.attach, collapsible: true, examples: [{ id: 'A_Withering_Sword', label: 'Attach Action' }] },
+          { ...topicById.land, collapsible: true, examples: [{ id: 'A_Shrouded_Kingdom', label: 'Land Action' }] },
+        ]
+      },
+      { ...topicById.field, sections: [topicById.field] },
+    ],
+  },
+  {
+    title: 'Play a turn', description: 'Understand the turn phases, Pawn summons, and battle rules.', chapters: [
+      {
+        ...topicById.turn, title: 'Turn sequence & drawing', sections: [
+          topicById.turn,
+          topicById['draw-phase'],
+        ]
+      },
+      {
+        ...topicById.summoning, title: 'Summon & position Pawns', sections: [
+          topicById.summoning,
+          { ...topicById['pawn-info'], id: 'position', title: 'Changing position & Switch Summons' },
+        ]
+      },
+      { ...topicById.combat, sections: [topicById.combat] },
+    ],
+  },
+  {
+    title: 'Effects & special mechanics', description: 'Understand costs, responses and Reserve summons.', chapters: [
+      { ...topicById.effects, sections: [topicById.effects] },
+      {
+        ...topicById.chains, sections: [
+          { id: 'responses', title: 'Who can respond', rules: topicById.chains.rules!.slice(1, 4) },
+          { id: 'resolution', title: 'Resolving a chain', rules: topicById.chains.rules!.slice(4) },
+          { id: 'simultaneous', title: 'Simultaneous triggered effects', rules: topicById.chains.rules!.slice(0, 1) },
+        ]
+      },
+      {
+        ...topicById.reserve, sections: [
+          { ...topicById.reserve, rules: topicById.reserve.rules!.slice(0, 1) },
+          {
+            id: 'vassal', title: 'Vassal cards', rules: topicById.reserve.rules!.slice(1), examples: [
+              { id: 'P_Patron_Of_Judgement', label: 'Vassal Pawn' }, { id: 'A_Scripture_Of_Faith', label: 'Contract Action' },
+            ]
+          },
+        ]
+      },
+    ],
+  },
+];
+const quickReference: Chapter = {
+  id: 'reference', title: 'Quick reference', subtitle: 'Tables, Types & Attributes', icon: 'fa-book-open',
+  sections: [
+    ...[topicById.turn, topicById['draw-phase'], topicById.summoning, topicById.combat, topicById.actions, topicById.effects]
+      .map(topic => ({ id: `reference-${topic.id}`, title: topic.title, table: topic.table })),
+    ...referenceSections,
+  ],
+};
+const chapters = [...chapterGroups.flatMap(group => group.chapters), quickReference];
 
 
 const examples = [
-  { id: 'pawn_01', label: 'Pawn', color: '#f5bd48', description: 'The entities you summon to the field. Each has a level, ATK, DEF and its own effects.' },
-  { id: 'action_01', label: 'Action', color: '#48e0ad', description: 'Utility cards that come in a variety of sub-types. Play during your Main Phases.' },
-  { id: 'condition_03', label: 'Condition', color: '#f181ce', description: 'Set first. From the next turn onward, activate during either player’s turn when eligible.' },
+  { id: 'P_Solstice_Sentinel', label: 'Pawn', color: '#f5bd48' },
+  { id: 'A_Void_Blast', label: 'Action', color: '#48e0ad' },
+  { id: 'C_Dark_Draw', label: 'Condition', color: '#f181ce' },
 ];
 
-function ExampleCard({ index, decorative = false }: { index: number; decorative?: boolean }) {
-  const example = examples[index];
-  const definition = cardRegistry.getCard(example.id);
+function ExampleCard({ id, decorative = false }: { id: string; decorative?: boolean }) {
+  const definition = cardRegistry.getCard(id);
   if (!definition) return null;
   const card: Card = { ...definition, instanceId: `rules-${definition.id}`, ownerId: 'rulebook' };
   return <div className={decorative ? 'rule-cover-card' : 'rule-example-card'}><CardDetail card={card} /></div>;
 }
 
+function SectionContent({ section }: { section: RuleSection }) {
+  if (section.content === 'pawn-card') return <div className="rulebook-pawn-fields">
+    <p className="rulebook-page-intro">Every Pawn card shows the information below. Read these fields together to understand how the Pawn enters play, what effects can interact with it, and how it performs in combat.</p>
+    <div className="rulebook-pawn-example"><ExampleCard id={examples[0].id} /><dl>{pawnCardFields.map(([label, description]) => <div key={label}><dt>{label}</dt><dd>{description}</dd></div>)}</dl></div>
+  </div>;
+  if (section.content === 'types') return <>
+    <p className="rulebook-page-intro">A Pawn’s Type appears beneath its name as <strong>[Type/Pawn]</strong>, or <strong>[Type/Switch/Pawn]</strong> for a Switch Pawn. Types do not have inherent abilities of their own, however cards of the same type may have stronger synergies when played together.</p>
+    <div className="rulebook-type-grid">{pawnTypes.map(type => <div key={type}>{type}</div>)}</div>
+  </>;
+  if (section.content === 'attributes') return <>
+    <p className="rulebook-page-intro">The circular icon beside a Pawn’s Type shows its Attribute. Like Types, Attributes are classifications used by card effects.</p>
+    <div className="rulebook-attribute-grid">{attributes.map(attribute => <article key={attribute.value} style={{ '--attribute-color': attribute.color } as React.CSSProperties}>{attribute.icon ? <i className={`fa-solid ${attribute.icon}`} aria-hidden="true" /> : <span className="rulebook-attribute-glyph" aria-hidden="true">{attribute.glyph}</span>}<h3>{attribute.value}</h3></article>)}</div>
+  </>;
+  return <div className={section.examples?.length === 1 ? 'rulebook-illustrated-section' : undefined}>
+    {section.examples && <div className="rulebook-section-examples">{section.examples.map(example => <figure key={example.id}><ExampleCard id={example.id} /><figcaption>{example.label}</figcaption></figure>)}</div>}
+    <div>
+      {section.rules && <ol className="rulebook-rule-list">{section.rules.map(rule => <li key={rule}><p>{rule}</p></li>)}</ol>}
+      {section.table && <div className="rulebook-table-wrap" tabIndex={0} role="region" aria-label={`${section.title} reference table`}><table><caption className="sr-only">{section.title} reference</caption><thead><tr>{section.table.headings.map(value => <th key={value} scope="col">{value}</th>)}</tr></thead><tbody>{section.table.rows.map(row => <tr key={row[0]}>{row.map((value, index) => index === 0 ? <th key={index} scope="row">{value}</th> : <td key={index}>{value}</td>)}</tr>)}</tbody></table></div>}
+      {section.note && <div className="rulebook-important"><i className="fa-solid fa-star" aria-hidden="true" /><p>{section.note}</p></div>}
+    </div>
+  </div>;
+}
+
 const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [selected, setSelected] = useState<number | null>(null);
-  const [page, setPage] = useState(0);
-  const [example, setExample] = useState(0);
+  const [sectionId, setSectionId] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const topic = selected === null ? null : topics[selected];
-  const isPawnInfo = topic?.id === 'pawn-info';
-  // Long topics have short reading pages; reference tables get their own page.
-  const rulePages: string[][] = [];
-  if (topic?.rules) for (let i = 0; i < topic.rules.length; i += 4) rulePages.push(topic.rules.slice(i, i + 4));
-  const pageCount = isPawnInfo ? pawnInfoTabs.length : Math.max(1, rulePages.length + (topic?.table ? 1 : 0));
-  const tablePage = !!topic?.table && page === rulePages.length;
-  const resetPosition = () => {
-    scroller.current?.scrollTo({ top: 0 });
-    requestAnimationFrame(() => heading.current?.focus());
+  const sectionHeadings = useRef<Record<string, HTMLHeadingElement | null>>({});
+  const contents = useRef<HTMLDetailsElement>(null);
+  const chapter = selected === null ? null : chapters[selected];
+  const group = chapterGroups.find(group => group.chapters.some(item => item.id === chapter?.id));
+  const open = (index: number | null, section: string | null = null) => {
+    setSelected(index);
+    setSectionId(section);
+    if (contents.current && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)').matches) contents.current.open = false;
+    requestAnimationFrame(() => {
+      if (section) {
+        const target = sectionHeadings.current[section];
+        const disclosure = target?.closest('details');
+        if (disclosure) disclosure.open = true;
+        target?.scrollIntoView({ block: 'start' });
+      }
+      else scroller.current?.scrollTo({ top: 0 });
+      (section ? sectionHeadings.current[section] : heading.current)?.focus({ preventScroll: true });
+    });
   };
-  const open = (index: number) => {
-    setSelected(index); setPage(0);
-    setExample(topics[index].id === 'actions' ? 1 : 0);
-    resetPosition();
-  };
-  const turnPage = (direction: number) => {
-    if (page + direction >= 0 && page + direction < pageCount) {
-      setPage(page + direction); resetPosition();
-    } else if (selected !== null && selected + direction >= 0 && selected + direction < topics.length) {
-      open(selected + direction);
-    }
-  };
-  return (
-    <div ref={scroller} className="rulebook entity-page">
-      <header className="rulebook-topbar entity-topbar">
-        <PageBrand section="THE RULEBOOK" />
-        <BackToHubButton onClick={onBack} />
-      </header>
-      <div className="rulebook-shell">
-
-        {topic === null ? <>
-          <section className="rulebook-cover">
-            <div className="rulebook-cover-copy">
-              <span className="rulebook-eyebrow">LEARN THE GAME</span>
-              <h1 ref={heading} tabIndex={-1}>THE <em>RULEBOOK</em></h1>
-              <p>Covers all the major rules and mechanics of standard play.<br />These are subject to change as the game receives balance updates.</p>
-              <button data-sound="select-small" className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
-            </div>
-            <div className="rulebook-card-fan" aria-label="Example Pawn, Action and Condition cards">
-              {[0, 1, 2].map(index => <div key={index} className={`rulebook-fan-item rulebook-fan-${index}`}><ExampleCard index={index} decorative /><span style={{ color: examples[index].color }}>{examples[index].label}</span></div>)}
-            </div>
-          </section>
-          <div className="rulebook-chapter-label"><span>CHOOSE YOUR CHAPTER</span><span>01 — {String(topics.length).padStart(2, '0')}</span></div>
-          <nav className="rulebook-chapters" aria-label="Rulebook chapters">
-            {topics.map((item, index) => <button data-sound="select-small" key={item.id} onClick={() => open(index)} className={`rulebook-chapter chapter-tone-${index % 3}`}>
-              <span className="rulebook-chapter-number">{String(index + 1).padStart(2, '0')}</span>
-              <i className={`fa-solid ${item.icon} rulebook-chapter-icon`} aria-hidden="true" />
-              <span className="rulebook-chapter-copy"><strong>{item.title}</strong><small>{item.subtitle}</small></span>
-              <i className="fa-solid fa-arrow-up-right-from-square rulebook-chapter-arrow" aria-hidden="true" />
-            </button>)}
-          </nav>
-        </> : <>
-          <div className="rulebook-breadcrumb"><button data-sound="select-small" onClick={() => { setSelected(null); resetPosition(); }}><i className="fa-solid fa-grip" aria-hidden="true" /> All chapters</button><span>/</span><span>CHAPTER {String(selected! + 1).padStart(2, '0')}</span></div>
-          <div className="rulebook-reading-grid">
-            <main className="rulebook-reading">
-              <div className="rulebook-topic-heading">
-                <span className="rulebook-eyebrow"><i className={`fa-solid ${topic.icon}`} aria-hidden="true" /> {topic.subtitle}</span>
-                <h1 ref={heading} tabIndex={-1}>{topic.title}</h1>
-              </div>
-              {pageCount > 1 && <nav className="rulebook-page-tabs" aria-label="Chapter pages">{Array.from({ length: pageCount }, (_, index) => <button data-sound="select-small" key={index} aria-current={index === page ? 'page' : undefined} onClick={() => { setPage(index); resetPosition(); }}>{isPawnInfo ? pawnInfoTabs[index] : index === rulePages.length && topic.table ? 'Quick reference' : rulePages.length > 1 ? `Rules ${index + 1}` : 'The rules'}</button>)}</nav>}
-              <div key={`${topic.id}-${page}`} className="rulebook-page">
-                {isPawnInfo && page === 0 ? <section className="rulebook-pawn-fields" aria-label="Information on a Pawn card">
-                  <p className="rulebook-page-intro">Every Pawn card shows the information below. Read these fields together to understand how the Pawn enters play, what effects can interact with it, and how it performs in combat.</p>
-                  <div>{pawnCardFields.map(([label, description], index) => <article key={label}><span>{String(index + 1).padStart(2, '0')}</span><h2>{label}</h2><p>{description}</p></article>)}</div>
-                </section> : isPawnInfo && page === 1 ? <section aria-label="All Pawn types">
-                  <p className="rulebook-page-intro">A Pawn’s Type appears beneath its name as <strong>[Type/Pawn]</strong>, or <strong>[Type/Switch/Pawn]</strong> for a Switch Pawn. Types do not have inherent abilities of their own, however cards of the same type may have stronger synergies when played together.</p>
-                  <div className="rulebook-type-grid">{pawnTypes.map((type, index) => <div key={type}><span>{String(index + 1).padStart(2, '0')}</span>{type}</div>)}</div>
-                </section> : isPawnInfo && page === 2 ? <section aria-label="All Pawn attributes">
-                  <p className="rulebook-page-intro">The circular icon beside a Pawn’s Type shows its Attribute. Like Types, Attributes are classifications used by card effects.</p>
-                  <div className="rulebook-attribute-grid">{attributes.map(attribute => <article key={attribute.value} style={{ '--attribute-color': attribute.color } as React.CSSProperties}>{attribute.icon ? <i className={`fa-solid ${attribute.icon}`} aria-hidden="true" /> : <span className="rulebook-attribute-glyph" aria-hidden="true">{attribute.glyph}</span>}<div><h2>{attribute.value}</h2><p>{attribute.description}</p></div></article>)}</div>
-                </section> : isPawnInfo && page === 3 ? <section aria-label="Changing position rules">
-                  <div className="rulebook-section-kicker"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> Manual changes & Switch Summons</div>
-                  <ol className="rulebook-rule-list">{topic.rules?.map((rule, index) => <li key={rule}><span className="rulebook-rule-number">{String(index + 1).padStart(2, '0')}</span><p>{rule}</p></li>)}</ol>
-                </section> : tablePage && topic.table ? <div className="rulebook-table-wrap"><table><caption className="sr-only">{topic.title} reference</caption><thead><tr>{topic.table.headings.map(value => <th key={value} scope="col">{value}</th>)}</tr></thead><tbody>{topic.table.rows.map(row => <tr key={row[0]}>{row.map((value, index) => index === 0 ? <th key={index} scope="row">{value}</th> : <td key={index}>{value}</td>)}</tr>)}</tbody></table></div> :
-                  <ol className="rulebook-rule-list">{rulePages[page]?.map((rule, index) => <li key={rule}><span className="rulebook-rule-number">{String(page * 4 + index + 1).padStart(2, '0')}</span><p>{rule}</p></li>)}</ol>}
-                {topic.note && page === pageCount - 1 && <div className="rulebook-important"><i className="fa-solid fa-star" aria-hidden="true" /><div><strong>REMEMBER</strong><p>{topic.note}</p></div></div>}
-              </div>
-              <footer className="rulebook-pagination">
-                <button data-sound="select-small" disabled={selected === 0 && page === 0} onClick={() => turnPage(-1)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Previous</button>
-                <span>{page + 1} / {pageCount}</span>
-                {selected === topics.length - 1 && page === pageCount - 1 ? <button data-sound="select-small" onClick={() => { setSelected(null); resetPosition(); }}>All chapters <i className="fa-solid fa-grip" aria-hidden="true" /></button> : <button data-sound="select-small" onClick={() => turnPage(1)}>{page < pageCount - 1 ? 'Next page' : 'Next chapter'} <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
-              </footer>
-            </main>
-            <aside className="rulebook-example" aria-label="Card examples">
-              <span className="rulebook-eyebrow">Card Examples</span>
-              <div className="rulebook-example-tabs" role="group" aria-label="Choose a card type">{examples.map((item, index) => <button data-sound="select-small" key={item.id} aria-pressed={example === index} onClick={() => setExample(index)} style={{ '--example-color': item.color } as React.CSSProperties}>{item.label}</button>)}</div>
-              <div key={example} className="rulebook-example-stage" style={{ '--example-color': examples[example].color } as React.CSSProperties}><ExampleCard index={example} /></div>
-              <p>{examples[example].description}</p>
-            </aside>
+  const chapterButton = (item: Chapter, compact = false) => <button key={item.id} data-sound="select-small" className={compact ? 'rulebook-contents-chapter' : 'rulebook-chapter'} aria-current={chapter?.id === item.id ? 'page' : undefined} onClick={() => open(chapters.indexOf(item))}>
+    {!compact && <i className={`fa-solid ${item.icon}`} aria-hidden="true" />}
+    <span><strong>{item.title}</strong>{!compact && <small>{item.subtitle}</small>}</span>
+    {!compact && <i className="fa-solid fa-arrow-right" aria-hidden="true" />}
+  </button>;
+  return <div ref={scroller} className="rulebook entity-page">
+    <header className="rulebook-topbar entity-topbar"><PageBrand section="THE RULEBOOK" /><BackToHubButton onClick={onBack} /></header>
+    <div className="rulebook-shell">
+      {chapter === null ? <>
+        <section className="rulebook-cover">
+          <div>
+            <h1 ref={heading} tabIndex={-1}>THE <em>RULEBOOK</em></h1>
+            <p>Covers all the major rules and mechanics of standard play.<br />These are subject to change as the game receives balance updates.</p>
+            <div className="rulebook-cover-actions"><button data-sound="select-small" className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button><button className="rulebook-reference-link" onClick={() => open(chapters.length - 1)}>Quick reference <i className="fa-solid fa-book-open" aria-hidden="true" /></button></div>
           </div>
-          <nav className="rulebook-chapter-dots" aria-label="Jump to chapter">{topics.map((item, index) => <button data-sound="select-small" key={item.id} aria-label={item.title} aria-current={selected === index ? 'page' : undefined} title={item.title} onClick={() => open(index)}>{String(index + 1).padStart(2, '0')}</button>)}</nav>
-        </>}
-      </div>
+          <div className="rulebook-card-fan" aria-label="Example Pawn, Action and Condition cards">{examples.map((example, index) => <div key={example.id} className={`rulebook-fan-item rulebook-fan-${index}`}><ExampleCard id={example.id} decorative /><span style={{ color: example.color }}>{example.label}</span></div>)}</div>
+        </section>
+        <nav className="rulebook-chapters" aria-label="Rulebook chapters">
+          {chapterGroups.map((group, index) => <section key={group.title} className={`rulebook-chapter-group chapter-tone-${index}`} aria-label={group.title}>
+            <div className="rulebook-group-heading"><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><h2>{group.title}</h2><p>{group.description}</p></div></div>
+            <div>{group.chapters.map(item => chapterButton(item))}</div>
+          </section>)}
+          <section className="rulebook-quick-reference" aria-label="Reference">{chapterButton(quickReference)}</section>
+        </nav>
+      </> : <>
+        <div className="rulebook-breadcrumb"><button data-sound="select-small" onClick={() => open(null)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> All chapters</button><span>{group?.title ?? 'Reference'}</span></div>
+        <div className="rulebook-reading-grid">
+          <aside className="rulebook-contents">
+            <details ref={contents} open={typeof window !== 'undefined' && window.matchMedia?.('(min-width: 901px)').matches}><summary>Contents <i className="fa-solid fa-chevron-down" aria-hidden="true" /></summary>
+              <nav aria-label="Rulebook contents">{chapterGroups.map((group, index) => <section key={group.title} className={`chapter-tone-${index}`}><h2>{group.title}</h2>{group.chapters.map(item => <React.Fragment key={item.id}>{chapterButton(item, true)}{chapter.id === item.id && <div className="rulebook-contents-sections">{item.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</div>}</React.Fragment>)}</section>)}{chapterButton(quickReference, true)}{chapter.id === quickReference.id && <div className="rulebook-contents-sections">{chapter.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</div>}</nav>
+            </details>
+          </aside>
+          <main className="rulebook-reading" key={chapter.id}>
+            <div className="rulebook-topic-heading"><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><p>{chapter.subtitle}</p></div>
+            <nav className="rulebook-section-links" aria-label="In this chapter">{chapter.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</nav>
+            {chapter.sections.map(section => {
+              const title = <h2 id={`rule-heading-${section.id}`} tabIndex={-1} ref={(element: HTMLHeadingElement | null) => { sectionHeadings.current[section.id] = element; }}>{section.title}{section.collapsible && <i className="fa-solid fa-chevron-down" aria-hidden="true" />}</h2>;
+              return section.collapsible
+                ? <details key={section.id} className="rulebook-section rulebook-disclosure" aria-labelledby={`rule-heading-${section.id}`}><summary>{title}</summary><SectionContent section={section} /></details>
+                : <section key={section.id} className="rulebook-section" aria-labelledby={`rule-heading-${section.id}`}>{title}<SectionContent section={section} /></section>;
+            })}
+            <footer className="rulebook-pagination">
+              {selected! > 0 ? <button data-sound="select-small" onClick={() => open(selected! - 1)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Previous: {chapters[selected! - 1].title}</button> : <button onClick={() => open(null)}>All chapters</button>}
+              {selected! < chapters.length - 1 ? <button data-sound="select-small" onClick={() => open(selected! + 1)}>Next: {chapters[selected! + 1].title} <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button> : <button onClick={() => open(null)}>All chapters <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
+            </footer>
+          </main>
+        </div>
+      </>}
     </div>
-  );
+  </div>;
 };
 
 export default RulesView;

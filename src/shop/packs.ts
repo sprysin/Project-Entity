@@ -13,32 +13,32 @@ export interface Pack {
 export const PACKS: readonly Pack[] = [
   {
     id: 'master', name: 'Collector Pack', description: 'The complete collection of all cards.', icon: 'fa-diamond', color: '#edc56f', rotationWeight: 0,
-    chaseCardIds: ['pawn_future_outlander', 'pawn_everlasting_dragonlord', 'pawn_patron_of_judgement'],
+    chaseCardIds: ['P_Future_Outlander', 'P_Everlasting_Dragonlord', 'P_Patron_Of_Judgement'],
     cardIds: [
-      'pawn_01', 'pawn_02', 'pawn_03', 'pawn_04', 'pawn_05', 'pawn_06', 'pawn_07', 'pawn_08',
-      'pawn_09', 'pawn_10', 'pawn_11', 'pawn_12', 'pawn_13', 'pawn_14', 'pawn_15', 'pawn_16',
-      'pawn_blazing_pyrotechnic', 'pawn_cockroach_knight', 'pawn_engine_interloper', 'pawn_everlasting_dragonlord',
-      'pawn_force_fire_sparkling_commander', 'pawn_future_outlander', 'pawn_gilded_glass_paladin',
-      'pawn_gluttonous_tyrano', 'pawn_goddess_of_fortune', 'pawn_infantry_soldier', 'pawn_patron_of_judgement',
-      'pawn_soldier_of_the_high_ground', 'pawn_steadfast_hummingbird', 'pawn_the_humble_bubble_paladin', 'pawn_treacherous_ivy',
-      'action_01', 'action_02', 'action_03', 'action_04', 'action_05', 'action_06', 'action_07',
-      'action_call_to_arms', 'action_flaming_phenix_rebirth', 'action_law_of_the_normal', 'action_shrouded_kingdom', 'action_scripture_of_faith', 'action_withering_sword',
-      'condition_01', 'condition_02', 'condition_03', 'condition_04', 'condition_05', 'condition_06',
-      'condition_07', 'condition_08', 'condition_09', 'condition_last_resort',
+      'P_Solstice_Sentinel', 'P_High_King', 'P_Force_Fire_Sparker', 'P_Void_Caster', 'P_High_Voltage_Charged_Dragon', 'P_Dual_Mode_Beast', 'P_Big_Bear_Beast_King', 'P_Quickstrike_Serpent',
+      'P_Lingering_Lamb', 'P_Glitter_Guard_Beatle', 'P_Glass_Witch', 'P_Curse_Giving_Ghost', 'P_Glitter_Grub', 'P_Zombie_Necromancer', 'P_Turnados_The_Wind_Construct', 'P_Split_Golem',
+      'P_Blazing_Pyrotechnic', 'P_Cockroach_Knight', 'P_Engine_Interloper', 'P_Everlasting_Dragonlord',
+      'P_Force_Fire_Sparkling_Commander', 'P_Future_Outlander', 'P_Gilded_Glass_Paladin',
+      'P_Gluttonous_Tyrano', 'P_Goddess_Of_Fortune', 'P_Infantry_Soldier', 'P_Patron_Of_Judgement',
+      'P_Soldier_Of_The_High_Ground', 'P_Steadfast_Hummingbird', 'P_The_Humble_Bubble_Paladin', 'P_Treacherous_Ivy',
+      'A_Void_Blast', 'A_Quick_Recovery', 'A_Mark_Of_The_Forest_Hunter', 'A_Mechanical_Maintenance', 'A_Sacrificial_Lamb', 'A_Tribute_Tribunal', 'A_Thunder_Strike',
+      'A_Call_To_Arms', 'A_Flaming_Phenix_Rebirth', 'A_Law_Of_The_Normal', 'A_Shrouded_Kingdom', 'A_Scripture_Of_Faith', 'A_Withering_Sword',
+      'C_Reinforcement', 'C_Void_Call', 'C_Dark_Draw', 'C_Call_From_The_Depths', 'C_Escape_Plan', 'C_Orcustrated_Frontline_Unit',
+      'C_Conflicted_Mind_Madness', 'C_Unified_Soul_Link', 'C_Containment_Zone', 'C_Last_Resort',
     ]
   },
   {
     id: 'fire', name: 'Flames of War', description: 'Burn through the opposition with an army to command.', icon: 'fa-fire', color: '#ff8652', rotationWeight: 3,
-    chaseCardIds: ['pawn_gilded_glass_paladin', 'pawn_force_fire_sparkling_commander', 'pawn_engine_interloper'],
-    cardIds: ['pawn_infantry_soldier', 'pawn_soldier_of_the_high_ground', 'pawn_03', 'pawn_force_fire_sparkling_commander',
-      'pawn_blazing_pyrotechnic', 'pawn_engine_interloper', 'pawn_gilded_glass_paladin', 'pawn_02',
-      'action_call_to_arms', 'action_flaming_phenix_rebirth', 'action_withering_sword', 'condition_01', 'condition_06', 'condition_last_resort']
+    chaseCardIds: ['P_Gilded_Glass_Paladin', 'P_Force_Fire_Sparkling_Commander', 'P_Engine_Interloper'],
+    cardIds: ['P_Infantry_Soldier', 'P_Soldier_Of_The_High_Ground', 'P_Force_Fire_Sparker', 'P_Force_Fire_Sparkling_Commander',
+      'P_Blazing_Pyrotechnic', 'P_Engine_Interloper', 'P_Gilded_Glass_Paladin', 'P_High_King',
+      'A_Call_To_Arms', 'A_Flaming_Phenix_Rebirth', 'A_Withering_Sword', 'C_Reinforcement', 'C_Orcustrated_Frontline_Unit', 'C_Last_Resort']
   },
   {
     id: 'grave', name: 'Graveyard Overgrowth', description: 'Spores of flesh and bone, rise again!', icon: 'fa-seedling', color: '#88dca2', rotationWeight: 1,
-    chaseCardIds: ['pawn_14', 'pawn_09', 'pawn_treacherous_ivy'],
-    cardIds: ['pawn_12', 'pawn_14', 'pawn_treacherous_ivy', 'pawn_09', 'pawn_13', 'pawn_10',
-      'action_03', 'action_05', 'action_02', 'action_withering_sword', 'condition_03', 'condition_04', 'condition_08']
+    chaseCardIds: ['P_Zombie_Necromancer', 'P_Lingering_Lamb', 'P_Treacherous_Ivy'],
+    cardIds: ['P_Curse_Giving_Ghost', 'P_Zombie_Necromancer', 'P_Treacherous_Ivy', 'P_Lingering_Lamb', 'P_Glitter_Grub', 'P_Glitter_Guard_Beatle',
+      'A_Mark_Of_The_Forest_Hunter', 'A_Sacrificial_Lamb', 'A_Quick_Recovery', 'A_Withering_Sword', 'C_Dark_Draw', 'C_Call_From_The_Depths', 'C_Unified_Soul_Link']
   },
 ];
 
@@ -46,7 +46,7 @@ export const PACKS: readonly Pack[] = [
 export const DEBUG_PACK: Pack = {
   id: 'debug', name: 'Debug pulls', description: 'One fixed card of each rarity.',
   icon: 'fa-diamond', color: '#30F0DD', rotationWeight: 0,
-  chaseCardIds: ['pawn_14', 'pawn_future_outlander', 'pawn_everlasting_dragonlord'],
-  cardIds: ['pawn_infantry_soldier', 'pawn_02', 'pawn_08', 'pawn_14', 'pawn_05',
-    'pawn_future_outlander', 'pawn_everlasting_dragonlord'],
+  chaseCardIds: ['P_Zombie_Necromancer', 'P_Future_Outlander', 'P_Everlasting_Dragonlord'],
+  cardIds: ['P_Infantry_Soldier', 'P_High_King', 'P_Quickstrike_Serpent', 'P_Zombie_Necromancer', 'P_High_Voltage_Charged_Dragon',
+    'P_Future_Outlander', 'P_Everlasting_Dragonlord'],
 };

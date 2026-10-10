@@ -6,7 +6,7 @@ import { opposingPawnInColumn } from '../../../game/cardHelpers';
 
 export default [{
     cardData: {
-        id: 'pawn_blazing_pyrotechnic', name: 'Blazing Pyrotechnic', type: CardType.PAWN,
+        id: 'P_Blazing_Pyrotechnic', name: 'Blazing Pyrotechnic', type: CardType.PAWN,
         attribute: Attribute.FIRE, pawnType: PawnType.MECHANICAL, level: 4, atk: 120, def: 100, rarity: 'Common',
         effectText: "ON FIELD: if your opponent has a Pawn in the column across from this card, you can change it's attribute to FIRE."
     },

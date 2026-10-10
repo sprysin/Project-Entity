@@ -10,8 +10,8 @@ let serial = 0;
 const card = (id: string, player = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `engine-${serial++}`, ownerId: `player${player + 1}` });
 const placed = (value: Card) => ({ card: value, position: Position.ATTACK, hasAttacked: false, hasChangedPosition: false, summonedTurn: 1, isSetTurn: false });
 const game = (): GameState => createGame([
-    { id: 'player1', name: 'Player 1', deck: Array.from({ length: 12 }, () => card('pawn_01')) },
-    { id: 'player2', name: 'Player 2', deck: Array.from({ length: 12 }, () => card('pawn_01', 1)) },
+    { id: 'player1', name: 'Player 1', deck: Array.from({ length: 12 }, () => card('P_Solstice_Sentinel')) },
+    { id: 'player2', name: 'Player 2', deck: Array.from({ length: 12 }, () => card('P_Solstice_Sentinel', 1)) },
 ]);
 function freeze<T>(value: T): T {
     if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -90,11 +90,11 @@ it('rejects wrong actors, nonexistent cards, duplicate tributes, and occupied de
     const state = game();
     state.currentPhase = Phase.MAIN1;
     state.turnNumber = 3;
-    const king = card('pawn_02');
+    const king = card('P_High_King');
     king.level = 8;
     state.players[0].hand = [king];
-    state.players[0].pawnZones[0] = placed(card('pawn_01'));
-    state.players[0].pawnZones[1] = placed(card('pawn_01'));
+    state.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel'));
+    state.players[0].pawnZones[1] = placed(card('P_Solstice_Sentinel'));
     freeze(state);
     expect(command(state, { type: 'summon', cardId: king.instanceId, hidden: false, slot: 0, tributes: [0, 1] }, 1)).toBe(state);
     expect(command(state, { type: 'summon', cardId: 'missing', hidden: false, slot: 2 })).toBe(state);
@@ -122,11 +122,11 @@ it('rechecks an attack target after responses and never hits a replacement in it
     const state = game();
     state.currentPhase = Phase.BATTLE;
     state.turnNumber = 3;
-    state.players[0].pawnZones[0] = placed(card('pawn_01'));
-    state.players[1].pawnZones[0] = placed(card('pawn_04', 1));
+    state.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel'));
+    state.players[1].pawnZones[0] = placed(card('P_Void_Caster', 1));
     const announced = command(state, { type: 'attack', attackerIndex: 0, targetIndex: 0 });
     announced.players = structuredClone(announced.players);
-    announced.players[1].pawnZones[0] = placed(card('pawn_01', 1));
+    announced.players[1].pawnZones[0] = placed(card('P_Solstice_Sentinel', 1));
     const result = applySystemCommand(freeze(announced), { type: 'completeDeferred' });
     expect(result.state.players[1].lp).toBe(800);
     expect(result.state.players[1].pawnZones[0]).toEqual(announced.players[1].pawnZones[0]);

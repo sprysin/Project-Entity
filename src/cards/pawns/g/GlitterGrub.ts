@@ -6,17 +6,17 @@ import { Effect } from '../../engine/Effects';
 import { Condition } from '../../engine/Requirements';
 
 const effect: IEffect = {
-    canActivate: Condition.HardOncePerTurn('pawn_13'),
+    canActivate: Condition.HardOncePerTurn('P_Glitter_Grub'),
     onSwitch: buildEffect([
         Cost.DiscardCardFilter(card => card.type === CardType.PAWN && card.attribute === Attribute.LIGHT),
-        Effect.SetHardOncePerTurn('pawn_13'),
+        Effect.SetHardOncePerTurn('P_Glitter_Grub'),
         Effect.DrawCards(1)
     ])
 };
 
 export default [
 { cardData: {
-    id: 'pawn_13',
+    id: 'P_Glitter_Grub',
     name: 'Glitter Grub',
     type: CardType.PAWN,
     rarity: 'Common',

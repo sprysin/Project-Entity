@@ -47,7 +47,7 @@ export const PileViewModal: React.FC<{
                 {cards.length === 0 && <p className="col-span-2 py-8 text-center text-sm text-slate-400">This pile is empty.</p>}
                 {[...cards].reverse().map(card => (
                     <button data-sound="select-small" type="button" key={card.instanceId} aria-label={`View ${card.name}`} onClick={() => onSelectCard(card)} className="text-left">
-                        <CardDetail card={card} compact className="pointer-events-none" />
+                        <CardDetail card={card} className="pointer-events-none" />
                     </button>
                 ))}
             </div>
@@ -132,7 +132,7 @@ export const DeckViewModal: React.FC<{
                                         onClick={() => setSelectedCard(card)}
                                         className={`deck-view-card ${isSelected ? 'is-selected' : ''}`}
                                     >
-                                        <CardDetail card={card} compact className="pointer-events-none h-full w-full" />
+                                        <CardDetail card={card} className="pointer-events-none h-full w-full" />
                                     </button>
                                 );
                             })}

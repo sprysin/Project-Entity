@@ -60,9 +60,9 @@ const state = (): GameState => ({
 });
 const attackGame = state();
 attackGame.currentPhase = Phase.BATTLE;
-const attacker = card('pawn_01');
-const escape = card('condition_05', 1);
-const discarded = card('pawn_03', 1);
+const attacker = card('P_Solstice_Sentinel');
+const escape = card('C_Escape_Plan', 1);
+const discarded = card('P_Force_Fire_Sparker', 1);
 attackGame.players[0].pawnZones[0] = placed(attacker);
 attackGame.players[1].actionZones[0] = placed(escape, Position.HIDDEN);
 attackGame.players[1].hand = [discarded];
@@ -76,13 +76,13 @@ expect(negated.players[1].discard.some(value => value.instanceId === discarded.i
 expect(applySystemCommand(negated, { type: 'completeDeferred' }).state.players[1].lp).toBe(800);
 
 // The same behavior must work under an unrelated ID with no engine edits.
-cardRegistry.register({ ...cardRegistry.getCard('condition_06')!, id: 'test-summon-observer' }, cardRegistry.getEffect('condition_06')!);
-for (const sourceId of ['condition_06', 'test-summon-observer']) {
+cardRegistry.register({ ...cardRegistry.getCard('C_Orcustrated_Frontline_Unit')!, id: 'test-summon-observer' }, cardRegistry.getEffect('C_Orcustrated_Frontline_Unit')!);
+for (const sourceId of ['C_Orcustrated_Frontline_Unit', 'test-summon-observer']) {
     const tributeGame = state();
     const handSummon = card(sourceId, 1);
-    const light = card('pawn_01', 1);
-    const king = card('pawn_02');
-    tributeGame.players[0].pawnZones[0] = placed(card('pawn_03'));
+    const light = card('P_Solstice_Sentinel', 1);
+    const king = card('P_High_King');
+    tributeGame.players[0].pawnZones[0] = placed(card('P_Force_Fire_Sparker'));
     tributeGame.players[0].hand = [king];
     tributeGame.players[1].actionZones[0] = placed(handSummon);
     tributeGame.players[1].hand = [light];
@@ -93,7 +93,7 @@ for (const sourceId of ['condition_06', 'test-summon-observer']) {
     expect(special.players[1].pawnZones[0]).toBeNull();
     expect(special.players[1].pawnZones[3]?.card.instanceId).toBe(light.instanceId);
     expect(special.players[1].pawnZones[3]?.position).toBe(Position.DEFENSE);
-    const invalid = card('pawn_03', 1);
+    const invalid = card('P_Force_Fire_Sparker', 1);
     summoned.players[1].hand.push(invalid);
     expect(applyCommand(summoned, 1, { type: 'confirmHandSummon', sourceId: handSummon.instanceId, cardId: invalid.instanceId, slot: 3, position: Position.DEFENSE }).state).toBe(summoned);
     const hiddenSource = structuredClone(summoned);
@@ -107,9 +107,9 @@ for (const sourceId of ['condition_06', 'test-summon-observer']) {
 }
 
 it('counter cards track damage, phase timing, separate soft uses and interrupted activations', () => {
-    const commander = card('pawn_force_fire_sparkling_commander');
-    const madness = card('condition_07');
-    const target = card('action_06', 1);
+    const commander = card('P_Force_Fire_Sparkling_Commander');
+    const madness = card('C_Conflicted_Mind_Madness');
+    const target = card('A_Tribute_Tribunal', 1);
     let duel = state();
     duel.players[0].pawnZones[0] = placed(commander);
     duel.players[0].actionZones[0] = { ...placed(madness, Position.FACE_UP), attachedToInstanceIds: [target.instanceId] };
@@ -143,17 +143,17 @@ it('counter cards track damage, phase timing, separate soft uses and interrupted
     }
     const counterCount = (zone: GameState['players'][number]['actionZones'][number]) => zone?.counters?.['Tribute Counters'] ?? 0;
     let game = state();
-    const tribunal = card('action_06');
-    const second = card('action_06');
-    const low = { ...card('pawn_01'), level: 4 as const };
-    const one = { ...card('pawn_01'), level: 5 as const };
-    const two = { ...card('pawn_01'), level: 8 as const };
+    const tribunal = card('A_Tribute_Tribunal');
+    const second = card('A_Tribute_Tribunal');
+    const low = { ...card('P_Solstice_Sentinel'), level: 4 as const };
+    const one = { ...card('P_Solstice_Sentinel'), level: 5 as const };
+    const two = { ...card('P_Solstice_Sentinel'), level: 8 as const };
     game.players[0].actionZones[0] = placed(tribunal, Position.FACE_UP);
     game.players[0].actionZones[1] = placed(second, Position.FACE_UP);
     expect(fieldActivations(game, 0)).toEqual([]);
     expect(runEffect(game, { card: tribunal, playerIndex: 0 }, 'field_activate').halted).toBe(true);
     game.players[0].hand = [low, one, two];
-    game.players[0].pawnZones[0] = placed(card('pawn_01'));
+    game.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel'));
     expect(runEffect(game, { card: tribunal, playerIndex: 0 }, 'field_activate').requireEffectChoice)
         .toMatchObject([{ id: 'tribute', disabled: false }, { id: 'summon', disabled: true }]);
     const tribute = effectChoices(game, tribunal, 'field_activate')[0];
@@ -241,7 +241,7 @@ it('counter cards track damage, phase timing, separate soft uses and interrupted
 });
 
 it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, and resolve Patron damage', () => {
-    const contractId = 'action_scripture_of_faith', patronId = 'pawn_patron_of_judgement';
+    const contractId = 'A_Scripture_Of_Faith', patronId = 'P_Patron_Of_Judgement';
     // An unrelated Contract can use the same engine mechanic without shared-code branches.
     cardRegistry.register({ ...cardRegistry.getCard(contractId)!, id: 'test-alternate-contract' }, cardRegistry.getEffect(contractId)!);
     for (const owner of [0, 1]) for (const location of ['hand', 'field', 'mixed', 'full'] as const) {
@@ -252,14 +252,14 @@ it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, 
         const patron = card(patronId, owner);
         player.reserve = [patron];
         player.actionZones[0] = placed(contract, Position.FACE_UP);
-        const materials = [card('pawn_01', owner), card('pawn_02', owner)];
+        const materials = [card('P_Solstice_Sentinel', owner), card('P_High_King', owner)];
         materials[0].level = 4; materials[1].level = 6;
         if (location === 'hand') player.hand = materials;
         else if (location === 'field') player.pawnZones[0] = placed(materials[0]), player.pawnZones[1] = placed(materials[1]);
         else {
             player.hand = [materials[0]];
             player.pawnZones[2] = placed(materials[1]);
-            if (location === 'full') for (const index of [0, 1, 3, 4]) player.pawnZones[index] = placed(card('pawn_01', owner));
+            if (location === 'full') for (const index of [0, 1, 3, 4]) player.pawnZones[index] = placed(card('P_Solstice_Sentinel', owner));
         }
         const context = effectChoices(duel, contract, 'activate').find(value => value.materialIds?.length === 2
             && materials.every(material => value.materialIds!.includes(material.instanceId)) && value.pawnPlacement?.slot === (location === 'full' ? 2 : 4))!;
@@ -290,7 +290,7 @@ it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, 
     }
     let duel = state();
     const contract = card(contractId), patron = card(patronId);
-    const level10 = card('pawn_05');
+    const level10 = card('P_High_Voltage_Charged_Dragon');
     duel.players[0].reserve = [patron]; duel.players[0].hand = [contract, level10];
     const ai = chooseAIAction(observeGame(duel, 0), 0);
     expect(ai.kind).toBe('effect');
@@ -303,7 +303,7 @@ it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, 
     for (const targetOwner of [0, 1]) for (const bonus of [0, 40, 900]) {
         duel = state();
         duel.players[0].pawnZones[0] = placed(patron);
-        const target = card('pawn_01', targetOwner); target.atk += bonus;
+        const target = card('P_Solstice_Sentinel', targetOwner); target.atk += bonus;
         duel.players[targetOwner].pawnZones[1] = placed(target);
         const choices = effectChoices(duel, patron, 'activate');
         if (!bonus) { expect(choices).toEqual([]); continue; }
@@ -320,8 +320,8 @@ it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, 
         expect(resolveChain(reverted).players[targetOwner].pawnZones[1]).not.toBeNull();
         expect(resolveChain(reverted).players[0].lp).toBe(800);
     }
-    const created = createGame([{ id: 'player1', name: 'One', deck: Array.from({ length: 8 }, () => card('pawn_01')), reserve: [patron] },
-        { id: 'player2', name: 'Two', deck: Array.from({ length: 8 }, () => card('pawn_01', 1)) }]);
+    const created = createGame([{ id: 'player1', name: 'One', deck: Array.from({ length: 8 }, () => card('P_Solstice_Sentinel')), reserve: [patron] },
+        { id: 'player2', name: 'Two', deck: Array.from({ length: 8 }, () => card('P_Solstice_Sentinel', 1)) }]);
     expect(created.players[0].hand).toHaveLength(5);
     expect(created.players[0].deck).toHaveLength(3);
     expect(created.players[0].reserve).toEqual([patron]);
@@ -329,9 +329,9 @@ it('Contracts tribute exact levels from hand and field, summon Reserve Vassals, 
 
 it('Glass Witch destroys itself and privately reveals the opponent-selected hand card', () => {
     const game = state();
-    const witch = card('pawn_11');
-    const shown = card('action_01', 1);
-    const hidden = card('pawn_05', 1);
+    const witch = card('P_Glass_Witch');
+    const shown = card('A_Void_Blast', 1);
+    const hidden = card('P_High_Voltage_Charged_Dragon', 1);
     game.players[0].pawnZones[0] = placed(witch);
     game.players[1].hand = [hidden, shown];
 
@@ -349,23 +349,23 @@ it('Glass Witch destroys itself and privately reveals the opponent-selected hand
     });
     expect(resolved.log.some(entry => entry.includes('reveals "Void Blast"'))).toBe(true);
     expect(resolved.log.some(entry => entry.includes('destroys "Glass Witch"'))).toBe(true);
-    expect(resolved.players[0].activatedHardOncePerTurns).toContain('pawn_11');
+    expect(resolved.players[0].activatedHardOncePerTurns).toContain('P_Glass_Witch');
     const timing = state();
-    timing.players[1].pawnZones[0] = placed(card('pawn_11', 1));
-    timing.players[0].hand = [card('pawn_01')];
+    timing.players[1].pawnZones[0] = placed(card('P_Glass_Witch', 1));
+    timing.players[0].hand = [card('P_Solstice_Sentinel')];
     expect(effectChoices(timing, timing.players[1].pawnZones[0]!.card, 'activate')).toHaveLength(1);
     timing.currentPhase = Phase.BATTLE;
     expect(effectChoices(timing, timing.players[1].pawnZones[0]!.card, 'activate')).toHaveLength(0);
     timing.currentPhase = Phase.MAIN2;
-    timing.players[1].activatedHardOncePerTurns.push('pawn_11');
+    timing.players[1].activatedHardOncePerTurns.push('P_Glass_Witch');
     expect(effectChoices(timing, timing.players[1].pawnZones[0]!.card, 'activate')).toHaveLength(0);
 });
 
 it('battle reactions and controlled cards respect identity and ownership', () => {
     let game = state();
-    const ghost = card('pawn_12');
-    const necromancer = card('pawn_14');
-    const enemy = card('pawn_02', 1);
+    const ghost = card('P_Curse_Giving_Ghost');
+    const necromancer = card('P_Zombie_Necromancer');
+    const enemy = card('P_High_King', 1);
     game.players[0].pawnZones[0] = placed(ghost, Position.HIDDEN);
     game.players[0].pawnZones[1] = placed(necromancer);
     game.players[1].pawnZones[0] = placed(enemy);
@@ -389,21 +389,21 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
     expect(game.players[0].pawnZones[1]?.card.atk).toBe(145);
 
     // Cost-triggered effects cannot change the ongoing battle, even for a quick effect.
-    cardRegistry.register({ ...cardRegistry.getCard('pawn_01')!, id: 'test_quick_discard', name: 'Quick discard' }, {
+    cardRegistry.register({ ...cardRegistry.getCard('P_Solstice_Sentinel')!, id: 'test_quick_discard', name: 'Quick discard' }, {
         timing: 'quick', onActivate: buildEffect([Cost.DiscardCardFilter(), Effect.DrawCards(1)])
     });
     for (const timing of ['battle-switch', 'attack-response', 'main-switch'] as const) {
         game = state();
-        const defender = card('pawn_13', 1);
-        const guard = card('pawn_10', 1);
+        const defender = card('P_Glitter_Grub', 1);
+        const guard = card('P_Glitter_Guard_Beatle', 1);
         const survivor = card('test_quick_discard', 1);
-        const attacker = card('pawn_14');
+        const attacker = card('P_Zombie_Necromancer');
         game.currentPhase = timing === 'main-switch' ? Phase.MAIN1 : Phase.BATTLE;
         game.players[0].pawnZones[0] = placed(attacker);
         game.players[1].pawnZones[0] = placed(defender, Position.HIDDEN);
         game.players[1].pawnZones[1] = placed(survivor);
         game.players[1].hand = [guard];
-        game.players[1].deck = [card('pawn_02', 1)];
+        game.players[1].deck = [card('P_High_King', 1)];
         if (timing === 'battle-switch') game = resolveCombat(game, 0, 0);
         else if (timing === 'main-switch') {
             game.players[1].pawnZones[0]!.position = Position.DEFENSE;
@@ -439,8 +439,8 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
 
     game = state();
     game.currentPhase = Phase.BATTLE;
-    const stolen = card('pawn_01', 1);
-    const attacker = card('pawn_14');
+    const stolen = card('P_Solstice_Sentinel', 1);
+    const attacker = card('P_Zombie_Necromancer');
     game.players[0].pawnZones[0] = placed(attacker);
     game.players[1].pawnZones[0] = placed(stolen, Position.DEFENSE);
     game.response = { priority: 1, passes: 2, reason: 'battle', ready: true };
@@ -465,8 +465,8 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
     game = state();
     game.currentPhase = Phase.BATTLE;
     // Battle departures share the optional reaction and selection path with Switch effects.
-    cardRegistry.register({ ...cardRegistry.getCard('pawn_cockroach_knight')!, id: 'test_battle_recruiter' },
-        cardRegistry.getEffect('pawn_cockroach_knight')!);
+    cardRegistry.register({ ...cardRegistry.getCard('P_Cockroach_Knight')!, id: 'test_battle_recruiter' },
+        cardRegistry.getEffect('P_Cockroach_Knight')!);
     for (const sourceId of ['test_battle_recruiter']) {
         for (const battleMode of ['defending', 'hidden', 'attacking', 'tie', 'borrowed'] as const) {
             const duel = state();
@@ -474,15 +474,15 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
             const owner = battleMode === 'attacking' || battleMode === 'tie' ? 0 : 1;
             const controller = battleMode === 'borrowed' ? 0 : owner;
             const knight = card(sourceId, owner);
-            const recruit = { ...card('pawn_01', owner), attribute: Attribute.EARTH, atk: 100 };
-            const weak = { ...card('pawn_01', owner), attribute: Attribute.EARTH, atk: 0 };
+            const recruit = { ...card('P_Solstice_Sentinel', owner), attribute: Attribute.EARTH, atk: 100 };
+            const weak = { ...card('P_Solstice_Sentinel', owner), attribute: Attribute.EARTH, atk: 0 };
             const wrongAttribute = { ...recruit, instanceId: 'wrong-attribute', attribute: Attribute.FIRE };
             const tooStrong = { ...recruit, instanceId: 'too-strong', atk: 101 };
             const action = { ...recruit, instanceId: 'wrong-type', type: CardType.ACTION };
             duel.players[owner].deck = [wrongAttribute, tooStrong, action, recruit, weak];
             duel.players[controller].pawnZones[0] = placed(knight, battleMode === 'hidden' ? Position.HIDDEN : Position.ATTACK);
             duel.players[1 - controller].pawnZones[0] = placed({
-                ...card('pawn_01', 1 - controller), atk: battleMode === 'tie' ? 100 : 150
+                ...card('P_Solstice_Sentinel', 1 - controller), atk: battleMode === 'tie' ? 100 : 150
             });
             duel.activePlayerIndex = battleMode === 'borrowed' ? 1 : 0;
             const destroyed = resolveCombat(duel, 0, 0);
@@ -527,38 +527,38 @@ it('battle reactions and controlled cards respect identity and ownership', () =>
         }
     }
     const nonBattle = state();
-    const knight = card('pawn_cockroach_knight');
+    const knight = card('P_Cockroach_Knight');
     nonBattle.players[0].pawnZones[0] = placed(knight);
     Effect.DestroyTarget()(nonBattle, { card: knight, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } });
     expect(nonBattle.pendingReactions).toBeUndefined();
     // A second card can supply a continuous ATK/DEF rule without shared-code changes.
-    cardRegistry.register({ ...cardRegistry.getCard('pawn_01')!, id: 'test_field_stat_modifier', name: 'Test Field Modifier' }, {
+    cardRegistry.register({ ...cardRegistry.getCard('P_Solstice_Sentinel')!, id: 'test_field_stat_modifier', name: 'Test Field Modifier' }, {
         fieldStatModifier: current => ({ atk: current.players[0].pawnZones[1] ? 70 : 0, def: 25 })
     });
     game = state();
     const adaptive = placed(card('test_field_stat_modifier'));
     game.players[0].pawnZones[0] = adaptive;
     expect(fieldStats(game, adaptive)).toEqual({ atk: adaptive.card.atk, def: adaptive.card.def + 25 });
-    game.players[0].pawnZones[1] = placed(card('pawn_01'));
+    game.players[0].pawnZones[1] = placed(card('P_Solstice_Sentinel'));
     expect(fieldStats(game, adaptive)).toEqual({ atk: adaptive.card.atk + 70, def: adaptive.card.def + 25 });
     game.currentPhase = Phase.BATTLE;
-    game.players[1].pawnZones[0] = placed(card('pawn_01', 1));
+    game.players[1].pawnZones[0] = placed(card('P_Solstice_Sentinel', 1));
     expect(resolveCombat(game, 0, 0).players[1].lp).toBe(730);
 });
 
 
 it('shares a face-up Land stack, suspends covered effects, and preserves identity and Once usage', () => {
-    const law = card('action_law_of_the_normal');
-    const cover = card('action_shrouded_kingdom', 1);
+    const law = card('A_Law_Of_The_Normal');
+    const cover = card('A_Shrouded_Kingdom', 1);
     let game = state();
-    const normal = card('pawn_01'); normal.attribute = Attribute.NORMAL;
+    const normal = card('P_Solstice_Sentinel'); normal.attribute = Attribute.NORMAL;
     game.players[0].pawnZones[0] = placed(normal);
     const other = { ...normal, instanceId: 'opposing-normal', ownerId: 'player2' };
     game.players[1].pawnZones[0] = placed(other);
     game.players[0].pawnZones[1] = placed({ ...normal, instanceId: 'fire', attribute: Attribute.FIRE });
     game.players[0].pawnZones[2] = placed({ ...normal, instanceId: 'hidden' }, Position.HIDDEN);
     game.players[0].hand = [law];
-    game.players[0].actionZones = Array.from({ length: 5 }, () => placed(card('action_01'), Position.FACE_UP));
+    game.players[0].actionZones = Array.from({ length: 5 }, () => placed(card('A_Void_Blast'), Position.FACE_UP));
     expect(canPlayCard(game, law)).toBe(true);
     expect(applyCommand(game, 0, { type: 'play', cardId: law.instanceId, set: true, slot: 0 }).state).toBe(game);
     game = applyCommand(game, 0, { type: 'play', cardId: law.instanceId, set: false, slot: -1 }).state;
@@ -618,13 +618,13 @@ it('shares a face-up Land stack, suspends covered effects, and preserves identit
     for (const actor of [0, 1]) {
         let kingdom = structuredClone(game);
         kingdom.activePlayerIndex = actor;
-        const dark = (owner: number) => ({ ...card('pawn_01', owner), attribute: Attribute.DARK });
+        const dark = (owner: number) => ({ ...card('P_Solstice_Sentinel', owner), attribute: Attribute.DARK });
         const summon = dark(actor);
         const materials = [dark(actor), dark(actor)];
-        kingdom.players[actor].hand = [summon, card('pawn_01', actor)];
+        kingdom.players[actor].hand = [summon, card('P_Solstice_Sentinel', actor)];
         kingdom.players[actor].discard = [materials[0]];
         expect(effectChoices(kingdom, cover, 'field_activate')).toEqual([]);
-        kingdom.players[actor].discard.push(materials[1], card('pawn_01', actor));
+        kingdom.players[actor].discard.push(materials[1], card('P_Solstice_Sentinel', actor));
         for (const owner of [0, 1]) kingdom.players[owner].pawnZones[0]!.card.attribute = Attribute.DARK;
         for (const owner of [0, 1]) expect(fieldStats(kingdom, kingdom.players[owner].pawnZones[0]!).def).toBe(normal.def + 20);
         const choices = effectChoices(kingdom, cover, 'field_activate');
@@ -672,7 +672,7 @@ it('shares a face-up Land stack, suspends covered effects, and preserves identit
     expect(canPlayCard(game, { ...duplicate, id: 'alternate-printing' })).toBe(false);
     destroyFieldCard(game, law.instanceId);
     expect(game.landStack).toHaveLength(2);
-    const remover = card('action_01', 1);
+    const remover = card('A_Void_Blast', 1);
     const removal = buildEffect([Require.Target('action'), Effect.DestroyTarget()]);
     const target = { playerIndex: 1, type: 'land' as const, index: 0 };
     const removed = removal(game, { card: remover, playerIndex: 1, target }).newState;

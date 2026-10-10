@@ -41,4 +41,4 @@ Searches compare legal follow-up summons and their combat value, and account for
 
 Attach Actions retain Action timing (the controller’s Main Phases); Attach Conditions retain Condition timing (set on an earlier turn, eligible to respond). Remaining face-up does not repeat an attachment’s initial activation. `Effect.AttachToTarget()` records the target instance ID only during successful resolution, after choices and costs. AI previews may evaluate an Attach Action in hand before choosing a zone. The source must still be on the field when it attaches. Invalidated targets cause the Attach card to be discarded without linking to a replacement.
 
-Reinforcement (`condition_01`) is an Attach Condition. Attachment tracking alone does not reverse permanent stat changes or remove the source when its target leaves; the hover link is hidden when the target is absent.
+Reinforcement (`C_Reinforcement`) is an Attach Condition. Attachment tracking alone does not reverse permanent stat changes or remove the source when its target leaves; the hover link is hidden when the target is absent.

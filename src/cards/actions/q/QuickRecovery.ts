@@ -20,7 +20,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'action_02',
+            id: 'A_Quick_Recovery',
             name: 'Quick recovery',
             type: CardType.ACTION,
             rarity: 'Rare',

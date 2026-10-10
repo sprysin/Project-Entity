@@ -37,7 +37,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'condition_07', name: 'Conflicted Mind Madness', type: CardType.CONDITION, rarity: 'Rare',
+    id: 'C_Conflicted_Mind_Madness', name: 'Conflicted Mind Madness', type: CardType.CONDITION, rarity: 'Rare',
     isAttached: true, level: 0, atk: 0, def: 0,
     effectText: 'Target 1 face-up Action/Condition, during each Standby Phase deal 10 damage to the owner of the target. If the target activates an additional effect Void 1 card from the owners Discard pile.'
 }, effect }

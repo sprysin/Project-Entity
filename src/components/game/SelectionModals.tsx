@@ -106,16 +106,6 @@ export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
     selectedIndices, requiredCount, onConfirmMulti, searchLabel = 'Card selection', confirmDisabled: forcedDisabled, cardLabels
 }) => {
     const [peeking, setPeeking] = useState(false);
-    useEffect(() => {
-        if (!peeking) return;
-        const returnToPrompt = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            setPeeking(false);
-        };
-        window.addEventListener('keydown', returnToPrompt);
-        return () => window.removeEventListener('keydown', returnToPrompt);
-    }, [peeking]);
     const choices = cards
         .map((card, index) => ({ card, index, valid: filter?.(card) ?? true }))
         .sort((a, b) => Number(b.valid) - Number(a.valid));

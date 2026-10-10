@@ -15,7 +15,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'pawn_02',
+            id: 'P_High_King',
             name: 'High King',
             type: CardType.PAWN,
             rarity: 'Uncommon',

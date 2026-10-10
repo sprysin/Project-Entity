@@ -19,7 +19,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'condition_06',
+    id: 'C_Orcustrated_Frontline_Unit',
     name: 'Orcustrated Frontline Unit',
     type: CardType.CONDITION,
     rarity: 'Epic',

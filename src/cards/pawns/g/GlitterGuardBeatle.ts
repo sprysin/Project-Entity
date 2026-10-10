@@ -12,7 +12,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'pawn_10',
+    id: 'P_Glitter_Guard_Beatle',
     name: 'Glitter Guard Beatle',
     type: CardType.PAWN,
     rarity: 'Uncommon',

@@ -27,7 +27,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'action_03',
+            id: 'A_Mark_Of_The_Forest_Hunter',
             name: 'Mark of the Forest Hunter',
             type: CardType.ACTION,
             rarity: 'Epic',

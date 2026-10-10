@@ -6,7 +6,7 @@ import { matchesCardName } from '../../../game/cardHelpers';
 
 export default [{
     cardData: {
-        id: 'pawn_treacherous_ivy',
+        id: 'P_Treacherous_Ivy',
         name: 'Treacherous Ivy',
         type: CardType.PAWN,
         attribute: Attribute.DARK,

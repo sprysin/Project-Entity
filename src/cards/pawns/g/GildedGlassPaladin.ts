@@ -8,7 +8,7 @@ import { destroyFieldCard } from '../../../game/attachments';
 
 export default [{
     cardData: {
-        id: 'pawn_gilded_glass_paladin', name: 'Gilded Glass Paladin', type: CardType.PAWN,
+        id: 'P_Gilded_Glass_Paladin', name: 'Gilded Glass Paladin', type: CardType.PAWN,
         attribute: Attribute.FIRE, pawnType: PawnType.WARRIOR, level: 8, atk: 0, def: 250, rarity: 'Legendary',
         effectText: 'This Pawn can attack directly. If this pawn succesfully completes an attack, target 1 face-up Pawn on your opponents field; destroy it and if you do they take damage equal to half that Pawns attack.'
     },

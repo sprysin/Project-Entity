@@ -65,6 +65,12 @@ export function matchesCardCatalog(card: Metadata, query: string): boolean {
 export function registerCardModules(modules: Record<string, { default: CardModule }>): void {
     for (const [path, module] of Object.entries(modules).sort(([a], [b]) => a.localeCompare(b))) {
         if (!Array.isArray(module.default) || !module.default.length) throw new Error(`Invalid card module: ${path}`);
-        for (const { cardData, effect } of module.default) cardRegistry.register(cardData, effect);
+        for (const { cardData, effect } of module.default) {
+            const prefix = cardData.type === CardType.PAWN ? 'P' : cardData.type === CardType.ACTION ? 'A' : 'C';
+            if (!new RegExp(`^${prefix}_[A-Z0-9][A-Za-z0-9]*(?:_[A-Z0-9][A-Za-z0-9]*)*$`).test(cardData.id)) {
+                throw new Error(`Invalid card ID: ${cardData.id} in ${path}`);
+            }
+            cardRegistry.register(cardData, effect);
+        }
     }
 }

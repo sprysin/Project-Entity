@@ -20,7 +20,7 @@ const icons = ['fa-chess-pawn', '', 'fa-hourglass-half'];
 const TypeIcon = ({ type, icon, className = '' }: { type: CardType; icon: string; className?: string }) => type === CardType.ACTION
     ? <ActionCardIcon className={`h-[1.5em] w-[1.5em] ${className}`} />
     : <i className={`fa-solid ${icon} ${className}`} aria-hidden="true" />;
-const face = (card: CardDefinition, compact = false) => <CardDetail card={{ ...card, instanceId: card.id, ownerId: '' }} compact={compact} />;
+const face = (card: CardDefinition) => <CardDetail card={{ ...card, instanceId: card.id, ownerId: '' }} />;
 
 function IconButton({ label, icon, onClick, disabled = false, active = false, sound }: { label: string; icon: string; onClick: () => void; disabled?: boolean; active?: boolean; sound?: 'select-small' | 'toggle' | 'cancellation' }) {
     return <button data-sound={sound} type="button" className={`deck-icon-button${active ? ' is-active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} onClick={onClick} disabled={disabled}><i aria-hidden="true" className={`fa-solid ${icon}`} /></button>;
@@ -139,7 +139,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                 <div className="deck-library-grid">
                     {library.map(item => <div key={item.id} className={`deck-library-tile${deleteMode ? ' is-delete-mode' : ''}`}>
                         <button data-sound={deleteMode ? undefined : 'select-small'} className="deck-library-open" aria-label={`${deleteMode ? 'Delete' : 'Open'} ${item.name}`} onClick={() => deleteMode ? deleteDeck(item) : open(item)}>
-                            <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ transform: `translateX(${(i - 1) * 45}px) rotate(${(i - 1) * 9}deg)` }}>{face(cards.find(c => c.id === entry.cardId)!, true)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
+                            <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ transform: `translateX(${(i - 1) * 45}px) rotate(${(i - 1) * 9}deg)` }}>{face(cards.find(c => c.id === entry.cardId)!)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
                             <div className="deck-tile-caption"><strong>{item.name}</strong><span>{total(item)} cards <i className={`fa-solid ${deleteMode ? 'fa-trash-can' : 'fa-arrow-right'}`} aria-hidden="true" /></span></div>
                         </button>
                     </div>)}
@@ -173,7 +173,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                         {pile === 'cards' && !deck.cards.length && <div className="deck-empty-center"><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Add cards with +</span></div>}
                         <div className="deck-owned-grid">{cards.filter(card => isReservePawn(card) === (pile === 'reserve')).flatMap(card => Array.from({ length: quantity(card) }, (_, copy) =>
                             <div key={`${card.id}-${copy}-${cardMotion?.id === card.id ? cardMotion.key : ''}`} className={`deck-owned-card${cardMotion?.id === card.id ? ` deck-card-${cardMotion.direction}` : ''}`}>
-                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}; right click to remove`} title="Right click to remove" onClick={() => setSelected(card)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, -1); }}>{face(card, true)}</button>
+                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}, copy ${copy + 1}; right click to remove`} title="Right click to remove" onClick={() => setSelected(card)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, -1); }}>{face(card)}</button>
                             </div>
                         ))}{pile === 'reserve' && Array.from({ length: Math.max(0, MAX_RESERVE_SIZE - reserveSize(deck)) }, (_, index) => <div key={`empty-${index}`} className="deck-reserve-slot" aria-hidden="true" />)}</div>
                     </section>)}
@@ -190,7 +190,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                         return entries.length > 0 && <section key={type} aria-label={type} className={`deck-card-section deck-type-${type}`}>
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
-                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} title="Double click to add to deck" onClick={() => setSelected(card)} onDoubleClick={() => changeQuantity(card, 1)}>{face(card, true)}</button>
+                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} title="Double click to add to deck" onClick={() => setSelected(card)} onDoubleClick={() => changeQuantity(card, 1)}>{face(card)}</button>
                             </div>)}</div>
                         </section>;
                     })}

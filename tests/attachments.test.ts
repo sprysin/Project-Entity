@@ -15,7 +15,7 @@ const zone = (card: Card) => ({ card, position: Position.ATTACK, hasAttacked: fa
 function setup() {
     const player = (id: string): Player => ({ id, name: id, lp: 800, hand: [], deck: [], reserve: [], initialDeck: [], discard: [], void: [], pawnZones: Array(5).fill(null), actionZones: Array(5).fill(null), normalSummonUsed: false, hiddenSummonUsed: false, activatedHardOncePerTurns: [] });
     const state: GameState = { players: [player('p0'), player('p1')], activePlayerIndex: 0, currentPhase: Phase.MAIN1, turnNumber: 3, log: [], winner: null, pendingEffects: [] };
-    const source = card('condition_01'), target = card('pawn_01');
+    const source = card('C_Reinforcement'), target = card('P_Solstice_Sentinel');
     state.players[0].actionZones[0] = zone(source);
     state.players[0].pawnZones[0] = zone(target);
     return { state, source, target };
@@ -25,11 +25,11 @@ function setup() {
 it('discards an attachment that fizzles instead of linking to a replacement target', () => {
     const { state, source, target } = setup();
     state.chain = [{ context: { card: source, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }, trigger: 'activate', targetId: target.instanceId }];
-    state.players[0].pawnZones[0] = zone(card('pawn_02'));
+    state.players[0].pawnZones[0] = zone(card('P_High_King'));
     const next = resolveChain(state);
     expect(next.players[0].actionZones[0]).toBeNull();
     expect(next.players[0].discard[0].instanceId).toBe(source.instanceId);
-    expect(next.players[0].pawnZones[0]?.card.atk).toBe(card('pawn_02').atk);
+    expect(next.players[0].pawnZones[0]?.card.atk).toBe(card('P_High_King').atk);
 });
 
 it('destroys chained Attach cards when an attached target leaves the field', () => {
@@ -46,8 +46,8 @@ it('destroys chained Attach cards when an attached target leaves the field', () 
 
     // Leaving and returning during the same battle still breaks every attachment.
     const revival = setup();
-    const victim = { ...card('pawn_13'), ownerId: 'p1' };
-    const necromancer = card('pawn_14');
+    const victim = { ...card('P_Glitter_Grub'), ownerId: 'p1' };
+    const necromancer = card('P_Zombie_Necromancer');
     revival.state.players[0].pawnZones[0] = zone(necromancer);
     revival.state.players[1].pawnZones[0] = { ...zone(victim), position: Position.DEFENSE };
     revival.state.players[0].actionZones[1] = zone(secondSource);
@@ -72,10 +72,10 @@ it('destroys chained Attach cards when an attached target leaves the field', () 
     for (const pawnType of [PawnType.UNDEAD, PawnType.ELEMENTAL]) {
         for (const removal of ['own-effect', 'opponent-effect', 'battle', 'void', 'flip', 'source'] as const) {
             const scenario = setup();
-            const link = card('condition_08');
+            const link = card('C_Unified_Soul_Link');
             scenario.state.players[0].actionZones[0] = zone(link);
             scenario.state.players[0].pawnZones[0]!.card.pawnType = pawnType;
-            const opposing = { ...card('pawn_02'), ownerId: 'p1', atk: 0, def: 0 };
+            const opposing = { ...card('P_High_King'), ownerId: 'p1', atk: 0, def: 0 };
             scenario.state.players[1].pawnZones[0] = zone(opposing);
             const context = {
                 card: link, playerIndex: 0, targets: [

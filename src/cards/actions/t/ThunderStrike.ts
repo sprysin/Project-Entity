@@ -23,7 +23,7 @@ const effect: IEffect = {
 
 export default [{
     cardData: {
-        id: 'action_07',
+        id: 'A_Thunder_Strike',
         name: 'Thunder Strike',
         type: CardType.ACTION,
         rarity: 'Uncommon',

@@ -33,11 +33,11 @@ function passAll(state: GameState) {
 describe('response windows and chains', () => {
     it('opens legal timing windows and distinguishes Off, Auto, and On', () => {
         const s = game();
-        const played = card('action_01');
+        const played = card('A_Void_Blast');
         s.players[0].hand = [played];
         expect(applyCommand(s, 0, { type: 'play', cardId: played.instanceId, set: false, slot: 0 }).state.players[0].actionZones[0]?.position).toBe(Position.FACE_UP);
-        s.players[1].pawnZones[0] = zone(card('pawn_05', 1));
-        s.players[1].hand = [card('action_01', 1)];
+        s.players[1].pawnZones[0] = zone(card('P_High_Voltage_Charged_Dragon', 1));
+        s.players[1].hand = [card('A_Void_Blast', 1)];
         s.players[1].actionZones[0] = zone(card('test_attached_condition', 1), Position.HIDDEN, s.turnNumber);
         expect(fieldActivations(s, 1, true)).toHaveLength(0);
         expect(openResponse(s, { kind: 'phase' }, 'Leave Main').response?.ready).toBe(true);
@@ -54,24 +54,24 @@ describe('response windows and chains', () => {
             }
         }
         const events = game();
-        events.players[0].pawnZones[1] = zone(card('pawn_04'));
-        events.players[1].actionZones[0] = zone(card('condition_03', 1), Position.HIDDEN);
+        events.players[0].pawnZones[1] = zone(card('P_Void_Caster'));
+        events.players[1].actionZones[0] = zone(card('C_Dark_Draw', 1), Position.HIDDEN);
         events.players[1].actionZones[1] = zone(card('test_attached_condition', 1), Position.HIDDEN);
-        events.players[1].deck = [card('pawn_01', 1)];
-        const pawn = { ...card('pawn_05'), level: 4 as const };
+        events.players[1].deck = [card('P_Solstice_Sentinel', 1)];
+        const pawn = { ...card('P_High_Voltage_Charged_Dragon'), level: 4 as const };
         events.players[0].hand = [pawn];
         let summoned = applyCommand(events, 0, { type: 'summon', cardId: pawn.instanceId, hidden: false, slot: 0 }).state;
         expect(startPendingResponse(summoned).response).toMatchObject({ timing: 'summon', priority: 1 });
         const hidden = applyCommand(events, 0, { type: 'summon', cardId: pawn.instanceId, hidden: true, slot: 0 }).state;
         expect(startPendingResponse(hidden).response?.timing).toBe('minor_action');
-        const triggerPawn = card('pawn_01');
+        const triggerPawn = card('P_Solstice_Sentinel');
         events.players[0].hand = [triggerPawn];
         const triggered = applyCommand(events, 0, { type: 'summon', cardId: triggerPawn.instanceId, hidden: false, slot: 0 }).state;
         expect(triggered.pendingReactions?.[0].trigger).toBe('summon');
         expect(startPendingResponse(triggered)).toBe(triggered);
         expect(startPendingResponse(applyCommand(triggered, 0, { type: 'cancelEffect', cardId: triggerPawn.instanceId }).state).response?.timing).toBe('summon');
 
-        const setCard = card('action_01');
+        const setCard = card('A_Void_Blast');
         events.players[0].hand = [setCard];
         const set = applyCommand(events, 0, { type: 'play', cardId: setCard.instanceId, set: true, slot: 0 }).state;
         expect(startPendingResponse(set).response?.timing).toBe('minor_action');
@@ -83,10 +83,10 @@ describe('response windows and chains', () => {
             skipping.activePlayerIndex = actor;
             skipping.currentPhase = currentPhase;
             const responder = 1 - actor;
-            const pawn = zone(card('pawn_04', responder));
+            const pawn = zone(card('P_Void_Caster', responder));
             skipping.players[responder].pawnZones[0] = { ...pawn, attacksRemaining: 0, nextBattleAttacks: 2 };
-            skipping.players[responder].actionZones[0] = zone(card('condition_03', responder), Position.HIDDEN);
-            skipping.players[responder].deck = [card('pawn_01', responder)];
+            skipping.players[responder].actionZones[0] = zone(card('C_Dark_Draw', responder), Position.HIDDEN);
+            skipping.players[responder].deck = [card('P_Solstice_Sentinel', responder)];
             const requested = applyCommand(skipping, actor, { type: 'end' }).state;
             expect(requested.currentPhase).toBe(currentPhase);
             expect(requested.response).toMatchObject({ timing: 'phase_exit', priority: responder });
@@ -107,9 +107,9 @@ describe('response windows and chains', () => {
                 const interrupted = game();
                 interrupted.activePlayerIndex = actor;
                 interrupted.currentPhase = currentPhase;
-                interrupted.players[playerIndex].pawnZones[0] = zone(card('pawn_04', playerIndex));
-                interrupted.players[playerIndex].actionZones[0] = zone(card('condition_03', playerIndex), Position.HIDDEN);
-                interrupted.players[playerIndex].deck = [card('pawn_01', playerIndex)];
+                interrupted.players[playerIndex].pawnZones[0] = zone(card('P_Void_Caster', playerIndex));
+                interrupted.players[playerIndex].actionZones[0] = zone(card('C_Dark_Draw', playerIndex), Position.HIDDEN);
+                interrupted.players[playerIndex].deck = [card('P_Solstice_Sentinel', playerIndex)];
                 const exit = applyCommand(interrupted, actor, { type: 'end' }).state;
                 const context = effectChoices(exit, exit.players[playerIndex].actionZones[0]!.card, 'activate')[0];
                 const activated = applyCommand(exit, playerIndex, { type: 'activate', context, trigger: 'activate' }).state;
@@ -130,7 +130,7 @@ describe('response windows and chains', () => {
         expect(applyCommand(end, 0, { type: 'phase' }).state.response?.timing).toBe('turn_end');
         let draw = { ...structuredClone(events), currentPhase: Phase.DRAW };
         draw.players[0].hand = [];
-        draw.players[0].deck = Array.from({ length: 5 }, () => card('pawn_01'));
+        draw.players[0].deck = Array.from({ length: 5 }, () => card('P_Solstice_Sentinel'));
         expect(fieldActivations(draw, 1, true)).toEqual([]);
         expect(openResponse(draw, { kind: 'phase' }, 'Before draw')).toBe(draw);
         for (let i = 1; i <= 5; i++) {
@@ -159,28 +159,28 @@ describe('response windows and chains', () => {
         expect(startPendingResponse(resolveChain(chained)).response?.timing).toBe('chain_resolved');
 
         const legal = game();
-        legal.players[1].actionZones[0] = zone(card('condition_02', 1), Position.HIDDEN);
+        legal.players[1].actionZones[0] = zone(card('C_Void_Call', 1), Position.HIDDEN);
         // Void Call cannot target itself: activation reveals its source.
         expect(fieldActivations(legal, 1, true)).toHaveLength(0);
-        legal.players[0].actionZones[0] = zone(card('action_01'), Position.HIDDEN);
+        legal.players[0].actionZones[0] = zone(card('A_Void_Blast'), Position.HIDDEN);
         expect(fieldActivations(legal, 1, true)).toHaveLength(1);
 
         const depths = game();
-        depths.players[1].actionZones[0] = zone(card('condition_04', 1), Position.HIDDEN);
-        depths.players[1].pawnZones[0] = zone(card('pawn_04', 1));
-        depths.players[0].pawnZones[0] = zone(card('pawn_01'), Position.HIDDEN);
+        depths.players[1].actionZones[0] = zone(card('C_Call_From_The_Depths', 1), Position.HIDDEN);
+        depths.players[1].pawnZones[0] = zone(card('P_Void_Caster', 1));
+        depths.players[0].pawnZones[0] = zone(card('P_Solstice_Sentinel'), Position.HIDDEN);
         expect(fieldActivations(depths, 1, true)).toHaveLength(0);
         depths.players[0].pawnZones[0]!.position = Position.ATTACK;
         expect(fieldActivations(depths, 1, true)).toHaveLength(1);
     });
 
     it('responds during the other turn, resolves LIFO, and rechecks revealed targets', () => {
-        const s = game(), blast = card('action_01'), draw = card('condition_03', 1), reinforcement = card('test_attached_condition');
+        const s = game(), blast = card('A_Void_Blast'), draw = card('C_Dark_Draw', 1), reinforcement = card('test_attached_condition');
         s.players[0].actionZones[0] = zone(blast);
         s.players[0].actionZones[1] = zone(reinforcement, Position.HIDDEN);
         s.players[1].actionZones[0] = zone(draw, Position.HIDDEN);
-        s.players[1].pawnZones[0] = zone(card('pawn_04', 1));
-        s.players[1].deck = [card('pawn_01', 1)];
+        s.players[1].pawnZones[0] = zone(card('P_Void_Caster', 1));
+        s.players[1].deck = [card('P_Solstice_Sentinel', 1)];
         let next = addChainLink(s, { card: blast, playerIndex: 0 }, 'activate');
         expect(next.players[1].lp).toBe(800);
         expect(next.response?.priority).toBe(1);
@@ -208,10 +208,10 @@ describe('response windows and chains', () => {
         expect(resolutionLogs[2]).toContain('Reinforcement');
         expect(next.chain).toHaveLength(0);
 
-        const example = game(), darkDraw = card('condition_03'), dragon = card('pawn_everlasting_dragonlord', 1);
+        const example = game(), darkDraw = card('C_Dark_Draw'), dragon = card('P_Everlasting_Dragonlord', 1);
         example.players[0].actionZones[0] = zone(darkDraw, Position.HIDDEN);
         example.players[1].pawnZones[0] = zone(dragon);
-        example.players[0].deck = [card('pawn_01')];
+        example.players[0].deck = [card('P_Solstice_Sentinel')];
         let ordered = addChainLink(example, { card: darkDraw, playerIndex: 0 }, 'activate');
         ordered = addChainLink(ordered, { card: dragon, playerIndex: 1 }, 'activate');
         expect(ordered.players[0].lp).toBe(800);
@@ -231,10 +231,10 @@ describe('response windows and chains', () => {
         expect(ordered.log[0]).toContain('-200 LP');
         // A later protection link takes effect before an earlier targeted removal.
         for (const protect of [false, true]) {
-            const duel = game(), outlander = card('pawn_future_outlander'), dragon = card('pawn_everlasting_dragonlord', 1);
+            const duel = game(), outlander = card('P_Future_Outlander'), dragon = card('P_Everlasting_Dragonlord', 1);
             duel.players[0].pawnZones[0] = zone(outlander);
             duel.players[1].pawnZones[0] = zone(dragon);
-            const alternative = card('pawn_08', 1);
+            const alternative = card('P_Quickstrike_Serpent', 1);
             duel.players[1].pawnZones[1] = zone(alternative);
             let removal = applyCommand(duel, 0, {
                 type: 'activate', trigger: 'activate', context: {
@@ -270,10 +270,10 @@ describe('response windows and chains', () => {
             expect(effectChoices(removal, outlander, 'activate')).toEqual([]);
         }
         {
-            const s = game(), call = card('condition_02'), reinforcement = card('test_attached_condition', 1);
+            const s = game(), call = card('C_Void_Call'), reinforcement = card('test_attached_condition', 1);
             s.players[0].actionZones[0] = zone(call, Position.HIDDEN);
             s.players[1].actionZones[0] = zone(reinforcement, Position.HIDDEN);
-            s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
+            s.players[1].pawnZones[0] = zone(card('P_Quickstrike_Serpent', 1));
             let next = addChainLink(s, { card: call, playerIndex: 0, target: { playerIndex: 1, type: 'action', index: 0 } }, 'activate');
             next = addChainLink(next, { card: reinforcement, playerIndex: 1, target: { playerIndex: 1, type: 'pawn', index: 0 } }, 'activate');
             next = passAll(next);
@@ -287,18 +287,18 @@ describe('response windows and chains', () => {
 describe('fair general AI', () => {
     it('uses only observed identities and avoids harmful attacks or buffs', () => {
         const s = game(); s.activePlayerIndex = 1; s.currentPhase = Phase.BATTLE;
-        s.players[1].pawnZones[0] = zone(card('pawn_08', 1));
-        s.players[0].hand = [card('action_01')];
-        s.players[0].pawnZones[0] = zone(card('pawn_01'), Position.HIDDEN);
+        s.players[1].pawnZones[0] = zone(card('P_Quickstrike_Serpent', 1));
+        s.players[0].hand = [card('A_Void_Blast')];
+        s.players[0].pawnZones[0] = zone(card('P_Solstice_Sentinel'), Position.HIDDEN);
         s.log = ['Private match history'];
-        s.players[1].initialDeck = [card('pawn_08', 1)];
+        s.players[1].initialDeck = [card('P_Quickstrike_Serpent', 1)];
         const snapshot = structuredClone(s);
         const first = observeGame(s, 1), decision = chooseAIAction(first, 1);
         expect(s).toEqual(snapshot);
         expect(first.log).toEqual([]);
         expect(first.players.map(player => player.initialDeck)).toEqual([[], []]);
-        s.players[0].hand[0] = { ...card('pawn_05'), instanceId: s.players[0].hand[0].instanceId };
-        s.players[0].pawnZones[0]!.card = { ...card('pawn_05'), instanceId: s.players[0].pawnZones[0]!.card.instanceId };
+        s.players[0].hand[0] = { ...card('P_High_Voltage_Charged_Dragon'), instanceId: s.players[0].hand[0].instanceId };
+        s.players[0].pawnZones[0]!.card = { ...card('P_High_Voltage_Charged_Dragon'), instanceId: s.players[0].pawnZones[0]!.card.instanceId };
         expect(observeGame(s, 1)).toEqual(first);
         expect(chooseAIAction(observeGame(s, 1), 1)).toEqual(decision);
         expect(first.players[0].pawnZones[0]!.card.atk).toBe(0);
@@ -306,15 +306,15 @@ describe('fair general AI', () => {
         s.players[0].pawnZones[0]!.position = Position.DEFENSE;
         updateKnownCards(s, 1, remembered);
         s.players[0].pawnZones[0]!.position = Position.HIDDEN;
-        expect(observeGame(s, 1, remembered).players[0].pawnZones[0]!.card.id).toBe('pawn_05');
+        expect(observeGame(s, 1, remembered).players[0].pawnZones[0]!.card.id).toBe('P_High_Voltage_Charged_Dragon');
         s.players[0].pawnZones[0] = null;
         updateKnownCards(s, 1, remembered);
         expect(remembered.size).toBe(0);
 
         const battle = game(); battle.activePlayerIndex = 1; battle.currentPhase = Phase.BATTLE;
-        const defender = card('pawn_05'); defender.def = 200;
+        const defender = card('P_High_Voltage_Charged_Dragon'); defender.def = 200;
         battle.players[0].pawnZones[0] = zone(defender, Position.DEFENSE);
-        battle.players[1].pawnZones[0] = zone(card('pawn_01', 1));
+        battle.players[1].pawnZones[0] = zone(card('P_Solstice_Sentinel', 1));
         const battleKnown = new Map<string, Card>();
         updateKnownCards(battle, 1, battleKnown);
         battle.players[0].pawnZones[0]!.position = Position.HIDDEN;
@@ -322,23 +322,23 @@ describe('fair general AI', () => {
 
         battle.currentPhase = Phase.MAIN1;
         battle.players[0].pawnZones[0]!.position = Position.ATTACK;
-        battle.players[1].hand = [card('condition_01', 1)];
+        battle.players[1].hand = [card('C_Reinforcement', 1)];
         const choice = chooseAIAction(observeGame(battle, 1), 1);
         expect(choice.kind === 'effect' && choice.context.target?.playerIndex === 0).toBe(false);
 
         for (const [conditionId, targetType] of [
-            ['condition_02', 'action'], ['condition_04', 'pawn']
+            ['C_Void_Call', 'action'], ['C_Call_From_The_Depths', 'pawn']
         ] as const) {
             const chained = game();
             chained.activePlayerIndex = 1;
             const first = card(conditionId, 1), second = card(conditionId, 1);
             chained.players[1].actionZones[0] = zone(first, Position.HIDDEN);
             chained.players[1].actionZones[1] = zone(second, Position.HIDDEN);
-            if (targetType === 'action') chained.players[0].actionZones[0] = zone(card('action_01'), Position.HIDDEN);
+            if (targetType === 'action') chained.players[0].actionZones[0] = zone(card('A_Void_Blast'), Position.HIDDEN);
             else {
-                chained.players[0].pawnZones[0] = zone(card('pawn_01'));
-                chained.players[1].pawnZones[0] = zone(card('pawn_04', 1));
-                chained.players[1].pawnZones[1] = zone(card('pawn_06', 1));
+                chained.players[0].pawnZones[0] = zone(card('P_Solstice_Sentinel'));
+                chained.players[1].pawnZones[0] = zone(card('P_Void_Caster', 1));
+                chained.players[1].pawnZones[1] = zone(card('P_Dual_Mode_Beast', 1));
             }
             const context = effectChoices(chained, first, 'activate').find(c => c.targets?.some(t => t.playerIndex === 0))!;
             const pending = addChainLink(chained, context, 'activate');
@@ -349,18 +349,18 @@ describe('fair general AI', () => {
         }
 
         const defenseBoostId = 'test-defensive-last-resort';
-        cardRegistry.register({ ...cardRegistry.getCard('condition_last_resort')!, id: defenseBoostId, name: 'Defensive boost' }, {
-            ...cardRegistry.getEffect('condition_last_resort'),
+        cardRegistry.register({ ...cardRegistry.getCard('C_Last_Resort')!, id: defenseBoostId, name: 'Defensive boost' }, {
+            ...cardRegistry.getEffect('C_Last_Resort'),
             onActivate: buildEffect([Cost.PayLP(50), Require.Target('pawn'), Effect.ModifyTargetStats(0, 50, 0, Phase.BATTLE)])
         });
         for (const stat of ['atk', 'def'] as const) for (const position of [Position.DEFENSE, Position.ATTACK]) {
             const boost = game();
             boost.currentPhase = Phase.BATTLE;
-            const attacker = card('pawn_01'), defender = card('pawn_01', 1);
+            const attacker = card('P_Solstice_Sentinel'), defender = card('P_Solstice_Sentinel', 1);
             attacker.atk = 130; defender.atk = 100; defender.def = stat === 'atk' ? 150 : 100;
             boost.players[0].pawnZones[0] = zone(attacker);
             boost.players[1].pawnZones[0] = zone(defender, position);
-            boost.players[1].actionZones[0] = zone(card(stat === 'atk' ? 'condition_last_resort' : defenseBoostId, 1), Position.HIDDEN, 1);
+            boost.players[1].actionZones[0] = zone(card(stat === 'atk' ? 'C_Last_Resort' : defenseBoostId, 1), Position.HIDDEN, 1);
             const responding = openResponse(boost, { kind: 'attack', attackerId: attacker.instanceId, targetId: defender.instanceId }, 'Attack', 'attack');
             const matches = position === (stat === 'atk' ? Position.ATTACK : Position.DEFENSE);
             expect(chooseAIAction(observeGame(responding, 1), 1).kind).toBe(matches ? 'effect' : 'pass');
@@ -373,7 +373,7 @@ describe('fair general AI', () => {
             const steps = shape === 'target' ? [Require.Target('pawn', undefined, 'active'), Effect.ModifyTargetStats(stat === 'atk' ? 200 : 0, stat === 'def' ? 200 : 0)]
                 : shape === 'self' ? [Effect.ModifySelfStats(stat === 'atk' ? 200 : 0, stat === 'def' ? 200 : 0)]
                     : [Effect.ModifyAllPawnStats('active', stat === 'atk' ? 200 : 0, stat === 'def' ? 200 : 0)];
-            cardRegistry.register({ ...cardRegistry.getCard(shape === 'self' ? 'pawn_01' : 'action_01')!, id, name: id }, {
+            cardRegistry.register({ ...cardRegistry.getCard(shape === 'self' ? 'P_Solstice_Sentinel' : 'A_Void_Blast')!, id, name: id }, {
                 canActivate: (state, context) => !state.players[context.playerIndex].pawnZones.find(z => z?.card.instanceId === context.card.instanceId)?.hasUsedWhileOnField,
                 onActivate: buildEffect(shape === 'self' ? [Effect.SetOnceWhileOnField(), ...steps] : steps)
             });
@@ -381,13 +381,13 @@ describe('fair general AI', () => {
             const wrong = stat === 'atk' ? Position.DEFENSE : Position.ATTACK;
             for (const mode of ['matching', 'locked', 'manual', 'effect'] as const) {
                 const board = game(); board.activePlayerIndex = 1; board.currentPhase = Phase.MAIN2;
-                const pawn = shape === 'self' ? card(id, 1) : { ...card('pawn_01', 1), atk: 100, def: 100 };
+                const pawn = shape === 'self' ? card(id, 1) : { ...card('P_Solstice_Sentinel', 1), atk: 100, def: 100 };
                 board.players[1].pawnZones[0] = zone(pawn, mode === 'matching' ? correct : wrong);
                 board.players[1].pawnZones[0]!.hasChangedPosition = mode !== 'manual';
                 if (shape !== 'self') board.players[1].hand = [card(id, 1)];
                 if (mode === 'effect') {
                     const switchId = `test-position-switch-${stat}-${shape}`;
-                    if (!cardRegistry.getCard(switchId)) cardRegistry.register({ ...cardRegistry.getCard('action_01')!, id: switchId, name: switchId },
+                    if (!cardRegistry.getCard(switchId)) cardRegistry.register({ ...cardRegistry.getCard('A_Void_Blast')!, id: switchId, name: switchId },
                         { onActivate: buildEffect([Require.Target('pawn', undefined, 'active'), Effect.ChangeTargetPosition(correct)]) });
                     board.players[1].hand.push(card(switchId, 1));
                 }
@@ -413,19 +413,19 @@ describe('fair general AI', () => {
 
         const guarded = game();
         guarded.activePlayerIndex = 1;
-        guarded.players[0].pawnZones[0] = zone(card('pawn_07'), Position.DEFENSE);
+        guarded.players[0].pawnZones[0] = zone(card('P_Big_Bear_Beast_King'), Position.DEFENSE);
         guarded.players[0].pawnZones[0]!.card.def = 260;
-        guarded.players[1].pawnZones[0] = zone(card('pawn_05', 1));
-        guarded.players[1].hand = [card('action_01', 1), card('action_01', 1)];
+        guarded.players[1].pawnZones[0] = zone(card('P_High_Voltage_Charged_Dragon', 1));
+        guarded.players[1].hand = [card('A_Void_Blast', 1), card('A_Void_Blast', 1)];
         expect(hasWorthwhileAttack(observeGame(guarded, 1), 1)).toBe(false);
         const shortOnCards = structuredClone(guarded);
         shortOnCards.players[1].hand.pop();
         const insufficientBoost = chooseAIAction(observeGame(shortOnCards, 1), 1);
-        expect(insufficientBoost.kind === 'effect' && insufficientBoost.context.card.id === 'pawn_05').toBe(false);
+        expect(insufficientBoost.kind === 'effect' && insufficientBoost.context.card.id === 'P_High_Voltage_Charged_Dragon').toBe(false);
         let boosted = guarded;
         for (let i = 0; i < 2; i++) {
             const action = chooseAIAction(observeGame(boosted, 1), 1);
-            expect(action).toMatchObject({ kind: 'effect', context: { card: { id: 'pawn_05' } } });
+            expect(action).toMatchObject({ kind: 'effect', context: { card: { id: 'P_High_Voltage_Charged_Dragon' } } });
             if (action.kind !== 'effect') break;
             boosted = resolveChain(addChainLink(boosted, action.context, action.trigger));
         }
@@ -436,14 +436,14 @@ describe('fair general AI', () => {
 
         const stronger = game();
         stronger.activePlayerIndex = 1;
-        stronger.players[0].pawnZones[0] = zone(card('pawn_05'));
-        stronger.players[1].pawnZones[0] = zone(card('pawn_05', 1));
+        stronger.players[0].pawnZones[0] = zone(card('P_High_Voltage_Charged_Dragon'));
+        stronger.players[1].pawnZones[0] = zone(card('P_High_Voltage_Charged_Dragon', 1));
         stronger.players[1].pawnZones[0]!.card.atk = 220;
-        stronger.players[1].hand = Array.from({ length: 4 }, () => card('action_01', 1));
+        stronger.players[1].hand = Array.from({ length: 4 }, () => card('A_Void_Blast', 1));
         let contender = stronger;
         for (let i = 0; i < 4; i++) {
             const action = chooseAIAction(observeGame(contender, 1), 1);
-            expect(action).toMatchObject({ kind: 'effect', context: { card: { id: 'pawn_05' } } });
+            expect(action).toMatchObject({ kind: 'effect', context: { card: { id: 'P_High_Voltage_Charged_Dragon' } } });
             if (action.kind !== 'effect') break;
             contender = resolveChain(addChainLink(contender, action.context, action.trigger));
         }
@@ -452,7 +452,7 @@ describe('fair general AI', () => {
 
         let pressured = structuredClone(stronger);
         pressured.players[1].hand = [];
-        pressured.players[1].pawnZones[1] = zone(card('pawn_01', 1));
+        pressured.players[1].pawnZones[1] = zone(card('P_Solstice_Sentinel', 1));
         for (let i = 0; i < 2; i++) {
             const action = chooseAIAction(observeGame(pressured, 1), 1);
             expect(action.kind).toBe('position');
@@ -462,13 +462,13 @@ describe('fair general AI', () => {
 
         let advantage = game();
         advantage.activePlayerIndex = 1;
-        advantage.players[0].pawnZones[0] = zone(card('pawn_01'));
+        advantage.players[0].pawnZones[0] = zone(card('P_Solstice_Sentinel'));
         advantage.players[0].pawnZones[0]!.card.atk = 80;
-        advantage.players[1].pawnZones[0] = zone(card('pawn_01', 1), Position.DEFENSE);
+        advantage.players[1].pawnZones[0] = zone(card('P_Solstice_Sentinel', 1), Position.DEFENSE);
         advantage.players[1].pawnZones[0]!.card.atk = 150;
-        advantage.players[1].pawnZones[1] = zone(card('pawn_01', 1), Position.DEFENSE);
+        advantage.players[1].pawnZones[1] = zone(card('P_Solstice_Sentinel', 1), Position.DEFENSE);
         advantage.players[1].pawnZones[1]!.card.atk = 100;
-        advantage.players[1].pawnZones[2] = zone(card('pawn_01', 1), Position.DEFENSE);
+        advantage.players[1].pawnZones[2] = zone(card('P_Solstice_Sentinel', 1), Position.DEFENSE);
         advantage.players[1].pawnZones[2]!.card.atk = 20;
         for (let i = 0; i < 2; i++) {
             const action = chooseAIAction(observeGame(advantage, 1), 1);
@@ -485,9 +485,9 @@ describe('fair general AI', () => {
         tribunal.activePlayerIndex = 1;
         tribunal.currentPhase = Phase.MAIN2;
         tribunal.players[1].normalSummonUsed = tribunal.players[1].hiddenSummonUsed = true;
-        tribunal.players[1].actionZones[0] = zone(card('action_06', 1), Position.FACE_UP);
-        tribunal.players[1].pawnZones[0] = zone({ ...card('pawn_01', 1), atk: 20, def: 20 });
-        tribunal.players[1].hand = [card('pawn_07', 1)];
+        tribunal.players[1].actionZones[0] = zone(card('A_Tribute_Tribunal', 1), Position.FACE_UP);
+        tribunal.players[1].pawnZones[0] = zone({ ...card('P_Solstice_Sentinel', 1), atk: 20, def: 20 });
+        tribunal.players[1].hand = [card('P_Big_Bear_Beast_King', 1)];
         const investment = chooseAIAction(observeGame(tribunal, 1), 1);
         expect(investment).toMatchObject({ kind: 'effect', context: { effectId: 'tribute', tributeIndices: [0] } });
         if (investment.kind === 'effect') {
@@ -515,7 +515,7 @@ describe('fair general AI', () => {
             act(() => vi.advanceTimersByTime(150));
             expect(resolveEffect.mock.calls[0]?.[11]).toBe('tribute');
             const quick = game();
-            quick.players[1].pawnZones[0] = zone(card('pawn_everlasting_dragonlord', 1));
+            quick.players[1].pawnZones[0] = zone(card('P_Everlasting_Dragonlord', 1));
             hookState = { ...quick, response: { priority: 1, passes: 0, reason: 'Leave MAIN1', timing: 'phase_exit' } };
             act(() => root!.update(React.createElement(AIHarness)));
             act(() => vi.advanceTimersByTime(0));
@@ -529,7 +529,7 @@ describe('fair general AI', () => {
             act(() => root?.unmount());
             vi.useRealTimers();
         }
-        cardRegistry.register({ ...cardRegistry.getCard('action_06')!, id: 'test-counter-setup', name: 'Generic charge engine' }, {
+        cardRegistry.register({ ...cardRegistry.getCard('A_Tribute_Tribunal')!, id: 'test-counter-setup', name: 'Generic charge engine' }, {
             counterSummon: { counter: 'Charge', requiredCounters: c => c.type === CardType.PAWN && c.level >= 5 ? 4 : undefined },
             onFieldActivate: buildEffect([Cost.TributePawns(1), Effect.ModulateCounter('Charge', 1)])
         });
@@ -542,56 +542,56 @@ describe('fair general AI', () => {
         expect(deployment).toMatchObject({ kind: 'effect', context: { effectId: 'summon', handIndex: 0 } });
         if (deployment.kind === 'effect') {
             const deployed = resolveChain(addChainLink(tribunal, deployment.context, deployment.trigger));
-            expect(deployed.players[1].pawnZones.some(z => z?.card.id === 'pawn_07')).toBe(true);
+            expect(deployed.players[1].pawnZones.some(z => z?.card.id === 'P_Big_Bear_Beast_King')).toBe(true);
         }
 
         const frontline = game();
         frontline.activePlayerIndex = 1;
         frontline.players[1].normalSummonUsed = frontline.players[1].hiddenSummonUsed = true;
-        frontline.players[1].actionZones[0] = zone(card('condition_06', 1), Position.HIDDEN);
-        frontline.players[1].hand = [{ ...card('pawn_01', 1), attribute: Attribute.LIGHT }];
-        expect(chooseAIAction(observeGame(frontline, 1), 1)).toMatchObject({ kind: 'effect', context: { card: { id: 'condition_06' } } });
+        frontline.players[1].actionZones[0] = zone(card('C_Orcustrated_Frontline_Unit', 1), Position.HIDDEN);
+        frontline.players[1].hand = [{ ...card('P_Solstice_Sentinel', 1), attribute: Attribute.LIGHT }];
+        expect(chooseAIAction(observeGame(frontline, 1), 1)).toMatchObject({ kind: 'effect', context: { card: { id: 'C_Orcustrated_Frontline_Unit' } } });
         frontline.players[1].hand = [];
         expect(chooseAIAction(observeGame(frontline, 1), 1)).toEqual({ kind: 'pass' });
         frontline.players[1].actionZones[0]!.position = Position.FACE_UP;
         frontline.pendingHandSummons = [{ sourceId: frontline.players[1].actionZones[0]!.card.instanceId, playerIndex: 1 }];
-        const recruit = { ...card('pawn_01', 1), attribute: Attribute.LIGHT, atk: 150, def: 200 };
+        const recruit = { ...card('P_Solstice_Sentinel', 1), attribute: Attribute.LIGHT, atk: 150, def: 200 };
         frontline.players[1].hand = [{ ...recruit, instanceId: 'weak-recruit', atk: 10, def: 10 }, recruit];
         frontline.activePlayerIndex = 0;
-        frontline.players[0].pawnZones[0] = zone({ ...card('pawn_01'), atk: 180 });
+        frontline.players[0].pawnZones[0] = zone({ ...card('P_Solstice_Sentinel'), atk: 180 });
         expect(chooseAIHandSummon(observeGame(frontline, 1), 1)).toMatchObject({ type: 'confirmHandSummon', cardId: recruit.instanceId, position: Position.DEFENSE });
         frontline.players[1].hand = [];
         expect(chooseAIHandSummon(observeGame(frontline, 1), 1)).toMatchObject({ type: 'declineHandSummon' });
 
         const search = game();
         search.activePlayerIndex = 1;
-        search.players[1].actionZones[0] = zone(card('action_03', 1), Position.FACE_UP);
-        search.players[1].pawnZones[0] = zone({ ...card('pawn_01', 1), atk: 20, def: 20 });
-        search.players[1].pawnZones[1] = zone({ ...card('pawn_01', 1), atk: 20, def: 20 });
-        search.players[1].deck = [card('pawn_07', 1), { ...card('pawn_07', 1), atk: 10, def: 10 }];
+        search.players[1].actionZones[0] = zone(card('A_Mark_Of_The_Forest_Hunter', 1), Position.FACE_UP);
+        search.players[1].pawnZones[0] = zone({ ...card('P_Solstice_Sentinel', 1), atk: 20, def: 20 });
+        search.players[1].pawnZones[1] = zone({ ...card('P_Solstice_Sentinel', 1), atk: 20, def: 20 });
+        search.players[1].deck = [card('P_Big_Bear_Beast_King', 1), { ...card('P_Big_Bear_Beast_King', 1), atk: 10, def: 10 }];
         const searched = chooseAIAction(observeGame(search, 1), 1);
         expect(searched).toMatchObject({ kind: 'effect', context: { deckIndex: 0 } });
         if (searched.kind === 'effect') {
             const retrieved = resolveChain(addChainLink(search, searched.context, searched.trigger));
-            expect(chooseAIAction(observeGame(retrieved, 1), 1)).toMatchObject({ kind: 'summon', card: { id: 'pawn_07', atk: 220 }, tributes: [0, 1] });
+            expect(chooseAIAction(observeGame(retrieved, 1), 1)).toMatchObject({ kind: 'summon', card: { id: 'P_Big_Bear_Beast_King', atk: 220 }, tributes: [0, 1] });
         }
         search.players[1].pawnZones.fill(null);
         expect(chooseAIAction(observeGame(search, 1), 1)).toEqual({ kind: 'pass' });
 
         const summonDebuff = game();
         summonDebuff.activePlayerIndex = 1;
-        const king = card('pawn_02', 1);
+        const king = card('P_High_King', 1);
         summonDebuff.players[1].pawnZones[0] = zone(king);
-        summonDebuff.players[0].pawnZones[0] = zone(card('pawn_01'));
+        summonDebuff.players[0].pawnZones[0] = zone(card('P_Solstice_Sentinel'));
         expect(chooseAIAction(observeGame(summonDebuff, 1), 1, king)).toMatchObject({ kind: 'effect', context: { target: { playerIndex: 0 } } });
         summonDebuff.players[0].pawnZones[0] = null;
         expect(chooseAIAction(observeGame(summonDebuff, 1), 1, king)).toEqual({ kind: 'pass' });
 
         const s = game(); s.activePlayerIndex = 1; s.currentPhase = Phase.BATTLE;
         s.players[0].lp = 250;
-        s.players[0].pawnZones[0] = zone(card('pawn_01'), Position.DEFENSE);
-        s.players[1].pawnZones[0] = zone(card('pawn_05', 1));
-        s.players[1].pawnZones[1] = zone(card('pawn_08', 1));
+        s.players[0].pawnZones[0] = zone(card('P_Solstice_Sentinel'), Position.DEFENSE);
+        s.players[1].pawnZones[0] = zone(card('P_High_Voltage_Charged_Dragon', 1));
+        s.players[1].pawnZones[1] = zone(card('P_Quickstrike_Serpent', 1));
         expect(chooseAIAction(observeGame(s, 1), 1)).toEqual({ kind: 'attack', index: 1, target: 0 });
     });
 
@@ -599,7 +599,7 @@ describe('fair general AI', () => {
         cardRegistry.register({ id: 'test-quick-defense', name: 'Quick defense', type: CardType.PAWN, rarity: 'Common', level: 1, atk: 10, def: 20, effectText: 'Quick: switch an attacker to Defense.' }, {
             timing: 'quick', onActivate: buildEffect([Require.Target('pawn'), Require.TargetMatchesPosition(Position.ATTACK), Effect.ChangeTargetPosition(Position.DEFENSE)])
         });
-        const s = game(), defender = card('test-quick-defense', 1), attacker = card('pawn_05');
+        const s = game(), defender = card('test-quick-defense', 1), attacker = card('P_High_Voltage_Charged_Dragon');
         s.players[1].lp = 100;
         s.players[1].pawnZones[0] = zone(defender);
         s.players[0].pawnZones[0] = zone(attacker);

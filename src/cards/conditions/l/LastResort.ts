@@ -20,7 +20,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'condition_last_resort',
+            id: 'C_Last_Resort',
             name: 'Last resort',
             type: CardType.CONDITION,
             rarity: 'Common',

@@ -25,7 +25,7 @@ const effect: IEffect = {
 
 export default [{
     cardData: {
-        id: 'condition_08',
+        id: 'C_Unified_Soul_Link',
         name: 'Unified Soul Link', type: CardType.CONDITION, rarity: 'Epic',
         isAttached: true,
         level: 0,

@@ -14,7 +14,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'pawn_goddess_of_fortune',
+            id: 'P_Goddess_Of_Fortune',
             name: 'Goddess of fortune',
             type: CardType.PAWN,
             rarity: 'Common',

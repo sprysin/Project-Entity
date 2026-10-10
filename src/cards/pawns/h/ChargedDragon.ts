@@ -18,7 +18,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'pawn_05',
+    id: 'P_High_Voltage_Charged_Dragon',
     name: 'High Voltage - Charged Dragon',
     type: CardType.PAWN,
     rarity: 'Legendary',

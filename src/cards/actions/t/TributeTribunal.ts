@@ -49,7 +49,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'action_06', name: 'Tribute Tribunal', type: CardType.ACTION, rarity: 'Epic', isLingering: true,
+            id: 'A_Tribute_Tribunal', name: 'Tribute Tribunal', type: CardType.ACTION, rarity: 'Epic', isLingering: true,
             level: 0, atk: 0, def: 0,
             effectText: 'You can activate both effects once per turn:\n- Tribute 1 pawn you control, then place 1 Tribute Counter on this card.\n- Special summon a level 5-7 Pawn if this card has at least 2 Tribute Counters, or a level 8-10 if this card has 3+.'
         }, effect

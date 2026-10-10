@@ -28,7 +28,7 @@ const effect: IEffect = {
 
 export default [{
     cardData: {
-        id: 'action_withering_sword',
+        id: 'A_Withering_Sword',
         name: 'Withering Sword',
         type: CardType.ACTION,
         rarity: 'Common',

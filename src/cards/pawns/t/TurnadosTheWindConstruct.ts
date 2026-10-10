@@ -18,7 +18,7 @@ const effect: IEffect = {
 export default [
     {
         cardData: {
-            id: 'pawn_15',
+            id: 'P_Turnados_The_Wind_Construct',
             name: 'Turnados The Wind Construct',
             type: CardType.PAWN,
             rarity: 'Uncommon',

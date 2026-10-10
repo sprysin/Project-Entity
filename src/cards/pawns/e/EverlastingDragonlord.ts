@@ -4,7 +4,7 @@ import { buildEffect } from '../../engine/Builder';
 import { Effect } from '../../engine/Effects';
 import { Condition } from '../../engine/Requirements';
 
-const CARD_ID = 'pawn_everlasting_dragonlord';
+const CARD_ID = 'P_Everlasting_Dragonlord';
 
 const effect: IEffect = {
     timing: 'quick',

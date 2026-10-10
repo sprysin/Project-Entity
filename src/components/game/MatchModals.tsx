@@ -106,16 +106,6 @@ interface EffectModalProps {
 }
 
 export const EffectModal: React.FC<EffectModalProps> = ({ triggeredEffect, gameState, isPeekingField, resolveEffect, checkActivationConditions, setIsPeekingField, setTriggeredEffect, setPendingEffectCard, declineReaction }) => {
-    React.useEffect(() => {
-        if (!triggeredEffect || !isPeekingField) return;
-        const returnToPrompt = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            setIsPeekingField(false);
-        };
-        window.addEventListener('keydown', returnToPrompt);
-        return () => window.removeEventListener('keydown', returnToPrompt);
-    }, [isPeekingField, setIsPeekingField, triggeredEffect]);
 
     if (!triggeredEffect || !gameState) return null;
     const reactionController = gameState.pendingReactions?.find(entry => entry.card.instanceId === triggeredEffect.instanceId)?.playerIndex;

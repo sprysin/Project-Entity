@@ -27,7 +27,18 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
     peeking,
     setPeeking,
     onBackdropClick,
-}) => (
+}) => {
+    React.useEffect(() => {
+        if (!peeking) return;
+        const returnToPrompt = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            setPeeking(false);
+        };
+        window.addEventListener('keydown', returnToPrompt);
+        return () => window.removeEventListener('keydown', returnToPrompt);
+    }, [peeking, setPeeking]);
+    return (
     <div
         className={`duel-prompt ${className} ${peeking ? 'duel-prompt--peeking' : ''}`}
         role="dialog"
@@ -66,3 +77,4 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
         </div>
     </div>
 );
+};

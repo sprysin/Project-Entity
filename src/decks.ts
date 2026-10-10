@@ -1,5 +1,6 @@
 import { isToken, isReservePawn, shuffleDeck } from './game/cardHelpers';
 import { cardRegistry, CardDefinition } from './cards/CardRegistry';
+import { LEGACY_CARD_IDS } from './cards/legacyIds';
 import { Card, CardType } from './types';
 import './cards/pawns';
 import './cards/actions';
@@ -48,7 +49,7 @@ export const newDeck = (): SavedDeck => ({ version: 1, id: crypto.randomUUID(), 
 /** Expands stable saved-deck entries into shuffled runtime card instances. */
 export function createRuntimeDeck(deck: SavedDeck, playerId: string): Card[] {
     if (!isDeckPlayable(deck)) throw new Error('A deck must contain 40–60 cards with no more than 3 copies of each card.');
-    const cards = expandEntries(deck.cards, playerId);
+    const cards = expandEntries(parseDeck(deck).cards, playerId);
     shuffleDeck(cards);
     return cards;
 }
@@ -80,6 +81,7 @@ export function parseDeck(value: unknown, enforceLimits = true): SavedDeck {
     const known = new Map(sortedCards().map(c => [c.id, c]));
     const seen = new Set<string>();
     const readEntries = (entries: SavedDeck['cards'], reserve: boolean) => entries.map(entry => {
+        if (entry && Object.hasOwn(LEGACY_CARD_IDS, entry.cardId)) entry = { ...entry, cardId: LEGACY_CARD_IDS[entry.cardId] };
         if (!entry || !known.has(entry.cardId) || seen.has(entry.cardId) || !Number.isSafeInteger(entry.quantity) || entry.quantity < 1 || entry.quantity > 999) {
             throw new Error('The deck contains unknown cards or invalid quantities.');
         }

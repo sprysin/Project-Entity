@@ -16,7 +16,7 @@ export default [{
         onDestroyed: buildEffect([Cost.SelectDiscardRecovery(card => matchesCardName(card, 'Infantry Soldier')), Effect.RecoverFromDiscardToHand()])
     },
     cardData: {
-        id: 'pawn_soldier_of_the_high_ground',
+        id: 'P_Soldier_Of_The_High_Ground',
         name: 'Soldier of the High Ground',
         type: CardType.PAWN,
         rarity: 'Epic',

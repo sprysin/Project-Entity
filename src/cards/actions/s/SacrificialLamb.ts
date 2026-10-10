@@ -29,7 +29,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'action_05',
+    id: 'A_Sacrificial_Lamb',
     name: 'Sacrificial Lamb',
     type: CardType.ACTION,
     rarity: 'Common',

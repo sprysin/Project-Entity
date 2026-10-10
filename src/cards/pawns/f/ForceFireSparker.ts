@@ -15,7 +15,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'pawn_03',
+    id: 'P_Force_Fire_Sparker',
     name: 'Force Fire Sparker',
     type: CardType.PAWN,
     rarity: 'Common',

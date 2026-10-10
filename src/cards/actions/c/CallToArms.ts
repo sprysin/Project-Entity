@@ -27,7 +27,7 @@ const choices = buildEffectChoice(['summon', 'search'].map(id => ({
 })));
 export default [{
     cardData: {
-        id: 'action_call_to_arms', name: 'Call to Arms', type: CardType.ACTION, rarity: 'Legendary',
+        id: 'A_Call_To_Arms', name: 'Call to Arms', type: CardType.ACTION, rarity: 'Legendary',
         isLingering: true, level: 0, atk: 0, def: 0,
         effectText: 'You can activate both effects once per turn:\n- If you control a level 3 or lower NORMAL Pawn, special summon 1 level 5 or lower NORMAL Pawn from your hand.\n- If a "Soldier" Pawn attacked this turn, add 1 "Soldier" Pawn from your deck to your hand.'
     }, effect: { onFieldActivate: choices }

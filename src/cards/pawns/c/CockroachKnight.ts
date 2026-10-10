@@ -11,7 +11,7 @@ const effect: IEffect = {
 
 export default [{
     cardData: {
-        id: 'pawn_cockroach_knight', name: 'Cockroach Knight', type: CardType.PAWN, rarity: 'Rare',
+        id: 'P_Cockroach_Knight', name: 'Cockroach Knight', type: CardType.PAWN, rarity: 'Rare',
         level: 4, attribute: Attribute.EARTH, pawnType: PawnType.BUG, atk: 100, def: 80,
         effectText: 'When this card is destroyed by battle and sent to the Discard pile: you can Special Summon 1 EARTH Pawn with 100 or less ATK from your Deck in Attack Position.'
     },

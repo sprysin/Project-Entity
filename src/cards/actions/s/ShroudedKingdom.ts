@@ -10,7 +10,7 @@ const darkPawn = (card: Card) => card.type === CardType.PAWN && card.attribute =
 const summonable = (card: Card) => darkPawn(card) && !isReservePawn(card) && canSetPawn(card);
 
 export default [{ cardData: {
-    id: 'action_shrouded_kingdom', name: 'Shrouded Kingdom', type: CardType.ACTION,
+    id: 'A_Shrouded_Kingdom', name: 'Shrouded Kingdom', type: CardType.ACTION,
     actionSubtype: ActionSubtype.LAND, rarity: 'Rare', level: 0, atk: 0, def: 0,
     effectText: 'Once per turn: Void 2 DARK Pawns from your Discard pile; special summon 1 DARK Pawn from your hand in face-down Defense.\nDARK Pawns gain 20 DEF.'
 }, effect: {

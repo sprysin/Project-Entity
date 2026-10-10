@@ -111,7 +111,6 @@ export const Zone: React.FC<{
                             highlightAtk={popStats.atk}
                             highlightDef={popStats.def}
                             className="w-full h-full"
-                            compact={true}
                             showOriginalStats={type === 'pawn'}
                         />
                     )}

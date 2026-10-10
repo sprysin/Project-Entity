@@ -17,7 +17,7 @@ const effect: IEffect = {
 
 export default [
 { cardData: {
-    id: 'condition_02',
+    id: 'C_Void_Call',
     name: 'Void Call',
     type: CardType.CONDITION,
     rarity: 'Uncommon',

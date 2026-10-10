@@ -37,6 +37,11 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
         });
     };
 
+    const showingField = !revealedCard && !logCard && !!selectedZone && !!selectedFieldSlot;
+    const viewerCard = revealedCard ?? logCard ?? selectedZone?.card ?? selectedCard ?? inspectedCard;
+    const hidden = showingField && !xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex;
+    const showOriginalStats = showingField && selectedFieldSlot.type === 'pawn';
+
     const renderViewerCard = (card: Card, hidden = false, showOriginalStats = false) => (
         <button type="button" className="game-viewer-preview" disabled={hidden} aria-label={hidden ? 'Hidden card' : `Preview ${card.name}`} data-sound="select-small"
             onClick={() => { if (!hidden) setPreview({ card, showOriginalStats }); }}>
@@ -53,26 +58,10 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
                 {isOpen ? (
                     <div className="flex h-full flex-1 flex-col overflow-hidden">
                         <div className="flex-none p-6 pb-2">
-                            {revealedCard ? (
+                            {viewerCard ? (
                                 <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    {renderViewerCard(revealedCard)}
-                                </div>
-                            ) : logCard ? (
-                                <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    {renderViewerCard(logCard)}
-                                    <button data-sound="cancellation" type="button" onClick={() => setLogCard(null)} className="w-full font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-yellow-400">Close log preview</button>
-                                </div>
-                            ) : selectedZone && selectedFieldSlot ? (
-                                <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    {renderViewerCard(selectedZone.card, !xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex, selectedFieldSlot.type === 'pawn')}
-                                </div>
-                            ) : selectedCard ? (
-                                <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    {renderViewerCard(selectedCard)}
-                                </div>
-                            ) : inspectedCard ? (
-                                <div className="space-y-6 animate-in slide-in-from-right-4">
-                                    {renderViewerCard(inspectedCard)}
+                                    {renderViewerCard(viewerCard, hidden, showOriginalStats)}
+                                    {!revealedCard && logCard && <button data-sound="cancellation" type="button" onClick={() => setLogCard(null)} className="w-full font-orbitron text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-yellow-400">Close log preview</button>}
                                 </div>
                             ) : (
                                 <div className="flex h-64 flex-col items-center justify-center space-y-6 opacity-30 grayscale">

@@ -4,9 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Phase, Player } from '../../types';
 import { isDrawingForTurn } from '../../game/phases';
-import { LevelTributeSelectionModal, ReserveSelectionModal, ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
+import { DeckSelectionModal, DiscardSelectionModal, HandSelectionModal, PeekSelectionModal, LevelTributeSelectionModal, ReserveSelectionModal, ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
 import { checkActivationConditions } from '../../game/cardHelpers';
-import { DeckSelectionModal, DiscardSelectionModal, EffectModal, HandSelectionModal, PeekSelectionModal, WinnerModal } from './GameModals';
+import { EffectModal, WinnerModal } from './MatchModals';
 import { DuelPrompt } from './DuelPrompt';
 import { CardDetail } from '../cards/CardDetail';
 

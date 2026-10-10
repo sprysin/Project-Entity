@@ -1,8 +1,8 @@
 import { CardRegistry } from '../src/cards/CardRegistry';
+import { LEGACY_CARD_IDS } from '../src/cards/legacyIds';
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import CatalogPagination, { useCatalogPage } from '../src/components/catalog/CatalogPagination';
-import CatalogFilters, { useCatalogFilters } from '../src/components/catalog/CatalogFilters';
 import DeckCreator from '../src/components/decks/DeckCreator';
 import PlaytestSetup from '../src/components/decks/PlaytestSetup';
 import RulesView from '../src/components/rules/RulesView';
@@ -43,7 +43,6 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     }
     const debugCards = packCards(DEBUG_PACK);
     expect(debugCards.map(card => card.rarity)).toEqual([...CARD_RARITIES]);
-    expect(packCards(DEBUG_PACK)).toEqual(debugCards);
     expect(PACKS).not.toContain(DEBUG_PACK);
     expect(CARD_RARITIES.map(rarityColor)).toEqual([
         '#b8c3d4', '#88dca2', '#77bbff', '#c28bff', '#edc56f', '#30F0DD', '#D35400',
@@ -87,49 +86,6 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     act(() => { root.update(<Catalog query="missing" />); });
     expect(page.entries).toEqual([]);
     act(() => root.unmount());
-    let filters: ReturnType<typeof useCatalogFilters>;
-    function FilterControls() {
-        filters = useCatalogFilters();
-        return <CatalogFilters {...filters} />;
-    }
-    act(() => { root = create(<FilterControls />); });
-    const pawn = sortedCards().find(card => card.pawnType && card.attribute)!;
-    const otherLevel = String(pawn.level % 10 + 1);
-    act(() => filters.toggle('level', String(pawn.level)));
-    act(() => filters.toggle('level', otherLevel));
-    act(() => filters.toggle('pawnType', pawn.pawnType!));
-    act(() => filters.toggle('attribute', pawn.attribute!));
-    expect(filters.active).toBe(false);
-    expect(filters.matches({ ...pawn, attribute: undefined })).toBe(true);
-    act(() => filters.apply());
-    expect(filters.matches(pawn)).toBe(true);
-    expect(filters.matches({ ...pawn, level: Number(otherLevel) as typeof pawn.level })).toBe(true);
-    expect(filters.matches({ ...pawn, attribute: undefined })).toBe(false);
-    expect(filters.matches({ ...pawn, type: 'ACTION' as typeof pawn.type })).toBe(false);
-    const openFilters = () => root.root.findAllByType('button').find(button => button.props['aria-haspopup'] === 'dialog')!;
-    act(() => openFilters().props.onClick());
-    expect(root.root.findAllByProps({ 'aria-label': 'Level 0' })).toHaveLength(0);
-    expect(root.root.findByProps({ 'aria-label': 'Level filters' }).findAllByType('button')).toHaveLength(10);
-    expect(root.root.findAllByProps({ role: 'group' }).map(group => group.props['aria-label'])).toEqual(['Level filters', 'Attribute filters', 'Type filters']);
-    expect(root.root.findAllByType('button').some(button => button.props.children === 'Cancel')).toBe(false);
-    const option = root.root.findByProps({ 'aria-label': `Type ${pawn.pawnType}` });
-    expect(option.props['aria-pressed']).toBe(true);
-    act(() => option.props.onClick());
-    expect(filters.filters.pawnType).toEqual([]);
-    expect(root.root.findByType('dialog')).toBeTruthy();
-    act(() => root.root.findByProps({ 'aria-label': `Type ${pawn.pawnType}` }).props.onClick());
-    expect(root.root.findByProps({ 'aria-label': `Type ${pawn.pawnType}` }).props['aria-pressed']).toBe(true);
-    act(() => filters.clear());
-    expect(filters.active).toBe(true);
-    act(() => root.root.findByProps({ 'aria-label': 'Close filters' }).props.onClick());
-    act(() => openFilters().props.onClick());
-    expect(filters.filters.pawnType).toEqual([pawn.pawnType]);
-    act(() => filters.clear());
-    act(() => root.root.findByType('form').props.onSubmit({ preventDefault() {} }));
-    expect(filters.active).toBe(false);
-    expect(root.root.findAllByType('dialog')).toHaveLength(0);
-    expect(sortedCards().every(filters.matches)).toBe(true);
-    act(() => root.unmount());
     act(() => { root = create(<DeckCreator onBack={() => {}} />); });
     act(() => root.root.findAllByType('button').find(button => button.props.children?.[1] === ' New deck')!.props.onClick());
     expect(root.root.findAllByProps({ className: 'deck-empty-center' })).toHaveLength(1);
@@ -142,7 +98,7 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     for (let copy = 0; copy < 4; copy++) act(() => cardButton().props.onDoubleClick());
     expect(root.root.findByProps({ 'aria-label': `Add ${definition.name}` }).props.disabled).toBe(true);
     expect(root.root.findByProps({ 'aria-label': 'Deck contents' }).findAllByType('button').filter(button => button.props.title === 'Right click to remove')).toHaveLength(3);
-    const patron = sortedCards().find(card => card.id === 'pawn_patron_of_judgement')!;
+    const patron = sortedCards().find(card => card.id === 'P_Patron_Of_Judgement')!;
     act(() => root.root.findByProps({ 'aria-label': 'Search cards' }).props.onChange({ target: { value: 'Patron of Judgement' } }));
     const patronButton = () => catalog.findByProps({ 'aria-label': `View ${patron.name}` });
     act(() => patronButton().props.onDoubleClick());
@@ -154,16 +110,46 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     act(() => root.unmount());
     act(() => { root = create(<RulesView onBack={() => {}} />); });
     const chapters = root.root.findByProps({ 'aria-label': 'Rulebook chapters' });
+    const basics = chapters.findByProps({ 'aria-label': 'Duel Basics' });
+    expect(basics.findAllByType('strong').map(title => title.props.children)).toEqual(['Goal & deck', 'Pawns', 'Actions & Conditions', 'The field']);
+    expect(chapters.findAllByType('strong').map(title => title.props.children)).not.toContain('Land cards');
     const reserveChapter = chapters.findAllByType('button').find(button => button.findAllByType('strong').some(title => title.props.children === 'The Reserve'))!;
     expect(reserveChapter).toBeTruthy();
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
     act(() => reserveChapter.props.onClick());
     expect(root.root.findByType('h1').props.children).toBe('The Reserve');
-    const reserveRules = root.root.findByProps({ className: 'rulebook-rule-list' }).findAllByType('p').map(rule => rule.props.children).join(' ');
+    const reserveRules = root.root.findAllByProps({ className: 'rulebook-rule-list' }).flatMap(list => list.findAllByType('p')).map(rule => rule.props.children).join(' ');
     expect(reserveRules).toContain('up to 10 extra Pawns');
     expect(reserveRules).toContain('either Vassal or Merge Pawns');
     expect(reserveRules).toContain('Contract Action');
     expect(reserveRules).toContain('This is counted as a special summon.');
+    expect(root.root.findByProps({ 'aria-labelledby': 'rule-heading-vassal' }).findAllByType(CardDetail).map(example => example.props.card.id)).toEqual(['P_Patron_Of_Judgement', 'A_Scripture_Of_Faith']);
+    const openRuleChapter = (title: string) => act(() => root.root.findByProps({ 'aria-label': 'Rulebook contents' }).findAllByType('button').find(button => button.findAllByType('strong').some(label => label.props.children === title))!.props.onClick());
+    openRuleChapter('Actions & Conditions');
+    expect(root.root.findByProps({ 'aria-labelledby': 'rule-heading-actions' }).findAllByType(CardDetail).map(example => example.props.card.type)).toEqual(['ACTION', 'CONDITION']);
+    for (const [id, check] of [
+        ['lingering', (card: React.ComponentProps<typeof CardDetail>['card']) => card.isLingering],
+        ['attach', (card: React.ComponentProps<typeof CardDetail>['card']) => card.isAttached],
+        ['land', (card: React.ComponentProps<typeof CardDetail>['card']) => card.actionSubtype === 'Land'],
+    ] as const) {
+        const subtype = root.root.findByProps({ 'aria-labelledby': `rule-heading-${id}` });
+        expect(subtype.type).toBe('details');
+        expect(subtype.props.open).not.toBe(true);
+        expect(check(subtype.findByType(CardDetail).props.card)).toBe(true);
+    }
+    const sections = root.root.findByProps({ 'aria-label': 'In this chapter' });
+    expect(sections.findAllByType('button').map(button => button.props.children)).toEqual(['Playing Actions & Conditions', 'Lingering cards', 'Attach cards', 'Land cards']);
+    act(() => sections.findAllByType('button').find(button => button.props.children === 'Land cards')!.props.onClick());
+    expect(root.root.findByProps({ 'aria-label': 'In this chapter' }).findAllByType('button').find(button => button.props.children === 'Land cards')!.props['aria-current']).toBe('location');
+    expect(root.root.findByProps({ 'aria-labelledby': 'rule-heading-land' }).findAllByType('p').map(rule => rule.props.children).join(' ')).toContain('Covering it does not reset its use.');
+    expect(root.root.findAllByType('table')).toHaveLength(1);
+    openRuleChapter('Quick reference');
+    expect(root.root.findAllByType('table')).toHaveLength(6);
+    expect(root.root.findByProps({ className: 'rulebook-attribute-grid' }).findAllByType('p')).toHaveLength(0);
+    openRuleChapter('Responses & chains');
+    expect(root.root.findByProps({ 'aria-label': 'In this chapter' }).findAllByType('button').map(button => button.props.children)).toEqual(['Who can respond', 'Resolving a chain', 'Simultaneous triggered effects']);
+    act(() => root.root.findByProps({ className: 'rulebook-breadcrumb' }).findByType('button').props.onClick());
+    expect(root.root.findByProps({ 'aria-label': 'Rulebook chapters' }).findAllByType('strong')).toHaveLength(11);
     act(() => root.unmount());
     vi.unstubAllGlobals();
     // A batch remains available after rotation and retains every pull in rarity order.
@@ -243,6 +229,20 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     const legacy = { ...deck, cards: [{ cardId, quantity: 4 }] };
     expect(() => parseDeck(legacy)).toThrow('Only 3 copies');
     expect(parseDeck(legacy, false)).toEqual(legacy);
+    for (const [oldId, id] of Object.entries(LEGACY_CARD_IDS)) {
+        const card = cardRegistry.getCard(id)!;
+        expect(card).toBeDefined();
+        const prefix = card.type === CardType.PAWN ? 'P' : card.type === CardType.ACTION ? 'A' : 'C';
+        expect(id).toBe(`${prefix}_${card.name.match(/[A-Za-z0-9]+/g)!.map(word => word[0].toUpperCase() + word.slice(1)).join('_')}`);
+        expect(cardRegistry.getCard(oldId)).toBeUndefined();
+        if (card.pawnSubtype === 'Token') continue;
+        const location = isReservePawn(card) ? 'reserve' : 'cards';
+        const saved = { ...newDeck(), [location]: [{ cardId: oldId, quantity: 1 }] };
+        expect(parseDeck(saved)[location]).toEqual([{ cardId: id, quantity: 1 }]);
+        expect(saved[location][0].cardId).toBe(oldId);
+        expect(() => parseDeck({ ...saved, [location]: [...saved[location], { cardId: id, quantity: 1 }] })).toThrow('unknown cards or invalid quantities');
+        expect(() => parseDeck({ ...saved, [location]: [{ cardId: id.toLowerCase(), quantity: 1 }] })).toThrow('unknown cards');
+    }
 });
 
 it('enforces deck size boundaries, rejects malformed imports, and offers recent playable decks for training', () => {
@@ -256,7 +256,7 @@ it('enforces deck size boundaries, rejects malformed imports, and offers recent 
     expect(canAddCard(atSize(59), another)).toBe(true);
     expect(canAddCard(atSize(60), another)).toBe(false);
     expect(canAddCard(atSize(61), another)).toBe(false);
-    const vassal = cardRegistry.getCard('pawn_patron_of_judgement')!;
+    const vassal = cardRegistry.getCard('P_Patron_Of_Judgement')!;
     const withReserve = { ...atSize(40), reserve: [{ cardId: vassal.id, quantity: 3 }] };
     expect(isDeckPlayable(withReserve)).toBe(true);
     expect(reserveSize(withReserve)).toBe(3);

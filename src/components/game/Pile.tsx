@@ -43,7 +43,7 @@ export const Pile: React.FC<{
         <span className="history-pile__cards" aria-hidden="true">
             {cards.slice(fannedOut ? -4 : -1).reverse().map((card, index) => (
                 <span key={card.instanceId} className="history-pile__card" style={fannedOut ? { left: `${7 + index * 55}px`, zIndex: 4 - index } : undefined}>
-                    <CardDetail card={card} compact className="w-full h-full" />
+                    <CardDetail card={card} className="w-full h-full" />
                 </span>
             ))}
         </span>

@@ -5,7 +5,7 @@ import { Cost } from '../../engine/Costs';
 import { Effect } from '../../engine/Effects';
 import { Condition } from '../../engine/Requirements';
 
-const CARD_ID = 'pawn_11';
+const CARD_ID = 'P_Glass_Witch';
 
 const effect: IEffect = {
     timing: 'quick',

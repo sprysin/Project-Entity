@@ -117,7 +117,6 @@ interface CardDetailProps {
     onClick?: () => void;
     highlightAtk?: boolean;
     highlightDef?: boolean;
-    compact?: boolean;
     showOriginalStats?: boolean;
     domRef?: (el: HTMLElement | null) => void;
 }

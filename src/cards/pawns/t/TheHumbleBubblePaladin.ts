@@ -5,7 +5,7 @@ import { Effect } from '../../engine/Effects';
 
 export default [{
     cardData: {
-        id: 'token_bubble',
+        id: 'P_Bubble',
         name: 'Bubble',
         type: CardType.PAWN,
         pawnSubtype: PawnSubtype.TOKEN,
@@ -19,7 +19,7 @@ export default [{
     }, effect: {}
 }, {
     cardData: {
-        id: 'pawn_the_humble_bubble_paladin',
+        id: 'P_The_Humble_Bubble_Paladin',
         name: 'The Humble Bubble Paladin',
         type: CardType.PAWN,
         attribute: Attribute.WATER,
@@ -33,6 +33,6 @@ export default [{
     effect: {
         preventsBattleDestructionOfOpponent: true,
         mandatoryReactions: true,
-        onSentToDiscard: buildEffect([Effect.SummonToken('token_bubble', 2)])
+        onSentToDiscard: buildEffect([Effect.SummonToken('P_Bubble', 2)])
     }
 }] satisfies CardModule;

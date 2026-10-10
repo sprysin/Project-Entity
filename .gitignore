@@ -28,3 +28,6 @@ src-tauri/gen/
 # Compiled .NET output
 **/bin/
 **/obj/
+
+# Local Graphify index and visualization
+graphify-out/
