@@ -30,16 +30,6 @@ export const Require = {
         if (!zone || !canTargetWithEffect(zone.card) || filter && !filter(zone.card) || set === 'hidden' && zone.position !== Position.HIDDEN || set === 'faceup' && zone.position === Position.HIDDEN) return { halt: true };
     },
 
-    /** Verifies the provided target relies on a specific player scope. */
-    TargetIsPlayerScope: (scope: 'active' | 'opponent'): EffectStep => (_draftState, context) => {
-        const target = getEffectTarget(context);
-        if (target) {
-            const expectOpponent = scope === 'opponent';
-            const isOpponent = target.playerIndex !== context.playerIndex;
-            if (isOpponent !== expectOpponent) return { halt: true };
-        }
-    },
-
     /** Verifies the provided target matches a position state. */
     TargetMatchesPosition: (position: Position, invert = false): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context);

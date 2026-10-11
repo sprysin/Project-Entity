@@ -10,13 +10,24 @@ export interface SaveData {
 const empty = (): SaveData => ({ version: 1, decks: [], settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
 
 // Version 0 used an unversioned deck array. Keep excess copies editable on migration.
-export function migrateSave(raw: unknown): SaveData {
+export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveData {
   const data = (Array.isArray(raw) ? { ...empty(), decks: raw } : raw) as SaveData & { settings: { activationPopupsEnabled?: boolean } };
   if (!data || data.version !== 1 || !Array.isArray(data.decks) ||
       !data.settings || data.settings.activationPopupMode === undefined && typeof data.settings.activationPopupsEnabled !== 'boolean') throw new Error('Unsupported or damaged save file. Your existing file has been preserved.');
   const activationPopupMode = data.settings.activationPopupMode === undefined ? (data.settings.activationPopupsEnabled ? 'on' : 'off') : data.settings.activationPopupMode;
   if (!['off', 'auto', 'on'].includes(activationPopupMode)) throw new Error('Invalid settings in save file.');
-  const decks = data.decks.map(deck => parseDeck(deck, false));
+  const decks = data.decks.map(deck => {
+    let parsed: SavedDeck;
+    try {
+      parsed = parseDeck(deck, false);
+    } catch (error) {
+      if (!onCardPoolChange) throw error;
+      parsed = parseDeck(deck, false, true);
+    }
+    const loadedIds = new Set([...parsed.cards, ...parsed.reserve ?? []].map(entry => entry.cardId));
+    if ([...deck.cards, ...deck.reserve ?? []].some(entry => !loadedIds.has(entry.cardId))) onCardPoolChange?.();
+    return parsed;
+  });
   if (new Set(decks.map(deck => deck.id)).size !== decks.length) throw new Error('Duplicate deck IDs in save file.');
   const username = data.settings.username ?? 'Player 1';
   const profileImage = data.settings.profileImage ?? null;
@@ -31,16 +42,19 @@ export function migrateSave(raw: unknown): SaveData {
 
 let current = empty();
 let ready = false;
+let cardPoolChanged = false;
 let writes: Promise<void> = Promise.resolve();
 let pendingWrite: Promise<void> = Promise.resolve();
 const options = { baseDir: BaseDirectory.AppData };
 export async function initializeStorage() {
   ready = false;
+  cardPoolChanged = false;
   await mkdir('', { ...options, recursive: true });
-  current = await exists('save.json', options) ? migrateSave(JSON.parse(await readTextFile('save.json', options))) : empty();
+  current = await exists('save.json', options) ? migrateSave(JSON.parse(await readTextFile('save.json', options)), () => { cardPoolChanged = true; }) : empty();
   ready = true;
 }
 export const getSavedDecks = () => structuredClone(current.decks);
+export const hasCardPoolChanges = () => cardPoolChanged;
 export const getActivationPopupMode = () => current.settings.activationPopupMode;
 export const getSettings = () => ({ ...current.settings });
 export const saveSettings = (settings: Pick<SaveData['settings'], 'username' | 'volume' | 'fannedOutPiles'>) => {

@@ -16,9 +16,18 @@ export const canSetPawn = (card: Card): boolean => !isToken(card);
 export const canPawnAttack = (state: GameState, playerIndex: number, zone: PlacedCard): boolean =>
     cardRegistry.getEffect(zone.card.id)?.canAttack?.(state, { card: zone.card, playerIndex }, zone) ?? true;
 
+/** Multiple guards allow any guarded Pawn, while blocking other Pawns and direct attacks. */
+export function canTargetForAttack(state: GameState, playerIndex: number, target: PlacedCard | 'direct'): boolean {
+    const defendingPawns = state.players[1 - playerIndex].pawnZones;
+    const guards = fieldEntries(state).flatMap(({ zone }) => zone.position !== Position.HIDDEN
+        && cardRegistry.getEffect(zone.card.id)?.restrictsAttackTargetsToAttached
+        ? (zone.attachedToInstanceIds ?? []).filter(id => defendingPawns.some(pawn => pawn?.card.instanceId === id)) : []);
+    return !guards.length || target !== 'direct' && guards.includes(target.card.instanceId);
+}
+
 export const canAttackDirectly = (state: GameState, playerIndex: number, card: Card): boolean =>
-    !state.players[1 - playerIndex].pawnZones.some(Boolean)
-    || (cardRegistry.getEffect(card.id)?.canAttackDirectly?.(state, { card, playerIndex }) ?? false);
+    canTargetForAttack(state, playerIndex, 'direct') && (!state.players[1 - playerIndex].pawnZones.some(Boolean)
+    || (cardRegistry.getEffect(card.id)?.canAttackDirectly?.(state, { card, playerIndex }) ?? false));
 
 /** Both rows use left-to-right board indices, so equal indices share a column. */
 export function opposingPawnInColumn(state: GameState, context: CardContext): PlacedCard | null {

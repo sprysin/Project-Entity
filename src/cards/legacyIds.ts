@@ -2,7 +2,8 @@
 export const LEGACY_CARD_IDS: Readonly<Record<string, string>> = {
     'action_call_to_arms': 'A_Call_To_Arms',
     'action_flaming_phenix_rebirth': 'A_Flaming_Phenix_Rebirth',
-    'action_law_of_the_normal': 'A_Law_Of_The_Normal',
+    'action_law_of_the_normal': 'A_On_Common_Ground',
+    'A_Law_Of_The_Normal': 'A_On_Common_Ground',
     'action_03': 'A_Mark_Of_The_Forest_Hunter',
     'action_04': 'A_Mechanical_Maintenance',
     'action_02': 'A_Quick_Recovery',

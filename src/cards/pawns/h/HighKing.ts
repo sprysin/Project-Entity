@@ -1,4 +1,4 @@
-import { IEffect, Position, CardType, Attribute, PawnType } from '../../../types';
+import { IEffect, CardType, Attribute, PawnType } from '../../../types';
 import { CardModule } from '../../CardRegistry';
 import { buildEffect } from '../../engine/Builder';
 import { Require } from '../../engine/Requirements';
@@ -6,8 +6,7 @@ import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
     onSummon: buildEffect([
-        Require.Target('pawn'),
-        Require.TargetMatchesPosition(Position.HIDDEN, true),
+        Require.Target('pawn', 'faceup'),
         Effect.ModifyTargetStats(-20, 0)
     ])
 };

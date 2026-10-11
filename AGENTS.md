@@ -11,23 +11,28 @@ For React, CSS, game rules, and TypeScript-only changes:
 - Do not launch the desktop app or compile Rust solely to validate frontend-only work.
 - Use `npm run dev:frontend` when interactive browser validation is useful.
 
-## Test suite budget
+## Test maintenance budget
 
-- Keep the suite streamlined, with a target ceiling of approximately 30 executable
-  test cases for the project unless the user explicitly approves a larger suite.
-- The existing suite is above this target. Do not add net-new test cases by default;
-  when changing covered behavior, consolidate related scenarios until the suite moves
-  toward the target.
-- Before adding a test, search for coverage of the same behavior. Extend or combine
-  an existing test when that remains clear and provides equivalent regression value.
-- Whenever tests are touched, remove or consolidate tests that are redundant, test
-  superseded behavior, duplicate lower-level coverage, or assert implementation
-  details without protecting user-visible behavior or an important invariant.
-- Preserve distinct high-value regression coverage. Do not delete a meaningful test
-  merely to satisfy the numeric target; combine cases with table-driven assertions or
-  broader behavioral flows when practical.
-- Production bugs should still receive regression coverage. Offset a necessary new
-  case by consolidating lower-value overlap elsewhere when possible.
+- Default to no new test files and no net growth in test cases or test code lines.
+  A completed card or feature does not automatically need its own permanent test.
+- Keep `tests/` within approximately 30 executable cases, 1,500 lines, and 100 KiB,
+  including fixtures. Ask for explicit approval before exceeding these budgets.
+  Case count alone is insufficient: do not bury growth in giant cases or loops,
+  compress formatting, or move test code elsewhere to evade the budget.
+- Before adding coverage, identify the concrete regression or shared invariant it
+  protects and search for an existing test of that behavior. Prefer one representative
+  card per reusable mechanic; do not duplicate coverage for every card using it.
+- Keep permanent coverage for core game flows, meaningful regressions, hidden
+  information, and save/import integrity. Routine UI copy, styling, static card
+  definitions, simple wiring, and already-covered effects usually need no new test.
+- A production bug warrants the smallest regression check in the relevant existing
+  test. Remove lower-value overlap to offset it; preserve distinct critical coverage.
+- Whenever tests are touched, delete obsolete scenarios, redundant permutations,
+  implementation-detail assertions, and unused fixtures/imports. Each case should
+  cover one coherent behavior, not accumulate unrelated feature checks.
+- When changing tests, report before/after suite counts and test lines, with a brief
+  reason for any growth. Do not add test infrastructure or dependencies just to
+  enforce these guidelines unless requested.
 
 Run Tauri or native validation when the change involves `src-tauri`, Tauri APIs,
 plugins, capabilities or permissions, native dialogs, filesystem integration,
@@ -48,7 +53,8 @@ depends on the packaged application.
   with a narrow contract. Make combat, AI, and display consume that contract, then
   implement the card through it. Avoid a second path for the same mechanic.
 - Before finishing a new card, verify that another card with the same kind of effect
-  could be added by editing only its card module and focused tests.
+  could be added by editing only its card module, with focused tests only when the
+  test maintenance policy warrants them.
 
 - Keep searches and commands scoped; do not inspect generated dependency or build
   directories unless the task requires it.

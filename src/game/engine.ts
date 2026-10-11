@@ -1,6 +1,6 @@
 import { activeLand, hasLand, isLand, sourceZone } from './field';
 import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
-import { canTributeForSummon, isToken, isBomb, isReservePawn, canPawnAttack, canAttackDirectly } from './cardHelpers';
+import { canTributeForSummon, isToken, isBomb, isReservePawn, canPawnAttack, canAttackDirectly, canTargetForAttack } from './cardHelpers';
 import { Card, CardContext, CardTarget, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, autoPass, effectChoices, fieldActivations, handActivations, openResponse, passPriority, queueEventResponses, resolveChainStep, runEffect, startPendingTriggers } from './chains';
@@ -258,6 +258,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             const opponent = state.players[1 - actor];
             const targetId = command.targetIndex === 'direct' ? 'direct' : opponent.pawnZones[command.targetIndex]?.card.instanceId;
             if (!targetId || targetId === 'direct' && !canAttackDirectly(state, actor, attacker.card)) return state;
+            if (command.targetIndex !== 'direct' && !canTargetForAttack(state, actor, opponent.pawnZones[command.targetIndex]!)) return state;
             return openResponse({ ...state, attackReplay: undefined, attacksThisTurn: [...(state.attacksThisTurn ?? []).filter(event => event.turn === state.turnNumber), { turn: state.turnNumber, card: { ...attacker.card }, playerIndex: actor }] }, { kind: 'attack', attackerId: attacker.card.instanceId, targetId }, `${attacker.card.name} declares an attack`);
         }
         case 'pass': return state.response?.priority === actor ? passPriority(state) : state;
@@ -319,8 +320,9 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
         const target = action.targetId === 'direct'
             ? attacker >= 0 && canAttackDirectly(next, actor, next.players[actor].pawnZones[attacker]!.card) ? 'direct' : -1
             : state.players[1 - actor].pawnZones.findIndex(z => z?.card.instanceId === action.targetId);
-        if (attacker >= 0 && canAttack(next, actor, attacker) && target === -1) next.attackReplay = { attackerId: action.attackerId };
-        if (attacker >= 0 && (target === 'direct' || target >= 0)) next = resolveCombat(next, attacker, target);
+        const legalTarget = target === 'direct' || target >= 0 && canTargetForAttack(next, actor, next.players[1 - actor].pawnZones[target]!);
+        if (attacker >= 0 && canAttack(next, actor, attacker) && !legalTarget) next.attackReplay = { attackerId: action.attackerId };
+        if (attacker >= 0 && legalTarget) next = resolveCombat(next, attacker, target);
     }
     const events: GameEvent[] = [];
     if (action.kind === 'attack') state.players.forEach((p, playerIndex) => p.pawnZones.forEach((zone, index) => {

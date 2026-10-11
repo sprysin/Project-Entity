@@ -32,9 +32,18 @@ const effect: IEffect = {
     ])
 };
 
-export default [{ cardData: {
-    id: 'P_Patron_Of_Judgement', name: 'Patron of Judgement', type: CardType.PAWN,
-    pawnSubtype: PawnSubtype.VASSAL, rarity: 'Legendary', level: 10,
-    attribute: Attribute.AIR, pawnType: PawnType.ANGEL, atk: 290, def: 220,
-    effectText: 'Once per turn: Target 1 Pawn on the field whose ATK is higher than its original ATK; destroy it, and if you do, take damage equal to the difference.'
-}, effect }] satisfies CardModule;
+export default [{
+    cardData: {
+        id: 'P_Patron_Of_Judgement',
+        name: 'Patron of Judgement',
+        type: CardType.PAWN,
+        pawnSubtype: PawnSubtype.VASSAL,
+        rarity: 'Mythic',
+        level: 10,
+        attribute: Attribute.AIR,
+        pawnType: PawnType.ANGEL,
+        atk: 290,
+        def: 220,
+        effectText: 'Once per turn: Target 1 Pawn on the field whose ATK is higher than its original ATK; destroy it, and if you do, take damage equal to the difference.'
+    }, effect
+}] satisfies CardModule;

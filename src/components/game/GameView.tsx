@@ -20,7 +20,7 @@ import { CardReveal } from './CardReveal';
 import { HealthHud } from './HealthHud';
 import { SavedDeck } from '../../decks';
 import { fieldActivations, handActivations } from '../../game/chains';
-import { canAttackDirectly } from '../../game/cardHelpers';
+import { canAttackDirectly, canTargetForAttack } from '../../game/cardHelpers';
 import { canAttack, canChangePosition as canChangePawnPosition } from '../../game/engine';
 import { QuitDuelDialog } from './MatchModals';
 import { getSettings } from '../../desktop/storage';
@@ -147,7 +147,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
 
   const checkIsSelectable = (z: typeof activePlayer.pawnZones[0], zoneType: 'pawn' | 'action', playerIndex: number) => {
     const isOpponent = playerIndex !== viewIndex;
-    if (isOpponent && zoneType === 'pawn' && state.targetSelectMode === 'attack') return true;
+    if (isOpponent && zoneType === 'pawn' && state.targetSelectMode === 'attack') return !!z && canTargetForAttack(gameState, viewIndex, z);
     if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
       if (state.targetSelectType !== 'any' && state.targetSelectType !== zoneType) return false;
       if (state.targetSelectScope === 'active' && isOpponent) return false;
@@ -258,7 +258,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                       if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
                         const hasMonsters = opponent.pawnZones.some(mz => mz !== null);
                         if (hasMonsters) {
-                          if (opponent.pawnZones[i]) actions.handleAttack(state.selectedFieldSlot.index, i);
+                          if (checkIsSelectable(z, 'pawn', oppIdx)) actions.handleAttack(state.selectedFieldSlot.index, i);
                         } else {
                           actions.handleAttack(state.selectedFieldSlot.index, 'direct');
                         }

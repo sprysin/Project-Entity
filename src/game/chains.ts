@@ -63,7 +63,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
     if (playerIndex < 0) return [];
     const effect = cardRegistry.getEffect(card.id);
     const eligibility = trigger === 'hand_activate' ? effect?.canActivateFromHand : trigger === 'hand_return' ? undefined : effect?.canActivate;
-    if (trigger !== 'phase' && !resolutionContext && eligibility && !eligibility(state, { card, playerIndex })) return [];
+    if (trigger !== 'phase' && trigger !== 'battle_destroy' && !resolutionContext && eligibility && !eligibility(state, { card, playerIndex })) return [];
     const choices: CardContext[] = [];
     let visited = 0;
     const visit = (context: CardContext, depth: number) => {
@@ -112,7 +112,8 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             const req = result.requireShuffleSelection;
             const cardIds = cardsAtLocation(state.players[req.playerIndex], req.location, state)
                 .filter(entry => req.filter(entry.card)).map(entry => entry.card.instanceId);
-            combinations(cardIds, req.count).forEach(shuffleCardIds => visit({ ...context, shuffleCardIds }, depth + 1));
+            const counts = req.upTo ? Array.from({ length: Math.min(req.count, cardIds.length) + 1 }, (_, index) => index) : [req.count];
+            counts.forEach(count => combinations(cardIds, count).forEach(shuffleCardIds => visit({ ...context, shuffleCardIds }, depth + 1)));
         } else if (result.requireLevelTribute && !context.materialIds) {
             levelTributeChoices(state, result.requireLevelTribute).forEach(materialIds => visit({ ...context, materialIds }, depth + 1));
         } else if (result.requireReserveSelection && context.reserveIndex === undefined) {
@@ -201,7 +202,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     if (!buildingTriggers && state.response && !fieldActivations(state, context.playerIndex, true).some(a => a.card.instanceId === context.card.instanceId && a.trigger === trigger)) return state;
     const effect = cardRegistry.getEffect(context.card.id);
     const eligibility = trigger === 'hand_activate' ? effect?.canActivateFromHand : trigger === 'hand_return' ? undefined : effect?.canActivate;
-    if (trigger !== 'phase' && eligibility && !eligibility(state, context)) return state;
+    if (trigger !== 'phase' && trigger !== 'battle_destroy' && eligibility && !eligibility(state, context)) return state;
     if (effect?.targetsAtResolution) {
         if (!effectChoices(state, context.card, trigger, 1).length) return state;
         context = { ...context, target: undefined, targets: undefined };

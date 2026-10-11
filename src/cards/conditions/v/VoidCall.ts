@@ -7,7 +7,6 @@ import { Effect } from '../../engine/Effects';
 const effect: IEffect = {
     onActivate: buildEffect([
         Require.Target('action', 'hidden'),
-        Require.TargetMatchesPosition(Position.HIDDEN),
         Effect.BanishTargetToVoid()
     ]),
     canActivate: buildCondition([

@@ -12,6 +12,7 @@ import Shop from './components/shop/Shop';
 import { OpponentMode, PlaytestDebugSettings } from './types';
 import { SavedDeck } from './decks';
 import { useUiSounds } from './hooks/useUiSounds';
+import { hasCardPoolChanges } from './desktop/storage';
 
 type View = 'HOME' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS' | 'ACCOUNT' | 'PREVIEW' | 'SHOP';
 
@@ -30,6 +31,7 @@ const App: React.FC = () => {
   const [preview, setPreview] = useState<HomePreview>('multiplayer');
   const [playtestDecks, setPlaytestDecks] = useState<[SavedDeck | null, SavedDeck | null]>([null, null]);
   const [scale, setScale] = useState(viewportScale);
+  const [showCardPoolWarning, setShowCardPoolWarning] = useState(hasCardPoolChanges);
   useEffect(() => {
     const resize = () => setScale(viewportScale());
     window.addEventListener('resize', resize);
@@ -77,6 +79,17 @@ const App: React.FC = () => {
       {currentView === 'RULES' && (
         <RulesView onBack={() => setCurrentView('HOME')} />
       )}
+      {showCardPoolWarning && <div className="deck-prompt-backdrop">
+        <section className="deck-prompt" role="alertdialog" aria-modal="true" aria-labelledby="card-pool-title" aria-describedby="card-pool-message"
+          onKeyDown={event => {
+            if (event.key === 'Escape') setShowCardPoolWarning(false);
+            if (event.key === 'Tab') event.preventDefault();
+          }}>
+          <h2 id="card-pool-title">Some cards have changed</h2>
+          <p id="card-pool-message">Some cards in your saved decks have been changed or removed from the system. Renamed cards have been updated; unavailable cards have been left out. Please review your decks in the Deck Creator before playing.</p>
+          <div className="deck-prompt-actions"><button autoFocus className="deck-primary" onClick={() => setShowCardPoolWarning(false)}>OK</button></div>
+        </section>
+      </div>}
       </div>
     </div>
   );

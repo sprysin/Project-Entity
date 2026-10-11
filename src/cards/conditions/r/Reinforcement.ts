@@ -6,8 +6,7 @@ import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
-        Require.Target('pawn'),
-        Require.TargetMatchesPosition(Position.HIDDEN, true),
+        Require.Target('pawn', 'faceup'),
         Effect.AttachToTarget(),
         Effect.ModifyTargetStats(20, 0)
     ]),

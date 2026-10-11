@@ -64,11 +64,12 @@ export const ShuffleSelectionModal: React.FC<{
     if (!request) return null;
     const choices = cardsAtLocation(gameState.players[request.playerIndex], request.location, gameState).filter(entry => request.filter(entry.card));
     return <CardSelectionModal
-        title={`Shuffle from ${request.location} (${selected.length}/${request.count})`}
+        title={`Shuffle from ${request.location} (${selected.length}/${request.upTo ? 'up to ' : ''}${request.count})`}
         cards={choices.map(entry => entry.card)}
         selectedIndex={null}
         selectedIndices={selected}
         requiredCount={request.count}
+        confirmDisabled={request.upTo ? selected.length > request.count : selected.length !== request.count}
         onSelect={index => {
             if (index === null) return;
             setSelected(current => current.includes(index) ? current.filter(value => value !== index)

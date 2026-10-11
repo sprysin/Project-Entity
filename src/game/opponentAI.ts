@@ -1,5 +1,5 @@
 import { isLand } from './field';
-import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly } from './cardHelpers';
+import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly, canTargetForAttack } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, handActivations, needsChoice, resolveChain, resolveChainStep, runEffect } from './chains';
@@ -159,7 +159,7 @@ export function updateKnownCards(state: GameState, viewer: number, knownCards: M
 
 function attackChoices(state: GameState): Extract<AIDecision, { kind: 'attack' }>[] {
     const p = state.players[state.activePlayerIndex], opp = state.players[1 - state.activePlayerIndex];
-    const targets = opp.pawnZones.flatMap((z, i) => z ? [i] : []);
+    const targets = opp.pawnZones.flatMap((z, i) => z && canTargetForAttack(state, state.activePlayerIndex, z) ? [i] : []);
     return p.pawnZones.flatMap((z, index) => z?.position === Position.ATTACK
         && (!state.attackReplay || state.attackReplay.attackerId === z.card.instanceId)
         && (z.attacksRemaining ?? (z.hasAttacked ? 0 : 1)) > 0 && canPawnAttack(state, state.activePlayerIndex, z)

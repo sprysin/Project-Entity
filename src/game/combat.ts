@@ -3,7 +3,7 @@ import { clonePlayers } from './cloneState';
 import { checkVictory } from './finishEffect';
 import { cardRegistry } from '../cards/CardRegistry';
 import { destroyFieldCard } from './attachments';
-import { fieldStats, canPawnAttack, canAttackDirectly } from './cardHelpers';
+import { fieldStats, canPawnAttack, canAttackDirectly, canTargetForAttack } from './cardHelpers';
 
 const quote = (value: string) => `"${value}"`;
 const lpLoss = (player: Player, amount: number) => `${quote(player.name)} -${amount} LP.`;
@@ -18,6 +18,10 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     if (attacker.attacksRemaining !== undefined ? attacker.attacksRemaining <= 0 : attacker.hasAttacked) return gameState;
     if (!canPawnAttack(gameState, activeIndex, attacker)) return gameState;
     if (targetIndex === 'direct' && !canAttackDirectly(gameState, activeIndex, attacker.card)) return gameState;
+    if (targetIndex !== 'direct') {
+        const target = gameState.players[opponentIndex].pawnZones[targetIndex];
+        if (!target || !canTargetForAttack(gameState, activeIndex, target)) return gameState;
+    }
 
     const logs: string[] = [];
     let damageSource = attacker.card;
@@ -29,6 +33,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     const attackingAtk = fieldStats(gameState, attackingPawn).atk;
     let destroyedByAttacker: typeof attackingPawn.card | undefined;
     const battleDestroyed: typeof attackingPawn.card[] = [];
+    const victories: { pawnId: string; target: typeof attackingPawn.card }[] = [];
     const destructionState = { ...gameState, players };
     const battleOpponent = targetIndex === 'direct' ? undefined : players[opponentIndex].pawnZones[targetIndex]?.card;
     const destroyByBattle = (card: typeof attackingPawn.card) => {
@@ -36,6 +41,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
         if (other && cardRegistry.getEffect(other.id)?.preventsBattleDestructionOfOpponent) return false;
         if (!players.some(player => player.pawnZones.some(zone => zone?.card.instanceId === card.instanceId))) return false;
         destroyFieldCard(destructionState, card.instanceId);
+        if (other) victories.push({ pawnId: other.instanceId, target: card });
         if (players.some(player => player.discard.some(value => value.instanceId === card.instanceId))) battleDestroyed.push(card);
         return true;
     };
@@ -122,6 +128,14 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
             }];
         }
     }
+    const rewards = (next.battleRewards ?? []).filter(reward => reward.turn === next.turnNumber);
+    const earned = rewards.filter(reward => victories.some(victory => victory.pawnId === reward.pawnId && victory.target.instanceId === reward.targetId));
+    next.battleRewards = rewards.filter(reward => !earned.includes(reward));
+    for (const reward of earned) next.pendingTriggers = [...(next.pendingTriggers ?? []), {
+        context: { card: reward.card, playerIndex: reward.playerIndex,
+            destroyedCard: victories.find(victory => victory.target.instanceId === reward.targetId)!.target },
+        trigger: 'battle_destroy'
+    }];
     if (cardRegistry.getEffect(attackingPawn.card.id)?.onAttackCompleted) {
         next.pendingReactions = [...(next.pendingReactions ?? []), { card: attackingPawn.card, playerIndex: activeIndex, trigger: 'attack_completed' }];
     }

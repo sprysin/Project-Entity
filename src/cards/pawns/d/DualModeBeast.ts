@@ -8,8 +8,7 @@ import { Effect } from '../../engine/Effects';
 const effect: IEffect = {
     onActivate: buildEffect([
         Cost.DiscardCardFilter(),
-        Require.Target('pawn'),
-        Require.TargetIsPlayerScope('opponent'),
+        Require.Target('pawn', 'both', 'opponent'),
         Require.TargetMatchesPosition(Position.ATTACK),
         Effect.ChangeTargetPosition(Position.DEFENSE)
     ]),

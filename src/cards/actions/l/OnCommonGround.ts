@@ -7,15 +7,15 @@ import { Effect } from '../../engine/Effects';
 
 export default [{
     cardData: {
-        id: 'A_Law_Of_The_Normal',
-        name: 'Law of the Normal',
+        id: 'A_On_Common_Ground',
+        name: 'On Common Ground',
         type: CardType.ACTION,
         actionSubtype: ActionSubtype.LAND,
         rarity: 'Rare',
         level: 0,
         atk: 0,
         def: 0,
-        effectText: 'During your turn, all NORMAL Pawns you control gain 20 ATK.\nOnce: Target 1 Pawn on either field whose ATK differs from its original ATK; its ATK becomes its original ATK for the rest of the turn.'
+        effectText: 'During your turn, all NORMAL Pawns you control gain 20 ATK.\nOnce while on the field: Target 1 Pawn on either field whose ATK differs from its original ATK; its ATK becomes its original ATK for the rest of the turn.'
     }, effect: {
         LingeringStatModifier: (state, _context, target, controllerIndex) => ({
             atk: controllerIndex === state.activePlayerIndex && target.card.attribute === Attribute.NORMAL ? 20 : 0

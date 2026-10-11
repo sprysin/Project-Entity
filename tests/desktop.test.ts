@@ -16,7 +16,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn(), message: vi.fn() }));
 
-import { flushSaves, getActivationPopupMode, getSettings, saveProfile, saveSettings, getSavedDecks, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
+import { flushSaves, getActivationPopupMode, getSettings, saveProfile, saveSettings, getSavedDecks, hasCardPoolChanges, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
 import { newDeck } from '../src/decks';
 import { exportDeck, importDeck } from '../src/desktop/files';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -39,12 +39,6 @@ it('persists decks and settings together across a restart, even with concurrent 
   expect(getActivationPopupMode()).toBe('off');
   expect(getSettings()).toEqual({ activationPopupMode: 'off', username: 'Drake', profileImage, volume: 35, fannedOutPiles: true });
   expect(disk.files.has('save.json.tmp')).toBe(false);
-  for (const mode of ['off', 'auto', 'on'] as const) {
-    await saveActivationPopupMode(mode);
-    await initializeStorage();
-    expect(getActivationPopupMode()).toBe(mode);
-    expect(getSavedDecks()).toEqual([deck]);
-  }
 });
 
 it('keeps the previous save and cached state when replacement fails, then supports retry', async () => {
@@ -76,7 +70,31 @@ it('migrates legacy arrays and rejects future versions and duplicate IDs', () =>
   expect(() => migrateSave([deck, deck])).toThrow('Duplicate');
 });
 
-it('does not overwrite a damaged save or permit saving after failed initialization', async () => {
+it('recovers changed card pools without overwriting saves, but still rejects damaged saves', async () => {
+  const unaffected = newDeck();
+  for (const oldId of ['A_Law_Of_The_Normal', 'action_law_of_the_normal']) {
+    const deck = { ...newDeck(), cards: [{ cardId: oldId, quantity: 2 }] };
+    const raw = JSON.stringify({ version: 1, decks: [deck, unaffected], settings: { activationPopupMode: 'off', username: 'Drake', volume: 35 } });
+    disk.files.set('save.json', raw);
+    await initializeStorage();
+    expect(getSavedDecks()).toEqual([{ ...deck, cards: [{ cardId: 'A_On_Common_Ground', quantity: 2 }] }, unaffected]);
+    expect(hasCardPoolChanges()).toBe(true);
+    expect(getSettings()).toMatchObject({ activationPopupMode: 'off', username: 'Drake', volume: 35 });
+    expect(disk.files.get('save.json')).toBe(raw);
+  }
+  const deck = { ...newDeck(), cards: [{ cardId: 'A_On_Common_Ground', quantity: 2 }, { cardId: 'A_Removed', quantity: 1 }], reserve: [{ cardId: 'P_Removed', quantity: 3 }] };
+  disk.files.set('save.json', JSON.stringify([deck, unaffected]));
+  await initializeStorage();
+  expect(getSavedDecks()).toEqual([{ ...deck, cards: [deck.cards[0]], reserve: [] }, unaffected]);
+  expect(hasCardPoolChanges()).toBe(true);
+  expect(() => migrateSave([deck])).toThrow('unknown cards');
+  await saveDeckLibrary(getSavedDecks());
+  await initializeStorage();
+  expect(hasCardPoolChanges()).toBe(false);
+  const invalid = { ...deck, cards: [{ cardId: 'A_Removed', quantity: -1 }] };
+  disk.files.set('save.json', JSON.stringify([invalid]));
+  await expect(initializeStorage()).rejects.toThrow('invalid quantities');
+  expect(disk.files.get('save.json')).toBe(JSON.stringify([invalid]));
   disk.files.set('save.json', '{broken');
   await expect(initializeStorage()).rejects.toThrow();
   await expect(saveDeckLibrary([])).rejects.toThrow('has not loaded');

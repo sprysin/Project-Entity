@@ -101,13 +101,14 @@ export const Effect = {
         } };
     },
     /** Choose placement before sampling, so suspended effects do not reroll a selection. */
-    RequirePawnPlacement: (position: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
+    RequirePawnPlacement: (position?: Position): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
         if (!player.pawnZones.includes(null)) return { halt: true };
         const placement = context.pawnPlacement;
         if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position, slots: player.pawnZones.flatMap((zone, slot) => zone ? [] : [slot]) } };
         if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
-            || player.pawnZones[placement.slot] || placement.position !== position) return { halt: true };
+            || player.pawnZones[placement.slot] || (position ? placement.position !== position
+                : ![Position.ATTACK, Position.DEFENSE].includes(placement.position))) return { halt: true };
     },
     /** Summon a previously selected Pawn from any off-field pile. */
     SummonSelected: (position: Position.ATTACK | Position.DEFENSE, selectionIndex = 0): EffectStep => (state, context) => {
@@ -143,26 +144,25 @@ export const Effect = {
         if (context.card.type !== CardType.ACTION || context.card.actionSubtype !== ActionSubtype.CONTRACT) return { halt: true };
         const player = state.players[context.playerIndex];
         const eligible: CardFilter = card => card.type === CardType.PAWN && card.pawnSubtype === subtype && filter(card);
-        const slots = player.pawnZones.flatMap((zone, index) => zone ? [] : [index]);
-        if (!slots.length || !player.reserve.some(eligible)) return { halt: true };
+        if (!player.pawnZones.includes(null) || !player.reserve.some(eligible)) return { halt: true };
         if (context.reserveIndex === undefined) return { requireReserveSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: `Select a ${subtype} from your Reserve` } };
         const card = player.reserve[context.reserveIndex];
         if (!card || !eligible(card)) return { halt: true };
-        const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, slots } };
-        if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
+        const placementResult = Effect.RequirePawnPlacement()(state, context);
+        if (placementResult) return placementResult;
+        const placement = context.pawnPlacement!;
         player.reserve.splice(context.reserveIndex, 1);
         player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false,
             hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
     },
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
-    ShuffleFrom: (location: ShuffleLocation, count: number, filter: CardFilter = () => true): EffectStep => (state, context) => {
+    ShuffleFrom: (location: ShuffleLocation, count: number, filter: CardFilter = () => true, upTo = false): EffectStep => (state, context) => {
         if (!Number.isInteger(count) || count < 1) return { halt: true };
         const player = state.players[context.playerIndex];
         const candidates = cardsAtLocation(player, location, state);
         const cardIds = context.shuffleCardIds;
-        if (!cardIds) return { requireShuffleSelection: { playerIndex: context.playerIndex, location, count, filter } };
-        if (cardIds.length !== count || new Set(cardIds).size !== count
+        if (!cardIds) return { requireShuffleSelection: { playerIndex: context.playerIndex, location, count, filter, upTo } };
+        if ((upTo ? cardIds.length > count : cardIds.length !== count) || new Set(cardIds).size !== cardIds.length
             || cardIds.some(id => !candidates.some(entry => entry.card.instanceId === id && filter(entry.card)))) return { halt: true };
         const selected = cardIds.map(id => candidates.find(entry => entry.card.instanceId === id)!);
         for (const index of selected.map(entry => entry.index).sort((a, b) => b - a)) {
@@ -176,6 +176,16 @@ export const Effect = {
             if (owner) shuffleDeck(owner.deck);
         }
         if (location === 'field') Object.assign(state, destroyOrphanedAttachments(state));
+    },
+    /** Remember both field identities; the source may leave the field before the victory. */
+    RewardTargetBattleVictory: (pawnIndex: number, opponentIndex: number): EffectStep => (state, context) => {
+        const pawnTarget = getEffectTarget(context, pawnIndex), opponentTarget = getEffectTarget(context, opponentIndex);
+        const pawn = pawnTarget && targetZone(state, pawnTarget), opponent = opponentTarget && targetZone(state, opponentTarget);
+        if (!pawn || !opponent) return { halt: true };
+        state.battleRewards = [...(state.battleRewards ?? []), {
+            card: context.card, playerIndex: context.playerIndex, pawnId: pawn.card.instanceId,
+            targetId: opponent.card.instanceId, turn: state.turnNumber
+        }];
     },
     CounterCount: (name: string, targetIndex?: number) => (state: GameState, context: CardContext): number => {
         const target = targetIndex === undefined ? undefined : getEffectTarget(context, targetIndex);
@@ -208,11 +218,9 @@ export const Effect = {
         if (context.deckIndex === undefined) return { requireDeckSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' } };
         const card = player.deck[context.deckIndex];
         if (!card || !eligible(card)) return { halt: true };
-        const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position, slots: player.pawnZones.flatMap((zone, slot) => zone ? [] : [slot]) } };
-        if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
-            || player.pawnZones[placement.slot] || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)
-            || position && placement.position !== position) return { halt: true };
+        const placementResult = Effect.RequirePawnPlacement(position)(state, context);
+        if (placementResult) return placementResult;
+        const placement = context.pawnPlacement!;
         player.deck.splice(context.deckIndex, 1);
         player.pawnZones[placement.slot] = {
             card, position: placement.position, hasAttacked: false,
@@ -230,11 +238,9 @@ export const Effect = {
         const handIndex = context.handSelectionId ? player.hand.findIndex(card => card.instanceId === context.handSelectionId) : context.handIndex!;
         const card = player.hand[handIndex];
         if (!card || !eligible(card)) return { halt: true };
-        const placement = context.pawnPlacement;
-        if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, position, slots: player.pawnZones.flatMap((zone, slot) => zone ? [] : [slot]) } };
-        if (!Number.isInteger(placement.slot) || placement.slot < 0 || placement.slot >= player.pawnZones.length
-            || player.pawnZones[placement.slot] || (position ? placement.position !== position
-                : ![Position.ATTACK, Position.DEFENSE].includes(placement.position))) return { halt: true };
+        const placementResult = Effect.RequirePawnPlacement(position)(state, context);
+        if (placementResult) return placementResult;
+        const placement = context.pawnPlacement!;
         player.hand.splice(handIndex, 1);
         player.pawnZones[placement.slot] = {
             card, position: placement.position, hasAttacked: false,
@@ -513,16 +519,6 @@ export const Effect = {
                 sendToOwnerPile(draftState, card, 'hand');
             } else return { halt: true };
         }
-    },
-
-    /** Registers a Lingering Effect (e.g. ATK reset at End Phase). */
-    RegisterPendingEffect: (type: 'RESET_ATK', targetInstanceId: string, value: number): EffectStep => (draftState, _context) => {
-        draftState.pendingEffects.push({
-            type,
-            targetInstanceId,
-            value,
-            dueTurn: draftState.turnNumber
-        });
     },
 
     /** Registers a Lingering Effect on the active activating card. */

@@ -23,8 +23,9 @@ export const PACKS: readonly Pack[] = [
       'P_Soldier_Of_The_High_Ground', 'P_Steadfast_Hummingbird', 'P_The_Humble_Bubble_Paladin', 'P_Treacherous_Ivy',
       'P_Justice_Jet_Fighter', 'P_Justice_Jet_Zero_Day', 'P_Justice_Jet_Bomber',
       'A_Void_Blast', 'A_Quick_Recovery', 'A_Mark_Of_The_Forest_Hunter', 'A_Mechanical_Maintenance', 'A_Sacrificial_Lamb', 'A_Tribute_Tribunal', 'A_Thunder_Strike',
-      'A_Call_To_Arms', 'A_Flaming_Phenix_Rebirth', 'A_Law_Of_The_Normal', 'A_Shrouded_Kingdom', 'A_Scripture_Of_Faith', 'A_Withering_Sword',
+      'A_Call_To_Arms', 'A_Flaming_Phenix_Rebirth', 'A_On_Common_Ground', 'A_Shrouded_Kingdom', 'A_Scripture_Of_Faith', 'A_Withering_Sword',
       'A_Windy_Peaks', 'A_Justice_Jet_Sound_Barrier',
+      'A_Hunters_Spoils', 'A_Hunters_Mark', 'A_Thick_Fat',
       'C_Reinforcement', 'C_Void_Call', 'C_Dark_Draw', 'C_Call_From_The_Depths', 'C_Escape_Plan', 'C_Orcustrated_Frontline_Unit',
       'C_Conflicted_Mind_Madness', 'C_Unified_Soul_Link', 'C_Containment_Zone', 'C_Last_Resort',
     ]

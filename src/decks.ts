@@ -71,7 +71,7 @@ function expandEntries(entries: SavedDeck['cards'], playerId: string): Card[] {
 }
 
 // Only stable card IDs and quantities belong in files, never runtime game state.
-export function parseDeck(value: unknown, enforceLimits = true): SavedDeck {
+export function parseDeck(value: unknown, enforceLimits = true, allowUnavailableCards = false): SavedDeck {
     const deck = value as SavedDeck;
     if (!deck || deck.version !== 1 || typeof deck.id !== 'string' || !deck.id.trim() ||
         typeof deck.name !== 'string' || !deck.name.trim() || deck.name.length > 80 || !Array.isArray(deck.cards)) {
@@ -80,14 +80,19 @@ export function parseDeck(value: unknown, enforceLimits = true): SavedDeck {
     if (deck.reserve !== undefined && !Array.isArray(deck.reserve)) throw new Error('The Reserve must be a list of cards.');
     const known = new Map(sortedCards().map(c => [c.id, c]));
     const seen = new Set<string>();
-    const readEntries = (entries: SavedDeck['cards'], reserve: boolean) => entries.map(entry => {
+    const readEntries = (entries: SavedDeck['cards'], reserve: boolean) => entries.flatMap(entry => {
         if (entry && Object.hasOwn(LEGACY_CARD_IDS, entry.cardId)) entry = { ...entry, cardId: LEGACY_CARD_IDS[entry.cardId] };
-        if (!entry || !known.has(entry.cardId) || seen.has(entry.cardId) || !Number.isSafeInteger(entry.quantity) || entry.quantity < 1 || entry.quantity > 999) {
+        if (!entry || typeof entry.cardId !== 'string' || seen.has(entry.cardId) || !Number.isSafeInteger(entry.quantity) || entry.quantity < 1 || entry.quantity > 999) {
             throw new Error('The deck contains unknown cards or invalid quantities.');
         }
         seen.add(entry.cardId);
+        if (!known.has(entry.cardId)) {
+            if (allowUnavailableCards) return [];
+            throw new Error('The deck contains unknown cards or invalid quantities.');
+        }
+        if (allowUnavailableCards && isReservePawn(known.get(entry.cardId)!) !== reserve) return [];
         if (isReservePawn(known.get(entry.cardId)!) !== reserve) throw new Error('Vassal Pawns belong in the Reserve; other cards belong in the main deck.');
-        return { cardId: entry.cardId, quantity: entry.quantity };
+        return [{ cardId: entry.cardId, quantity: entry.quantity }];
     });
     const cards = readEntries(deck.cards, false);
     const reserve = readEntries(deck.reserve ?? [], true);

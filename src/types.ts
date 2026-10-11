@@ -58,6 +58,7 @@ export enum PawnType {
   BUG = 'BUG'
 }
 
+// Level 0 isnt for the Pawn cards as they can only be as low as 1
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal' }
 export enum ActionSubtype { CONTRACT = 'Contract', LAND = 'Land', BOMB = 'Bomb' }
@@ -152,6 +153,8 @@ export interface ResponseWindow {
 }
 
 export interface GameState {
+  /** A resolved effect rewards a specific battle victory until turn end. */
+  battleRewards?: { card: Card; playerIndex: number; pawnId: string; targetId: string; turn: number }[];
   /** Committed Bomb creation, retained so presentation can animate its source and deck. */
   bombInsertions?: { sourceId: string; playerIndex: number; cards: Card[] }[];
   /** Ordered destruction events; sending to the Discard does not record one. */
@@ -233,6 +236,7 @@ export interface SelectedCard {
   isTarget: boolean;
 }
 export interface ShuffleSelectionRequest {
+  upTo?: boolean;
   playerIndex: number;
   location: ShuffleLocation;
   count: number;
@@ -320,6 +324,8 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Face-up Attach sources constrain attacks against the target's controller. */
+  restrictsAttackTargetsToAttached?: boolean;
   /** Immediate, selection-free effect when this card is drawn. */
   onDraw?(state: GameState, context: CardContext): EffectResult;
   /** Pawn ignition effects announced while the source remains in hand. */

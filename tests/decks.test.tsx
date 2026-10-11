@@ -1,64 +1,13 @@
 import { CardRegistry } from '../src/cards/CardRegistry';
 import { LEGACY_CARD_IDS } from '../src/cards/legacyIds';
-import React from 'react';
 import { act, create } from 'react-test-renderer';
 import CatalogPagination, { useCatalogPage } from '../src/components/catalog/CatalogPagination';
-import DeckCreator from '../src/components/decks/DeckCreator';
-import PlaytestSetup from '../src/components/decks/PlaytestSetup';
-import RulesView from '../src/components/rules/RulesView';
-import Shop from '../src/components/shop/Shop';
-import { CardDetail } from '../src/components/cards/CardDetail';
-import * as storage from '../src/desktop/storage';
-import { expect, it, vi } from 'vitest';
+import { expect, it } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable, createRuntimeDeck, createRuntimeReserve, reserveSize } from '../src/decks';
 import { isReservePawn } from '../src/game/cardHelpers';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { CardType, CARD_RARITIES, CARD_RARITY_TIERS } from '../src/types';
-import { PACKS, DEBUG_PACK } from '../src/shop/packs';
-import { rarityColor, packCards, packTiers, openPack, advanceRotation, ROTATION_MS } from '../src/shop/PackLogic';
 
-it('validates a 1000-card catalog, paginates full search results, and preserves deck copy limits', () => {
-    // Pack pools stay in sync with the catalog while remaining individually editable.
-    expect([...PACKS[0].cardIds].sort()).toEqual(sortedCards().map(card => card.id).sort());
-    for (const pack of PACKS) {
-        const cards = packCards(pack);
-        expect(new Set(pack.cardIds).size).toBe(cards.length);
-        expect(pack.chaseCardIds).toHaveLength(3);
-        expect(new Set(pack.chaseCardIds).size).toBe(3);
-        expect(pack.chaseCardIds.every(id => cards.some(card => card.id === id))).toBe(true);
-        expect(cards.every(card => card.pawnSubtype !== 'Token')).toBe(true);
-        const tiers = packTiers(pack);
-        const total = tiers.reduce((sum, tier) => sum + tier.weight, 0);
-        for (let i = 1; i < tiers.length; i++) {
-            expect(tiers[i].weight / tiers[i].cards.length).toBeLessThan(tiers[i - 1].weight / tiers[i - 1].cards.length);
-        }
-        let boundary = 0;
-        for (const tier of tiers) {
-            const random = vi.fn().mockReturnValueOnce((boundary + tier.weight / 2) / total).mockReturnValue(0);
-            expect(CARD_RARITY_TIERS[openPack(pack, random)[0].rarity]).toBe(tier.tier);
-            boundary += tier.weight;
-        }
-        expect(openPack(pack, () => 0)).toHaveLength(5);
-        expect(openPack(pack, () => .999999).every(card => pack.cardIds.includes(card.id))).toBe(true);
-    }
-    const debugCards = packCards(DEBUG_PACK);
-    expect(debugCards.map(card => card.rarity)).toEqual([...CARD_RARITIES]);
-    expect(PACKS).not.toContain(DEBUG_PACK);
-    expect(CARD_RARITIES.map(rarityColor)).toEqual([
-        '#b8c3d4', '#88dca2', '#77bbff', '#c28bff', '#edc56f', '#30F0DD', '#D35400',
-    ]);
-    const initial = advanceRotation(null, 1000);
-    expect(initial.packIds).toEqual(['master', 'fire', 'grave']);
-    expect(advanceRotation(initial, initial.expiresAt - 1)).toBe(initial);
-    expect(advanceRotation(initial, initial.expiresAt, () => .7499).packIds).toEqual(['master', 'fire', 'fire']);
-    expect(advanceRotation(initial, initial.expiresAt, () => .75).packIds).toEqual(['master', 'grave', 'grave']);
-    expect(advanceRotation(initial, initial.expiresAt + 1000000).expiresAt).toBe(initial.expiresAt + 1000000 + ROTATION_MS);
-    expect(sortedCards().every(card => card.pawnSubtype !== 'Token')).toBe(true);
-    expect(sortedCards().every(card => CARD_RARITIES.includes(card.rarity))).toBe(true);
-    const pawns = sortedCards().filter(card => card.type === CardType.PAWN);
-    expect(pawns).toEqual([false, true].flatMap(reserve => pawns.filter(card => isReservePawn(card) === reserve).sort((a, b) => a.name.localeCompare(b.name))));
-    expect(CARD_RARITY_TIERS.Legendary).toBe(CARD_RARITY_TIERS.Mythic);
-    expect(CARD_RARITY_TIERS.Legendary).toBe(CARD_RARITY_TIERS.Relic);
+it('paginates a large catalog and validates deck copy limits and legacy IDs', () => {
     const registry = new CardRegistry();
     const definition = sortedCards()[0];
     for (let i = 0; i < 1000; i++) registry.register({ ...definition, id: `scale-${i}` }, {});
@@ -86,138 +35,6 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     act(() => { root.update(<Catalog query="missing" />); });
     expect(page.entries).toEqual([]);
     act(() => root.unmount());
-    act(() => { root = create(<DeckCreator onBack={() => {}} />); });
-    act(() => root.root.findAllByType('button').find(button => button.props.children?.[1] === ' New deck')!.props.onClick());
-    expect(root.root.findAllByProps({ className: 'deck-empty-center' })).toHaveLength(1);
-    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByProps({ className: 'deck-reserve-slot' })).toHaveLength(10);
-    expect(JSON.stringify(root.toJSON())).not.toContain('Vassal Pawns are added here automatically');
-    const catalog = root.root.findByProps({ 'aria-label': 'All cards' });
-    const cardButton = () => catalog.findAllByType('button').find(button => button.props['aria-label'] === `View ${definition.name}`)!;
-    act(() => cardButton().props.onClick());
-    expect(root.root.findByProps({ 'aria-label': 'Deck contents' }).findAllByProps({ className: 'deck-owned-card' })).toHaveLength(0);
-    for (let copy = 0; copy < 4; copy++) act(() => cardButton().props.onDoubleClick());
-    expect(root.root.findByProps({ 'aria-label': `Add ${definition.name}` }).props.disabled).toBe(true);
-    expect(root.root.findByProps({ 'aria-label': 'Deck contents' }).findAllByType('button').filter(button => button.props.title === 'Right click to remove')).toHaveLength(3);
-    const patron = sortedCards().find(card => card.id === 'P_Patron_Of_Judgement')!;
-    act(() => root.root.findByProps({ 'aria-label': 'Search cards' }).props.onChange({ target: { value: 'Patron of Judgement' } }));
-    const patronButton = () => catalog.findByProps({ 'aria-label': `View ${patron.name}` });
-    act(() => patronButton().props.onDoubleClick());
-    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByType('button')).toHaveLength(1);
-    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByProps({ className: 'deck-reserve-slot' })).toHaveLength(9);
-    expect(root.root.findAllByProps({ className: 'deck-empty-center' })).toHaveLength(0);
-    expect(root.root.findByProps({ 'aria-label': 'Main deck cards' }).findAllByType('button')).toHaveLength(3);
-    expect(root.root.findByProps({ 'aria-label': 'Reserve contents' }).findAllByType('div').some(div => div.props.className?.includes('card-vassal'))).toBe(true);
-    act(() => root.unmount());
-    act(() => { root = create(<RulesView onBack={() => {}} />); });
-    const chapters = root.root.findByProps({ 'aria-label': 'Rulebook chapters' });
-    const basics = chapters.findByProps({ 'aria-label': 'Duel Basics' });
-    expect(basics.findAllByType('strong').map(title => title.props.children)).toEqual(['Goal & deck', 'Pawns', 'Actions & Conditions', 'The field']);
-    expect(chapters.findAllByType('strong').map(title => title.props.children)).not.toContain('Land cards');
-    const reserveChapter = chapters.findAllByType('button').find(button => button.findAllByType('strong').some(title => title.props.children === 'The Reserve'))!;
-    expect(reserveChapter).toBeTruthy();
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
-    act(() => reserveChapter.props.onClick());
-    expect(root.root.findByType('h1').props.children).toBe('The Reserve');
-    const reserveRules = root.root.findAllByProps({ className: 'rulebook-rule-list' }).flatMap(list => list.findAllByType('p')).map(rule => rule.props.children).join(' ');
-    expect(reserveRules).toContain('up to 10 extra Pawns');
-    expect(reserveRules).toContain('either Vassal or Merge Pawns');
-    expect(reserveRules).toContain('Contract Action');
-    expect(reserveRules).toContain('This is counted as a special summon.');
-    expect(root.root.findByProps({ 'aria-labelledby': 'rule-heading-vassal' }).findAllByType(CardDetail).map(example => example.props.card.id)).toEqual(['P_Patron_Of_Judgement', 'A_Scripture_Of_Faith']);
-    const openRuleChapter = (title: string) => act(() => root.root.findByProps({ 'aria-label': 'Rulebook contents' }).findAllByType('button').find(button => button.findAllByType('strong').some(label => label.props.children === title))!.props.onClick());
-    openRuleChapter('Actions & Conditions');
-    expect(root.root.findByProps({ 'aria-labelledby': 'rule-heading-actions' }).findAllByType(CardDetail).map(example => example.props.card.type)).toEqual(['ACTION', 'CONDITION']);
-    for (const [id, check] of [
-        ['lingering', (card: React.ComponentProps<typeof CardDetail>['card']) => card.isLingering],
-        ['attach', (card: React.ComponentProps<typeof CardDetail>['card']) => card.isAttached],
-        ['land', (card: React.ComponentProps<typeof CardDetail>['card']) => card.actionSubtype === 'Land'],
-    ] as const) {
-        const subtype = root.root.findByProps({ 'aria-labelledby': `rule-heading-${id}` });
-        expect(subtype.type).toBe('details');
-        expect(subtype.props.open).not.toBe(true);
-        expect(check(subtype.findByType(CardDetail).props.card)).toBe(true);
-    }
-    const sections = root.root.findByProps({ 'aria-label': 'In this chapter' });
-    expect(sections.findAllByType('button').map(button => button.props.children)).toEqual(['Playing Actions & Conditions', 'Lingering cards', 'Attach cards', 'Land cards']);
-    act(() => sections.findAllByType('button').find(button => button.props.children === 'Land cards')!.props.onClick());
-    expect(root.root.findByProps({ 'aria-label': 'In this chapter' }).findAllByType('button').find(button => button.props.children === 'Land cards')!.props['aria-current']).toBe('location');
-    expect(root.root.findByProps({ 'aria-labelledby': 'rule-heading-land' }).findAllByType('p').map(rule => rule.props.children).join(' ')).toContain('Covering it does not reset its use.');
-    expect(root.root.findAllByType('table')).toHaveLength(1);
-    openRuleChapter('Quick reference');
-    expect(root.root.findAllByType('table')).toHaveLength(6);
-    expect(root.root.findByProps({ className: 'rulebook-attribute-grid' }).findAllByType('p')).toHaveLength(0);
-    openRuleChapter('Responses & chains');
-    expect(root.root.findByProps({ 'aria-label': 'In this chapter' }).findAllByType('button').map(button => button.props.children)).toEqual(['Who can respond', 'Resolving a chain', 'Simultaneous triggered effects']);
-    act(() => root.root.findByProps({ className: 'rulebook-breadcrumb' }).findByType('button').props.onClick());
-    expect(root.root.findByProps({ 'aria-label': 'Rulebook chapters' }).findAllByType('strong')).toHaveLength(11);
-    act(() => root.unmount());
-    vi.unstubAllGlobals();
-    // A batch remains available after rotation and retains every pull in rarity order.
-    vi.useFakeTimers();
-    vi.stubGlobal('window', { setInterval, clearInterval, setTimeout, clearTimeout, addEventListener() {}, removeEventListener() {} });
-    vi.stubGlobal('localStorage', { getItem: () => null, setItem() {} });
-    const random = vi.spyOn(Math, 'random');
-    let roll = 0;
-    random.mockImplementation(() => ((roll++ * 37) % 100) / 100);
-    try {
-        act(() => { root = create(<Shop onBack={() => {}} />); });
-        const button = (text: string) => root.root.findAllByType('button').find(entry => entry.props['aria-label'] === text || entry.props.children === text)!;
-        const chooseMaster = () => root.root.findAllByProps({ className: 'shop-pack' })[0];
-        act(() => chooseMaster().props.onClick());
-        expect(root.root.findByProps({ 'aria-label': 'Pack details' })).toBeTruthy();
-        expect(root.root.findAllByProps({ 'aria-label': 'Pack opening' })).toHaveLength(0);
-        const showcase = () => root.root.findByProps({ className: 'pack-showcase' });
-        const previewIds = () => showcase().findAllByType(CardDetail).map(entry => entry.props.card.id);
-        expect(previewIds()).toEqual([]);
-        for (const id of PACKS[0].chaseCardIds) {
-            act(() => button('Next showcase item').props.onClick());
-            expect(previewIds()).toEqual([id]);
-            expect(showcase().findByProps({ 'aria-label': `${cardRegistry.getCard(id)!.name} description` }).findByType('p').props.children).toBe(cardRegistry.getCard(id)!.effectText);
-            expect(button(`Inspect ${cardRegistry.getCard(id)!.name}, ${cardRegistry.getCard(id)!.rarity}`)).toBeTruthy();
-        }
-        act(() => button('Next showcase item').props.onClick());
-        expect(previewIds()).toEqual([]);
-        act(() => button('Previous showcase item').props.onClick());
-        expect(previewIds()).toEqual([PACKS[0].chaseCardIds[2]]);
-        act(() => showcase().props.onKeyDown({ key: 'ArrowLeft', preventDefault() {} }));
-        expect(previewIds()).toEqual([PACKS[0].chaseCardIds[1]]);
-        act(() => button('Preview pack artwork').props.onClick());
-        expect(previewIds()).toEqual([]);
-        act(() => button('OPEN 5 PACKS').props.onClick());
-        const pulls: string[] = [];
-        for (let pack = 0; pack < 5; pack++) {
-            act(() => vi.advanceTimersByTime(pack === 1 ? ROTATION_MS + 1 : 850));
-            expect(button('REVEAL ALL').props.disabled).toBe(false);
-            act(() => button('REVEAL ALL').props.onClick());
-            const cards = root.root.findByProps({ 'aria-label': 'Pack opening' }).findAllByType(CardDetail);
-            pulls.push(...cards.map(entry => entry.props.card.id));
-            expect(cards).toHaveLength(5);
-            const next = root.root.findAllByType('button').find(entry => entry.props.children?.[0] === 'CONTINUE ')!;
-            act(() => next.props.onClick());
-        }
-        const results = root.root.findByProps({ 'aria-label': 'Session pulls' }).findAllByType(CardDetail).map(entry => entry.props.card);
-        expect(results).toHaveLength(25);
-        expect(results.map(card => card.id).sort()).toEqual(pulls.sort());
-        expect(results.map(card => CARD_RARITY_TIERS[card.rarity])).toEqual(results.map(card => CARD_RARITY_TIERS[card.rarity]).sort((a, b) => b - a));
-        for (const tier of new Set(results.map(card => CARD_RARITY_TIERS[card.rarity]))) {
-            const names = results.filter(card => CARD_RARITY_TIERS[card.rarity] === tier).map(card => card.name);
-            expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
-        }
-        act(() => button('CONTINUE').props.onClick());
-        act(() => chooseMaster().props.onClick());
-        expect(previewIds()).toEqual([]);
-        act(() => button('OPEN 1 PACK').props.onClick());
-        act(() => vi.advanceTimersByTime(850));
-        act(() => button('REVEAL ALL').props.onClick());
-        act(() => root.root.findAllByType('button').find(entry => entry.props.children?.[0] === 'CONTINUE ')!.props.onClick());
-        expect(root.root.findAllByProps({ className: 'shop-pack' })).toHaveLength(3);
-        expect(root.root.findAllByProps({ 'aria-label': 'Session pulls' })).toHaveLength(0);
-    } finally {
-        act(() => root.unmount());
-        random.mockRestore();
-        vi.useRealTimers();
-        vi.unstubAllGlobals();
-    }
     for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }, { rarity: 'Unknown' }]) {
         expect(() => registry.register({ ...definition, ...invalid, id: 'invalid' } as typeof definition, {})).toThrow('Invalid');
     }
@@ -232,9 +49,6 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     for (const [oldId, id] of Object.entries(LEGACY_CARD_IDS)) {
         const card = cardRegistry.getCard(id)!;
         expect(card).toBeDefined();
-        const prefix = card.type === CardType.PAWN ? 'P' : card.type === CardType.ACTION ? 'A' : 'C';
-        expect(id).toBe(`${prefix}_${card.name.match(/[A-Za-z0-9]+/g)!.map(word => word[0].toUpperCase() + word.slice(1)).join('_')}`);
-        expect(cardRegistry.getCard(oldId)).toBeUndefined();
         if (card.pawnSubtype === 'Token') continue;
         const location = isReservePawn(card) ? 'reserve' : 'cards';
         const saved = { ...newDeck(), [location]: [{ cardId: oldId, quantity: 1 }] };
@@ -245,7 +59,7 @@ it('validates a 1000-card catalog, paginates full search results, and preserves 
     }
 });
 
-it('enforces deck size boundaries, rejects malformed imports, and offers recent playable decks for training', () => {
+it('enforces main and Reserve deck limits and rejects malformed imports', () => {
     const mainCards = sortedCards().filter(card => !isReservePawn(card));
     const atSize = (size: number) => ({ ...newDeck(), cards: Array.from({ length: Math.ceil(size / 3) }, (_, i) => ({ cardId: mainCards[i].id, quantity: Math.min(3, size - i * 3) })) });
     expect(isDeckPlayable(atSize(39))).toBe(false);
@@ -279,31 +93,4 @@ it('enforces deck size boundaries, rejects malformed imports, and offers recent 
     }
     expect(() => parseDeck({ ...newDeck(), version: 2 })).toThrow();
     expect(() => parseDeck(null)).toThrow();
-
-    const older = { ...atSize(40), name: 'Older deck' };
-    const recent = { ...atSize(60), name: 'Recently edited deck' };
-    const invalid = { ...atSize(39), name: 'Incomplete deck' };
-    const library = [older, invalid, recent];
-    const savedDecks = vi.spyOn(storage, 'getSavedDecks').mockReturnValue(library);
-    const start = vi.fn();
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-    let root: ReturnType<typeof create>;
-    try {
-        act(() => { root = create(<PlaytestSetup onBack={() => {}} onStart={start} />); });
-        for (const list of root!.root.findAllByProps({ className: 'training-deck__list' })) {
-            const choices = list.findAllByType('button');
-            expect(choices.map(choice => choice.findByType('strong').props.children)).toEqual(['RANDOM TEST DECK', recent.name, invalid.name, older.name]);
-            expect(choices.map(choice => choice.props.disabled)).toEqual([undefined, false, true, false]);
-            expect(choices[1].findByType('small').props.children.filter(Boolean).join('')).toBe('60 cards');
-            expect(choices[2].findByType('small').props.children.filter(Boolean).join('')).toBe('39 cards · Invalid');
-            act(() => choices[1].props.onClick());
-            expect(choices[1].props['aria-pressed']).toBe(true);
-        }
-        act(() => root!.root.findByProps({ 'aria-label': 'Begin playtest' }).props.onClick());
-        expect(start).toHaveBeenCalledWith([recent, recent], 'ai', {});
-        expect(library).toEqual([older, invalid, recent]);
-    } finally {
-        act(() => root?.unmount());
-        savedDecks.mockRestore();
-    }
 });

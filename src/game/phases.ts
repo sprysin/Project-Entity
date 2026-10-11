@@ -126,6 +126,7 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
 
     // Expire only after End Phase responses finish, immediately before the next turn.
     if (prev.currentPhase === Phase.END) {
+        prev.battleRewards = [];
         for (const land of prev.landStack ?? []) {
             if (land.card.effectText.includes('Once per turn')) land.hasActivatedEffect = false;
             delete land.card.effectTargetBlockedThisTurn;

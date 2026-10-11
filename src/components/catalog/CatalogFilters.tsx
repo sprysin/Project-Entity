@@ -16,7 +16,7 @@ const groups = [
     { key: 'pawnType', label: 'Type', options: Object.values(PawnType) },
 ] as const;
 const subtypeGroups = {
-    [CardType.ACTION]: { key: 'action', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach', ...Object.values(ActionSubtype)] },
+    [CardType.ACTION]: { key: 'action', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach', ...Object.values(ActionSubtype).filter(subtype => subtype !== ActionSubtype.BOMB)] },
     [CardType.CONDITION]: { key: 'condition', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach'] },
 } as const;
 const hasSelection = (filters: Filters, type: CardType) => filters.all.includes(type) || (type === CardType.PAWN

@@ -32,19 +32,9 @@ export const Query = {
         return count;
     },
 
-    /** Retrieves the Context Target Player Index */
-    TargetPlayerIndex: () => (_state: GameState, context: CardContext): number => {
-        return context.target?.playerIndex ?? context.playerIndex;
-    },
-
     /** Retrieves the active player's opponent index */
     ActiveOpponent: () => (_state: GameState, context: CardContext): number => {
         return (context.playerIndex + 1) % 2;
-    },
-
-    /** Retrieves the Context Target Zone Index */
-    TargetZoneIndex: () => (_state: GameState, context: CardContext): number => {
-        return context.target?.index ?? -1;
     },
 
     /** Math operation */

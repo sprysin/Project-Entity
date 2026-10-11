@@ -310,7 +310,8 @@ export const useEffectResolution = (
     const handleShuffleSelection = (cardIds: string[]) => {
         const req = selectionState.shuffleSelectionReq;
         const pending = selectionState.pendingEffectCard;
-        if (!gameState || !req || !pending || cardIds.length !== req.count || new Set(cardIds).size !== req.count) return;
+        if (!gameState || !req || !pending || (req.upTo ? cardIds.length > req.count : cardIds.length !== req.count)
+            || new Set(cardIds).size !== cardIds.length) return;
         setShuffleSelectionReq(null);
         resolveEffect(pending, undefined, undefined, undefined, undefined,
             selectionState.pendingTriggerType || 'activate', undefined, undefined, undefined, cardIds);
