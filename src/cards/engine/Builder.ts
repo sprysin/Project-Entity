@@ -1,8 +1,7 @@
 import { GameState, CardContext, EffectResult } from '../../types';
-import { cloneGameState } from '../../game/cloneState';
 
 export type EffectStepResult = Omit<EffectResult, 'newState' | 'halted'> & { halt?: boolean };
-export type EffectStep = ((draftState: GameState, context: CardContext) => EffectStepResult | void) & { activationCost?: boolean; activationReservation?: boolean };
+export type EffectStep = ((draftState: GameState, context: CardContext) => EffectStepResult | void) & { activationCost?: boolean; activationReservation?: boolean; sendsMaterials?: boolean };
 export const activationCost = (step: EffectStep): EffectStep => Object.assign(step, { activationCost: true });
 export const activationReservation = (step: EffectStep): EffectStep => Object.assign(step, { activationReservation: true });
 export type ConditionStep = (state: GameState, context: CardContext) => boolean;
@@ -15,7 +14,7 @@ export function needsChoice(result: Omit<EffectResult, 'newState'>): boolean {
 export const buildEffect = (steps: EffectStep[]) => {
     const execute = (state: GameState, context: CardContext): EffectResult => {
         context = { ...context };
-        const draftState = cloneGameState(state);
+        const draftState = structuredClone(state);
         for (const step of steps) {
             if (draftState.winner) break;
             if (context.execution === 'reserve' && !step.activationReservation) continue;
@@ -40,7 +39,7 @@ export const buildEffect = (steps: EffectStep[]) => {
             newState: draftState
         };
     };
-    return Object.assign(execute, { staged: true });
+    return Object.assign(execute, { staged: true, sendsMaterials: steps.some(step => step.sendsMaterials) });
 };
 
 export const buildCondition = (steps: ConditionStep[]) => {

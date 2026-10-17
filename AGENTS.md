@@ -47,6 +47,16 @@ depends on the packaged application.
 
 ### Card architecture for a large catalog
 
+- Give every distinct playable card its own module/file, even when multiple cards
+  have identical effects. Only generated tokens or Bombs may share their source
+  card's module.
+- Do not add card-specific activation or selection UI text. Card modules must not
+  supply custom prompt titles, instructions, labels, or text overrides to effect or
+  cost helpers. Shared UI and mechanic libraries own generic activation text,
+  derived from reusable selection data. Printed card effect text remains metadata.
+- Contract is a subtype of both Actions and Conditions. Use `actionSubtype` for
+  Action Contracts and `conditionSubtype` for Condition Contracts. Shared Contract
+  mechanics must support both without changing their normal activation timing.
 - Keep individual card rules in their card modules. Do not add card IDs, names, or
   one-card branches to shared combat, AI, UI, or game-flow files.
 - When a card needs behavior the engine cannot express, add one reusable mechanic

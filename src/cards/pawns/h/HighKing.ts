@@ -5,6 +5,7 @@ import { Require } from '../../engine/Requirements';
 import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
+    normalSummonOnly: true,
     onSummon: buildEffect([
         Require.Target('pawn', 'faceup'),
         Effect.ModifyTargetStats(-20, 0)

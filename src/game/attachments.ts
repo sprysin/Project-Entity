@@ -2,15 +2,29 @@ import { fieldEntries, removeFieldIdentity } from './field';
 import { Card, GameState, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { sendToOwnerPile } from './cardOwnership';
+import { notifyFieldEvent } from './fieldEvents';
+import { refreshFieldTypes } from './cardHelpers';
 
 /** Destroy a field identity and notify its face-up attachments before orphan cleanup. */
-export function destroyFieldCard(state: GameState, instanceId: string): void {
-    for (const { zone } of fieldEntries(state)) {
+export function destroyFieldCard(state: GameState, instanceId: string, cause: 'battle' | 'effect' | 'cost' | 'rule' = 'effect', destroyingPlayerIndex = state.activePlayerIndex): boolean {
+    for (const { zone, target } of fieldEntries(state)) {
         if (zone.card.instanceId !== instanceId) continue;
+        const protection = cardRegistry.getEffect(zone.card.id)?.destructionProtection;
+        if (zone.position !== Position.HIDDEN && protection?.causes.some(value => value === cause)
+            && (zone.destructionPreventionsUsed ?? 0) < protection.uses) {
+            zone.destructionPreventionsUsed = (zone.destructionPreventionsUsed ?? 0) + 1;
+            return false;
+        }
         const card = zone.card;
         state.destroyedCardIds = [...(state.destroyedCardIds ?? []), instanceId];
         sendToOwnerPile(state, card, 'discard');
         removeFieldIdentity(state, instanceId);
+        const players = state.players;
+        const observed = notifyFieldEvent(state, 'onFieldCardDestroyed', {
+            destroyedCard: { ...card }, controllerIndex: target.playerIndex, destroyingPlayerIndex, position: zone.position, cause
+        });
+        players.forEach((player, index) => Object.assign(player, observed.players[index]));
+        Object.assign(state, observed, { players });
         const owner = state.players.findIndex(candidate => candidate.discard.some(value => value.instanceId === card.instanceId));
         if (owner >= 0 && cardRegistry.getEffect(card.id)?.onDestroyed) {
             state.pendingReactions = [...(state.pendingReactions ?? []), { card, playerIndex: owner, trigger: 'destroyed' }];
@@ -25,8 +39,9 @@ export function destroyFieldCard(state: GameState, instanceId: string): void {
             });
         }
         destroyOrphanedAttachments(state);
-        return;
+        return true;
     }
+    return false;
 }
 
 /** Use the announcement snapshot so later attachments cannot catch an earlier activation. */
@@ -55,7 +70,7 @@ export function destroyOrphanedAttachments(state: GameState): GameState {
                     const target = fieldCards.get(id);
                     return target && (target.position !== Position.HIDDEN || zone.card.survivesTargetFlip);
                 })) return;
-                destroyFieldCard(state, zone.card.instanceId);
+                destroyFieldCard(state, zone.card.instanceId, 'rule');
                 destroyed = true;
             });
         }
@@ -72,5 +87,6 @@ export function destroyOrphanedAttachments(state: GameState): GameState {
         zone.attachmentStatBonuses = zone.attachmentStatBonuses.filter(b => activeAttachments.has(b.sourceInstanceId));
     }
 
+    refreshFieldTypes(state);
     return state;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import './CatalogPagination.css';
 
 export const CATALOG_PAGE_SIZE = 60;
 
@@ -18,9 +19,13 @@ export default function CatalogPagination({ page, pages, total, onPage }: {
     page: number; pages: number; total: number; onPage: (page: number) => void;
 }) {
     if (pages <= 1) return null;
-    return <nav aria-label="Card catalog pages" className="flex items-center justify-between gap-3 p-3 text-xs text-slate-200">
-        <button data-sound="select-small" className="border border-slate-600 rounded px-3 py-2 disabled:opacity-40" disabled={page === 0} onClick={() => onPage(page - 1)}>Previous</button>
-        <span role="status">Page {page + 1} of {pages} · {total} cards</span>
-        <button data-sound="select-small" className="border border-slate-600 rounded px-3 py-2 disabled:opacity-40" disabled={page === pages - 1} onClick={() => onPage(page + 1)}>Next</button>
+    return <nav aria-label="Card catalog pages" className="catalog-pagination">
+        <button type="button" data-sound="select-small" aria-label="Previous page" title="Previous page" disabled={page === 0} onClick={() => onPage(page - 1)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /></button>
+        <button type="button" data-sound="select-small" aria-label="Next page" title="Next page" disabled={page === pages - 1} onClick={() => onPage(page + 1)}><i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+        <span role="status" className="catalog-pagination__status">
+            <span className="sr-only">Page {page + 1} of {pages} · {total} cards</span>
+            <span aria-hidden="true"><strong>{String(page + 1).padStart(2, '0')}</strong> / {String(pages).padStart(2, '0')}</span>
+            <small aria-hidden="true">{total} cards</small>
+        </span>
     </nav>;
 }

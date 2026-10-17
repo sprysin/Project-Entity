@@ -62,6 +62,7 @@ export enum PawnType {
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal' }
 export enum ActionSubtype { CONTRACT = 'Contract', LAND = 'Land', BOMB = 'Bomb' }
+export enum ConditionSubtype { CONTRACT = 'Contract' }
 
 export interface Card {
   instanceId: string;
@@ -74,6 +75,7 @@ export interface Card {
   pawnType?: PawnType;
   pawnSubtype?: PawnSubtype;
   actionSubtype?: ActionSubtype;
+  conditionSubtype?: ConditionSubtype;
   switchMandatory?: boolean;
   isLingering?: boolean;
   /** Attach subtype for Actions/Conditions; mutually exclusive with isLingering. */
@@ -92,9 +94,12 @@ export interface Card {
   fieldAtkReduction?: number;
   /** Printed attribute restored when an attribute-changing Pawn leaves the field. */
   fieldOriginalAttribute?: Attribute;
+  fieldOriginalPawnType?: PawnType;
 }
 
 export interface PlacedCard {
+  pawnTypeOverride?: { value: PawnType; dueTurn?: number };
+  destructionPreventionsUsed?: number;
   specialSummoned?: boolean;
   /** Final ATK override, evaluated after continuous modifiers until turn end. */
   attackOverride?: { value: number; turn: number };
@@ -117,6 +122,7 @@ export interface PlacedCard {
 }
 
 export interface Player {
+  additionalDraws?: number;
   skipNextDrawPhase?: boolean;
   id: string;
   name: string;
@@ -148,8 +154,10 @@ export interface PendingEffect {
 export type ActivationPopupMode = 'off' | 'auto' | 'on';
 export type ResponseTiming = 'summon' | 'attack' | 'activation' | 'turn_end' | 'phase_exit' | 'phase_entry' | 'battle_step' | 'chain_resolved' | 'minor_action' | 'draw';
 export interface ResponseWindow {
+  lpGain?: { playerIndex: number; amount: number };
   timing: ResponseTiming;
   reason: string;
+  battleDamage?: { amount: number; playerIndex: number; attacker: Card };
 }
 
 export interface GameState {
@@ -175,7 +183,7 @@ export interface GameState {
   /** Triggered effects wait until the current chain and deferred action have finished. */
   pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute' | 'battle_destroy'> }[];
   drawProgress?: { turn: number; remaining: number };
-  response?: { priority: number; passes: number; reason: string; timing?: ResponseTiming; ready?: boolean };
+  response?: { priority: number; passes: number; reason: string; timing?: ResponseTiming; ready?: boolean; battleDamage?: ResponseWindow['battleDamage']; lpGain?: ResponseWindow['lpGain'] };
   /** Event responses wait for trigger choices and the entire resolving chain. */
   pendingResponse?: ResponseWindow;
   /** The top resolving link is waiting for its controller's target selection. */
@@ -185,10 +193,11 @@ export interface GameState {
   deferredAction?: { kind: 'phase' | 'end' } | { kind: 'attack'; attackerId: string; targetId: string | 'direct'; battleStep?: boolean };
   players: [Player, Player];
   activePlayerIndex: number;
-  openingCoin?: { winnerIndex: 0 | 1; stage: 'flipping' | 'choosing' };
+  openingCoin?: { winnerIndex: 0 | 1; stage: 'flipping' | 'choosing'; aiOrder?: 'first' | 'second' };
   currentPhase: Phase;
   turnNumber: number;
   damageEvents?: { card: Card; playerIndex: number; amount: number; kind: 'battle' | 'effect' }[];
+  lpGainEvents?: { playerIndex: number; amount: number }[];
   /** Pending private reveals. The viewer dismisses each event after inspecting it. */
   peekEvents?: PeekEvent[];
   log: string[];
@@ -208,6 +217,8 @@ export type CardTarget = {
 export type CardFilter = (card: Card) => boolean;
 
 export interface CardSelectionRequest {
+  /** Selection candidates after earlier instructions and costs in the same effect. */
+  cards?: Card[];
   purpose?: 'summon';
   /** Sequential selections share the existing pile picker without reusing a card. */
   selectionIndex?: number;
@@ -236,6 +247,8 @@ export interface SelectedCard {
   isTarget: boolean;
 }
 export interface ShuffleSelectionRequest {
+  /** Field selections reuse the same multi-card picker without shuffling. */
+  fieldScope?: TargetSelectScope;
   upTo?: boolean;
   playerIndex: number;
   location: ShuffleLocation;
@@ -267,8 +280,11 @@ export interface TributeSelectionRequest extends HandSelectionRequest {
 
 /** Tribute a variable number of Pawns from hand and field with an exact level sum. */
 export interface LevelTributeSelectionRequest {
+  sendOnly?: boolean;
   playerIndex: number;
   totalLevel: number;
+  location?: 'hand' | 'field';
+  filter?: CardFilter;
 }
 
 export type EffectTrigger = 'destroyed' | 'summon' | 'switch' | 'battle_destroy' | 'battle_destroyed' | 'attack_completed' | 'sent_discard' | 'hand_return' | 'hand_activate' | 'activate' | 'phase' | 'field_activate' | 'discard' | 'tribute';
@@ -298,6 +314,8 @@ export type EffectResult = {
 };
 
 export interface CardContext {
+  lpGain?: ResponseWindow['lpGain'];
+  battleDamage?: ResponseWindow['battleDamage'];
   handSelectionId?: string;
   effectId?: string;
   pawnPlacement?: { slot: number; position: Position };
@@ -324,6 +342,14 @@ export interface CardContext {
 }
 
 export interface IEffect {
+  /** Continuous type changes are refreshed for rules, AI, and presentation together. */
+  pawnTypeModifier?(state: GameState, context: CardContext, target: PlacedCard, controllerIndex: number): PawnType | undefined;
+  /** Face-up observers of an actual field destruction, preserving cause and controller. */
+  onFieldCardDestroyed?(state: GameState, context: CardContext & { destroyedCard: Card; controllerIndex: number; destroyingPlayerIndex: number; position: Position; cause: 'battle' | 'effect' | 'cost' | 'rule' }): EffectResult;
+  /** Limited automatic protection while this card remains face-up on the field. */
+  destructionProtection?: { uses: number; causes: ('battle' | 'effect')[] };
+  /** Restrict an onSummon handler to Normal/Tribute Summons. */
+  normalSummonOnly?: boolean;
   /** Face-up Attach sources constrain attacks against the target's controller. */
   restrictsAttackTargetsToAttached?: boolean;
   /** Immediate, selection-free effect when this card is drawn. */
@@ -359,7 +385,6 @@ export interface IEffect {
   onPawnSummoned?(state: GameState, context: CardContext & { summonedCard: Card; summoningPlayerIndex: number; tributeCount: number }): EffectResult;
   /** Shared hand-summon eligibility, rechecked when the command executes. */
   handSummonFilter?: CardFilter;
-  handSummonPrompt?: string;
   /** A face-up attachment observes an activation announced by its attached card. */
   onAttachedActivation?(state: GameState, context: CardContext & { activatedCard: Card }): EffectResult;
   /** Immediate destruction response; mutates state without opening a selection window. */
@@ -370,7 +395,7 @@ export interface IEffect {
   targetsAtResolution?: boolean;
   /** Let an effect resolve its remaining instructions when one selected target has left the field. */
   allowMissingTargets?: boolean;
-  // Triggered when an Pawn is Normal Summoned or Set
+  // Triggered when a Pawn is summoned face-up, including Special Summons.
   onSummon?(state: GameState, context: CardContext): EffectResult;
   onSwitch?(state: GameState, context: CardContext): EffectResult;
   onBattleDestroy?(state: GameState, context: CardContext & { destroyedCard: Card }): EffectResult;

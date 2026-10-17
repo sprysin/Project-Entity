@@ -2,6 +2,7 @@ import { isLand } from './field';
 import { Card, CardType, GameState } from '../types';
 import { destroyOrphanedAttachments } from './attachments';
 import { sendToOwnerPile } from './cardOwnership';
+import { refreshFieldTypes } from './cardHelpers';
 
 /** Complete an activation atomically; locate the source by identity, never by an old slot. */
 export function finishEffect(state: GameState, card: Card, log?: string): GameState {
@@ -21,6 +22,7 @@ export function finishEffect(state: GameState, card: Card, log?: string): GameSt
 }
 
 export function checkVictory(state: GameState): GameState {
+    refreshFieldTypes(state);
     for (const player of state.players) for (const zone of [...player.pawnZones, ...player.actionZones]) {
         if (zone?.position === 'HIDDEN') delete zone.counters;
     }

@@ -12,7 +12,7 @@ import { fieldStats } from '../src/game/cardHelpers';
 import { advancePhaseState } from '../src/game/phases';
 import { Effect } from '../src/cards/engine/Effects';
 import { buildEffect } from '../src/cards/engine/Builder';
-import { Attribute, Card, GameState, Phase, Player, Position } from '../src/types';
+import { Attribute, Card, GameState, PawnType, Phase, Player, Position } from '../src/types';
 
 let serial = 0;
 const card = (id: string, owner = 0): Card => ({
@@ -135,11 +135,9 @@ it('counter activations preserve material identity, fizzle safely, and limit eac
     expect(effectChoices(game, second, 'field_activate').some(choice => choice.effectId === 'tribute')).toBe(true);
 });
 
-it('special summons validate placement before removing cards from hand, deck, or Reserve', () => {
-    const contractId = 'A_Scripture_Of_Faith', patronId = 'P_Patron_Of_Judgement';
-    // All special-summon sources share placement legality and preserve the source on rejection.
+it('special summons validate placement and returned cards respect their source pile', () => {
     for (const location of ['hand', 'deck', 'reserve'] as const) {
-        const duel = state(), contract = card(contractId), pawn = card(patronId);
+        const duel = state(), contract = card('C_Signal_Routing'), pawn = card('P_High_Stream_Absolute_Router');
         const player = duel.players[0];
         const candidate = location === 'reserve' ? pawn : card('P_Solstice_Sentinel');
         player[location] = [candidate];
@@ -148,17 +146,41 @@ it('special summons validate placement before removing cards from hand, deck, or
             : location === 'deck' ? Effect.SpecialSummonFromDeck(() => true) : Effect.SpecialSummonFromHand(() => true);
         const context = { card: contract, playerIndex: 0, handIndex: 0, deckIndex: 0, reserveIndex: 0 };
         const summon = buildEffect([step]);
-        expect(summon(duel, context).requirePawnPlacement?.slots).toEqual([1, 2, 3, 4]);
         for (const slot of [-1, 0, 0.5, 5]) expect(summon(duel, { ...context, pawnPlacement: { slot, position: Position.ATTACK } }).newState).toBe(duel);
         expect(summon(duel, { ...context, pawnPlacement: { slot: 1, position: Position.HIDDEN } }).newState).toBe(duel);
-        for (const position of [Position.ATTACK, Position.DEFENSE]) {
-            const result = summon(duel, { ...context, pawnPlacement: { slot: 1, position } }).newState;
-            expect(result.players[0][location]).toEqual([]);
-            expect(result.players[0].pawnZones[1]).toMatchObject({ card: candidate, position, specialSummoned: true });
+        const result = summon(duel, { ...context, pawnPlacement: { slot: 1, position: Position.DEFENSE } }).newState;
+        expect(result.players[0].pawnZones[1]).toMatchObject({ card: candidate, position: Position.DEFENSE, specialSummoned: true });
+        for (const destination of ['hand', 'deck'] as const) {
+            const step = destination === 'hand' ? Effect.ReturnTargetToHand() : Effect.ShuffleFrom('field', 1);
+            const returned = buildEffect([step])(result, { ...context,
+                target: { playerIndex: 0, type: 'pawn', index: 1 }, shuffleCardIds: [candidate.instanceId] }).newState;
+            expect(returned.players[0].pawnZones[1]).toBeNull();
+            expect(returned.players[0]).toMatchObject({ hand: [], deck: [], reserve: [], [location === 'reserve' ? 'reserve' : destination]: [candidate] });
         }
         if (location === 'hand') expect(buildEffect([Effect.SpecialSummonFromHand(() => true, Position.HIDDEN)])(duel,
             { ...context, pawnPlacement: { slot: 1, position: Position.HIDDEN } }).newState.players[0].pawnZones[1]?.isSetTurn).toBe(true);
     }
+});
+
+it('revival selects converted Discard identities after costs while keeping previews reversible', () => {
+    const game = state();
+    const source = card('C_What_Grows_In_The_Graveyard');
+    const payment = card('P_Tomaterror');
+    const undead = card('P_Zombie_Necromancer');
+    game.players[0].actionZones[0] = placed(source, Position.HIDDEN);
+    game.players[0].hand = [payment];
+    game.players[0].discard = [undead];
+    const preview = runEffect(game, { card: source, playerIndex: 0, handIndex: 0 }, 'activate');
+    expect(preview.requireDiscardSelection?.cards?.[0]).toMatchObject({ instanceId: undead.instanceId, pawnType: PawnType.PLANT });
+    expect(game.players[0].discard[0].pawnType).toBe(PawnType.UNDEAD);
+    expect(game.players[0].hand).toEqual([payment]);
+    const choice = effectChoices(game, source, 'activate').find(context => context.pawnPlacement?.slot === 2)!;
+    expect(choice.discardCardIds).toEqual([undead.instanceId]);
+    const result = resolveChain(addChainLink(game, choice, 'activate'));
+    expect(result.players[0].void.map(card => card.instanceId)).toEqual([payment.instanceId]);
+    expect(result.players[0].discard).toEqual([]);
+    expect(result.players[0].pawnZones[2]?.card).toMatchObject({ instanceId: undead.instanceId, pawnType: PawnType.PLANT });
+    expect(result.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([undead.instanceId]);
 });
 
 it('battle revival returns a controlled card to its owner when temporary control expires', () => {

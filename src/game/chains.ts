@@ -3,16 +3,18 @@ import { Card, CardContext, CardTarget, CardType, ChainLink, EffectResult, Effec
 import { cardRegistry } from '../cards/CardRegistry';
 import { finishEffect, checkVictory } from './finishEffect';
 import { formatEffectLog } from './effectLog';
-import { cardsAtLocation, canTargetWithEffect } from './cardHelpers';
+import { canTargetWithEffect, refreshFieldTypes } from './cardHelpers';
 import { notifyAttachedActivation } from './attachments';
 import { isDrawingForTurn } from './phases';
 import { notifyFieldEvent } from './fieldEvents';
 import { levelTributeCandidates, levelTributeChoices } from './levelTributes';
 import { needsChoice } from '../cards/engine/Builder';
+import { multiSelectionCards } from '../cards/engine/Selections';
 
 export { needsChoice } from '../cards/engine/Builder';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
+    context = { ...context, battleDamage: context.battleDamage ?? state.response?.battleDamage, lpGain: context.lpGain ?? state.response?.lpGain };
     if (isLand(context.card) && ['activate', 'field_activate', 'phase'].includes(trigger)
         && activeLand(state)?.card.instanceId !== context.card.instanceId) return { newState: state, halted: true };
     if (context.execution !== 'costs' && (context.targets ?? (context.target ? [context.target] : [])).some(target => {
@@ -67,7 +69,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
     const choices: CardContext[] = [];
     let visited = 0;
     const visit = (context: CardContext, depth: number) => {
-        if (depth > 6 || choices.length >= limit || visited++ > 2500) return;
+        if (depth > 12 || choices.length >= limit || visited++ > 2500) return;
         const result = runEffect(state, context, trigger);
         if (result.halted) return;
         const targetIndex = result.requireTargetIndex ?? 0;
@@ -110,8 +112,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             state.players[req.playerIndex].hand.forEach((_c, peekIndex) => visit({ ...context, peekIndex }, depth + 1));
         } else if (result.requireShuffleSelection && !context.shuffleCardIds) {
             const req = result.requireShuffleSelection;
-            const cardIds = cardsAtLocation(state.players[req.playerIndex], req.location, state)
-                .filter(entry => req.filter(entry.card)).map(entry => entry.card.instanceId);
+            const cardIds = multiSelectionCards(state, req).map(card => card.instanceId);
             const counts = req.upTo ? Array.from({ length: Math.min(req.count, cardIds.length) + 1 }, (_, index) => index) : [req.count];
             counts.forEach(count => combinations(cardIds, count).forEach(shuffleCardIds => visit({ ...context, shuffleCardIds }, depth + 1)));
         } else if (result.requireLevelTribute && !context.materialIds) {
@@ -127,7 +128,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             combinations(indices, req.count).forEach(tributeIndices => visit({ ...context, tributeIndices }, depth + 1));
         } else if (result.requireDiscardSelection) {
             const req = result.requireDiscardSelection;
-            state.players[req.playerIndex].discard.forEach((c, discardIndex) => {
+            (req.cards ?? result.newState.players[req.playerIndex].discard).forEach((c, discardIndex) => {
                 if (!req.filter(c)) return;
                 const discardCardIds = [...(context.discardCardIds ?? [])];
                 if (req.selectionIndex !== undefined) discardCardIds[req.selectionIndex] = c.instanceId;
@@ -167,7 +168,7 @@ export function fieldActivations(state: GameState, playerIndex: number, respondi
         if (!zone || pending.has(zone.card.instanceId)) return [];
         const effect = cardRegistry.getEffect(zone.card.id);
         if (type === 'pawn' && (zone.position === Position.HIDDEN || (responding ? effect?.timing !== 'quick' : !main && effect?.timing !== 'quick'))) return [];
-        if (zone.card.type === CardType.ACTION && (responding || !main)) return [];
+        if (zone.card.type === CardType.ACTION && (responding || !main) && effect?.timing !== 'quick') return [];
         // A Condition's onActivate effect is the one-time flip activation. Lingering
         // Conditions remain face-up after resolving, but that does not make their
         // original activation reusable on every subsequent priority window.
@@ -190,6 +191,7 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
 }
 
 function appendChainLink(state: GameState, context: CardContext, trigger: EffectTrigger, buildingTriggers: boolean): GameState {
+    context = { ...context, battleDamage: state.response?.battleDamage, lpGain: state.response?.lpGain };
     if (isDrawingForTurn(state)) return state;
     if (isLand(context.card) && trigger === 'field_activate'
         && (context.playerIndex !== state.activePlayerIndex || ![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase))) return state;
@@ -223,7 +225,8 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
             viewerPlayerIndex: 1 - context.playerIndex, kind: 'hand_activation' }];
         next.log = [`${p.name} revealed "${context.card.name}" and activated its effect from hand.`, ...next.log].slice(0, 50);
     }
-    const tributeCards = context.materialIds
+    const handler = trigger === 'field_activate' ? effect?.onFieldActivate : effect?.onActivate;
+    const tributeCards = handler && 'sendsMaterials' in handler && handler.sendsMaterials ? [] : context.materialIds
         ? levelTributeCandidates(state, context.playerIndex).filter(entry => context.materialIds!.includes(entry.card.instanceId)).map(entry => entry.card)
         : context.tributeIndices?.flatMap(i => state.players[context.playerIndex].pawnZones[i]?.card ?? []) ?? [];
     const source = sourceZone(next, context);
@@ -249,7 +252,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     // An accepted activation interrupts the End Phase request; the turn player can reconsider.
     if (state.deferredAction?.kind === 'end') next.deferredAction = undefined;
     next.pendingResponse = undefined;
-    next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated`, timing: 'activation' };
+    next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated`, timing: 'activation', battleDamage: state.response?.battleDamage, lpGain: state.response?.lpGain };
     next = notifyFieldEvent(next, 'onEffectActivated', { activatedCard: context.card, activatingPlayerIndex: context.playerIndex });
     next = checkVictory(notifyAttachedActivation(state, next, context.card));
     return buildingTriggers ? next : autoPass(next);
@@ -399,6 +402,10 @@ export function openResponse(state: GameState, action: NonNullable<GameState['de
 /** Detect events from committed board changes, including summons performed by any card. */
 export function queueEventResponses(before: GameState, after: GameState): GameState {
     if (before === after || after.winner) return after;
+    refreshFieldTypes(after);
+    if ((after.lpGainEvents?.length ?? 0) > (before.lpGainEvents?.length ?? 0)) {
+        after = { ...after, pendingResponse: { timing: 'activation', reason: 'Life points gained', lpGain: after.lpGainEvents!.at(-1) } };
+    }
     // End Phase maintenance also catches counters earned after phase entry.
     if (after.currentPhase === Phase.END) {
         const pending = [...(after.pendingTriggers ?? [])];
@@ -420,6 +427,10 @@ export function queueEventResponses(before: GameState, after: GameState): GameSt
             const zone = after.players[playerIndex].pawnZones.find(value => value?.card.instanceId === card.instanceId);
             const handler = zone?.specialSummoned && cardRegistry.getEffect(card.id)?.onSpecialSummon;
             if (handler) after = handler(after, { card, playerIndex }).newState;
+            const effect = cardRegistry.getEffect(card.id);
+            if (zone?.specialSummoned && effect?.onSummon && !effect.normalSummonOnly) {
+                after.pendingReactions = [...(after.pendingReactions ?? []), { card, playerIndex, trigger: 'summon' }];
+            }
         }
         return { ...after, pendingResponse: { timing: 'summon', reason: summoned.map(entry => entry.card.name).join(', ') + ' summoned' } };
     }

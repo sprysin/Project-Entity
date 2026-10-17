@@ -13,20 +13,20 @@ export const OpeningCoin: React.FC<{
     const aiChoosing = opponentMode === 'ai' && coin.winnerIndex === 1;
     const winner = gameState.players[coin.winnerIndex];
     return <DuelPrompt
-        className="opening-coin"
+        className={`opening-coin ${!flipping && aiChoosing && coin.aiOrder ? 'opening-coin--ai-choosing' : ''} ${coin.aiOrder === 'second' ? 'opening-coin--ai-second' : ''}`}
         ariaLabel="Opening coin flip"
-        title={<><span className="opening-coin__eyebrow">DUEL INITIATION / 01</span>{flipping ? 'OPENING FLIP' : `${winner.name} wins the flip`}</>}
+        title={flipping ? 'OPENING FLIP' : <><span className="opening-coin__winner">{winner.name}</span> wins the flip</>}
         peeking={false}
         setPeeking={() => { }}
-        actions={flipping || aiChoosing ? [] : [
-            { label: 'Go first', variant: 'primary', onClick: () => onChoose('first') },
-            { label: 'Go second', variant: 'secondary', onClick: () => onChoose('second') },
+        actions={flipping ? [] : [
+            { label: 'Go first', variant: 'primary', disabled: aiChoosing, onClick: () => onChoose('first') },
+            { label: 'Go second', variant: 'secondary', disabled: aiChoosing, onClick: () => onChoose('second') },
         ]}
     >
         <div className="opening-coin__stage" aria-hidden="true">
             <div className="opening-coin__orbit" />
             <div className={`opening-coin__lift ${flipping ? 'is-flipping' : ''}`}>
-                <div className={`opening-coin__token ${flipping ? 'is-flipping' : ''}`} style={{ '--coin-landing': `${coin.winnerIndex === 0 ? 2160 : 2340}deg` } as React.CSSProperties}>
+                <div className={`opening-coin__token ${flipping ? 'is-flipping' : ''}`} style={{ '--coin-landing': `${coin.winnerIndex === 0 ? 2340 : 2160}deg` } as React.CSSProperties}>
                     {[0, 1].map(index => <div key={index} className={`opening-coin__face opening-coin__face--${index === 0 ? 'black' : 'white'}`}>
                         <i className="fa-solid fa-chess-pawn" />
                         <span className="opening-coin__seal">{index === 0 ? 'BLACK' : 'WHITE'}</span>
@@ -37,12 +37,9 @@ export const OpeningCoin: React.FC<{
         </div>
         <div className="opening-coin__sides">
             {gameState.players.map((player, index) => <span key={player.id} className={`opening-coin__side ${!flipping && index === coin.winnerIndex ? 'is-winner' : ''}`}>
-                <span className={`opening-coin__swatch opening-coin__swatch--${index === 0 ? 'black' : 'white'}`} />
-                <span>{player.name}<small>{index === 0 ? 'Black' : 'White'} side</small></span>
+                <span className={`opening-coin__swatch opening-coin__swatch--${index === 0 ? 'white' : 'black'}`} />
+                <span>{player.name}<small>{index === 0 ? 'White' : 'Black'} side</small></span>
             </span>)}
         </div>
-        <p className="opening-coin__status" role="status" aria-live="polite">
-            {flipping ? 'The winning side chooses the turn order.' : aiChoosing ? 'AI is choosing the turn order…' : 'Choose your opening move.'}
-        </p>
     </DuelPrompt>;
 };

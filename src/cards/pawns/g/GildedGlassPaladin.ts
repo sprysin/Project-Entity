@@ -22,7 +22,7 @@ export default [{
                 const zone = state.players[target.playerIndex].pawnZones[target.index];
                 if (!zone || zone.position === Position.HIDDEN) return { halt: true };
                 const damage = fieldStats(state, zone).atk / 2;
-                destroyFieldCard(state, zone.card.instanceId);
+                destroyFieldCard(state, zone.card.instanceId, 'effect', context.playerIndex);
                 if (!state.players[target.playerIndex].pawnZones.some(value => value?.card.instanceId === zone.card.instanceId)) {
                     return Effect.DealDamage(target.playerIndex, damage)(state, context);
                 }

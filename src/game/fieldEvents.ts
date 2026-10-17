@@ -1,11 +1,11 @@
 import { fieldEntries } from './field';
-import { CardContext, EffectResult, GameState, IEffect, Position } from '../types';
+import { EffectResult, GameState, IEffect, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { formatEffectLog } from './effectLog';
 
 /** Observe an event once using the face-up sources present when it happened. */
-export function notifyFieldEvent<K extends 'onEffectActivated' | 'onEffectDamage' | 'onCardSentToHand'>(
-    state: GameState, event: K, details: Omit<Parameters<NonNullable<IEffect[K]>>[1], keyof CardContext>
+export function notifyFieldEvent<K extends 'onEffectActivated' | 'onEffectDamage' | 'onCardSentToHand' | 'onFieldCardDestroyed'>(
+    state: GameState, event: K, details: Omit<Parameters<NonNullable<IEffect[K]>>[1], 'card' | 'playerIndex'>
 ): GameState {
     let next = state;
     const observers = fieldEntries(state).flatMap(({ zone, target }) =>

@@ -5,7 +5,6 @@
 .catalog-filters button[aria-expanded="true"], .catalog-filters button.is-active, .catalog-filters button[aria-pressed="true"] { border-color: #f7ce59; background: #40341b; color: #f7ce59; }
 .catalog-filters__options { margin-top: 10px; }
 .catalog-filters__options > span { flex-basis: 100%; }
-.deck-catalog > .catalog-filters { margin: 4px 18px 10px; flex-shrink: 0; }
 .catalog-filters__menu { box-sizing: border-box; width: min(620px, calc(100vw - 32px)); height: min(740px, calc(100dvh - 48px)); max-height: none; padding: 24px 28px; border: 1px solid #c99a4e80; background: linear-gradient(145deg, #19212c, #0b1017); color: #e2e8f0; box-shadow: 0 20px 70px #000c; overflow: hidden; }
 .catalog-filters__menu form { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .catalog-filters__menu header, .catalog-filters__menu footer { flex-shrink: 0; }

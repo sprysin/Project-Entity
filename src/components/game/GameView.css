@@ -166,18 +166,50 @@
   background: radial-gradient(circle at 50% 35%, #34311d, transparent 57%), linear-gradient(135deg, #1c242d, #080c11 72%);
   box-shadow: 0 0 0 8px #d4a95112, 0 25px 70px #000d, 0 0 45px #eab30835;
 }
-.duel-screen .opening-coin .duel-prompt__title { color: #fff; font-size: 23px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.duel-screen .opening-coin__eyebrow { display: block; margin: 0 0 11px; color: #e6bd70; font-size: 10px; font-weight: 700; letter-spacing: .32em; }
+.duel-screen .opening-coin .duel-prompt__title { margin-top: 8px; color: #fff; font-size: 23px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.opening-coin__winner { color: #facc15; }
 .duel-screen .opening-coin__orbit { border-color: #e5b76381; box-shadow: 0 0 0 16px #eab3080a, 0 0 28px #eab30836; }
 .duel-screen .opening-coin__face { border-color: #cba356; box-shadow: inset 0 0 0 3px #ffe7aa57, inset 0 0 0 9px #0004, 0 0 28px #f0c46b45; }
 .duel-screen .opening-coin__face--black { background: radial-gradient(circle at 30% 20%, #414753, #080a0f 70%); }
 .duel-screen .opening-coin__face--white { background: radial-gradient(circle at 30% 20%, #fffdf6, #c9c7bc 75%); }
 .duel-screen .opening-coin__side { border-color: #b290576e; border-radius: 0; background: #0e141bcc; color: #e5e7e9; }
 .duel-screen .opening-coin__side.is-winner { border-color: #f2c76e; background: #54401455; color: #ffe194; }
-.duel-screen .opening-coin__status { color: #e0ddd4; font-size: 12px; }
 .duel-screen .opening-coin .duel-prompt__actions button { min-height: 52px; clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 13px 100%, 0 calc(100% - 13px)); }
 .duel-screen .opening-coin .duel-prompt__primary { background: linear-gradient(110deg, #f8d984, #dba92f); color: #12120e; }
 .duel-screen .opening-coin .duel-prompt__secondary { border-color: #d6b367; background: #202a32; color: #ffe2a0; }
+.duel-screen .opening-coin--ai-choosing .duel-prompt__actions button:disabled {
+  --choice-rest: #f8d984;
+  --choice-away: #202a32;
+  --choice-text: #12120e;
+  --choice-away-text: #ffe2a0;
+  border-color: #d6b367 !important;
+  background: var(--choice-rest);
+  color: var(--choice-text);
+  cursor: wait;
+  animation: opening-ai-choice 2.8s ease-in-out both;
+}
+.duel-screen .opening-coin--ai-choosing .duel-prompt__actions .duel-prompt__secondary:disabled {
+  --choice-rest: #202a32;
+  --choice-away: #f8d984;
+  --choice-text: #ffe2a0;
+  --choice-away-text: #12120e;
+}
+@keyframes opening-ai-choice {
+  0%, 18%, 47%, 100% { background-color: var(--choice-rest); color: var(--choice-text); }
+  8%, 30%, 70% { background-color: var(--choice-away); color: var(--choice-away-text); }
+}
+.duel-screen .opening-coin--ai-second .duel-prompt__actions button:disabled {
+  animation-name: opening-ai-choice-second;
+  background: var(--choice-away);
+  color: var(--choice-away-text);
+}
+@keyframes opening-ai-choice-second {
+  0%, 18%, 47%, 100% { background-color: var(--choice-away); color: var(--choice-away-text); }
+  8%, 30%, 70% { background-color: var(--choice-rest); color: var(--choice-text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .duel-screen .opening-coin--ai-choosing .duel-prompt__actions button:disabled { animation: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .summon-reverb__ring { display: none; }
   .summon-reverb__zones span { animation: none; opacity: .16; }

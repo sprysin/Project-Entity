@@ -33,7 +33,7 @@
 .deck-editor { display: grid; grid-template-columns: 350px minmax(280px, 1fr) 340px; height: 100%; min-width: 820px; min-height: 480px; }
 .deck-preview { padding: 22px; border-right: 1px solid #eab30822; background: linear-gradient(180deg, #13150eaa, #07090ef5 60%); overflow-y: auto; }
 .deck-preview-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 34px; }
-.deck-preview-face { max-width: 300px; margin: auto; }
+.deck-preview-face { display: block; width: 100%; max-width: 300px; margin: auto; cursor: pointer; text-align: left; }
 .deck-preview-controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 26px; }
 .deck-quantity-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; flex: 1; padding: 8px 10px; border: 1px solid #a16207; border-radius: 3px; background: #292410; color: #facc15; font: bold 10px Orbitron, sans-serif; white-space: nowrap; }
 .deck-quantity-button:hover:not(:disabled) { background: #3a310e; border-color: #eab308; }

@@ -2,20 +2,12 @@ import { IEffect, CardType } from '../../../types';
 import { CardModule } from '../../CardRegistry';
 import { buildEffect } from '../../engine/Builder';
 import { Cost } from '../../engine/Costs';
+import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
     onActivate: buildEffect([
         Cost.DiscardCardFilter(),
-        (state, context) => {
-            const attack = state.deferredAction;
-            if (attack?.kind !== 'attack' || attack.targetId !== 'direct' || state.activePlayerIndex === context.playerIndex) return { halt: true };
-            const attacker = state.players[state.activePlayerIndex].pawnZones.find(zone => zone?.card.instanceId === attack.attackerId);
-            if (attacker) {
-                if (attacker.attacksRemaining !== undefined) attacker.attacksRemaining -= 1;
-                attacker.hasAttacked = attacker.attacksRemaining === undefined || attacker.attacksRemaining <= 0;
-            }
-            state.deferredAction = undefined;
-        }
+        Effect.NegateAttack()
     ]),
     canActivate: (state, context) => state.deferredAction?.kind === 'attack'
         && state.deferredAction.targetId === 'direct'

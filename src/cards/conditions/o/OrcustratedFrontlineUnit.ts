@@ -4,7 +4,6 @@ import { buildEffect } from '../../engine/Builder';
 
 const effect: IEffect = {
     handSummonFilter: card => card.type === CardType.PAWN && card.attribute === Attribute.LIGHT && card.level <= 4,
-    handSummonPrompt: 'Choose a LIGHT Pawn',
     onPawnSummoned: (state, context) => {
         const player = state.players[context.playerIndex];
         if (context.summoningPlayerIndex === context.playerIndex || !context.tributeCount

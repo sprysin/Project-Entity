@@ -7,8 +7,15 @@ import { canTribute } from '../../../game/cardHelpers';
 
 export default [{
     cardData: {
-        id: 'P_Engine_Interloper', name: 'Engine Interloper', type: CardType.PAWN,
-        attribute: Attribute.FIRE, pawnType: PawnType.MECHANICAL, level: 8, atk: 220, def: 160, rarity: 'Epic',
+        id: 'P_Engine_Interloper',
+        name: 'Engine Interloper',
+        type: CardType.PAWN,
+        attribute: Attribute.ELECTRIC,
+        pawnType: PawnType.MECHANICAL,
+        level: 8,
+        atk: 220,
+        def: 160,
+        rarity: 'Epic',
         effectText: "ON FIELD: tribute 1 Mechanical Pawn, increase this Pawn's attack by 20"
     },
     effect: {

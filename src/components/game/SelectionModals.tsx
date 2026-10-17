@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardSelectionRequest, GameState, HandSelectionRequest, LevelTributeSelectionRequest, PeekSelectionRequest, ShuffleSelectionRequest } from '../../types';
+import { Card, CardSelectionRequest, GameState, HandSelectionRequest, LevelTributeSelectionRequest, PeekSelectionRequest, Position, ShuffleSelectionRequest } from '../../types';
+import { multiSelectionCards } from '../../cards/engine/Selections';
+import { fieldEntries } from '../../game/field';
 import { CardDetail } from '../cards/CardDetail';
-import { cardsAtLocation } from '../../game/cardHelpers';
 import { DuelPrompt } from './DuelPrompt';
 import { levelTributeCandidates } from '../../game/levelTributes';
 
@@ -11,18 +12,18 @@ export const LevelTributeSelectionModal: React.FC<{
     const [selected, setSelected] = useState<number[]>([]);
     useEffect(() => setSelected([]), [request]);
     if (!request) return null;
-    const choices = levelTributeCandidates(gameState, request.playerIndex);
+    const choices = levelTributeCandidates(gameState, request.playerIndex, request);
     const level = selected.reduce((sum, index) => sum + choices[index].card.level, 0);
     const valid = level === request.totalLevel && (gameState.players[request.playerIndex].pawnZones.includes(null)
         || selected.some(index => choices[index].location === 'field'));
-    return <CardSelectionModal title={`Tribute Pawns · Levels ${level}/${request.totalLevel}`}
-        prompt={`Choose Pawns from your hand or field whose levels total exactly ${request.totalLevel}.`}
+    return <CardSelectionModal title={`${request.sendOnly ? 'Send' : 'Tribute'} Pawns · Levels ${level}/${request.totalLevel}`}
+        prompt={`Choose Pawns from your ${request.location ?? 'hand or field'} whose levels total exactly ${request.totalLevel}.`}
         cards={choices.map(entry => entry.card)} cardLabels={choices.map(entry => entry.location === 'hand' ? 'Hand' : 'Field')}
         selectedIndex={null} selectedIndices={selected} requiredCount={selected.length} confirmDisabled={!valid}
         onSelect={index => { if (index !== null) setSelected(previous => previous.includes(index) ? previous.filter(value => value !== index)
             : [...previous, index]); }}
         onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].card.instanceId))}
-        onCancel={onCancel} emptyLabel="No eligible Pawns" confirmLabel="Confirm tributes" searchLabel="Contract tributes" />;
+        onCancel={onCancel} emptyLabel="No eligible Pawns" confirmLabel="Confirm materials" searchLabel="Contract materials" />;
 };
 
 export const ReserveSelectionModal: React.FC<{
@@ -62,10 +63,18 @@ export const ShuffleSelectionModal: React.FC<{
     const [selected, setSelected] = useState<number[]>([]);
     useEffect(() => setSelected([]), [request]);
     if (!request) return null;
-    const choices = cardsAtLocation(gameState.players[request.playerIndex], request.location, gameState).filter(entry => request.filter(entry.card));
+    const choices = multiSelectionCards(gameState, request);
+    const hiddenCardIds = request.location === 'field' ? fieldEntries(gameState)
+        .filter(({ zone, target }) => zone.position === Position.HIDDEN && target.playerIndex !== request.playerIndex)
+        .map(({ zone }) => zone.card.instanceId) : [];
     return <CardSelectionModal
-        title={`Shuffle from ${request.location} (${selected.length}/${request.upTo ? 'up to ' : ''}${request.count})`}
-        cards={choices.map(entry => entry.card)}
+        title={`${request.fieldScope === undefined ? `Shuffle from ${request.location}` : 'Select cards on the field'} (${selected.length}/${request.upTo ? 'up to ' : ''}${request.count})`}
+        cards={choices}
+        hiddenCardIds={hiddenCardIds}
+        cardLabels={request.fieldScope === undefined ? undefined : choices.map(card => {
+            const entry = fieldEntries(gameState).find(({ zone }) => zone.card.instanceId === card.instanceId)!;
+            return `${gameState.players[entry.target.playerIndex].name}: ${entry.target.type} ${entry.target.index + 1}`;
+        })}
         selectedIndex={null}
         selectedIndices={selected}
         requiredCount={request.count}
@@ -75,9 +84,9 @@ export const ShuffleSelectionModal: React.FC<{
             setSelected(current => current.includes(index) ? current.filter(value => value !== index)
                 : current.length < request.count ? [...current, index] : current);
         }}
-        onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].card.instanceId))}
+        onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].instanceId))}
         emptyLabel={`No cards in ${request.location}`}
-        confirmLabel="Confirm shuffle"
+        confirmLabel={request.fieldScope === undefined ? 'Confirm shuffle' : 'Confirm selection'}
         searchLabel={`${request.location} selection`}
     />;
 };
@@ -99,12 +108,13 @@ interface CardSelectionModalProps {
     searchLabel?: string;
     confirmDisabled?: boolean;
     cardLabels?: string[];
+    hiddenCardIds?: readonly string[];
 }
 
 export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
     title, prompt, cards, selectedIndex, onSelect, onCancel, onConfirm,
     emptyLabel, confirmLabel, filter,
-    selectedIndices, requiredCount, onConfirmMulti, searchLabel = 'Card selection', confirmDisabled: forcedDisabled, cardLabels
+    selectedIndices, requiredCount, onConfirmMulti, searchLabel = 'Card selection', confirmDisabled: forcedDisabled, cardLabels, hiddenCardIds
 }) => {
     const [peeking, setPeeking] = useState(false);
     const choices = cards
@@ -122,9 +132,9 @@ export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
         {prompt && <div className="card-search__summary"><p>{prompt}</p></div>}
         <div className="card-search__grid">
             {choices.map(({ card, index, valid }) => <button key={card.instanceId} type="button" data-sound="select-small"
-                aria-label={card.name} aria-pressed={isSelected(index)} disabled={!valid} onClick={() => onSelect(index)}
+                aria-label={hiddenCardIds?.includes(card.instanceId) ? 'Hidden card' : card.name} aria-pressed={isSelected(index)} disabled={!valid} onClick={() => onSelect(index)}
                 className={`duel-card-choice ${isSelected(index) ? 'is-selected' : ''}`}>
-                <CardDetail card={card} className="w-full h-full" />
+                <CardDetail card={card} isSet={hiddenCardIds?.includes(card.instanceId)} className="w-full h-full" />
                 {cardLabels?.[index] && <span className="card-search__location">{cardLabels[index]}</span>}
                 {isSelected(index) && <span className="card-search__selected" aria-hidden="true"><i className="fa-solid fa-check" /></span>}
             </button>)}
@@ -161,7 +171,7 @@ export const DiscardSelectionModal: React.FC<{
     setSelectedDiscardIndex: (index: number | null) => void; handleDiscardSelection: (index: number) => void;
 }> = ({ selectionReq, gameState, selectedDiscardIndex, setSelectedDiscardIndex, handleDiscardSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal searchLabel="Discard pile search" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].discard} selectedIndex={selectedDiscardIndex} onSelect={setSelectedDiscardIndex} onConfirm={handleDiscardSelection} emptyLabel="No cards in discard pile" confirmLabel="Confirm selection" filter={selectionReq.filter} />;
+    return <CardSelectionModal searchLabel="Discard pile search" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].discard} selectedIndex={selectedDiscardIndex} onSelect={setSelectedDiscardIndex} onConfirm={handleDiscardSelection} emptyLabel="No cards in discard pile" confirmLabel="Confirm selection" filter={selectionReq.filter} />;
 };
 
 export const DeckSelectionModal: React.FC<{

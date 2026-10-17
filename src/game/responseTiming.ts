@@ -6,6 +6,7 @@ export const activationPopupModes: ActivationPopupMode[] = ['off', 'auto', 'on']
 export function shouldPromptResponse(mode: ActivationPopupMode, state: GameState): boolean {
     if (!state.response || state.response.ready || mode === 'off') return false;
     if (mode === 'on') return true;
+    if (state.response.battleDamage?.playerIndex === state.response.priority) return true;
     // Older snapshots have no timing; preserve their existing response behavior.
     return !state.response.timing || ['summon', 'attack', 'activation'].includes(state.response.timing)
         || state.response.timing === 'phase_exit' && [Phase.MAIN1, Phase.BATTLE, Phase.MAIN2].includes(state.currentPhase)

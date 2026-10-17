@@ -21,10 +21,6 @@
 .database-search:focus-within { border-color: #f8d276; box-shadow: 0 0 0 2px #eab30825; }
 .database-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: none; color: #f8fafc; font: 12px Orbitron, sans-serif; }
 .database-search input::placeholder { color: #8894a3; }
-.database-pagination:empty { display: none; }
-.database-pagination nav { padding: 4px 0 14px; color: #c2b28e; font-family: Orbitron, sans-serif; }
-.database-pagination button { border-color: #94784b; border-radius: 0; background: #111820; color: #efcc86; }
-.database-pagination button:hover:not(:disabled) { border-color: #f2c465; background: #25251a; }
 .database-sections { display: grid; gap: 30px; padding-top: 10px; }
 .database-section { --section-color: #edc45d; border: 1px solid #b896565c; background: linear-gradient(125deg, #151d25d9, #0b1016d9 70%); box-shadow: inset 4px 0 var(--section-color), 0 15px 35px #0004; }
 .database-section--action { --section-color: #4fd3ad; }
@@ -43,7 +39,8 @@
 .database-inspector { min-width: 0; overflow-y: auto; padding: 28px 28px 48px; border-left: 1px solid #c99a4e7d; background: linear-gradient(180deg, #1c2020f0, #0b1017f5 65%); }
 .database-inspector__heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 23px; padding-bottom: 18px; border-bottom: 1px solid #c99a4e77; color: #eec36b; font: 700 10px Orbitron, sans-serif; letter-spacing: .19em; }
 .database-inspector__heading i { font-size: 12px; }
-.database-inspector__card { width: 270px; max-width: 100%; margin: 0 auto 28px; filter: drop-shadow(0 18px 25px #0009); }
+.database-inspector__card { display: block; width: 270px; max-width: 100%; margin: 0 auto 28px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; filter: drop-shadow(0 18px 25px #0009); }
+.database-inspector__card:focus-visible { outline: 2px solid #facc15; outline-offset: 4px; }
 .database-card-data { padding: 18px 20px 20px; border: 1px solid #bc995865; background: #101822db; }
 .database-card-data h2 { display: flex; align-items: center; gap: 11px; margin: 0 0 14px; padding-bottom: 13px; border-bottom: 1px solid #c99a4e5c; color: #edc46d; font: 700 11px Orbitron, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .database-card-data dl { display: grid; gap: 10px; margin: 0; }

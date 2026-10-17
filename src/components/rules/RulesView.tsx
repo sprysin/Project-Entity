@@ -23,7 +23,7 @@ const topics: Topic[] = [
     id: 'basics', title: 'Starting Info', subtitle: 'Your objective & your deck', icon: 'fa-flag-checkered', rules: [
       'Start with 800 Life Points (LP). Reduce your opponent’s LP to 0 or below to win, through combat or card effects.',
       'A deck contains 40–60 cards, with no more than 3 copies of any one card.',
-      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering and Attach subtypes; Actions also have Contract, Land and Bomb subtypes.',
+      'The three card types are Pawns, Actions and Conditions. Actions and Conditions have Normal, Lingering, Attach and Contract subtypes; Actions also have Land and Bomb subtypes.',
     ]
   },
   {
@@ -53,7 +53,7 @@ const topics: Topic[] = [
     id: 'chains', title: 'Responses & chains', subtitle: 'The flow of compounding effects', icon: 'fa-link', rules: [
       'Simultaneous triggered effects form one chain in this order: turn player mandatory effects, opponent mandatory effects, turn player optional effects, opponent optional effects. Optional effects are included only if activated. Build the entire chain before resolving it in reverse order.',
       'Before an attack, phase change or effect resolves, the other player gets a response opportunity. A window appears only if that player has an eligible card, and shows the number of activatable cards.',
-      'Eligible responses are Conditions set on an earlier turn and face-up Pawns with an explicitly designated quick effect. Ordinary Pawn effects and Actions cannot join a chain as responses.',
+      'Eligible responses are Conditions set on an earlier turn and face-up Pawns or Lingering Actions with an explicitly designated quick effect. Ordinary Pawn and Action effects cannot join a chain as responses.',
       'After a card is added to a chain, the other player may respond. A player with no eligible effects doesnt get a response opportunity.',
       'Resolve the last effect in the chain first, then work backward. Removing an effect’s source does not itself negate that effect.',
       'Once the chain finishes, the pending attack or phase change continues if still legal. No new links are added while a chain is resolving.',
@@ -85,9 +85,10 @@ const topics: Topic[] = [
   },
   {
     id: 'reserve', title: 'The Reserve', subtitle: 'An additional deck toolbox', icon: 'fa-layer-group', rules: [
-      'Your Reserve is separate from your deck and holds up to 10 extra Pawns. A Reserve can hold either Vassal or Merge Pawns.',
-      'Vassal Pawns are cards known for there red frame. To summon a Vassal from the Reserve you must use a Contract Action.',
-      'When you use a Contract Action to Vassal summon you place the pawn in face-up Attack or Defense Position. This is counted as a special summon.'
+      'Your Reserve is separate from your deck and holds up to 10 extra Pawns. A Reserve can hold either Vassal or Merge Pawns. When a card or effect is activated that requires a Pawn that originated from the Reserve is sent back to the hand or deck, its sent back to the Reserve instead.',
+      'Vassal Pawns are known for their red frame. To summon a Vassal from the Reserve, use a Contract Action or Contract Condition and follow its tribute and summon requirements.',
+      'Contract Actions follow normal Action timing. Contract Conditions must be set first and can activate on a later turn, following normal Condition timing.',
+      'A Contract summons its Vassal in face-up Attack or Defense Position. This counts as a Special Summon.'
     ]
   },
   {
@@ -147,8 +148,10 @@ const topics: Topic[] = [
       'Lingering Actions and Conditions stay face-up and continue occupying their zone after activation.',
       'Their text determines whether an effect is continuous, triggered by an event or manually activated.',
       'Remaining face-up does not automatically repeat the original activation effect.',
-      'Manual effects follow the card type’s timing: Actions in your own Main Phases; Conditions in any phase of either turn. Apply any further restrictions on the card.',
+      'Manual effects follow the card type’s timing: Actions in your own Main Phases; Conditions in any phase of either turn. An explicitly quick field effect can respond during either turn, subject to its card text.',
       'Effects maintained by a Lingering card normally end when it leaves the field. Explicit card text may provide exceptions.',
+      'Continuous type and stat changes last while their source remains active. Temporary changes expire at the stated End Phase; “your next turn” means the next turn of the effect’s controller.',
+      'Sending a Pawn to the Discard is different from destroying or tributing it. Destruction protection and destruction-triggered effects do not apply to a send effect.',
     ]
   },
   {
@@ -273,6 +276,7 @@ const chapterGroups: { title: string; description: string; chapters: Chapter[] }
           {
             id: 'vassal', title: 'Vassal cards', rules: topicById.reserve.rules!.slice(1), examples: [
               { id: 'P_Patron_Of_Judgement', label: 'Vassal Pawn' }, { id: 'A_Scripture_Of_Faith', label: 'Contract Action' },
+              { id: 'C_Signal_Routing', label: 'Contract Condition' },
             ]
           },
         ]

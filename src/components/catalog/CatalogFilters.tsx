@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ActionSubtype, Attribute, Card, CardType, PawnSubtype, PawnType } from '../../types';
+import { ActionSubtype, Attribute, Card, CardType, ConditionSubtype, PawnSubtype, PawnType } from '../../types';
 import { cardSubtype } from '../../cards/CardRegistry';
 import { isReservePawn } from '../../game/cardHelpers';
 import PageBrand from '../common/PageBrand';
@@ -17,7 +17,7 @@ const groups = [
 ] as const;
 const subtypeGroups = {
     [CardType.ACTION]: { key: 'action', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach', ...Object.values(ActionSubtype).filter(subtype => subtype !== ActionSubtype.BOMB)] },
-    [CardType.CONDITION]: { key: 'condition', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach'] },
+    [CardType.CONDITION]: { key: 'condition', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach', ...Object.values(ConditionSubtype)] },
 } as const;
 const hasSelection = (filters: Filters, type: CardType) => filters.all.includes(type) || (type === CardType.PAWN
     ? groups.some(({ key }) => filters[key].length > 0) : filters[subtypeGroups[type].key].length > 0);
@@ -41,7 +41,7 @@ export function useCatalogFilters() {
             return next;
         }),
         clear: () => setFilters(emptyFilters()),
-        matches: (card: Pick<Card, 'type' | 'level' | 'pawnType' | 'attribute' | 'pawnSubtype' | 'actionSubtype' | 'isAttached' | 'isLingering'>) =>
+        matches: (card: Pick<Card, 'type' | 'level' | 'pawnType' | 'attribute' | 'pawnSubtype' | 'actionSubtype' | 'conditionSubtype' | 'isAttached' | 'isLingering'>) =>
             !active || applied.all.includes(card.type) || (hasSelection(applied, card.type) && (card.type === CardType.PAWN
                 ? groups.every(({ key }) => !applied[key].length || applied[key].includes(String(card[key]))
                     || key === 'pawnSubtype' && applied[key].includes('Standard') && !isReservePawn(card))

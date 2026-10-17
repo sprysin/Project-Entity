@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import CatalogFilters, { useCatalogFilters } from './CatalogFilters';
-import CatalogPagination, { useCatalogPage } from './CatalogPagination';
 import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
 import { matchesCardCatalog, cardSubtype } from '../../cards/CardRegistry';
 import { sortedCards } from '../../decks';
 import { CardDetail } from '../cards/CardDetail';
+import { CardPreview } from '../cards/CardPreview';
 import { CardType, Card } from '../../types';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import './CardDatabase.css';
@@ -28,9 +28,12 @@ const catalogTypes = [
 const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+    const [inspected, setInspected] = useState<Card | null>(null);
     const filters = useCatalogFilters();
     const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery) && filters.matches(card));
-    const pagination = useCatalogPage(filteredCards, searchQuery + filters.key);
+    const sections = searchQuery.trim()
+        ? [{ type: 'search', label: 'Search results', icon: <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />, tone: 'pawn', entries: [...filteredCards].sort((a, b) => a.name.localeCompare(b.name)) }]
+        : catalogTypes.map(section => ({ ...section, entries: filteredCards.filter(card => card.type === section.type) }));
 
     return <div className="card-database entity-page">
         <header className="entity-topbar database-topbar">
@@ -55,11 +58,11 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
 
                 </div>
 
-                <CatalogFilters {...filters} />
-                <div className="database-pagination"><CatalogPagination {...pagination} /></div>
+                <div className="catalog-toolbar">
+                    <CatalogFilters {...filters} />
+                </div>
                 <div className="database-sections">
-                    {catalogTypes.map(({ type, label, icon, tone }) => {
-                        const entries = pagination.entries.filter(card => card.type === type);
+                    {sections.map(({ type, label, icon, tone, entries }) => {
                         if (!entries.length) return null;
                         return <section key={type} className={`database-section database-section--${tone}`} aria-label={label}>
                             <h2><span className="database-section__icon">{icon}</span>{label}<small>{String(entries.length).padStart(2, '0')} - Number of Cards</small></h2>
@@ -81,7 +84,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
             <aside className="database-inspector" aria-label="Card details">
                 <div className="database-inspector__heading"><span>CARD INSPECTOR</span><i className="fa-solid fa-diamond" aria-hidden="true" /></div>
                 {selectedCard ? <>
-                    <div className="database-inspector__card"><CardDetail card={selectedCard} /></div>
+                    <button type="button" data-sound="select-small" className="database-inspector__card" aria-label={`Inspect ${selectedCard.name}`} aria-haspopup="dialog" onClick={() => setInspected(selectedCard)}><CardDetail card={selectedCard} /></button>
                     <div className="database-card-data">
                         <h2><i className="fa-solid fa-database" aria-hidden="true" /> Card data</h2>
                         <dl>
@@ -99,6 +102,7 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
                 </> : <div className="database-inspector__empty"><span><i className="fa-solid fa-crosshairs" aria-hidden="true" /></span></div>}
             </aside>
         </div>
+        {inspected && <CardPreview card={inspected} onClose={() => setInspected(null)} />}
     </div>;
 };
 

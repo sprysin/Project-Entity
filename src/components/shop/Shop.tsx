@@ -154,7 +154,7 @@ export default function Shop({ onBack }: { onBack: () => void }) {
     <div className={`shop-body${opening ? ' shop-body--opening' : selected ? ' shop-body--detail' : ''}`}>
       {!selected && !summary && <div className="shop-heading"><div>{browsing && <span className="shop-eyebrow">VENDOR: CARD DEALER</span>}
         <h1 ref={heading} tabIndex={-1}>{opening ? opening.pack.name : summary ? 'SESSION PULLS' : selected ? selected.pack.name : <>PACK <em>SELECTION</em></>}</h1>
-        {browsing && <p>Rotating stock of packs, unlock more through gameplay</p>}</div>
+        {browsing && <p></p>}</div>
         {browsing && <div className="shop-clock"><small>NEXT ROTATION</small><strong> {timer}</strong></div>}
       </div>}
       {opening && session && session.batches.length > 1 && <span className="shop-session-progress">PACK {session.index + 1} / {session.batches.length}</span>}
@@ -229,6 +229,12 @@ export default function Shop({ onBack }: { onBack: () => void }) {
         })}</div>
         <div className="shop-opening-actions">
           <button type="button" className="shop-button" data-sound="select" onClick={() => { setSession(null); beginOpening(DEBUG_PACK, packCards(DEBUG_PACK)); }}>Debug pulls</button>
+          <button type="button" className="shop-button" data-sound="select" onClick={() => {
+            const time = Date.now();
+            setNow(time);
+            setRotation(current => advanceRotation({ ...current, expiresAt: time }, time));
+            setNotice('');
+          }}>Debug reroll packs</button>
         </div>
       </>}
     </div>

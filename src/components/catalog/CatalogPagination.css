@@ -1,0 +1,12 @@
+.catalog-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.catalog-toolbar > .catalog-filters { flex-shrink: 0; margin: 0; }
+.catalog-toolbar > .catalog-filters > button { min-height: 34px; }
+.deck-catalog > .catalog-toolbar { flex-shrink: 0; margin: 4px 18px 8px; }
+.catalog-pagination { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.catalog-pagination > button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 34px; height: 34px; border: 1px solid #9b855e; background: #0c1219; color: #e2cfac; font-size: 14px; }
+.catalog-pagination > button:hover:not(:disabled) { border-color: #f7ce59; background: #292714; color: #ffe19b; }
+.catalog-pagination > button:focus-visible { outline: 2px solid #f7ce59; outline-offset: 3px; }
+.catalog-pagination > button:disabled { opacity: .35; cursor: default; }
+.catalog-pagination__status { display: flex; flex-direction: column; gap: 3px; margin-left: auto; padding-left: 4px; color: #bda978; font: 10px Orbitron, sans-serif; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.catalog-pagination__status strong { color: #f7ce59; font-weight: 700; }
+.catalog-pagination__status small { color: #bda978; font-size: 9px; }

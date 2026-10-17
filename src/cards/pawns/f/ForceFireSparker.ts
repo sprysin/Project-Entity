@@ -5,6 +5,7 @@ import { Effect } from '../../engine/Effects';
 import { Query } from '../../engine/Queries';
 
 const effect: IEffect = {
+    normalSummonOnly: true,
     onSummon: buildEffect([
         Effect.DealDamage(
             Query.ActiveOpponent(),

@@ -19,9 +19,26 @@ below belongs in `src/cards/pawns/e/ExamplePawn.ts`.
 
 The three type entry points eagerly discover modules with Vite's `import.meta.glob`.
 Do not add manual imports or call `cardRegistry.register` inside card files.
-Each module exports an array of definitions and effects; a card and its associated
-tokens may share a module. Loading is synchronous, so the full catalog is available
+Each distinct playable card must have its own module/file, even if another card
+has identical effects. Each module exports an array of definitions and effects;
+only generated tokens or Bombs may share their source card's module.
+Loading is synchronous, so the full catalog is available
 before deck creation and gameplay. The loader runs in both Vite and Vitest.
+
+Activation and selection UI text belongs to shared mechanic/UI code. Do not put
+custom prompt titles, instructions, labels, or text overrides in card modules or
+add helper options that accept them. Shared prompts use generic selection data;
+the card's printed `effectText` remains card metadata.
+
+Shared mechanics also support counter payments (`Cost.RemoveCounters`), sending
+exact-level materials without tributing (`Cost.SendExactLevels`), multi-Pawn hand
+summons, Discard revival, type overrides, and additional next-Draw-Phase cards.
+Discard selection requests carry the candidates after earlier costs and instructions,
+so the UI and AI can select a newly discarded or type-converted Pawn by identity.
+Continuous `pawnTypeModifier` effects refresh through `refreshFieldTypes`; their
+changes are visible to rules, AI, and card displays and clear when a Pawn leaves.
+Use `onFieldCardDestroyed` to observe actual destruction with its cause, position,
+controller, and responsible player. Sending to the Discard does not emit destruction.
 
 ```ts
 import { Attribute, CardType, IEffect, PawnType } from '../../../types';
@@ -73,7 +90,12 @@ Do not introduce a separate reveal prompt, modal, or card-specific reveal UI.
 - Levels must be integers from 0 through 10 and stats must be finite numbers.
   Actions and Conditions use level, ATK, and DEF of zero.
 - `isAttached` and `isLingering` are mutually exclusive and apply only to Actions
-  and Conditions. Neither flag means Normal.
+  and Conditions. Cards with neither flag nor an explicit subtype are Normal.
+- Contracts can be Actions (`actionSubtype: ActionSubtype.CONTRACT`) or Conditions
+  (`conditionSubtype: ConditionSubtype.CONTRACT`). Conditions retain their set-card
+  activation timing. Use `isContract` for shared legality and `SummonFromReserve`
+  for either kind. `Cost.TributeExactLevels` accepts a dynamic level total and
+  optional material `location`/`filter`; the shared picker and AI use the same rules.
 - Tokens use `pawnSubtype: PawnSubtype.TOKEN`; they are excluded from playable
   catalogs and decks. Use `Effect.SummonToken(id)` to place them.
 - Bombs use `actionSubtype: ActionSubtype.BOMB` and the grey Token frame. Define

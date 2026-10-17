@@ -1,11 +1,13 @@
 import { activeLand, fieldEntries } from './field';
-import { ActionSubtype, GameState, Card, CardContext, PawnSubtype, PlacedCard, Player, Position, ShuffleLocation } from '../types';
+import { ActionSubtype, ConditionSubtype, GameState, Card, CardContext, CardType, PawnSubtype, PlacedCard, Player, Position, SelectionLocation } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 
 export const isToken = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.TOKEN;
 export const isBomb = (card: Pick<Card, 'actionSubtype'>): boolean => card.actionSubtype === ActionSubtype.BOMB;
 export const isGeneratedCard = (card: Pick<Card, 'pawnSubtype' | 'actionSubtype'>): boolean => isToken(card) || isBomb(card);
 export const isReservePawn = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.VASSAL;
+export const isContract = (card: Card): boolean => card.type === CardType.ACTION && card.actionSubtype === ActionSubtype.CONTRACT
+    || card.type === CardType.CONDITION && card.conditionSubtype === ConditionSubtype.CONTRACT;
 export const canTribute = (card: Card): boolean => !card.cannotBeTributed && !card.tributeBlockedThisTurn;
 export const canTributeForSummon = (card: Card, summoned: Card): boolean => canTribute(card) && (cardRegistry.getEffect(summoned.id)?.tributeSummonFilter?.(card) ?? true);
 export const matchesCardName = (card: Card, name: string): boolean => card.name.toLowerCase() === name.toLowerCase();
@@ -53,10 +55,15 @@ export function fieldStats(state: GameState, placement: PlacedCard): { atk: numb
     return { atk: Math.max(0, placement.attackOverride?.turn === state.turnNumber ? placement.attackOverride.value : atk), def: Math.max(0, def) };
 }
 
-export function cardsAtLocation(player: Player, location: ShuffleLocation, state?: GameState): { card: Card; index: number }[] {
-    if (location === 'hand') return player.hand.map((card, index) => ({ card, index }));
-    if (location === 'discard') return player.discard.map((card, index) => ({ card, index }));
+export function cardsAtLocation(player: Player, location: SelectionLocation, state?: GameState): { card: Card; index: number }[] {
+    if (location !== 'field') return player[location].map((card, index) => ({ card, index }));
     return [...player.pawnZones, ...player.actionZones, ...(state ? [activeLand(state)] : [])].flatMap((zone, index) => zone ? [{ card: zone.card, index }] : []);
+}
+
+/** A negated or declined attack still spends one of the Pawn's attacks. */
+export function spendCancelledAttack(zone: PlacedCard): void {
+    if (zone.attacksRemaining !== undefined) zone.attacksRemaining = Math.max(0, zone.attacksRemaining - 1);
+    zone.hasAttacked = zone.attacksRemaining === undefined || zone.attacksRemaining <= 0;
 }
 
 export function shuffleDeck(deck: Card[]): void {
@@ -70,14 +77,42 @@ export function setPawnPosition(zone: PlacedCard, position: Position): void {
     if (position === Position.HIDDEN) {
         if (!canSetPawn(zone.card)) return;
         zone.hasUsedWhileOnField = false;
+        delete zone.destructionPreventionsUsed;
         delete zone.counters;
+        delete zone.pawnTypeOverride;
     }
     zone.position = position;
 }
 
 export function clearFieldReduction(card: Card): Card {
-    const { fieldAtkReduction, fieldOriginalAttribute, tributeBlockedThisTurn, effectTargetBlockedThisTurn, ...rest } = card;
-    return { ...rest, atk: card.atk + (fieldAtkReduction ?? 0), ...(fieldOriginalAttribute === undefined ? {} : { attribute: fieldOriginalAttribute }) };
+    const { fieldAtkReduction, fieldOriginalAttribute, fieldOriginalPawnType, tributeBlockedThisTurn, effectTargetBlockedThisTurn, ...rest } = card;
+    return { ...rest, atk: card.atk + (fieldAtkReduction ?? 0), ...(fieldOriginalAttribute === undefined ? {} : { attribute: fieldOriginalAttribute }),
+        ...(fieldOriginalPawnType === undefined ? {} : { pawnType: fieldOriginalPawnType }) };
+}
+
+/** Recompute temporary and continuous types from each Pawn's field-entry type. */
+export function refreshFieldTypes(state: GameState): void {
+    const pawns = state.players.flatMap((player, playerIndex) => player.pawnZones.flatMap(zone => zone ? [{ zone, playerIndex }] : []));
+    for (const { zone } of pawns) {
+        if (zone.card.fieldOriginalPawnType !== undefined) zone.card.pawnType = zone.card.fieldOriginalPawnType;
+        if (zone.pawnTypeOverride?.dueTurn !== undefined && zone.pawnTypeOverride.dueTurn < state.turnNumber) delete zone.pawnTypeOverride;
+        if (zone.position !== Position.HIDDEN && zone.pawnTypeOverride) {
+            zone.card.fieldOriginalPawnType ??= zone.card.pawnType;
+            zone.card.pawnType = zone.pawnTypeOverride.value;
+        }
+    }
+    for (const { zone: source, target } of fieldEntries(state)) {
+        const modifier = source.position !== Position.HIDDEN && cardRegistry.getEffect(source.card.id)?.pawnTypeModifier;
+        if (!modifier) continue;
+        for (const { zone, playerIndex } of pawns) {
+            if (zone.position === Position.HIDDEN) continue;
+            const value = modifier(state, { card: source.card, playerIndex: target.playerIndex }, zone, playerIndex);
+            if (value !== undefined && value !== zone.card.pawnType) {
+                zone.card.fieldOriginalPawnType ??= zone.card.pawnType;
+                zone.card.pawnType = value;
+            }
+        }
+    }
 }
 
 /**

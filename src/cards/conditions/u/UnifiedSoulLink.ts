@@ -17,9 +17,9 @@ const effect: IEffect = {
         Effect.AttachToTarget(),
         Effect.AttachToTarget(1)
     ]),
-    onAttachedDestroyed: (state, { card, attachedInstanceIds }) => {
-        destroyFieldCard(state, card.instanceId);
-        for (const instanceId of attachedInstanceIds) destroyFieldCard(state, instanceId);
+    onAttachedDestroyed: (state, { card, playerIndex, attachedInstanceIds }) => {
+        destroyFieldCard(state, card.instanceId, 'effect', playerIndex);
+        for (const instanceId of attachedInstanceIds) destroyFieldCard(state, instanceId, 'effect', playerIndex);
     }
 };
 

@@ -4,11 +4,38 @@ import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, CardFilter, Position, ShuffleLocation, TargetSelectPosition, TargetSelectScope } from '../../types';
 import { Effect } from './Effects';
 import { getEffectTarget } from './Targets';
+import { targetZone } from '../../game/field';
 import { sendToOwnerPile } from '../../game/cardOwnership';
-import { levelTributeCandidates } from '../../game/levelTributes';
+import { levelTributeCandidates, LevelTributeOptions } from '../../game/levelTributes';
 import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Cost = {
+    /** Remove a fixed or player-chosen number of counters from a selected source. */
+    RemoveCounters: (name: string, amount: number | 'any', targetIndex = 0, maximum?: Dynamic<number>): EffectStep => activationCost((state, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        const zone = target && targetZone(state, target);
+        if (!zone || zone.position === Position.HIDDEN) return { halt: true };
+        const available = zone.counters?.[name] ?? 0;
+        const max = Math.min(available, maximum === undefined ? available : resolveDynamic(maximum, state, context));
+        if (amount === 'any' && context.effectId === undefined) return { requireEffectChoice: Array.from({ length: max + 1 }, (_, count) => ({
+            id: `counters:${count}`, label: `Remove ${count} counters`, disabled: false
+        })) };
+        const count = amount === 'any' ? Number(context.effectId?.replace(/^counters:/, '')) : amount;
+        if (!Number.isSafeInteger(count) || count < 0 || count > max) return { halt: true };
+        return Effect.ModulateCounter(name, -count, targetIndex)(state, context);
+    }),
+    /** Void a hand card without treating it as a discard or tribute. */
+    VoidHandCard: (filter: CardFilter): EffectStep => activationCost((state, context) => {
+        if (context.handIndex === undefined && !context.handSelectionId) return { requireHandSelection: { playerIndex: context.playerIndex, filter } };
+        const player = state.players[context.playerIndex];
+        const index = context.handSelectionId ? player.hand.findIndex(card => card.instanceId === context.handSelectionId) : context.handIndex!;
+        const card = player.hand[index];
+        if (!card || !filter(card)) return { halt: true };
+        player.hand.splice(index, 1);
+        sendToOwnerPile(state, card, 'void');
+    }),
+    /** Sending exact-level materials has no tribute eligibility or tribute triggers. */
+    SendExactLevels: (levels: Dynamic<number>, options: LevelTributeOptions = {}): EffectStep => Object.assign(Cost.TributeExactLevels(levels, { ...options, sendOnly: true }), { sendsMaterials: true }),
     /** Select and Void distinct cards from the activating player's Discard. */
     VoidDiscardCards: (count: number, filter: CardFilter): EffectStep => activationCost((state, context) => {
         const selection = Effect.SelectDiscardCards(filter, count)(state, context);
@@ -19,16 +46,18 @@ export const Cost = {
             sendToOwnerPile(state, player.discard.splice(index, 1)[0], 'void');
         }
     }),
-    TributeExactLevels: (totalLevel: number): EffectStep => activationCost((state, context) => {
-        if (!context.materialIds) return { requireLevelTribute: { playerIndex: context.playerIndex, totalLevel } };
-        const candidates = levelTributeCandidates(state, context.playerIndex);
+    TributeExactLevels: (levels: Dynamic<number>, options: LevelTributeOptions = {}): EffectStep => activationCost((state, context) => {
+        const totalLevel = resolveDynamic(levels, state, context);
+        if (!Number.isSafeInteger(totalLevel) || totalLevel < 1) return { halt: true };
+        if (!context.materialIds) return { requireLevelTribute: { playerIndex: context.playerIndex, totalLevel, ...options } };
+        const candidates = levelTributeCandidates(state, context.playerIndex, options);
         const selected = context.materialIds.map(id => candidates.find(entry => entry.card.instanceId === id));
         if (!selected.length || new Set(context.materialIds).size !== selected.length || selected.some(entry => !entry)
             || selected.reduce((sum, entry) => sum + entry!.card.level, 0) !== totalLevel) return { halt: true };
-        context.tributeCards = selected.map(entry => entry!.card);
+        context.tributeCards = options.sendOnly ? [] : selected.map(entry => entry!.card);
         const player = state.players[context.playerIndex];
         for (const entry of selected) {
-            const card = { ...entry!.card, tributedByAction: context.card.type === 'ACTION' };
+            const card = { ...entry!.card, tributedByAction: !options.sendOnly && context.card.type === 'ACTION' };
             sendToOwnerPile(state, card, 'discard');
             if (entry!.location === 'hand') player.hand = player.hand.filter(value => value.instanceId !== card.instanceId);
             else player.pawnZones = player.pawnZones.map(zone => zone?.card.instanceId === card.instanceId ? null : zone);
@@ -42,7 +71,7 @@ export const Cost = {
         const player = draftState.players[context.playerIndex];
         const index = player.pawnZones.findIndex(zone => zone?.card.instanceId === context.card.instanceId);
         if (index < 0) return { halt: true };
-        destroyFieldCard(draftState, context.card.instanceId);
+        destroyFieldCard(draftState, context.card.instanceId, 'cost');
     }),
 
     /** Selects a controlled Pawn and changes its position as an activation cost. */

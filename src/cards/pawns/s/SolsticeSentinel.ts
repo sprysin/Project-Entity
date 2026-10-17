@@ -4,6 +4,7 @@ import { buildEffect } from '../../engine/Builder';
 import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
+    normalSummonOnly: true,
     onSummon: buildEffect([
         Effect.RestoreLP((_state, context) => context.playerIndex, 100)
     ])

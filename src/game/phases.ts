@@ -134,6 +134,7 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
         for (const player of updatedPlayers) for (const zone of [...player.pawnZones, ...player.actionZones]) {
             if (!zone) continue;
             delete zone.attackOverride;
+            if (zone.pawnTypeOverride?.dueTurn !== undefined && zone.pawnTypeOverride.dueTurn <= prev.turnNumber) delete zone.pawnTypeOverride;
             delete zone.card.tributeBlockedThisTurn;
             delete zone.card.effectTargetBlockedThisTurn;
         }
@@ -185,7 +186,8 @@ export function stepDraw(state: GameState): GameState {
         next = structuredClone(state);
         const player = next.players[next.activePlayerIndex];
         resetTurnPlayer(player);
-        next.drawProgress = { turn: next.turnNumber, remaining: next.turnNumber === 1 ? 0 : Math.max(1, 5 - player.hand.length) };
+        next.drawProgress = { turn: next.turnNumber, remaining: (next.turnNumber === 1 ? 0 : Math.max(1, 5 - player.hand.length)) + (player.additionalDraws ?? 0) };
+        delete player.additionalDraws;
     }
     if (!next.drawProgress!.remaining) return next;
     next = drawCards(next, next.activePlayerIndex, 1);
@@ -194,7 +196,7 @@ export function stepDraw(state: GameState): GameState {
 
 export function pendingDrawCount(state: GameState): number {
     if (state.winner || state.currentPhase !== Phase.DRAW || state.turnNumber === 1) return 0;
-    return state.drawProgress?.turn === state.turnNumber ? state.drawProgress.remaining : Math.max(1, 5 - state.players[state.activePlayerIndex].hand.length);
+    return state.drawProgress?.turn === state.turnNumber ? state.drawProgress.remaining : Math.max(1, 5 - state.players[state.activePlayerIndex].hand.length) + (state.players[state.activePlayerIndex].additionalDraws ?? 0);
 }
 
 /** The entire required turn draw completes before either player can activate effects. */

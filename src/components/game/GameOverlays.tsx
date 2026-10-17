@@ -1,5 +1,4 @@
 import { handSummonCandidates, handSummonSource } from '../../game/summonReactions';
-import { cardRegistry } from '../../cards/CardRegistry';
 import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Phase, Player } from '../../types';
@@ -178,7 +177,7 @@ export const GameOverlays: React.FC<{
                     playerIndex: gameState.pendingHandSummons[0].playerIndex,
                     viewerPlayerIndex: gameState.pendingHandSummons[0].playerIndex,
                     title: handSummonSource(gameState, gameState.pendingHandSummons[0])?.card.name ?? 'Special Summon',
-                    prompt: cardRegistry.getEffect(handSummonSource(gameState, gameState.pendingHandSummons[0])?.card.id ?? '')?.handSummonPrompt ?? 'Choose a Pawn'
+                    prompt: 'Choose a Pawn'
                 }}
                 gameState={gameState}
                 selectedPeekIndex={state.handSummonSelectedHandIndex}

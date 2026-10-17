@@ -3,7 +3,7 @@ import { canTribute, canTributeForSummon, canTargetWithEffect } from '../../game
 import React from 'react';
 import { activationPopupModes } from '../../game/responseTiming';
 import { createPortal } from 'react-dom';
-import { CardType, Phase, Position, OpponentMode, PlaytestDebugSettings, GameState } from '../../types';
+import { CardType, Phase, Position, OpponentMode, PlaytestDebugSettings, GameState, CardTarget } from '../../types';
 import { useGameLogic } from '../../hooks/useGameLogic';
 import { checkActivationConditions, hasOnActivateEffect } from '../../game/cardHelpers';
 import { CardDetail } from '../cards/CardDetail';
@@ -116,7 +116,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   };
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
-  const actionsDisabled = !turnIsMine || !!drawnBomb || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!reveal;
+  const actionsDisabled = state.cardMovementPending || !turnIsMine || !!drawnBomb || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!reveal;
   const land = activeLand(gameState) ?? null;
   const landSelected = state.selectedFieldSlot?.type === 'land';
   const landPlayable = !!selectedCard && isLand(selectedCard) && !actionsDisabled && actions.canPlayCard(selectedCard);
@@ -129,6 +129,13 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
     state.selectedFieldSlot?.playerIndex === viewIndex &&
     state.selectedFieldSlot.type === type &&
     state.selectedFieldSlot.index === index;
+
+  const inspectDuringMovement = (slot: CardTarget) => {
+    if (!state.cardMovementPending) return false;
+    actions.setSelectedHandIndex(null);
+    actions.setSelectedFieldSlot(slot);
+    return true;
+  };
 
   const canPawnAttack = (index: number) => canAttack(gameState, viewIndex, index);
 
@@ -229,7 +236,9 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
             {renderPendingReveal(oppIdx)}
           </div>
 
-          <div inert={state.cardMovementPending} className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
+          <div onClickCapture={event => {
+            if (state.cardMovementPending && (event.target as HTMLElement).closest('.field-context-menu')) event.stopPropagation();
+          }} className={`game-board duel-stage ${fannedOutPiles ? '' : 'game-board--compact'} relative z-10 flex flex-col ${fannedOutPiles ? 'space-y-4' : 'space-y-7'} transform scale-100 transition-transform duration-500 items-center justify-center flex-1 w-full h-full mt-12 mb-20`}>
             <div className="game-field-surface">
               {/* Opponent Field View */}
               <div className={`game-player-field duel-player-field--opponent flex flex-col items-center ${fannedOutPiles ? 'gap-4' : 'gap-7'} opacity-90`}>
@@ -239,6 +248,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                 <div className="game-field-row">
                   <div className="game-field-zones game-field-zones--actions">
                     {opponent.actionZones.map((z, i) => (<Zone key={i} card={displayActionCard(z)} xray={xray} type="action" domRef={actions.setRef(`${oppIdx}-action-${i}`)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'action' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'action', oppIdx)} onClick={() => {
+                      if (inspectDuringMovement({ playerIndex: oppIdx, type: 'action', index: i })) return;
                       if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                       if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (checkIsSelectable(z, 'action', oppIdx)) actions.resolveEffect(state.pendingEffectCard, { playerIndex: oppIdx, type: 'action', index: i }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
@@ -254,6 +264,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                   <div className="game-field-zones game-field-zones--pawns">
                     <SummonReverb reverbs={summonReverbs.filter(event => event.playerIndex === oppIdx)} />
                     {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} fieldStats={pawnStats[oppIdx][i]} xray={xray} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
+                      if (inspectDuringMovement({ playerIndex: oppIdx, type: 'pawn', index: i })) return;
                       if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                       if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
                         const hasMonsters = opponent.pawnZones.some(mz => mz !== null);
@@ -283,6 +294,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                       {!landPlayable && landActivatable && <ContextMenuButton label="Activate Effect" disabled={actionsDisabled} onClick={() => actions.activateOnField(viewIndex, 'land', 0)} tone="green" />}
                     </ContextMenu> : null}
                     onClick={() => {
+                      if (inspectDuringMovement({ playerIndex: viewIndex, type: 'land', index: 0 })) return;
                       if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
                         if (checkIsSelectable(land, 'action', gameState.activePlayerIndex)) actions.resolveEffect(state.pendingEffectCard,
                           { playerIndex: gameState.activePlayerIndex, type: 'land', index: 0 }, undefined, undefined, undefined, state.pendingTriggerType || 'activate');
@@ -361,6 +373,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                           {gameState.currentPhase === Phase.BATTLE && <ContextMenuButton label={attackReady ? 'Attack' : 'Cannot Attack'} onClick={() => actions.setTargetSelectMode('attack')} disabled={actionsDisabled || !attackReady} tone="red" />}
                         </ContextMenu> : null}
                         onClick={() => {
+                          if (inspectDuringMovement({ playerIndex: viewIndex, type: 'pawn', index: i })) return;
                           if (choosingEffectPlacement || handSummonCard) {
                             actions.setSelectedFieldSlot((choosingEffectPlacement ? effectPlacementAvailable : !z) ? { playerIndex: viewIndex, type: 'pawn', index: i } : null);
                           } else if (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i)) {
@@ -403,6 +416,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                           <ContextMenuButton label={`Activate ${z!.card.type}`} onClick={() => actions.activateOnField(viewIndex, 'action', i)} disabled={actionsDisabled || !canActivateFieldCard} tone="green" />
                         </ContextMenu> : null}
                         onClick={() => {
+                          if (inspectDuringMovement({ playerIndex: viewIndex, type: 'action', index: i })) return;
                           if (state.targetSelectMode === 'place_action' && z === null) {
                             actions.handlePlacement(i);
                           } else if (state.targetSelectMode === 'effect' && state.pendingEffectCard) {
@@ -451,7 +465,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                   <CardDetail
                     card={card}
                     domRef={actions.setRef(`${viewIndex}-hand-${i}`)}
-                    onClick={() => { if (actionsDisabled) return; actions.setSelectedHandIndex(i); actions.setSelectedFieldSlot(null); }}
+                    onClick={() => { if (actionsDisabled) { actions.inspectPileCard(card); return; } actions.setSelectedHandIndex(i); actions.setSelectedFieldSlot(null); }}
                     className={`w-full rounded cursor-pointer border-2 border-slate-300 shadow-2xl pointer-events-auto ${state.selectedHandIndex === i ? 'ring-4 ring-yellow-500' : ''} ${isActivatable ? 'glow-activatable' : ''}`}
                   />
                 </div>

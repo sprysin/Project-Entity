@@ -49,7 +49,7 @@ it('keeps next-turn bonuses through the following End Phase and expires them whe
     const pawn = card();
     game.players[0].pawnZones[0] = { card: pawn, position: Position.ATTACK, hasAttacked: false,
         hasChangedPosition: false, summonedTurn: 1, isSetTurn: false };
-    game = buildEffect([Effect.ModifyAllPawnStats('active', 0, 200, 'end_of_next_turn')])(game, { card: pawn, playerIndex: 0 }).newState;
+    game = buildEffect([Effect.ModifyTargetStats(0, 200, 0, 'end_of_next_turn')])(game, { card: pawn, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } }).newState;
     game.currentPhase = Phase.END;
     game = advancePhaseState(game);
     expect(game.turnNumber).toBe(3);

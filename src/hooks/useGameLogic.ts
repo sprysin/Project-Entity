@@ -232,11 +232,18 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         const coin = gameState?.openingCoin;
         if (!coin) return;
         if (coin.stage === 'choosing' && (opponentMode !== 'ai' || coin.winnerIndex !== 1)) return;
+        if (coin.stage === 'choosing' && !coin.aiOrder) {
+            const aiOrder = Math.random() < .75 ? 'first' : 'second';
+            setGameState(prev => prev?.openingCoin === coin
+                ? { ...prev, openingCoin: { ...coin, aiOrder } } : prev);
+            return;
+        }
+        // Let the 2.8s button animation settle, then hold its final choice for 400ms.
         const timer = setTimeout(() => setGameState(prev => {
             if (!prev) return prev;
             return coin.stage === 'flipping' ? applySystemCommand(prev, { type: 'landCoin' }).state
-                : applyCommand(prev, 1, { type: 'chooseTurnOrder', order: 'first' }).state;
-        }), coin.stage === 'flipping' ? 2400 : 1400);
+                : applyCommand(prev, 1, { type: 'chooseTurnOrder', order: coin.aiOrder! }).state;
+        }), coin.stage === 'flipping' ? 2400 : 3200);
         return () => clearTimeout(timer);
     }, [gameState?.openingCoin, opponentMode]);
 

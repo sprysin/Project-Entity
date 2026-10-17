@@ -13,6 +13,16 @@ const rowMatchesFilter = (row: 'pawnZones' | 'actionZones', scope: 'active' | 'o
     });
 
 export const Require = {
+    /** Request distinct field targets through the same target selector. */
+    Targets: (count: Dynamic<number>, type: 'pawn' | 'action' | 'any' = 'pawn', scope: TargetSelectScope = 'both', startIndex = 0, filter?: (card: Card) => boolean): EffectStep => (state, context) => {
+        const total = resolveDynamic(count, state, context);
+        if (!Number.isSafeInteger(total) || total < 0) return { halt: true };
+        for (let index = startIndex; index < startIndex + total; index++) {
+            const ids = (context.targets ?? []).slice(startIndex, index).flatMap(target => targetZone(state, target)?.card.instanceId ?? []);
+            const result = Require.Target(type, 'faceup', scope, index, card => !ids.includes(card.instanceId) && (!filter || filter(card)))(state, context);
+            if (result) return result;
+        }
+    },
     /** Prompts the player to select a target on the field. */
     Target: (
         type: 'pawn' | 'action' | 'any' = 'pawn',

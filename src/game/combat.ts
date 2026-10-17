@@ -1,5 +1,4 @@
 import { GameState, Phase, Player, Position } from '../types';
-import { clonePlayers } from './cloneState';
 import { checkVictory } from './finishEffect';
 import { cardRegistry } from '../cards/CardRegistry';
 import { destroyFieldCard } from './attachments';
@@ -26,7 +25,8 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     const logs: string[] = [];
     let damageSource = attacker.card;
     let damagePlayerIndex = activeIndex;
-    const players = clonePlayers(gameState.players);
+    let battleDamage = 0;
+    const players = structuredClone(gameState.players);
     const activePlayer = players[activeIndex];
     const opponent = players[opponentIndex];
     const attackingPawn = { ...activePlayer.pawnZones[attackerIndex]! };
@@ -40,7 +40,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
         const other = card.instanceId === attackingPawn.card.instanceId ? battleOpponent : attackingPawn.card;
         if (other && cardRegistry.getEffect(other.id)?.preventsBattleDestructionOfOpponent) return false;
         if (!players.some(player => player.pawnZones.some(zone => zone?.card.instanceId === card.instanceId))) return false;
-        destroyFieldCard(destructionState, card.instanceId);
+        if (!destroyFieldCard(destructionState, card.instanceId, 'battle', card.instanceId === attackingPawn.card.instanceId ? opponentIndex : activeIndex)) return false;
         if (other) victories.push({ pawnId: other.instanceId, target: card });
         if (players.some(player => player.discard.some(value => value.instanceId === card.instanceId))) battleDestroyed.push(card);
         return true;
@@ -48,6 +48,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     let revealedSwitch: typeof attackingPawn.card | undefined;
 
     if (targetIndex === 'direct') {
+        battleDamage = attackingAtk;
         opponent.lp -= attackingAtk;
         logs.push(`${quote(attackingPawn.card.name)} attacked directly. ${lpLoss(opponent, attackingAtk)}`);
     } else {
@@ -66,11 +67,13 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
         if (defendingPawn.position === Position.ATTACK) {
             const difference = attackingAtk - defendingStats.atk;
             if (difference > 0) {
+                battleDamage = difference;
                 opponent.lp -= difference;
                 const destroyed = destroyByBattle(defendingPawn.card);
                 if (destroyed) destroyedByAttacker = defendingPawn.card;
                 logs.push(`${reveal}${quote(attackingPawn.card.name)} ${destroyed ? 'destroyed' : 'battled'} ${quote(defendingPawn.card.name)} by battle. ${lpLoss(opponent, difference)}`);
             } else if (difference < 0) {
+                battleDamage = -difference;
                 damageSource = defendingPawn.card;
                 damagePlayerIndex = opponentIndex;
                 activePlayer.lp += difference;
@@ -87,6 +90,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
             logs.push(`${reveal}${quote(attackingPawn.card.name)} ${destroyed ? 'destroyed' : 'battled'} ${quote(defendingPawn.card.name)} by battle.`);
         } else if (attackingAtk < defendingStats.def) {
             const recoil = defendingStats.def - attackingAtk;
+            battleDamage = recoil;
             damageSource = defendingPawn.card;
             damagePlayerIndex = opponentIndex;
             activePlayer.lp -= recoil;
@@ -107,12 +111,11 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     }
     players[activeIndex] = activePlayer;
     players[opponentIndex] = opponent;
-    const damagedIndex = 1 - damagePlayerIndex;
-    const amount = gameState.players[damagedIndex].lp - players[damagedIndex].lp;
-    const damageEvents = amount > 0 ? [...(gameState.damageEvents ?? []), {
+    const amount = battleDamage;
+    const damageEvents = amount > 0 ? [...(destructionState.damageEvents ?? []), {
         card: { ...damageSource }, playerIndex: damagePlayerIndex, amount, kind: 'battle' as const
-    }] : gameState.damageEvents;
-    let next: GameState = { ...gameState, destroyedCardIds: destructionState.destroyedCardIds, pendingEffects: destructionState.pendingEffects, pendingReactions: destructionState.pendingReactions, attacksThisTurn: [...(gameState.attacksThisTurn ?? []).filter(event => event.turn === gameState.turnNumber), { turn: gameState.turnNumber, card: { ...attackingPawn.card }, playerIndex: activeIndex }], damageEvents, players: players as [Player, Player], log: [...logs, ...gameState.log].slice(0, 50) };
+    }] : destructionState.damageEvents;
+    let next: GameState = { ...gameState, destroyedCardIds: destructionState.destroyedCardIds, pendingEffects: destructionState.pendingEffects, pendingReactions: destructionState.pendingReactions, attacksThisTurn: [...(gameState.attacksThisTurn ?? []).filter(event => event.turn === gameState.turnNumber), { turn: gameState.turnNumber, card: { ...attackingPawn.card }, playerIndex: activeIndex }], damageEvents, players: players as [Player, Player], log: [...logs, ...destructionState.log].slice(0, 50) };
     for (const card of battleDestroyed) {
         const playerIndex = next.players.findIndex(player => player.discard.some(value => value.instanceId === card.instanceId));
         if (playerIndex >= 0 && cardRegistry.getEffect(card.id)?.onBattleDestroyed) {

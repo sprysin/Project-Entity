@@ -22,6 +22,17 @@ export const useGameAnimationEffects = (
     const soundedAttack = useRef<GameState['deferredAction']>();
 
     useEffect(() => {
+        const coin = gameState?.openingCoin;
+        if (!coin) return;
+        // Match the button highlight keyframes in GameView.css (2.8 seconds).
+        const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const delays = coin.stage === 'flipping' ? [0]
+            : !coin.aiOrder ? [] : reducedMotion ? [0] : [0, 224, 504, 840, 1316, 1960, 2800];
+        const timers = delays.map(delay => setTimeout(() => playSound(coin.stage === 'flipping' ? 'draw-tick' : 'toggle'), delay));
+        return () => timers.forEach(clearTimeout);
+    }, [gameState?.openingCoin?.stage, gameState?.openingCoin?.aiOrder]);
+
+    useEffect(() => {
         const attack = gameState?.deferredAction;
         if (attack?.kind !== 'attack') {
             soundedAttack.current = undefined;
@@ -78,11 +89,12 @@ export const useGameAnimationEffects = (
             return;
         }
 
+        if (gameState.openingCoin) return;
         const phase = gameState.currentPhase;
-        if (previousTurn.current !== null && previousTurn.current !== gameState.turnNumber) playSound('turn-change');
+        if (previousTurn.current !== gameState.turnNumber) playSound('turn-change');
         previousTurn.current = gameState.turnNumber;
 
-        if (gameState.openingCoin || gameState.winner || gameState.response || gameState.resolvingChain || effectDecisionPending || isAwaitingDecision(gameState)) return;
+        if (gameState.winner || gameState.response || gameState.resolvingChain || effectDecisionPending || isAwaitingDecision(gameState)) return;
         const timers: ReturnType<typeof setTimeout>[] = [];
         const later = (callback: () => void, delay: number) => timers.push(setTimeout(callback, delay));
         const turn = gameState.turnNumber;

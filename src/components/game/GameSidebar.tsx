@@ -18,6 +18,7 @@ interface GameSidebarProps {
 
 export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex = gameState.activePlayerIndex, xray, selectedCard, inspectedCard, selectedFieldSlot, isOpen, setIsOpen }) => {
     const [logCard, setLogCard] = useState<Card | null>(null);
+    const [lastViewed, setLastViewed] = useState<{ card: Card; hidden: boolean; showOriginalStats: boolean; viewerIndex: number } | null>(null);
     const [preview, setPreview] = useState<{ card: Card; showOriginalStats: boolean } | null>(null);
     const cardsByName = useMemo(() => new Map(cardRegistry.getAllCards().map(card => [card.name, card])), []);
     const selectedZone = selectedFieldSlot
@@ -26,7 +27,9 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
     const revealedCard = gameState.drawnBombs?.[0]?.card ?? gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewerIndex)?.card;
     isOpen = isOpen || !!revealedCard;
     useEffect(() => setPreview(null), [viewerIndex, xray]);
-    useEffect(() => setLogCard(null), [selectedCard?.instanceId, inspectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
+    useEffect(() => {
+        if (selectedCard || inspectedCard || selectedZone) setLogCard(null);
+    }, [selectedCard?.instanceId, inspectedCard?.instanceId, selectedFieldSlot?.playerIndex, selectedFieldSlot?.type, selectedFieldSlot?.index]);
 
     const renderLogEntry = (entry: string) => {
         const parts = entry.split(/("[^"]+")/g);
@@ -39,9 +42,16 @@ export const GameSidebar: React.FC<GameSidebarProps> = ({ gameState, viewerIndex
     };
 
     const showingField = !revealedCard && !logCard && !!selectedZone && !!selectedFieldSlot;
-    const viewerCard = revealedCard ?? logCard ?? selectedZone?.card ?? selectedCard ?? inspectedCard;
-    const hidden = showingField && !xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot.playerIndex !== viewerIndex;
-    const showOriginalStats = showingField && selectedFieldSlot.type === 'pawn';
+    const currentCard = selectedZone?.card ?? selectedCard ?? inspectedCard;
+    const fieldHidden = !!selectedZone && !xray && selectedZone.position === Position.HIDDEN && selectedFieldSlot?.playerIndex !== viewerIndex;
+    const fieldStats = !!selectedZone && selectedFieldSlot?.type === 'pawn';
+    useEffect(() => {
+        if (currentCard) setLastViewed({ card: currentCard, hidden: fieldHidden, showOriginalStats: fieldStats, viewerIndex });
+    }, [currentCard, fieldHidden, fieldStats, viewerIndex]);
+    const retained = lastViewed?.viewerIndex === viewerIndex ? lastViewed : null;
+    const viewerCard = revealedCard ?? logCard ?? currentCard ?? retained?.card;
+    const hidden = showingField ? fieldHidden : !revealedCard && !logCard && !currentCard && !!retained?.hidden;
+    const showOriginalStats = showingField ? fieldStats : !revealedCard && !logCard && !currentCard && !!retained?.showOriginalStats;
 
     const renderViewerCard = (card: Card, hidden = false, showOriginalStats = false) => (
         <button type="button" className="game-viewer-preview" disabled={hidden} aria-label={hidden ? 'Hidden card' : `Preview ${card.name}`} data-sound="select-small"

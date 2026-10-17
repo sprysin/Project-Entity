@@ -352,7 +352,6 @@ body {
   text-align: center;
 }
 .opening-coin .duel-prompt__title { color: #facc15; }
-.opening-coin__eyebrow { margin-top: 8px; color: #9ba8bd; font: 10px Orbitron, sans-serif; letter-spacing: .25em; text-transform: uppercase; }
 .opening-coin__stage { position: relative; display: grid; place-items: center; height: 260px; perspective: 850px; }
 .opening-coin__orbit { position: absolute; width: 240px; height: 240px; border: 1px dashed #ffffff24; border-radius: 50%; transform: rotateX(65deg) translateY(80px); box-shadow: 0 0 30px #ffffff09; }
 .opening-coin__lift { position: relative; z-index: 1; transform-style: preserve-3d; }
@@ -379,7 +378,6 @@ body {
 .opening-coin__swatch { width: 18px; height: 18px; flex-shrink: 0; border: 1px solid #94a3b8; transform: rotate(45deg); }
 .opening-coin__swatch--black { background: #05070c; }
 .opening-coin__swatch--white { background: #f1f5f9; }
-.opening-coin__status { margin-top: 18px; color: #e2e8f0; }
 .opening-coin__hint { margin-top: 8px; color: #96a2b7; font-size: 12px; line-height: 1.7; }
 .opening-coin .duel-prompt__primary { background: #eab308; color: #080b12; }
 .opening-coin .duel-prompt__primary:hover:not(:disabled) { background: #facc15; }

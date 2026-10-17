@@ -5,6 +5,7 @@ import PageBrand from '../common/PageBrand';
 import { matchesCardCatalog } from '../../cards/CardRegistry';
 import React, { useEffect, useState } from 'react';
 import { CardDetail } from '../cards/CardDetail';
+import { CardPreview } from '../cards/CardPreview';
 import { CardDefinition } from '../../cards/CardRegistry';
 import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, reserveSize, MIN_DECK_SIZE, MAX_RESERVE_SIZE } from '../../decks';
 import { isReservePawn } from '../../game/cardHelpers';
@@ -31,6 +32,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const [library, setLibrary] = useState<SavedDeck[]>([]);
     const [deck, setDeck] = useState<SavedDeck | null>(null);
     const [selected, setSelected] = useState<CardDefinition | null>(cards[0] ?? null);
+    const [inspected, setInspected] = useState<CardDefinition | null>(null);
     const [search, setSearch] = useState('');
     const [dirty, setDirty] = useState(false);
     const [notice, setNotice] = useState('');
@@ -153,7 +155,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             </header>
             <aside className="deck-preview" aria-label="Card viewer">
                 <div className="deck-preview-nav"><span>CARD VIEWER</span><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
-                {selected && <div className="deck-preview-face">{face(selected)}</div>}
+                {selected && <button type="button" data-sound="select-small" className="deck-preview-face" aria-label={`Inspect ${selected.name}`} aria-haspopup="dialog" onClick={() => setInspected(selected)}>{face(selected)}</button>}
                 {selected && <div className="deck-preview-controls">
                     <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Remove ${selected.name}`} onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)}>Remove card <span aria-hidden="true">−</span></button>
                     <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Add ${selected.name}`} onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id)}>Add card <span aria-hidden="true">+</span></button>
@@ -181,8 +183,10 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
             </main>
             <aside className="deck-catalog" aria-label="All cards">
                 <label className="deck-search"><i className="fa-solid fa-search" aria-hidden="true" /><input aria-label="Search cards" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} /></label>
-                <CatalogFilters {...filters} />
-                <CatalogPagination {...pagination} />
+                <div className="catalog-toolbar">
+                    <CatalogFilters {...filters} />
+                    <CatalogPagination {...pagination} />
+                </div>
                 <div className="deck-catalog-scroll">
                     {!filtered.length && <p className="deck-no-results">No cards found</p>}
                     {types.map((type, i) => {
@@ -190,13 +194,14 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                         return entries.length > 0 && <section key={type} aria-label={type} className={`deck-card-section deck-type-${type}`}>
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
-                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}`} title="Double click to add to deck" onClick={() => setSelected(card)} onDoubleClick={() => changeQuantity(card, 1)}>{face(card)}</button>
+                                <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}; right click to add to deck`} title="Right click or double click to add to deck" onClick={() => setSelected(card)} onDoubleClick={() => changeQuantity(card, 1)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, 1); }}>{face(card)}</button>
                             </div>)}</div>
                         </section>;
                     })}
                 </div>
             </aside>
         </div>}
+        {inspected && <CardPreview card={inspected} onClose={() => setInspected(null)} />}
         {notice && <div className="deck-notice" role="status">{notice}<IconButton sound="cancellation" label="Dismiss notification" icon="fa-xmark" onClick={() => setNotice('')} /></div>}
         {prompt && <div className="deck-prompt-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setPrompt(null); }}>
             <section className="deck-prompt" role="dialog" aria-modal="true" aria-labelledby="deck-prompt-title" aria-describedby="deck-prompt-message" onKeyDown={event => { if (event.key === 'Escape') setPrompt(null); }}>

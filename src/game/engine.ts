@@ -1,6 +1,6 @@
 import { activeLand, hasLand, isLand, sourceZone } from './field';
-import { handSummonCandidates, notifyPawnSummoned } from './summonReactions';
-import { canTributeForSummon, isToken, isBomb, isReservePawn, canPawnAttack, canAttackDirectly, canTargetForAttack } from './cardHelpers';
+import { handSummonCandidates, handSummonSource, notifyPawnSummoned } from './summonReactions';
+import { canTributeForSummon, isToken, isBomb, isReservePawn, canPawnAttack, canAttackDirectly, canTargetForAttack, spendCancelledAttack } from './cardHelpers';
 import { Card, CardContext, CardTarget, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, autoPass, effectChoices, fieldActivations, handActivations, openResponse, passPriority, queueEventResponses, resolveChainStep, runEffect, startPendingTriggers } from './chains';
@@ -144,7 +144,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (!pending || state.response || state.resolvingChain || pending.playerIndex !== actor || pending.sourceId !== command.sourceId
                 || !validSlot(command.slot) || player.pawnZones[command.slot]
                 || ![Position.ATTACK, Position.DEFENSE].includes(command.position)) return state;
-            const source = [...player.pawnZones, ...player.actionZones].find(zone => zone?.card.instanceId === pending.sourceId && zone.position !== Position.HIDDEN);
+            const source = handSummonSource(state, pending);
             const card = player.hand.find(candidate => candidate.instanceId === command.cardId);
             if (!source || !card || !handSummonCandidates(state, pending).some(candidate => candidate.instanceId === card.instanceId)) return state;
             const next = structuredClone(state), own = next.players[actor];
@@ -245,10 +245,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (command.retry) return { ...state, attackReplay: { ...state.attackReplay, choosingTarget: true } };
             const next = structuredClone(state);
             const attacker = next.players[actor].pawnZones.find(zone => zone?.card.instanceId === state.attackReplay!.attackerId);
-            if (attacker) {
-                if (attacker.attacksRemaining !== undefined) attacker.attacksRemaining = Math.max(0, attacker.attacksRemaining - 1);
-                attacker.hasAttacked = attacker.attacksRemaining === undefined || attacker.attacksRemaining <= 0;
-            }
+            if (attacker) spendCancelledAttack(attacker);
             next.attackReplay = undefined;
             return next;
         }
@@ -332,6 +329,11 @@ export function applySystemCommand(state: GameState, command: SystemCommand): Tr
             events.push({ type: 'destroyed', playerIndex, index, card: zone.card });
         }
     }));
-    if (action.kind === 'attack' && !next.winner && !next.attackReplay) next.pendingResponse = { timing: 'battle_step', reason: 'Battle finished' };
+    if (action.kind === 'attack' && !next.winner && !next.attackReplay) {
+        const damage = (next.damageEvents?.length ?? 0) > (state.damageEvents?.length ?? 0) ? next.damageEvents!.at(-1) : undefined;
+        const attacker = state.players[state.activePlayerIndex].pawnZones.find(zone => zone?.card.instanceId === action.attackerId)?.card;
+        next.pendingResponse = { timing: 'battle_step', reason: 'Battle finished',
+            battleDamage: damage && attacker ? { amount: damage.amount, playerIndex: 1 - damage.playerIndex, attacker: { ...attacker } } : undefined };
+    }
     return { state: startPendingTriggers(queueEventResponses(state, queueRevealedSwitches(state, next))), events };
 }

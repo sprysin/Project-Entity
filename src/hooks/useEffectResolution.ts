@@ -321,7 +321,7 @@ export const useEffectResolution = (
     const handleDiscardSelection = useCallback((index: number) => {
         if (!selectionState.discardSelectionReq || !gameState || !selectionState.pendingEffectCard) return;
         const pIdx = selectionState.discardSelectionReq.playerIndex;
-        const card = gameState.players[pIdx].discard[index];
+        const card = (selectionState.discardSelectionReq.cards ?? gameState.players[pIdx].discard)[index];
         if (!card || !selectionState.discardSelectionReq.filter(card)) return;
 
         setDiscardSelectionReq(null);
