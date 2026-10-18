@@ -4,6 +4,7 @@ import { playSound } from '../audio';
 import type { SoundName } from '../audio';
 
 export type ShatterSource = { rect: DOMRect; cardMarkup: string; rotated: boolean; faceDown: boolean };
+type FloatingText = { id: string; text: string; type: 'damage' | 'effect' | 'heal'; playerIndex: number };
 
 type ShatterShard = {
     x: number;
@@ -36,7 +37,29 @@ export type ShatterEffect = {
 export const useAnimations = () => {
     const schedule = useManagedTimeout();
     // Dynamic Animation Elements
-    const [floatingTexts, setFloatingTexts] = useState<{ id: string, text: string, type: 'damage' | 'heal', x: number, y: number }[]>([]);
+    const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
+    const textQueues = useRef<[FloatingText[], FloatingText[]]>([[], []]);
+    const textLaneBusy = useRef([false, false]);
+    const queueFloatingText = useCallback((text: Omit<FloatingText, 'id'>) => {
+        const lane = text.playerIndex;
+        textQueues.current[lane].push({ ...text, id: crypto.randomUUID() });
+        if (textLaneBusy.current[lane]) return;
+        textLaneBusy.current[lane] = true;
+        const showNext = () => {
+            const next = textQueues.current[lane].shift();
+            if (!next) {
+                textLaneBusy.current[lane] = false;
+                return;
+            }
+            setFloatingTexts(previous => [...previous, next]);
+            schedule(() => setFloatingTexts(previous => previous.filter(entry => entry.id !== next.id)), 1600);
+            const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            // CSS travels 12rem in 1600ms: 900ms clears the entire number.
+            // Without movement, wait for the previous number to disappear instead.
+            schedule(showNext, reducedMotion ? 1600 : 900);
+        };
+        showNext();
+    }, [schedule]);
     const [shatterEffects, setShatterEffects] = useState<ShatterEffect[]>([]);
 
     // Pile Flash State
@@ -138,7 +161,7 @@ export const useAnimations = () => {
         discardFlash, voidFlash, lpFlash,
         phaseFlash, turnFlash,
         // Setters
-        setFloatingTexts, setDiscardFlash, setVoidFlash,
+        queueFloatingText, setDiscardFlash, setVoidFlash,
         setLpFlash,
         setPhaseFlash, setTurnFlash,
         // Refs

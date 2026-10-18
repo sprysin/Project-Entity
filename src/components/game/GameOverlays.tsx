@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { GameState, Phase, Player } from '../../types';
 import { isDrawingForTurn } from '../../game/phases';
-import { DeckSelectionModal, DiscardSelectionModal, HandSelectionModal, PeekSelectionModal, LevelTributeSelectionModal, ReserveSelectionModal, ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
+import { CardSelectionModal, MergeMaterialSelectionModal, DeckSelectionModal, DiscardSelectionModal, HandSelectionModal, PeekSelectionModal, LevelTributeSelectionModal, ReserveSelectionModal, ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
+import { canMergeSummon } from '../../game/engine';
 import { checkActivationConditions } from '../../game/cardHelpers';
 import { EffectModal, WinnerModal } from './MatchModals';
 import { DuelPrompt } from './DuelPrompt';
@@ -86,15 +87,19 @@ export const GameOverlays: React.FC<{
     actionsDisabled: boolean;
     viewerIndex: number;
     onQuit: () => void;
-}> = ({ gameState, state, actions, actionsDisabled, onQuit }) => {
+}> = ({ gameState, state, actions, actionsDisabled, viewerIndex, onQuit }) => {
     const [responseSelection, setResponseSelection] = useState<{ request: GameState['response']; cardId: string } | null>(null);
+    const [mergePawnIndex, setMergePawnIndex] = useState<number | null>(null);
+    useEffect(() => setMergePawnIndex(null), [state.mergeSummon?.stage]);
     const selectedResponse = responseSelection?.request === gameState.response
         ? state.responseOptions.find(option => option.card.instanceId === responseSelection?.cardId)
         : undefined;
     return (
     <>
         {state.floatingTexts.map(text => (
-            <div key={text.id} className={`floating-text text-6xl ${text.type === 'damage' ? 'text-red-600' : 'text-green-500'}`} style={{ left: `${text.x}%`, top: `${text.y}%` }}>{text.text}</div>
+            <div key={text.id} className={`floating-text floating-text--${text.type} floating-text--${text.playerIndex === viewerIndex ? 'self' : 'opponent'}`}>
+                {text.text}
+            </div>
         ))}
         {gameState.resolvingChain && (
             <div role="status" aria-live="polite" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-500 bg-slate-950/95 px-5 py-3 text-center shadow-lg">
@@ -164,12 +169,18 @@ export const GameOverlays: React.FC<{
             && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
         {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
         {!state.cardMovementPending && <>
+        {state.mergeSummon?.stage === 'pawn' && <CardSelectionModal title="Special summon from Reserve"
+            cards={gameState.players[gameState.activePlayerIndex].reserve} selectedIndex={mergePawnIndex} onSelect={setMergePawnIndex}
+            filter={card => canMergeSummon(gameState, gameState.activePlayerIndex, card)} onConfirm={actions.chooseMergePawn}
+            onCancel={actions.cancelMergeSummon} emptyLabel="No Pawns in Reserve" confirmLabel="Choose Merge Pawn" searchLabel="Reserve summon" />}
+        {state.mergeSummon?.stage === 'materials' && <MergeMaterialSelectionModal key={state.mergeSummon.card.instanceId}
+            card={state.mergeSummon.card} gameState={gameState} onConfirm={actions.chooseMergeMaterials} onCancel={actions.cancelMergeSummon} />}
         {!gameState.winner && gameState.pendingVoidSelections?.length
             && !(state.opponentMode === 'ai' && gameState.pendingVoidSelections[0].playerIndex === 1)
             ? <VoidSelectionModal gameState={gameState} onConfirm={actions.chooseVoidCard} /> : null}
         <ShuffleSelectionModal request={state.shuffleSelectionReq} gameState={gameState} onConfirm={actions.handleShuffleSelection} />
-        <LevelTributeSelectionModal request={state.levelTributeReq} gameState={gameState} onConfirm={actions.handleLevelTribute} onCancel={actions.cancelEffect} />
-        <ReserveSelectionModal request={state.reserveSelectionReq} gameState={gameState} onConfirm={actions.handleReserveSelection} onCancel={actions.cancelEffect} />
+        <LevelTributeSelectionModal request={state.levelTributeReq} gameState={gameState} onConfirm={actions.handleLevelTribute} />
+        <ReserveSelectionModal request={state.reserveSelectionReq} gameState={gameState} onConfirm={actions.handleReserveSelection} />
         {!!gameState.pendingHandSummons?.length && !state.handSummonCardId && !state.triggeredEffect && !state.pendingEffectCard && !gameState.response && !gameState.resolvingChain
             && !(state.opponentMode === 'ai' && gameState.pendingHandSummons[0].playerIndex === 1)
             && <PeekSelectionModal
@@ -188,19 +199,17 @@ export const GameOverlays: React.FC<{
                 confirmLabel="Choose Pawn"
                 cancellable={!gameState.pendingHandSummons[0].mandatory}
             />}
-        <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} setHandSelectionReq={actions.cancelEffect} handleHandSelection={actions.handleHandSelection} />
-        <PeekSelectionModal selectionReq={state.peekSelectionReq} gameState={gameState} selectedPeekIndex={state.selectedPeekIndex} setSelectedPeekIndex={actions.setSelectedPeekIndex} cancelEffect={actions.cancelEffect} handlePeekSelection={actions.handlePeekSelection} />
+        <HandSelectionModal selectionReq={state.handSelectionReq} gameState={gameState} selectedHandSelectionIndex={state.selectedHandSelectionIndex} setSelectedHandSelectionIndex={actions.setSelectedHandSelectionIndex} handleHandSelection={actions.handleHandSelection} />
+        <PeekSelectionModal selectionReq={state.peekSelectionReq} gameState={gameState} selectedPeekIndex={state.selectedPeekIndex} setSelectedPeekIndex={actions.setSelectedPeekIndex} handlePeekSelection={actions.handlePeekSelection} />
         <DiscardSelectionModal selectionReq={state.discardSelectionReq} gameState={gameState} selectedDiscardIndex={state.selectedDiscardIndex} setSelectedDiscardIndex={actions.setSelectedDiscardIndex} handleDiscardSelection={actions.handleDiscardSelection} />
         <DeckSelectionModal selectionReq={state.deckSelectionReq} gameState={gameState} selectedDeckIndex={state.selectedDeckIndex} setSelectedDeckIndex={actions.setSelectedDeckIndex} handleDeckSelection={actions.handleDeckSelection} />
         <EffectModal triggeredEffect={state.triggeredEffect} gameState={gameState} isPeekingField={state.isPeekingField} resolveEffect={card => actions.resolveEffect(card, undefined, undefined, undefined, undefined, state.pendingTriggerType || 'activate')} checkActivationConditions={checkActivationConditions} setIsPeekingField={actions.setIsPeekingField} setTriggeredEffect={actions.setTriggeredEffect} setPendingEffectCard={actions.setPendingEffectCard} declineReaction={actions.declineReaction} />
         {state.effectChoiceReq?.some(choice => !choice.disabled) && (
             <DuelPrompt className="duel-prompt--effect-choice" ariaLabel="Choose card effect" title={state.pendingEffectCard?.name}
                 peeking={state.isPeekingField} setPeeking={actions.setIsPeekingField}
-                onBackdropClick={actions.cancelEffect}
                 actions={[
                     ...state.effectChoiceReq.map(choice => ({ label: choice.label, disabled: choice.disabled,
                         variant: 'primary' as const, onClick: () => actions.handleEffectChoice(choice.id) })),
-                    { label: 'Cancel', onClick: actions.cancelEffect }
                 ]} />
         )}
         </>}

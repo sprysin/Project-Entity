@@ -60,7 +60,7 @@ export enum PawnType {
 
 // Level 0 isnt for the Pawn cards as they can only be as low as 1
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal' }
+export enum PawnSubtype { SWITCH = 'Switch', TOKEN = 'Token', VASSAL = 'Vassal', MERGE = 'Merge' }
 export enum ActionSubtype { CONTRACT = 'Contract', LAND = 'Land', BOMB = 'Bomb' }
 export enum ConditionSubtype { CONTRACT = 'Contract' }
 
@@ -74,6 +74,8 @@ export interface Card {
   attribute?: Attribute;
   pawnType?: PawnType;
   pawnSubtype?: PawnSubtype;
+  /** Exact card names; each entry requires a distinct controlled field Pawn. */
+  mergeMaterials?: readonly string[];
   actionSubtype?: ActionSubtype;
   conditionSubtype?: ConditionSubtype;
   switchMandatory?: boolean;
@@ -171,8 +173,8 @@ export interface GameState {
   drawnBombs?: { card: Card; playerIndex: number }[];
   /** Bottom to top; only the final entry is active. Optional for older snapshots. */
   landStack?: PlacedCard[];
-  /** Only this activation's controller may finish or cancel while choosing its effect. */
-  pendingActivation?: { cardId: string; playerIndex: number };
+  /** Locks progression during activation choices or an optional effect's initial offer. */
+  pendingActivation?: { cardId: string; playerIndex: number; awaitingConsent?: boolean };
   temporaryVoidReturns?: { cardId: string; playerIndex: number; position: Position; phase: Phase; dueTurn: number }[];
   pendingVoidReturns?: { cardId: string; playerIndex: number; position: Position }[];
   attacksThisTurn?: { turn: number; card: Card; playerIndex: number }[];
@@ -369,7 +371,7 @@ export interface IEffect {
   canManuallyChangePosition?(state: GameState, context: CardContext, placement: PlacedCard): boolean;
   preventsBattleDestructionOfOpponent?: boolean;
   /** Reactions without optional wording must be completed when legal choices exist. */
-  mandatoryReactions?: boolean;
+  mandatoryReactions?: boolean | readonly EffectTrigger[];
   onAttackCompleted?(state: GameState, context: CardContext): EffectResult;
   onSentToDiscard?(state: GameState, context: CardContext): EffectResult;
   /** Immediate, selection-free observers while this source is face-up. */

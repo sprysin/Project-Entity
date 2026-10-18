@@ -156,6 +156,72 @@
 }
 @keyframes summon-reverb-zone { 0% { opacity: .55; } 100% { opacity: 0; } }
 
+/* A Contract seal opens into a circle confined to the summoned Vassal's slot. */
+.vassal-ritual { position: absolute; inset: 0; z-index: 0; pointer-events: none; color: var(--ritual-color); }
+.field-zone:has(.vassal-ritual) > [data-card-face] { z-index: 1; }
+.vassal-ritual__circle { position: absolute; width: 208px; height: 208px; left: calc(50% - 104px); top: calc(50% - 104px); overflow: visible; filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 10px currentColor); animation: ritual-circle 1500ms ease-out both; }
+.vassal-ritual__inscription { transform-origin: 80px 80px; animation: ritual-inscription 1500ms ease-out both; }
+.vassal-ritual__draw { stroke-dasharray: 1; animation: ritual-draw 360ms ease-out both; }
+.vassal-ritual__shockwave { transform-origin: 80px 80px; opacity: 0; animation: ritual-impact 520ms ease-out var(--ritual-impact) both; }
+.card-travel.card-travel--ritual { animation-name: vassal-card-travel; transform-origin: center; filter: none; }
+.card-travel--ritual .card-travel-face { animation: none; transform: rotate(var(--to-rotation)); }
+.level-diamonds { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; padding: 5px; color: var(--duel-accent, #facc15); }
+.level-diamonds > span {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 1px solid #fff2bb;
+  transform: rotate(45deg);
+  background: repeating-conic-gradient(#1b1a13 0% 25%, #090b0c 0% 50%) center / 4px 4px;
+  box-shadow: 0 0 0 1px currentColor, 1px 1px 0 2px #916400, 0 0 7px #facc154d;
+}
+.level-diamonds > span::before { content: ''; position: absolute; inset: 2px; border: 1px solid currentColor; pointer-events: none; }
+.level-diamonds > span::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: #fffef4;
+  box-shadow: 0 0 5px #fff9, 0 0 10px currentColor;
+  opacity: 0;
+  transition: opacity 140ms ease-out;
+}
+.level-diamonds > .is-filled::after { opacity: 1; }
+.level-diamonds.is-overfilled { color: #ff8d83; }
+.duel-prompt__shell:has(> .duel-prompt__above-panel) { position: relative; }
+.duel-prompt__above-panel { position: absolute; bottom: 100%; left: 0; width: 100%; padding: 0 12px 14px; }
+@keyframes ritual-circle {
+  0% { opacity: 0; transform: scale(.7); }
+  24%, 54% { opacity: .95; transform: scale(1); }
+  56% { opacity: 1; transform: scale(1.08); }
+  66% { opacity: .9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+@keyframes ritual-inscription {
+  0% { transform: rotate(-25deg); }
+  30%, 56% { transform: rotate(0); }
+  100% { transform: rotate(12deg); }
+}
+@keyframes ritual-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes ritual-impact {
+  0% { opacity: .9; transform: scale(.8); }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+@keyframes vassal-card-travel {
+  0%, 55% { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)) scale(1.035); }
+  60% { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)) scale(1.035); }
+  69.9% { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)) scale(1); }
+  70%, 100% { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vassal-ritual__shockwave { display: none; }
+  .level-diamonds > span::after { transition: none; }
+  .vassal-ritual__circle { animation: ritual-fade 1500ms ease-out both; }
+  .vassal-ritual__inscription, .vassal-ritual__draw { animation: none; }
+  .card-travel.card-travel--ritual { visibility: hidden; }
+}
+@keyframes ritual-fade { from { opacity: .65; } to { opacity: 0; } }
+
 /* The opening toss uses the same angular gold chrome without changing the coin sides. */
 .duel-screen .opening-coin { background: radial-gradient(ellipse at center, #27220fe0, #05080cf5 72%); }
 .duel-screen .opening-coin .duel-prompt__shell { width: min(640px, 100%); }

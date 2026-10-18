@@ -21,14 +21,14 @@ import { HealthHud } from './HealthHud';
 import { SavedDeck } from '../../decks';
 import { fieldActivations, handActivations } from '../../game/chains';
 import { canAttackDirectly, canTargetForAttack } from '../../game/cardHelpers';
-import { canAttack, canChangePosition as canChangePawnPosition } from '../../game/engine';
+import { canAttack, canChangePosition as canChangePawnPosition, canMergeSummon } from '../../game/engine';
 import { QuitDuelDialog } from './MatchModals';
 import { getSettings } from '../../desktop/storage';
 import { OpeningCoin } from './OpeningCoin';
 import { CardSelectionModal } from './SelectionModals';
 import { XrayOverlay } from './XrayOverlay';
 import { fieldStats } from '../../game/cardHelpers';
-import { SummonReverb, useSummonReverb } from './SummonReverb';
+import { SummonReverb, useSummonReverb, VassalRitual } from './SummonReverb';
 import { ShatterOverlay } from './ShatterOverlay';
 import './GameView.css';
 
@@ -70,6 +70,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   const summonReverbs = useSummonReverb(gameState);
   const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
   const [viewingLand, setViewingLand] = React.useState(false);
+  const [reserveMenuOpen, setReserveMenuOpen] = React.useState(false);
   const arenaRef = React.useRef<HTMLDivElement>(null);
   const arenaBounds = arenaRef.current?.getBoundingClientRect();
   const arenaScale = arenaBounds && arenaRef.current?.offsetWidth
@@ -116,7 +117,9 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   };
   const selectedCard = state.selectedHandIndex !== null ? activePlayer.hand[state.selectedHandIndex] : null;
   const isLightTheme = viewIndex === 1;
-  const actionsDisabled = state.cardMovementPending || !turnIsMine || !!drawnBomb || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!reveal;
+  const actionsDisabled = !!state.mergeSummon || state.cardMovementPending || !turnIsMine || !!drawnBomb || !!gameState.attackReplay || !!gameState.response || !!gameState.winner || !!gameState.pendingVoidReturns?.length || !!gameState.pendingVoidSelections?.length || !!gameState.pendingHandSummons?.length || state.pendingEffectCard !== null || state.triggeredEffect !== null || state.isPeekingField || state.discardSelectionReq !== null || state.handSelectionReq !== null || state.peekSelectionReq !== null || state.deckSelectionReq !== null || state.effectTributeReq !== null || !!reveal;
+  const reserveSummonReady = !actionsDisabled && !state.targetSelectMode && activePlayer.reserve.some(card => canMergeSummon(gameState, viewIndex, card));
+  const mergePlacement = state.mergeSummon?.stage === 'placement' ? state.mergeSummon : null;
   const land = activeLand(gameState) ?? null;
   const landSelected = state.selectedFieldSlot?.type === 'land';
   const landPlayable = !!selectedCard && isLand(selectedCard) && !actionsDisabled && actions.canPlayCard(selectedCard);
@@ -263,7 +266,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                 <div className="game-field-row game-field-row--pawns">
                   <div className="game-field-zones game-field-zones--pawns">
                     <SummonReverb reverbs={summonReverbs.filter(event => event.playerIndex === oppIdx)} />
-                    {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} fieldStats={pawnStats[oppIdx][i]} xray={xray} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
+                    {opponent.pawnZones.map((z, i) => (<Zone key={i} card={z} fieldStats={pawnStats[oppIdx][i]} summonRitual={<VassalRitual event={summonReverbs.find(event => event.ritual && event.instanceId === z?.card.instanceId)} />} xray={xray} type="pawn" domRef={actions.setRef(`${oppIdx}-pawn-${i}`)} isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)} isSelected={state.selectedFieldSlot?.playerIndex === oppIdx && state.selectedFieldSlot?.type === 'pawn' && state.selectedFieldSlot?.index === i} isSelectable={checkIsSelectable(z, 'pawn', oppIdx)} onClick={() => {
                       if (inspectDuringMovement({ playerIndex: oppIdx, type: 'pawn', index: i })) return;
                       if (xray && z?.position === Position.HIDDEN && !state.targetSelectMode) actions.setIsRightPanelOpen(true);
                       if (state.targetSelectMode === 'attack' && state.selectedFieldSlot) {
@@ -330,7 +333,13 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
               {/* Active Player Field View */}
               <div className={`game-player-field duel-player-field--active flex flex-col items-center ${fannedOutPiles ? 'gap-4' : 'gap-7'}`}>
                 <div className="game-field-reserve">
-                  <DeckPile count={activePlayer.reserve.length} label="Your Reserve" backStyle="light" domRef={actions.setRef(`reserve-${viewIndex}`)} onOpen={() => actions.setViewingReserveIdx(viewIndex)} />
+                  <DeckPile count={activePlayer.reserve.length} label={reserveSummonReady ? 'Your Reserve. Merge summon available' : 'Your Reserve'} backStyle="light" isActivatable={reserveSummonReady} domRef={actions.setRef(`reserve-${viewIndex}`)} onOpen={state.mergeSummon ? undefined : () => reserveSummonReady ? setReserveMenuOpen(previous => !previous) : actions.setViewingReserveIdx(viewIndex)} />
+                  {reserveMenuOpen && reserveSummonReady && <div className="field-context-menu absolute bottom-[calc(100%+0.65rem)] left-1/2 z-[100] w-max -translate-x-1/2">
+                    <ContextMenu title="Reserve">
+                      <ContextMenuButton label="View deck" onClick={() => { setReserveMenuOpen(false); actions.setViewingReserveIdx(viewIndex); }} />
+                      <ContextMenuButton label="Summon Pawn" onClick={() => { setReserveMenuOpen(false); actions.beginMergeSummon(); }} tone="gold" />
+                    </ContextMenu>
+                  </div>}
                 </div>
                 <div className="game-field-row game-field-row--pawns">
                   <div className="game-field-zones game-field-zones--pawns">
@@ -346,19 +355,25 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                       const effectPlacementAvailable = state.pawnPlacementReq?.slots ? state.pawnPlacementReq.slots.includes(i) : !z;
                       const showEffectPlacementMenu = choosingEffectPlacement && selected && effectPlacementAvailable;
                       const showHandSummonMenu = selected && !z && !!handSummonCard;
+                      const mergePlacementAvailable = !!mergePlacement && (!z || mergePlacement.materialIds.includes(z.card.instanceId));
+                      const showMergeSummonMenu = selected && mergePlacementAvailable;
                       const showHandMenu = !gameState.pendingHandSummons?.length && selected && canChooseSummonMethod && !state.targetSelectMode && (gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2);
-                      const showFieldMenu = !gameState.pendingHandSummons?.length && !state.responseFieldMode && selected && !!z && !state.targetSelectMode && !selectedCard && (
+                      const showFieldMenu = !state.mergeSummon && !gameState.pendingHandSummons?.length && !state.responseFieldMode && selected && !!z && !state.targetSelectMode && !selectedCard && (
                         ((gameState.currentPhase === Phase.MAIN1 || gameState.currentPhase === Phase.MAIN2) && (canChangePosition || hasOnActivateEffect(z.card))) ||
                         gameState.currentPhase === Phase.BATTLE
                       );
                       return <Zone key={i} card={z} fieldStats={pawnStats[viewIndex][i]} type="pawn" domRef={actions.setRef(`${viewIndex}-pawn-${i}`)}
+                        summonRitual={<VassalRitual event={summonReverbs.find(event => event.ritual && event.instanceId === z?.card.instanceId)} />}
                         isVisuallyHidden={!!z && state.visuallyDestroyedCardIds.includes(z.card.instanceId)}
                         isSelected={selected}
                         isTributeSelected={state.tributeSelection.includes(i)}
                         isSelectable={checkIsSelectable(z, 'pawn', viewIndex)}
-                        isDropTarget={(choosingEffectPlacement && effectPlacementAvailable) || (!!handSummonCard && !z) || (selectedPawnCanSummon && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i))}
+                        isDropTarget={mergePlacementAvailable || (choosingEffectPlacement && effectPlacementAvailable) || (!!handSummonCard && !z) || (selectedPawnCanSummon && (z === null || selectedCardCanTributeSummon)) || (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i))}
                         isActivatable={attackReady || (!actionsDisabled && canActivateEffect)}
-                        contextualActions={showEffectPlacementMenu ? <ContextMenu title="Pawn position">
+                        contextualActions={showMergeSummonMenu ? <ContextMenu title="Merge summon position">
+                          <ContextMenuButton label="Attack" onClick={() => actions.confirmMergeSummon(i, Position.ATTACK)} tone="gold" />
+                          <ContextMenuButton label="Defense" onClick={() => actions.confirmMergeSummon(i, Position.DEFENSE)} />
+                        </ContextMenu> : showEffectPlacementMenu ? <ContextMenu title="Pawn position">
                           {(state.pawnPlacementReq?.position ? [state.pawnPlacementReq.position] : [Position.ATTACK, Position.DEFENSE]).map(position => <ContextMenuButton key={position} label={position} onClick={() => { actions.handlePawnPlacement(i, position); actions.setSelectedFieldSlot(null); }} tone={position === Position.ATTACK ? 'gold' : undefined} />)}
                         </ContextMenu> : showHandSummonMenu ? <ContextMenu title="Special summon position">
                           <ContextMenuButton label="Attack" onClick={() => actions.confirmHandSummon(i, Position.ATTACK)} tone="gold" />
@@ -374,7 +389,9 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                         </ContextMenu> : null}
                         onClick={() => {
                           if (inspectDuringMovement({ playerIndex: viewIndex, type: 'pawn', index: i })) return;
-                          if (choosingEffectPlacement || handSummonCard) {
+                          if (mergePlacement) {
+                            actions.setSelectedFieldSlot(mergePlacementAvailable ? { playerIndex: viewIndex, type: 'pawn', index: i } : null);
+                          } else if (choosingEffectPlacement || handSummonCard) {
                             actions.setSelectedFieldSlot((choosingEffectPlacement ? effectPlacementAvailable : !z) ? { playerIndex: viewIndex, type: 'pawn', index: i } : null);
                           } else if (state.targetSelectMode === 'place_pawn' && actions.canPlacePawn(i)) {
                             actions.handlePlacement(i);
@@ -476,8 +493,8 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
           {state.cardMotions.map(motion => (
-            <div key={motion.id} className={`card-travel ${motion.deckFlipDelay !== undefined ? 'card-travel--deck-insertion' : ''} ${motion.activation ? 'card-travel-activation' : ''}`}
-              onAnimationEnd={event => { if (event.target === event.currentTarget && event.animationName === 'card-zone-travel') state.finishMotion(motion.id); }}
+            <div key={motion.id} className={`card-travel ${motion.ritual ? 'card-travel--ritual' : ''} ${motion.deckFlipDelay !== undefined ? 'card-travel--deck-insertion' : ''} ${motion.activation ? 'card-travel-activation' : ''}`}
+              onAnimationEnd={event => { if (event.target === event.currentTarget && ['card-zone-travel', 'vassal-card-travel'].includes(event.animationName)) state.finishMotion(motion.id); }}
               style={{
                 left: (motion.from.left - (arenaBounds?.left ?? 0)) / arenaScale,
                 top: (motion.from.top - (arenaBounds?.top ?? 0)) / arenaScale,

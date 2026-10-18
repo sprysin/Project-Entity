@@ -51,6 +51,8 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
                 setGameState(prev => prev ? simulateSummon(prev, action.card, action.hidden, action.tributes) : prev);
             } else if (action.kind === 'position') {
                 setGameState(prev => prev ? applyCommand(prev, 1, { type: 'position', index: action.index }).state : prev);
+            } else if (action.kind === 'mergeSummon') {
+                setGameState(prev => prev ? applyCommand(prev, 1, action.command).state : prev);
             } else if (action.kind === 'set' || action.kind === 'effect' && action.fromHand) {
                 setGameState(prev => {
                     if (!prev) return prev;

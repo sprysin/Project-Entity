@@ -6,6 +6,7 @@ import { LandCardIcon } from '../icons/LandCardIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { playSound } from '../../audio';
 import { cardRegistry } from '../../cards/CardRegistry';
+import { isContract } from '../../game/cardHelpers';
 import { XrayOverlay } from './XrayOverlay';
 
 /**
@@ -24,8 +25,9 @@ export const Zone: React.FC<{
     isVisuallyHidden?: boolean;
     xray?: boolean;
     contextualActions?: React.ReactNode;
+    summonRitual?: React.ReactNode;
     domRef?: (el: HTMLElement | null) => void;
-}> = ({ card, fieldStats, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, isVisuallyHidden, xray, contextualActions, domRef }) => {
+}> = ({ card, fieldStats, type, onClick, isSelected, isSelectable, isTributeSelected, isDropTarget, isActivatable, isVisuallyHidden, xray, contextualActions, summonRitual, domRef }) => {
     const schedule = useManagedTimeout();
     const visibleCard = isVisuallyHidden ? null : card;
     const displayedAtk = fieldStats?.atk ?? visibleCard?.card.atk ?? 0;
@@ -52,6 +54,7 @@ export const Zone: React.FC<{
         }
         if (card.position !== Position.HIDDEN
             && (type === 'land' || (card.card.type === CardType.ACTION && card.card.isLingering))
+            && !isContract(card.card)
             && prevPlacement.current?.id !== card.card.instanceId) {
             playSound('hide-card');
         }
@@ -59,7 +62,7 @@ export const Zone: React.FC<{
             && card.position !== Position.HIDDEN
             && prevPlacement.current?.id === card.card.instanceId
             && prevPlacement.current.position === Position.HIDDEN) {
-            playSound('toggle');
+            if (!isContract(card.card)) playSound('toggle');
             setIsRevealFlashing(true);
             schedule(() => setIsRevealFlashing(false), 550);
         }
@@ -101,6 +104,7 @@ export const Zone: React.FC<{
             </div>
 
             {/* Floating Card Content */}
+            {!isVisuallyHidden && summonRitual}
             {visibleCard && (
                 <div key={visibleCard.card.instanceId} data-card-face className="absolute inset-0">
                 <div data-field-card-id={visibleCard.card.instanceId} data-attached-to={visibleCard.position !== Position.HIDDEN ? visibleCard.attachedToInstanceIds?.length ? JSON.stringify(visibleCard.attachedToInstanceIds) : undefined : undefined} className={`absolute inset-0 w-full h-full transition-all duration-700 z-20 ${visibleCard.position === Position.HIDDEN ? 'card-back' : ''} ${(visibleCard.position === Position.DEFENSE || (visibleCard.position === Position.HIDDEN && visibleCard.card.type === CardType.PAWN)) ? 'rotate-90' : ''}`}>

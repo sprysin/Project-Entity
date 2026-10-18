@@ -1,5 +1,5 @@
 import { isLand } from './field';
-import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly, canTargetForAttack } from './cardHelpers';
+import { canTributeForSummon, fieldStats, canPawnAttack, canAttackDirectly, canTargetForAttack, isMandatoryReaction } from './cardHelpers';
 import { Card, CardContext, CardType, EffectTrigger, GameState, Phase, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, combinations, effectChoices, fieldActivations, handActivations, needsChoice, resolveChain, resolveChainStep, runEffect } from './chains';
@@ -7,9 +7,11 @@ import { applyCommand, GameCommand } from './engine';
 import { handSummonCandidates } from './summonReactions';
 import { resolveCombat } from './combat';
 import { advancePhaseState } from './phases';
+import { mergeMaterialSets } from './mergeSummons';
 
 export type AIDecision =
     | { kind: 'summon'; card: Card; hidden: boolean; tributes: number[] }
+    | { kind: 'mergeSummon'; command: Extract<GameCommand, { type: 'mergeSummon' }> }
     | { kind: 'set'; card: Card }
     | { kind: 'effect'; context: CardContext; trigger: EffectTrigger; fromHand?: boolean; deckId?: string }
     | { kind: 'position'; index: number }
@@ -134,7 +136,7 @@ export function simulateAttack(state: GameState, index: number, target: number |
     let next = resolveCombat(estimate, index, target);
     // Complete mandatory battle reactions through the same card contracts as gameplay.
     for (let step = 0; step < 8 && !next.winner; step++) {
-        const reaction = next.pendingReactions?.find(entry => cardRegistry.getEffect(entry.card.id)?.mandatoryReactions);
+        const reaction = next.pendingReactions?.find(entry => isMandatoryReaction(entry.card, entry.trigger));
         if (!reaction) break;
         const choices = effectChoices(next, reaction.card, reaction.trigger, 24);
         if (!choices.length) {
@@ -481,6 +483,28 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
     if (response) return decision;
     if (![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)) return decision;
     const biggestEnemy = Math.max(0, ...state.players[1 - player].pawnZones.map(z => z && z.position !== Position.HIDDEN ? fieldStats(state, z).atk : 0));
+    const scoreSummon = (next: GameState, card: Card, hidden = false) => {
+        let score = summonScore(state, next, player);
+        if (!hidden && cardRegistry.getEffect(card.id)?.onSummon) {
+            for (const context of effectChoices(next, card, 'summon')) {
+                const resolved = settleChain(addChainLink(next, context, 'summon'), context);
+                if (!lowersOwnPawnStats(next, resolved) && !raisesOpponentPawnAttack(next, resolved)) {
+                    score = Math.max(score, evaluatePosition(resolved, player) + 15 + opponentFieldRemovals(next, resolved) * 45);
+                }
+            }
+        }
+        return score;
+    };
+    for (const card of own.reserve) for (const materialIds of mergeMaterialSets(own, card)) {
+        const slot = own.pawnZones.findIndex(zone => !zone || materialIds.includes(zone.card.instanceId));
+        for (const position of [Position.ATTACK, Position.DEFENSE]) {
+            const command = { type: 'mergeSummon' as const, cardId: card.instanceId, materialIds, slot, position };
+            const next = applyCommand(state, player, command).state;
+            if (next === state) continue;
+            const score = scoreSummon(next, card);
+            if (score > bestScore) { bestScore = score; decision = { kind: 'mergeSummon', command }; }
+        }
+    }
     own.hand.forEach(card => {
         if (card.type === CardType.PAWN) {
             const count = card.level <= 4 ? 0 : card.level <= 7 ? 1 : 2;
@@ -488,19 +512,7 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
             for (const tribute of tributes) for (const hidden of [false, true]) {
                 const next = simulateSummon(state, card, hidden, tribute);
                 if (next === state) continue;
-                let score = summonScore(state, next, player);
-                if (!hidden && cardRegistry.getEffect(card.id)?.onSummon) {
-                    for (const context of effectChoices(next, card, 'summon')) {
-                        const resolved = settleChain(addChainLink(next, context, 'summon'), context);
-                        if (!lowersOwnPawnStats(next, resolved) && !raisesOpponentPawnAttack(next, resolved)) {
-                            // Small generic credit for successfully using a summon
-                            // effect. This lets utility Pawns enter face-up even when
-                            // the immediate numeric result (such as LP above 100) is
-                            // intentionally de-emphasized by the position score.
-                            score = Math.max(score, evaluatePosition(resolved, player) + 15 + opponentFieldRemovals(next, resolved) * 45);
-                        }
-                    }
-                }
+                const score = scoreSummon(next, card, hidden);
                 if (score > bestScore) { bestScore = score; decision = { kind: 'summon', card, hidden, tributes: tribute }; }
             }
         } else if (isLand(card) || own.actionZones.includes(null)) {

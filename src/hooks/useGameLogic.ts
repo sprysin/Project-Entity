@@ -1,8 +1,7 @@
 import { isLand } from '../game/field';
 import { handSummonCandidates } from '../game/summonReactions';
 import { chooseAIAction, chooseAIHandSummon, observeGame } from '../game/opponentAI';
-import { canTribute } from '../game/cardHelpers';
-import { cardRegistry } from '../cards/CardRegistry';
+import { canTribute, isContract, isMandatoryReaction } from '../game/cardHelpers';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     GameState, Card, Position, Phase, CardSelectionRequest, PlaytestDebugSettings,
@@ -11,7 +10,8 @@ import {
 } from '../types';
 import { effectChoices, fieldActivations, resolveChainStep, startPendingResponse, startPendingTriggers } from '../game/chains';
 import { shouldPromptResponse } from '../game/responseTiming';
-import { applyCommand, applySystemCommand, canPlayCard as engineCanPlayCard, createGame } from '../game/engine';
+import { applyCommand, applySystemCommand, canMergeSummon, canPlayCard as engineCanPlayCard, createGame } from '../game/engine';
+import { mergeMaterialSets } from '../game/mergeSummons';
 import { useOpponentAI } from './useOpponentAI';
 import { isAwaitingDecision } from '../game/decisions';
 import { createDeck, createReserve } from '../constants';
@@ -46,6 +46,9 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const [playMode, setPlayMode] = useState<'normal' | 'hidden' | 'activate' | 'set' | null>(null);
     const [handSummonCardId, setHandSummonCardId] = useState<string | null>(null);
     const [handSummonSelectedHandIndex, setHandSummonSelectedHandIndex] = useState<number | null>(null);
+    const [mergeSummon, setMergeSummon] = useState<
+        { stage: 'pawn' } | { stage: 'materials'; card: Card }
+        | { stage: 'placement'; card: Card; materialIds: string[] } | null>(null);
     useEffect(() => {
         if (!handSummonCardId) return;
         const pending = gameState?.pendingHandSummons?.[0];
@@ -68,6 +71,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     // Publish local activation selections as a rules-level lock for all host progression.
     useEffect(() => {
         const card = pendingEffectCard ?? triggeredEffect;
+        const awaitingConsent = !!triggeredEffect && !pendingEffectCard;
         setGameState(previous => {
             if (!previous) return previous;
             if (!card || previous.pendingChainTarget) return previous.pendingActivation ? { ...previous, pendingActivation: undefined } : previous;
@@ -75,8 +79,8 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 .some(zone => zone?.card.instanceId === card.instanceId));
             const playerIndex = previous.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.playerIndex
                 ?? (isLand(card) ? previous.activePlayerIndex : undefined) ?? (controller >= 0 ? controller : previous.players.findIndex(player => player.id === card.ownerId));
-            if (playerIndex < 0 || previous.pendingActivation?.cardId === card.instanceId) return previous;
-            return { ...previous, pendingActivation: { cardId: card.instanceId, playerIndex } };
+            if (playerIndex < 0 || previous.pendingActivation?.cardId === card.instanceId && previous.pendingActivation.awaitingConsent === awaitingConsent) return previous;
+            return { ...previous, pendingActivation: { cardId: card.instanceId, playerIndex, awaitingConsent } };
         });
     }, [pendingEffectCard, triggeredEffect]);
     const [targetSelectFilter, setTargetSelectFilter] = useState<((card: Card) => boolean) | null>(null);
@@ -121,6 +125,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     useEffect(() => {
         setSelectedHandIndex(null);
         setSelectedFieldSlot(null);
+        setMergeSummon(null);
     }, [gameState?.activePlayerIndex, gameState?.currentPhase, gameState?.turnNumber]);
 
     useEffect(() => {
@@ -133,7 +138,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     const cardMotion = useCardMotion(gameState, animations.zoneRefs, opponentMode === 'ai' ? 0 : undefined, visuallyDestroyedCardIds,
         (key, source) => animations.triggerShatter(key, source, 'action-condition-destroyed'));
 
-    const { effectChoiceReq, handleEffectChoice, pawnPlacementReq, handlePawnPlacement, reserveSelectionReq, handleReserveSelection, levelTributeReq, handleLevelTribute, resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection, cancelEffect } = useEffectResolution(
+    const { effectChoiceReq, handleEffectChoice, pawnPlacementReq, handlePawnPlacement, reserveSelectionReq, handleReserveSelection, levelTributeReq, handleLevelTribute, resolveEffect, handleDiscardSelection, handleHandSelection, handlePeekSelection, handleDeckSelection, handleShuffleSelection } = useEffectResolution(
         gameState, setGameState, cardMotion.recordMovement,
         {
             setTriggeredEffect, setPendingEffectCard, setTargetSelectMode, setTargetSelectType, setTargetSelectPosition, setTargetSelectScope,
@@ -168,7 +173,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 };
                 gameState?.players.forEach((p, pi) => {
                     (['pawn', 'action'] as const).forEach(type => p[type === 'pawn' ? 'pawnZones' : 'actionZones'].forEach((z, i) => {
-                        if (z?.card.instanceId === card.instanceId) pulse(`${pi}-${type}-${i}`, 'effect-activation');
+                        if (z?.card.instanceId === card.instanceId && !isContract(card)) pulse(`${pi}-${type}-${i}`, 'effect-activation');
                     }));
                 });
                 if (target) pulse(`${target.playerIndex}-${target.type}-${target.index}`, 'effect-target');
@@ -331,13 +336,13 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             const action = chooseAIAction(observeGame(gameState, 1), 1, pending.card, trigger);
             const context = action.kind === 'effect' ? { ...action.context,
                 deckIndex: action.deckId ? gameState.players[1].deck.findIndex(card => card.instanceId === action.deckId) : undefined }
-                : (trigger === 'switch' && pending.card.switchMandatory || cardRegistry.getEffect(pending.card.id)?.mandatoryReactions) ? choices[0] : undefined;
+                : (trigger === 'switch' && pending.card.switchMandatory || isMandatoryReaction(pending.card, trigger)) ? choices[0] : undefined;
             setGameState(prev => prev === gameState ? applyCommand(prev, 1, context
                 ? { type: 'activate', context, trigger }
                 : { type: 'cancelEffect', cardId: pending.card.instanceId }).state : prev);
             return;
         }
-        if ((trigger === 'switch' && pending.card.switchMandatory || cardRegistry.getEffect(pending.card.id)?.mandatoryReactions)) {
+        if ((trigger === 'switch' && pending.card.switchMandatory || isMandatoryReaction(pending.card, trigger))) {
             resolveEffect(pending.card, undefined, undefined, undefined, undefined, trigger);
             return;
         }
@@ -393,7 +398,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             selectedHandIndex, selectedFieldSlot, targetSelectMode, targetSelectType, targetSelectPosition, targetSelectScope,
             targetSelectFilter,
             tributeSelection, pendingTributeCard, tributeSummonMode, pendingTributeSlot,
-            pendingPlayCard, playMode, handSummonCardId, handSummonSelectedHandIndex,
+            pendingPlayCard, playMode, handSummonCardId, handSummonSelectedHandIndex, mergeSummon,
             triggeredEffect, pendingEffectCard, pendingTriggerType, isPeekingField, responseFieldMode,
             visuallyDestroyedCardIds,
             discardSelectionReq, selectedDiscardIndex, handSelectionReq, selectedHandSelectionIndex,
@@ -403,11 +408,39 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
             lpFlash: animations.lpFlash,
             viewingDiscardIdx, viewingVoidIdx, viewingReserveIdx, inspectedPileCard, reserveSelectionReq, levelTributeReq,
             cardMotions: cardMotion.motions, finishMotion: cardMotion.finishMotion, cardMovementPending: cardMotion.isMoving,
+            contractActivations: cardMotion.contractActivations,
             floatingTexts: animations.floatingTexts, shatterEffects: animations.shatterEffects,
             discardFlash: animations.discardFlash, voidFlash: animations.voidFlash,
             isRightPanelOpen, isDeckViewerOpen, activationPopupMode, showResponsePopup, effectTributeReq, shuffleSelectionReq,
         },
         actions: {
+            beginMergeSummon: () => {
+                if (!gameState || !gameState.players[gameState.activePlayerIndex].reserve.some(card => canMergeSummon(gameState, gameState.activePlayerIndex, card))) return;
+                setSelectedHandIndex(null);
+                setSelectedFieldSlot(null);
+                setViewingReserveIdx(null);
+                setMergeSummon({ stage: 'pawn' });
+            },
+            chooseMergePawn: (index: number) => {
+                const card = gameState?.players[gameState.activePlayerIndex].reserve[index];
+                if (mergeSummon?.stage === 'pawn' && gameState && card && canMergeSummon(gameState, gameState.activePlayerIndex, card)) setMergeSummon({ stage: 'materials', card });
+            },
+            chooseMergeMaterials: (materialIds: string[]) => {
+                if (!gameState || mergeSummon?.stage !== 'materials' || new Set(materialIds).size !== materialIds.length) return;
+                if (mergeMaterialSets(gameState.players[gameState.activePlayerIndex], mergeSummon.card)
+                    .some(set => set.length === materialIds.length && set.every(id => materialIds.includes(id)))) {
+                    setMergeSummon({ ...mergeSummon, stage: 'placement', materialIds });
+                }
+            },
+            cancelMergeSummon: () => { setMergeSummon(null); setSelectedFieldSlot(null); },
+            confirmMergeSummon: (slot: number, position: Position) => {
+                if (!gameState || mergeSummon?.stage !== 'placement') return;
+                const command = { type: 'mergeSummon' as const, cardId: mergeSummon.card.instanceId, materialIds: mergeSummon.materialIds, slot, position };
+                if (applyCommand(gameState, gameState.activePlayerIndex, command).state === gameState) return;
+                setGameState(previous => previous ? applyCommand(previous, gameState.activePlayerIndex, command).state : previous);
+                setMergeSummon(null);
+                setSelectedFieldSlot(null);
+            },
             destroyDrawnBomb: (source: Parameters<typeof animations.triggerShatter>[1]) => animations.triggerShatter('drawn-bomb', source, 'card-destruction'),
             dismissDrawnBomb: (id: string) => setGameState(prev => prev ? { ...prev, drawnBombs: prev.drawnBombs?.filter(event => event.card.instanceId !== id) } : prev),
             chooseAttackReplay: (retry: boolean) => {
@@ -454,7 +487,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
                 setIsRightPanelOpen(true);
             },
             setRef: animations.setRef,
-            nextPhase, skipToEndPhase, canPlayCard, resolveEffect, cancelEffect, respond, passResponse,
+            nextPhase, skipToEndPhase, canPlayCard, resolveEffect, respond, passResponse,
             handlePawnPlacement: (slot: number, position: Position) => gameState?.pendingVoidReturns?.[0]
                 ? setGameState(prev => prev?.pendingVoidReturns?.[0] ? applyCommand(prev, prev.pendingVoidReturns[0].playerIndex,
                     { type: 'placeVoidReturn', cardId: prev.pendingVoidReturns[0].cardId, slot }).state : prev)

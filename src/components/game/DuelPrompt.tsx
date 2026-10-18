@@ -11,6 +11,7 @@ interface DuelPromptProps {
     className?: string;
     ariaLabel: string;
     title: React.ReactNode;
+    abovePanel?: React.ReactNode;
     children?: React.ReactNode;
     actions: DuelPromptAction[];
     peeking: boolean;
@@ -22,6 +23,7 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
     className = '',
     ariaLabel,
     title,
+    abovePanel,
     children,
     actions,
     peeking,
@@ -47,6 +49,7 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
         onClick={peeking ? undefined : onBackdropClick}
     >
         <div className="duel-prompt__shell" onClick={event => event.stopPropagation()}>
+            {abovePanel && <div className="duel-prompt__above-panel">{abovePanel}</div>}
             <button
                 type="button"
                 className="duel-prompt__peek-tab"
@@ -54,10 +57,14 @@ export const DuelPrompt: React.FC<DuelPromptProps> = ({
                 aria-expanded={!peeking}
                 onClick={() => setPeeking(!peeking)}
             >
-                <i className={`fa-solid ${peeking ? 'fa-chevron-up' : 'fa-chevron-down'}`} aria-hidden="true" />
+                <svg className="duel-prompt__chevron" viewBox="0 0 24 16" aria-hidden="true">
+                    <path d={peeking ? 'M3 13 12 4 21 13' : 'M3 3 12 12 21 3'} />
+                </svg>
             </button>
             <section className="duel-prompt__panel">
-                <h2 className="duel-prompt__title">{title}</h2>
+                <header className="duel-prompt__header">
+                    <h2 className="duel-prompt__title">{title}</h2>
+                </header>
                 {children && <div className="duel-prompt__content">{children}</div>}
                 <div className="duel-prompt__actions">
                     {actions.map(action => (

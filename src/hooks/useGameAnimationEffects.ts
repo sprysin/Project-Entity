@@ -20,6 +20,7 @@ export const useGameAnimationEffects = (
     const schedule = useManagedTimeout();
     const previousTurn = useRef<number | null>(null);
     const soundedAttack = useRef<GameState['deferredAction']>();
+    const previousDamageCount = useRef(0);
 
     useEffect(() => {
         const coin = gameState?.openingCoin;
@@ -67,21 +68,23 @@ export const useGameAnimationEffects = (
 
     useEffect(() => {
         if (!gameState) return;
+        const newDamage = gameState.damageEvents?.slice(previousDamageCount.current) ?? [];
+        previousDamageCount.current = gameState.damageEvents?.length ?? 0;
         gameState.players.forEach((player, index) => {
             const previousLp = animations.lastLp.current[index];
             if (player.lp !== previousLp) {
                 const difference = player.lp - previousLp;
                 playSound(difference > 0 ? 'lp-gain' : 'lp-loss');
-                const id = crypto.randomUUID();
-                animations.setFloatingTexts(previous => [...previous, { id, text: difference > 0 ? `+${difference}` : `${difference}`, type: difference > 0 ? 'heal' : 'damage', x: 50, y: 50 }]);
-                schedule(() => animations.setFloatingTexts(previous => previous.filter(text => text.id !== id)), 2500);
+                const battleDamage = newDamage.some(event => event.kind === 'battle' && 1 - event.playerIndex === index);
+                animations.queueFloatingText({ text: difference > 0 ? `+${difference}` : `${difference}`,
+                    type: difference > 0 ? 'heal' : battleDamage ? 'damage' : 'effect', playerIndex: index });
                 animations.lastLp.current[index] = player.lp;
                 const flash = difference > 0 ? 'heal' : 'damage';
                 animations.setLpFlash(previous => { const next = [...previous] as [string | null, string | null]; next[index] = flash; return next; });
                 schedule(() => animations.setLpFlash(previous => { const next = [...previous] as [string | null, string | null]; next[index] = null; return next; }), 800);
             }
         });
-    }, [gameState?.players[0]?.lp, gameState?.players[1]?.lp, schedule]);
+    }, [gameState?.players[0]?.lp, gameState?.players[1]?.lp, gameState?.damageEvents, schedule]);
 
     useEffect(() => {
         if (!gameState) {

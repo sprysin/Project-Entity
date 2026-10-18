@@ -11,8 +11,8 @@ export const ROTATION_MS = 5 * 60 * 1000;
 // Conditional chances, checked from highest tier to lowest with a fresh roll.
 // The lowest available tier is guaranteed; pool size does not change tier odds.
 export const RARITY_ROLL_CHANCES: Record<CardRarity, number> = {
-  Common: 1, Uncommon: 0.30, Rare: 0.145, Epic: 0.06,
-  Legendary: 0.03, Mythic: 0.015, Relic: 0.015,
+  Common: 1, Uncommon: 0.30, Rare: 0.15, Epic: 0.04,
+  Legendary: 0.0075, Mythic: 0.002, Relic: 0.002,
 };
 export function weightedPick<T>(entries: readonly T[], weight: (entry: T) => number, random = Math.random): T {
   const total = entries.reduce((sum, entry) => sum + weight(entry), 0);

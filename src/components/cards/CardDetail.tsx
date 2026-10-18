@@ -2,12 +2,12 @@ import { isGeneratedCard, isReservePawn } from '../../game/cardHelpers';
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
-import { Card, CardType, Attribute } from '../../types';
+import { Card, CardType, Attribute, PawnSubtype } from '../../types';
 import { cardSubtype, cardTypeLabel } from '../../cards/CardRegistry';
 import { cardRegistry } from '../../cards/CardRegistry';
 
 export const cardFrameClass = (card: Pick<Card, 'type' | 'pawnSubtype' | 'actionSubtype'>) =>
-    isGeneratedCard(card) ? 'card-token' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
+    isGeneratedCard(card) ? 'card-token' : card.pawnSubtype === PawnSubtype.MERGE ? 'card-merge' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
 
 const getAttributeColor = (attr?: Attribute) => {
     switch (attr) {
@@ -217,6 +217,10 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                     </div>)}
                 </div>}
             </div>
+
+            {card.mergeMaterials?.length ? <div className="card-materials" aria-label={`Merge materials: ${card.mergeMaterials.join(' + ')}`}>
+                {card.mergeMaterials.map(name => `"${name}"`).join(' + ')}
+            </div> : null}
 
             {/* Body: Effect Text */}
             <FittedEffect text={card.effectText} />

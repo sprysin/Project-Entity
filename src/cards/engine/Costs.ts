@@ -1,7 +1,7 @@
 import { canSetPawn, canTribute, setPawnPosition } from '../../game/cardHelpers';
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
-import { Card, CardFilter, Position, ShuffleLocation, TargetSelectPosition, TargetSelectScope } from '../../types';
+import { Card, CardContext, CardFilter, Position, ShuffleLocation, TargetSelectPosition, TargetSelectScope } from '../../types';
 import { Effect } from './Effects';
 import { getEffectTarget } from './Targets';
 import { targetZone } from '../../game/field';
@@ -108,20 +108,20 @@ export const Cost = {
     }),
 
     /** Prompts the player to tribute pawns on their field. */
-    TributePawns: (count: number, filter?: (c: Card) => boolean): EffectStep => activationCost((draftState, context) => {
+    TributePawns: (count: number, filter?: (c: Card, context: CardContext) => boolean): EffectStep => activationCost((draftState, context) => {
         if (context.tributeIndices === undefined) {
             return {
                 requireEffectTribute: {
                     playerIndex: context.playerIndex,
                     count,
-                    filter: card => canTribute(card) && (!filter || filter(card))
+                    filter: card => canTribute(card) && (!filter || filter(card, context))
                 }
             };
         }
 
         const player = draftState.players[context.playerIndex];
         const indices = context.tributeIndices;
-        if (indices.length !== count || new Set(indices).size !== count || indices.some(i => !player.pawnZones[i] || !canTribute(player.pawnZones[i]!.card) || (filter && !filter(player.pawnZones[i]!.card)))) return { halt: true };
+        if (indices.length !== count || new Set(indices).size !== count || indices.some(i => !player.pawnZones[i] || !canTribute(player.pawnZones[i]!.card) || (filter && !filter(player.pawnZones[i]!.card, context)))) return { halt: true };
         context.tributeCards = indices.map(i => player.pawnZones[i]!.card);
         indices.forEach(i => {
             sendToOwnerPile(draftState, { ...player.pawnZones[i]!.card, tributedByAction: context.card.type === 'ACTION' }, 'discard');

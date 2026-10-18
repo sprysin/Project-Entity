@@ -91,7 +91,7 @@ export function parseDeck(value: unknown, enforceLimits = true, allowUnavailable
             throw new Error('The deck contains unknown cards or invalid quantities.');
         }
         if (allowUnavailableCards && isReservePawn(known.get(entry.cardId)!) !== reserve) return [];
-        if (isReservePawn(known.get(entry.cardId)!) !== reserve) throw new Error('Vassal Pawns belong in the Reserve; other cards belong in the main deck.');
+        if (isReservePawn(known.get(entry.cardId)!) !== reserve) throw new Error('Vassal and Merge Pawns belong in the Reserve; other cards belong in the main deck.');
         return [{ cardId: entry.cardId, quantity: entry.quantity }];
     });
     const cards = readEntries(deck.cards, false);

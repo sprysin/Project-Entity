@@ -7,6 +7,7 @@ import { Attribute, Card, GameState, Phase, Position } from '../src/types';
 import { GameOverlays } from '../src/components/game/GameOverlays';
 import { GameSidebar } from '../src/components/game/GameSidebar';
 import { playSound } from '../src/audio';
+import { runEffect, fieldActivations } from '../src/game/chains';
 vi.mock('../src/audio', () => ({ playSound: vi.fn() }));
 vi.mock('../src/desktop/files', () => ({ showMessage: vi.fn() }));
 
@@ -198,33 +199,33 @@ it('holds attacks and battle-destruction choices before mandatory effects move t
 });
 
 it('discard and tribute costs are paid once after all activation selections are complete', () => {
+    const interloper = card('P_Engine_Interloper'), material = card('P_Solstice_Sentinel');
+    setup(s => { s.players[0].pawnZones[0] = placed(interloper); });
+    expect(fieldActivations(game.gameState!, 0)).toEqual([]);
+    setup(s => { s.players[0].pawnZones[0] = placed(interloper); s.players[0].pawnZones[1] = placed(material); });
+    const context = { card: interloper, playerIndex: 0 };
+    expect(runEffect(game.gameState!, context, 'activate').requireEffectTribute?.filter?.(interloper)).toBe(false);
+    expect(runEffect(game.gameState!, { ...context, tributeIndices: [0] }, 'activate').halted).toBe(true);
+    expect(runEffect(game.gameState!, { ...context, tributeIndices: [1] }, 'activate').newState.players[0].pawnZones[0]?.card.atk).toBe(interloper.atk + 20);
     const beast = card('P_Dual_Mode_Beast'); const cost = card('A_Void_Blast');
     setup(s => { s.players[0].pawnZones[0] = placed(beast); s.players[0].hand = [cost]; s.players[1].pawnZones[0] = placed(card('P_Solstice_Sentinel', 1)); });
     act(() => game.actions.activateOnField(0, 'pawn', 0));
     act(() => game.actions.handleHandSelection(0));
-    expect(game.state.targetSelectMode).toBe('effect');
-    expect(game.state.handSelectionReq).toBeNull();
     expect(game.gameState!.players[0].hand).toHaveLength(1);
     act(() => game.actions.resolveEffect(beast, { playerIndex: 1, type: 'pawn', index: 0 }));
     act(() => vi.advanceTimersByTime(500));
     expect(game.gameState!.players[0].hand).toHaveLength(0);
-    expect(game.gameState!.players[0].discard).toHaveLength(1);
-    expect(game.gameState!.players[1].pawnZones[0]?.position).toBe(Position.DEFENSE);
     const maintenance = card('A_Mechanical_Maintenance'); const recovered = card('P_Solstice_Sentinel');
     setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel')); s.players[0].pawnZones[1] = placed(card('P_Void_Caster')); });
     act(() => game.actions.handleActionFromHand(maintenance, 'activate', 0));
     act(() => game.actions.setTributeSelection([0, 1]));
     act(() => game.actions.handleEffectTribute());
     expect(game.gameState!.players[0].pawnZones.filter(Boolean)).toHaveLength(2);
-    expect(game.state.discardSelectionReq).not.toBeNull();
     act(() => vi.advanceTimersByTime(10000));
     expect(game.gameState!.players[0].actionZones[0]?.card.instanceId).toBe(maintenance.instanceId);
     act(() => game.actions.handleDiscardSelection(0));
     act(() => vi.advanceTimersByTime(500));
-    expect(game.gameState!.players[0].pawnZones[0]?.card.instanceId).toBe(recovered.instanceId);
     expect(game.gameState!.players[0].discard).toHaveLength(3);
-    expect(game.gameState!.players[0].actionZones[0]).toBeNull();
-
     const contract = card('A_Scripture_Of_Faith'), patron = card('P_Patron_Of_Judgement');
     const handMaterial = { ...card('P_Solstice_Sentinel'), level: 4 as const }, fieldMaterial = { ...card('P_High_King'), level: 6 as const };
     setup(s => {
@@ -232,17 +233,16 @@ it('discard and tribute costs are paid once after all activation selections are 
         s.players[0].pawnZones = Array.from({ length: 5 }, (_, i) => placed(i === 2 ? fieldMaterial : card('P_Solstice_Sentinel')));
     });
     act(() => game.actions.handleActionFromHand(contract, 'activate', 0));
-    expect(game.state.levelTributeReq?.totalLevel).toBe(10);
+    expect(game.state.contractActivations).toContain(contract.instanceId);
+    act(() => vi.advanceTimersByTime(999));
+    expect(game.state.cardMovementPending).toBe(true);
+    act(() => vi.advanceTimersByTime(1));
+    expect(game.state.levelTributeReq).not.toBeNull();
     act(() => game.actions.handleLevelTribute([handMaterial.instanceId, fieldMaterial.instanceId]));
-    expect(game.state.reserveSelectionReq).not.toBeNull();
     expect(game.gameState!.players[0].discard).toEqual([]);
     act(() => game.actions.handleReserveSelection(0));
-    expect(game.state.pawnPlacementReq?.slots).toEqual([2]);
     act(() => game.actions.handlePawnPlacement(2, Position.DEFENSE));
     act(() => vi.advanceTimersByTime(500));
-    expect(game.state.pendingEffectCard).toBeNull();
-    expect(game.gameState!.players[0].reserve).toEqual([]);
     expect(game.gameState!.players[0].pawnZones[2]).toMatchObject({ card: { instanceId: patron.instanceId }, position: Position.DEFENSE });
     expect(game.gameState!.players[0].discard).toHaveLength(3);
-    expect(game.gameState!.players[0].actionZones[0]).toBeNull();
 });

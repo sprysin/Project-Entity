@@ -10,7 +10,7 @@ type Filters = Record<FilterGroup, string[]>;
 const emptyFilters = (): Filters => ({ level: [], pawnType: [], attribute: [], pawnSubtype: [], action: [], condition: [], all: [] });
 const cardTypes = [{ type: CardType.PAWN, label: 'Pawn' }, { type: CardType.ACTION, label: 'Action' }, { type: CardType.CONDITION, label: 'Condition' }] as const;
 const groups = [
-    { key: 'pawnSubtype', label: 'Subtype', options: ['Standard', PawnSubtype.VASSAL, PawnSubtype.SWITCH] },
+    { key: 'pawnSubtype', label: 'Subtype', options: ['Standard', PawnSubtype.VASSAL, PawnSubtype.MERGE, PawnSubtype.SWITCH] },
     { key: 'level', label: 'Level', options: Array.from({ length: 10 }, (_, level) => String(level + 1)) },
     { key: 'attribute', label: 'Attribute', options: Object.values(Attribute) },
     { key: 'pawnType', label: 'Type', options: Object.values(PawnType) },

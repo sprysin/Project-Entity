@@ -1,11 +1,10 @@
 import { activeLand, hasLand, isLand, sourceZone } from './field';
 import { handSummonCandidates, handSummonSource, notifyPawnSummoned } from './summonReactions';
-import { canTributeForSummon, isToken, isBomb, isReservePawn, canPawnAttack, canAttackDirectly, canTargetForAttack, spendCancelledAttack } from './cardHelpers';
+import { canTributeForSummon, isToken, isBomb, isReservePawn, canPawnAttack, canAttackDirectly, canTargetForAttack, spendCancelledAttack, isMandatoryReaction } from './cardHelpers';
 import { Card, CardContext, CardTarget, CardType, EffectTrigger, GameState, Phase, Player, Position } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 import { addChainLink, autoPass, effectChoices, fieldActivations, handActivations, openResponse, passPriority, queueEventResponses, resolveChainStep, runEffect, startPendingTriggers } from './chains';
 import { destroyOrphanedAttachments, notifyAttachedActivation } from './attachments';
-import { finishEffect } from './finishEffect';
 import { formatSummonLog } from './effectLog';
 import { resolveCombat } from './combat';
 import { advancePhaseState, isDrawingForTurn, stepDraw } from './phases';
@@ -13,6 +12,7 @@ import { sendToOwnerPile } from './cardOwnership';
 import { queueRevealedSwitches } from './switches';
 import { prepareVoidReturn } from './voidReturns';
 import { isAwaitingDecision } from './decisions';
+import { mergeMaterialSets } from './mergeSummons';
 import '../cards/pawns';
 import '../cards/actions';
 import '../cards/conditions';
@@ -22,6 +22,7 @@ export type GameCommand =
     | { type: 'voidSelection'; sourceId: string; cardId: string }
     | { type: 'placeVoidReturn'; cardId: string; slot: number }
     | { type: 'summon'; cardId: string; hidden: boolean; slot: number; tributes?: number[] }
+    | { type: 'mergeSummon'; cardId: string; materialIds: string[]; slot: number; position: Position }
     | { type: 'play'; cardId: string; set: boolean; slot: number }
     | { type: 'position'; index: number }
     | { type: 'activate'; context: CardContext; trigger: EffectTrigger }
@@ -58,6 +59,12 @@ export function createGame(players: [
 const isMain = (state: GameState, actor: number) => !state.drawnBombs?.length && !state.pendingActivation && !state.openingCoin && !state.winner && !state.response && !state.pendingVoidReturns?.length && !state.pendingVoidSelections?.length && !state.pendingReactions?.length && !state.pendingHandSummons?.length
     && actor === state.activePlayerIndex && [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase);
 const validSlot = (slot: number) => Number.isInteger(slot) && slot >= 0 && slot < 5;
+
+export function canMergeSummon(state: GameState, actor: number, card: Card): boolean {
+    return !!state.players[actor] && isMain(state, actor)
+        && state.players[actor].reserve.some(value => value.instanceId === card.instanceId)
+        && mergeMaterialSets(state.players[actor], card).length > 0;
+}
 
 export function canChangePosition(state: GameState, actor: number, index: number): boolean {
     const zone = state.players[actor]?.pawnZones[index];
@@ -155,6 +162,27 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             next.log = [`"${card.name}" was special summoned by "${source.card.name}".`, ...next.log].slice(0, 50);
             return notifyAttachedActivation(state, next, source.card);
         }
+        case 'mergeSummon': {
+            const card = player.reserve.find(value => value.instanceId === command.cardId);
+            if (!card || !canMergeSummon(state, actor, card) || !validSlot(command.slot)
+                || ![Position.ATTACK, Position.DEFENSE].includes(command.position)) return state;
+            const ids = command.materialIds;
+            if (new Set(ids).size !== ids.length || !mergeMaterialSets(player, card).some(set => set.length === ids.length && set.every(id => ids.includes(id)))
+                || player.pawnZones[command.slot] && !ids.includes(player.pawnZones[command.slot]!.card.instanceId)) return state;
+            const next = structuredClone(state), own = next.players[actor];
+            const materials = own.pawnZones.flatMap(zone => zone && ids.includes(zone.card.instanceId) ? [zone.card] : []);
+            own.pawnZones.forEach((zone, index) => {
+                if (zone && ids.includes(zone.card.instanceId)) {
+                    sendToOwnerPile(next, zone.card, 'discard');
+                    own.pawnZones[index] = null;
+                }
+            });
+            own.reserve = own.reserve.filter(value => value.instanceId !== card.instanceId);
+            own.pawnZones[command.slot] = { card: { ...card }, position: command.position, specialSummoned: true,
+                hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+            next.log = [`${own.name} Merge summons "${card.name}"; sends ${materials.map(value => `"${value.name}"`).join(' + ')} to the Discard as Merge cost.`, ...next.log].slice(0, 50);
+            return destroyOrphanedAttachments(next);
+        }
         case 'summon': {
             if (!isMain(state, actor) || !validSlot(command.slot)) return state;
             const card = player.hand.find(c => c.instanceId === command.cardId);
@@ -222,7 +250,8 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (['switch', 'battle_destroyed', 'destroyed', 'attack_completed', 'sent_discard', 'hand_return'].includes(command.trigger)) {
                 if (!pendingReaction) return state;
             } else if (command.trigger === 'summon') {
-                if (state.response || actor !== state.activePlayerIndex || source.position === Position.HIDDEN || source.summonedTurn !== state.turnNumber) return state;
+                if (state.response || !pendingReaction && actor !== state.activePlayerIndex
+                    || !source || source.position === Position.HIDDEN || source.summonedTurn !== state.turnNumber) return state;
             } else if (!fieldActivations(state, actor, !!state.response).some(a => a.card.instanceId === source.card.instanceId && a.trigger === command.trigger)) {
                 // A newly played Action may have no onActivate (e.g. a Lingering Action).
                 if (!(command.trigger === 'activate' && isMain(state, actor) && source.card.type === CardType.ACTION
@@ -233,12 +262,11 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
         case 'cancelEffect': {
             if (state.response) return state;
             const mandatory = state.pendingReactions?.find(entry => entry.card.instanceId === command.cardId && entry.playerIndex === actor);
-            if (mandatory && cardRegistry.getEffect(mandatory.card.id)?.mandatoryReactions && effectChoices(state, mandatory.card, mandatory.trigger, 1).length) return state;
+            if (mandatory && isMandatoryReaction(mandatory.card, mandatory.trigger) && effectChoices(state, mandatory.card, mandatory.trigger, 1).length) return state;
             if (state.pendingReactions?.some(entry => entry.card.instanceId === command.cardId && entry.playerIndex === actor)) return {
                 ...state, pendingReactions: state.pendingReactions.filter(entry => entry.card.instanceId !== command.cardId)
             };
-            const source = [...player.actionZones, activeLand(state)].find(z => z?.card.instanceId === command.cardId);
-            return source ? finishEffect(state, source.card) : state;
+            return state;
         }
         case 'attackReplay': {
             if (!state.attackReplay || actor !== state.activePlayerIndex) return state;
@@ -280,7 +308,7 @@ export function applyCommand(state: GameState, actor: number, command: GameComma
     if (state.pendingActivation) {
         const pending = state.pendingActivation;
         const cardId = command.type === 'activate' ? command.context.card.instanceId
-            : command.type === 'cancelEffect' ? command.cardId : undefined;
+            : command.type === 'cancelEffect' && pending.awaitingConsent ? command.cardId : undefined;
         if (actor !== pending.playerIndex || cardId !== pending.cardId) return { state, events: [] };
         const unlocked = { ...state, pendingActivation: undefined };
         const next = reduceCommand(unlocked, actor, command);

@@ -109,7 +109,7 @@ it('rejects wrong actors, nonexistent cards, duplicate tributes, and occupied de
     for (const actor of [0, 1]) {
         for (const value of [{ type: 'phase' }, { type: 'end' }, { type: 'pass' },
             { type: 'summon', cardId: king.instanceId, hidden: false, slot: 0, tributes: [0, 1] },
-            { type: 'cancelEffect', cardId: 'another-card' }] as GameCommand[]) {
+            { type: 'cancelEffect', cardId: king.instanceId }] as GameCommand[]) {
             expect(command(waiting, value, actor)).toBe(waiting);
         }
     }

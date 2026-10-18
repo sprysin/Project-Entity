@@ -88,7 +88,11 @@ const topics: Topic[] = [
       'Your Reserve is separate from your deck and holds up to 10 extra Pawns. A Reserve can hold either Vassal or Merge Pawns. When a card or effect is activated that requires a Pawn that originated from the Reserve is sent back to the hand or deck, its sent back to the Reserve instead.',
       'Vassal Pawns are known for their red frame. To summon a Vassal from the Reserve, use a Contract Action or Contract Condition and follow its tribute and summon requirements.',
       'Contract Actions follow normal Action timing. Contract Conditions must be set first and can activate on a later turn, following normal Condition timing.',
-      'A Contract summons its Vassal in face-up Attack or Defense Position. This counts as a Special Summon.'
+      'A Contract summons its Vassal in face-up Attack or Defense Position. This counts as a Special Summon.',
+      'Merge Pawns have a blue frame. Their required materials are listed directly below the artwork.',
+      'During either Main Phase, Merge Summon by sending the listed face-up Pawns you control to the Discard Pile. This is a Merge cost, not a tribute or destruction.',
+      'The Reserve glows yellow when a Merge Summon is available. Open it, choose Summon Pawn, select a Merge Pawn, then select its materials.',
+      'Choose a Pawn zone and face-up Attack or Defense Position. You may use a zone freed by the materials. A Merge Summon counts as a Special Summon.'
     ]
   },
   {
@@ -274,9 +278,16 @@ const chapterGroups: { title: string; description: string; chapters: Chapter[] }
         ...topicById.reserve, sections: [
           { ...topicById.reserve, rules: topicById.reserve.rules!.slice(0, 1) },
           {
-            id: 'vassal', title: 'Vassal cards', rules: topicById.reserve.rules!.slice(1), examples: [
+            id: 'vassal', title: 'Vassal cards', rules: topicById.reserve.rules!.slice(1, 4), examples: [
               { id: 'P_Patron_Of_Judgement', label: 'Vassal Pawn' }, { id: 'A_Scripture_Of_Faith', label: 'Contract Action' },
               { id: 'C_Signal_Routing', label: 'Contract Condition' },
+            ]
+          },
+          {
+            id: 'merge', title: 'Merge Cards', rules: topicById.reserve.rules!.slice(4), examples: [
+              { id: 'P_Arc_Angel_Tangent', label: 'Merge Pawn' },
+              { id: 'P_Arc_Angel_Cosine', label: 'Merge Material' },
+              { id: 'P_Arc_Angel_Sine', label: 'Merge Material' },
             ]
           },
         ]

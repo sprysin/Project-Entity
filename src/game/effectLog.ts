@@ -109,7 +109,7 @@ export function formatEffectLog(
     for (const [instanceId, located] of afterField) {
         if (beforeField.has(instanceId) || instanceId === card.instanceId) continue;
         if (located.zone === 'land') { details.push(`${quote(located.placed.card.name)} becomes the active Land`); continue; }
-        details.push(`${before.players[located.playerIndex].reserve.some(value => value.instanceId === instanceId) ? 'Vassal summons' : 'special summons'} ${quote(located.placed.card.name)}`);
+        details.push(`${before.players[located.playerIndex].reserve.some(value => value.instanceId === instanceId) ? `${located.placed.card.pawnSubtype} summons` : 'special summons'} ${quote(located.placed.card.name)}`);
     }
 
     if (selected && context.discardIndex !== undefined && after.players[context.playerIndex].hand.some(c => c.instanceId === selected.instanceId)) {

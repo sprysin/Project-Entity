@@ -5,10 +5,29 @@ import { fieldEntries } from '../../game/field';
 import { CardDetail } from '../cards/CardDetail';
 import { DuelPrompt } from './DuelPrompt';
 import { levelTributeCandidates } from '../../game/levelTributes';
+import { mergeMaterialSets } from '../../game/mergeSummons';
+import { LevelDiamonds } from './LevelDiamonds';
+
+export const MergeMaterialSelectionModal: React.FC<{
+    card: Card; gameState: GameState; onConfirm: (ids: string[]) => void; onCancel: () => void;
+}> = ({ card, gameState, onConfirm, onCancel }) => {
+    const [selected, setSelected] = useState<number[]>([]);
+    const player = gameState.players[gameState.activePlayerIndex];
+    const sets = mergeMaterialSets(player, card);
+    const choices = player.pawnZones.flatMap(zone => zone && zone.position !== Position.HIDDEN ? [zone.card] : []);
+    const ids = selected.map(index => choices[index].instanceId);
+    return <CardSelectionModal title="Merge materials" prompt={`Send ${card.mergeMaterials?.map(name => `"${name}"`).join(' + ')} from your face-up Pawns to the Discard as Merge cost.`}
+        cards={choices} selectedIndex={null} selectedIndices={selected} requiredCount={card.mergeMaterials?.length}
+        filter={card => ids.includes(card.instanceId) || sets.some(set => set.includes(card.instanceId) && ids.every(id => set.includes(id)))}
+        confirmDisabled={!sets.some(set => set.length === ids.length && set.every(id => ids.includes(id)))}
+        onSelect={index => { if (index !== null) setSelected(previous => previous.includes(index) ? previous.filter(value => value !== index) : [...previous, index]); }}
+        onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].instanceId))} onCancel={onCancel}
+        emptyLabel="No eligible materials" confirmLabel={`Confirm materials (${selected.length}/${card.mergeMaterials?.length ?? 0})`} searchLabel="Merge materials" />;
+};
 
 export const LevelTributeSelectionModal: React.FC<{
-    request: LevelTributeSelectionRequest | null; gameState: GameState; onConfirm: (ids: string[]) => void; onCancel: () => void;
-}> = ({ request, gameState, onConfirm, onCancel }) => {
+    request: LevelTributeSelectionRequest | null; gameState: GameState; onConfirm: (ids: string[]) => void;
+}> = ({ request, gameState, onConfirm }) => {
     const [selected, setSelected] = useState<number[]>([]);
     useEffect(() => setSelected([]), [request]);
     if (!request) return null;
@@ -17,25 +36,26 @@ export const LevelTributeSelectionModal: React.FC<{
     const valid = level === request.totalLevel && (gameState.players[request.playerIndex].pawnZones.includes(null)
         || selected.some(index => choices[index].location === 'field'));
     return <CardSelectionModal title={`${request.sendOnly ? 'Send' : 'Tribute'} Pawns · Levels ${level}/${request.totalLevel}`}
+        abovePanel={<LevelDiamonds required={request.totalLevel} selected={level} />}
         prompt={`Choose Pawns from your ${request.location ?? 'hand or field'} whose levels total exactly ${request.totalLevel}.`}
         cards={choices.map(entry => entry.card)} cardLabels={choices.map(entry => entry.location === 'hand' ? 'Hand' : 'Field')}
         selectedIndex={null} selectedIndices={selected} requiredCount={selected.length} confirmDisabled={!valid}
         onSelect={index => { if (index !== null) setSelected(previous => previous.includes(index) ? previous.filter(value => value !== index)
             : [...previous, index]); }}
         onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].card.instanceId))}
-        onCancel={onCancel} emptyLabel="No eligible Pawns" confirmLabel="Confirm materials" searchLabel="Contract materials" />;
+        emptyLabel="No eligible Pawns" confirmLabel="Confirm materials" searchLabel="Contract materials" />;
 };
 
 export const ReserveSelectionModal: React.FC<{
-    request: CardSelectionRequest | null; gameState: GameState; onConfirm: (index: number) => void; onCancel: () => void;
-}> = ({ request, gameState, onConfirm, onCancel }) => {
+    request: CardSelectionRequest | null; gameState: GameState; onConfirm: (index: number) => void;
+}> = ({ request, gameState, onConfirm }) => {
     const [selected, setSelected] = useState<number | null>(null);
     useEffect(() => setSelected(null), [request]);
     if (!request) return null;
     return <CardSelectionModal title={request.title ?? 'Reserve summon'} prompt={request.prompt}
         cards={gameState.players[request.playerIndex].reserve} filter={request.filter}
-        selectedIndex={selected} onSelect={setSelected} onConfirm={onConfirm} onCancel={onCancel}
-        emptyLabel="Your Reserve is empty" confirmLabel="Choose Vassal" searchLabel="Reserve selection" />;
+        selectedIndex={selected} onSelect={setSelected} onConfirm={onConfirm}
+        emptyLabel="Your Reserve is empty" confirmLabel="Choose Pawn" searchLabel="Reserve selection" />;
 };
 
 export const VoidSelectionModal: React.FC<{
@@ -93,6 +113,7 @@ export const ShuffleSelectionModal: React.FC<{
 
 interface CardSelectionModalProps {
     title: string;
+    abovePanel?: React.ReactNode;
     prompt?: string;
     cards: Card[];
     selectedIndex: number | null;
@@ -112,7 +133,7 @@ interface CardSelectionModalProps {
 }
 
 export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
-    title, prompt, cards, selectedIndex, onSelect, onCancel, onConfirm,
+    title, abovePanel, prompt, cards, selectedIndex, onSelect, onCancel, onConfirm,
     emptyLabel, confirmLabel, filter,
     selectedIndices, requiredCount, onConfirmMulti, searchLabel = 'Card selection', confirmDisabled: forcedDisabled, cardLabels, hiddenCardIds
 }) => {
@@ -123,6 +144,7 @@ export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
     const isSelected = (index: number) => selectedIndex === index || selectedIndices?.includes(index) === true;
     const confirmDisabled = forcedDisabled ?? (onConfirmMulti ? selectedIndices?.length !== requiredCount : selectedIndex === null);
     return <DuelPrompt className="duel-prompt--card-search" ariaLabel={searchLabel} title={<strong>{title}</strong>}
+        abovePanel={abovePanel}
         peeking={peeking} setPeeking={setPeeking} actions={[
             ...(onCancel ? [{ label: 'Cancel', onClick: onCancel, variant: 'secondary' as const }] : []),
             { label: confirmLabel, variant: 'primary', disabled: confirmDisabled, onClick: () => onConfirmMulti
@@ -148,18 +170,17 @@ interface HandSelectionModalProps {
     gameState: GameState | null;
     selectedHandSelectionIndex: number | null;
     setSelectedHandSelectionIndex: (index: number | null) => void;
-    setHandSelectionReq: (request: null) => void;
     handleHandSelection: (index: number) => void;
 }
 
-export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, setHandSelectionReq, handleHandSelection }) => {
+export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal searchLabel="Hand selection" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onCancel={() => setHandSelectionReq(null)} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} filter={selectionReq.filter} />;
+    return <CardSelectionModal searchLabel="Hand selection" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} filter={selectionReq.filter} />;
 };
 
 export const PeekSelectionModal: React.FC<{
     selectionReq: PeekSelectionRequest | null; gameState: GameState | null; selectedPeekIndex: number | null;
-    setSelectedPeekIndex: (index: number | null) => void; cancelEffect: () => void; handlePeekSelection: (index: number) => void;
+    setSelectedPeekIndex: (index: number | null) => void; cancelEffect?: () => void; handlePeekSelection: (index: number) => void;
     filter?: (card: Card) => boolean; confirmLabel?: string; cancellable?: boolean;
 }> = ({ selectionReq, gameState, selectedPeekIndex, setSelectedPeekIndex, cancelEffect, handlePeekSelection, filter, confirmLabel = 'Show this card', cancellable = false }) => {
     if (!selectionReq || !gameState) return null;

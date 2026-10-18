@@ -1,16 +1,20 @@
 import { activeLand, fieldEntries } from './field';
-import { ActionSubtype, ConditionSubtype, GameState, Card, CardContext, CardType, PawnSubtype, PlacedCard, Player, Position, SelectionLocation } from '../types';
+import { ActionSubtype, ConditionSubtype, EffectTrigger, GameState, Card, CardContext, CardType, PawnSubtype, PlacedCard, Player, Position, SelectionLocation } from '../types';
 import { cardRegistry } from '../cards/CardRegistry';
 
 export const isToken = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.TOKEN;
 export const isBomb = (card: Pick<Card, 'actionSubtype'>): boolean => card.actionSubtype === ActionSubtype.BOMB;
 export const isGeneratedCard = (card: Pick<Card, 'pawnSubtype' | 'actionSubtype'>): boolean => isToken(card) || isBomb(card);
-export const isReservePawn = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.VASSAL;
+export const isReservePawn = (card: Pick<Card, 'pawnSubtype'>): boolean => card.pawnSubtype === PawnSubtype.VASSAL || card.pawnSubtype === PawnSubtype.MERGE;
 export const isContract = (card: Card): boolean => card.type === CardType.ACTION && card.actionSubtype === ActionSubtype.CONTRACT
     || card.type === CardType.CONDITION && card.conditionSubtype === ConditionSubtype.CONTRACT;
 export const canTribute = (card: Card): boolean => !card.cannotBeTributed && !card.tributeBlockedThisTurn;
 export const canTributeForSummon = (card: Card, summoned: Card): boolean => canTribute(card) && (cardRegistry.getEffect(summoned.id)?.tributeSummonFilter?.(card) ?? true);
 export const matchesCardName = (card: Card, name: string): boolean => card.name.toLowerCase() === name.toLowerCase();
+export const isMandatoryReaction = (card: Card, trigger: EffectTrigger): boolean => {
+    const mandatory = cardRegistry.getEffect(card.id)?.mandatoryReactions;
+    return mandatory === true || !!mandatory && mandatory.includes(trigger);
+};
 export const matchesCardGroup = (card: Card, group: string): boolean => card.name.toLowerCase().includes(group.toLowerCase());
 export const canTargetWithEffect = (card: Card): boolean => !card.effectTargetBlockedThisTurn;
 export const canSetPawn = (card: Card): boolean => !isToken(card);

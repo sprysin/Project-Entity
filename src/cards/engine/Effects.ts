@@ -313,6 +313,32 @@ export const Effect = {
         const zone = sourceZone(state, context);
         if (!zone || zone.position === Position.HIDDEN) return { halt: true };
     },
+    /** Summon one Pawn per requirement, choosing all placements before moving cards. */
+    SpecialSummonDeckCards: (filters: readonly CardFilter[]): EffectStep => (state, context) => {
+        const player = state.players[context.playerIndex];
+        const cards: Card[] = [];
+        for (const filter of filters) {
+            const card = player.deck.find(card => card.type === CardType.PAWN && !isReservePawn(card)
+                && filter(card) && !cards.includes(card));
+            if (!card) return { halt: true };
+            cards.push(card);
+        }
+        if (!cards.length || player.pawnZones.filter(zone => !zone).length < cards.length) return { halt: true };
+        const placements = context.pawnPlacements ?? [];
+        for (let index = 0; index < cards.length; index++) {
+            const slots = player.pawnZones.flatMap((zone, slot) => !zone && !placements.slice(0, index).some(value => value.slot === slot) ? [slot] : []);
+            const placement = placements[index];
+            if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, slots, placementIndex: index } };
+            if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
+        }
+        cards.forEach((card, index) => {
+            const placement = placements[index];
+            player.deck.splice(player.deck.indexOf(card), 1);
+            player.pawnZones[placement.slot] = { card, position: placement.position, specialSummoned: true,
+                hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
+        });
+        shuffleDeck(player.deck);
+    },
     /** Select a Pawn from the Deck, choose an empty zone, then summon and shuffle. */
     SpecialSummonFromDeck: (filter: CardFilter, position?: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
