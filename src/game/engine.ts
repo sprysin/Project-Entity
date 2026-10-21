@@ -179,6 +179,7 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             });
             own.reserve = own.reserve.filter(value => value.instanceId !== card.instanceId);
             own.pawnZones[command.slot] = { card: { ...card }, position: command.position, specialSummoned: true,
+                summonOrigin: { type: 'merge', materialIds: [...ids] },
                 hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
             next.log = [`${own.name} Merge summons "${card.name}"; sends ${materials.map(value => `"${value.name}"`).join(' + ')} to the Discard as Merge cost.`, ...next.log].slice(0, 50);
             return destroyOrphanedAttachments(next);

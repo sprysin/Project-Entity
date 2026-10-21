@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { Attribute, GameState, PawnSubtype, Position } from '../../types';
+import { Attribute, GameState, Position } from '../../types';
 import { attributeColors } from '../cards/attributeColors';
 import { useManagedTimeout } from '../../hooks/useManagedTimeout';
 import { VASSAL_IMPACT_MS } from '../../hooks/useCardMotion';
@@ -12,7 +12,8 @@ export function detectSummonReverbs(previous: GameState, next: GameState): Summo
   const previousFieldIds = new Set(previous.players.flatMap(player => player.pawnZones.flatMap(zone => zone ? [zone.card.instanceId] : [])));
   return next.players.flatMap((player, playerIndex) => player.pawnZones.flatMap((zone, slot) => {
     if (!zone || zone.position === Position.HIDDEN || previousFieldIds.has(zone.card.instanceId)) return [];
-    const ritual = zone.card.pawnSubtype === PawnSubtype.VASSAL && previous.players.some(owner => owner.reserve.some(card => card.instanceId === zone.card.instanceId));
+    if (zone.summonOrigin?.type === 'merge') return [];
+    const ritual = zone.summonOrigin?.type === 'vassal';
     if (!ritual && zone.card.level < 8) return [];
     return [{ playerIndex, slot, color: attributeColors[zone.card.attribute ?? Attribute.NORMAL], instanceId: zone.card.instanceId, ritual }];
   }));

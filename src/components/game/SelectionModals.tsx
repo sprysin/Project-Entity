@@ -16,7 +16,7 @@ export const MergeMaterialSelectionModal: React.FC<{
     const sets = mergeMaterialSets(player, card);
     const choices = player.pawnZones.flatMap(zone => zone && zone.position !== Position.HIDDEN ? [zone.card] : []);
     const ids = selected.map(index => choices[index].instanceId);
-    return <CardSelectionModal title="Merge materials" prompt={`Send ${card.mergeMaterials?.map(name => `"${name}"`).join(' + ')} from your face-up Pawns to the Discard as Merge cost.`}
+    return <CardSelectionModal title="Merge materials" prompt={`Send ${card.mergeMaterials?.map(name => `"${name}"`).join(' + ')} from your face-up Pawns to the Discard.`}
         cards={choices} selectedIndex={null} selectedIndices={selected} requiredCount={card.mergeMaterials?.length}
         filter={card => ids.includes(card.instanceId) || sets.some(set => set.includes(card.instanceId) && ids.every(id => set.includes(id)))}
         confirmDisabled={!sets.some(set => set.length === ids.length && set.every(id => ids.includes(id)))}
@@ -40,8 +40,10 @@ export const LevelTributeSelectionModal: React.FC<{
         prompt={`Choose Pawns from your ${request.location ?? 'hand or field'} whose levels total exactly ${request.totalLevel}.`}
         cards={choices.map(entry => entry.card)} cardLabels={choices.map(entry => entry.location === 'hand' ? 'Hand' : 'Field')}
         selectedIndex={null} selectedIndices={selected} requiredCount={selected.length} confirmDisabled={!valid}
-        onSelect={index => { if (index !== null) setSelected(previous => previous.includes(index) ? previous.filter(value => value !== index)
-            : [...previous, index]); }}
+        onSelect={index => {
+            if (index !== null) setSelected(previous => previous.includes(index) ? previous.filter(value => value !== index)
+                : [...previous, index]);
+        }}
         onConfirmMulti={indices => onConfirm(indices.map(index => choices[index].card.instanceId))}
         emptyLabel="No eligible Pawns" confirmLabel="Confirm materials" searchLabel="Contract materials" />;
 };
@@ -147,9 +149,11 @@ export const CardSelectionModal: React.FC<CardSelectionModalProps> = ({
         abovePanel={abovePanel}
         peeking={peeking} setPeeking={setPeeking} actions={[
             ...(onCancel ? [{ label: 'Cancel', onClick: onCancel, variant: 'secondary' as const }] : []),
-            { label: confirmLabel, variant: 'primary', disabled: confirmDisabled, onClick: () => onConfirmMulti
-                ? selectedIndices && onConfirmMulti(selectedIndices)
-                : selectedIndex !== null && onConfirm?.(selectedIndex) },
+            {
+                label: confirmLabel, variant: 'primary', disabled: confirmDisabled, onClick: () => onConfirmMulti
+                    ? selectedIndices && onConfirmMulti(selectedIndices)
+                    : selectedIndex !== null && onConfirm?.(selectedIndex)
+            },
         ]}>
         {prompt && <div className="card-search__summary"><p>{prompt}</p></div>}
         <div className="card-search__grid">

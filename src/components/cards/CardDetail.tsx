@@ -186,7 +186,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                     </div>
                 ) : (
                     <div className="w-full text-left pl-1">
-                        <span className={`text-[9px] font-orbitron font-bold uppercase tracking-widest block ${card.type === CardType.ACTION ? 'text-green-400' : 'text-pink-400'}`}>
+                        <span className="card-type-label text-[9px] font-orbitron font-bold uppercase tracking-widest block">
                             [{cardTypeLabel(card)}]
                         </span>
                     </div>

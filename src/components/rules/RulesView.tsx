@@ -86,10 +86,10 @@ const topics: Topic[] = [
   {
     id: 'reserve', title: 'The Reserve', subtitle: 'An additional deck toolbox', icon: 'fa-layer-group', rules: [
       'Your Reserve is separate from your deck and holds up to 10 extra Pawns. A Reserve can hold either Vassal or Merge Pawns. When a card or effect is activated that requires a Pawn that originated from the Reserve is sent back to the hand or deck, its sent back to the Reserve instead.',
-      'Vassal Pawns are known for their red frame. To summon a Vassal from the Reserve, use a Contract Action or Contract Condition and follow its tribute and summon requirements.',
+      'Vassal Pawns are known for their rust-colored frame. To summon a Vassal from the Reserve, use a Contract Action or Contract Condition and follow its tribute and summon requirements.',
       'Contract Actions follow normal Action timing. Contract Conditions must be set first and can activate on a later turn, following normal Condition timing.',
       'A Contract summons its Vassal in face-up Attack or Defense Position. This counts as a Special Summon.',
-      'Merge Pawns have a blue frame. Their required materials are listed directly below the artwork.',
+      'Merge Pawns have a violet frame. Their required materials are listed directly below the artwork.',
       'During either Main Phase, Merge Summon by sending the listed face-up Pawns you control to the Discard Pile. This is a Merge cost, not a tribute or destruction.',
       'The Reserve glows yellow when a Merge Summon is available. Open it, choose Summon Pawn, select a Merge Pawn, then select its materials.',
       'Choose a Pawn zone and face-up Attack or Defense Position. You may use a zone freed by the materials. A Merge Summon counts as a Special Summon.'

@@ -256,6 +256,7 @@ export const Effect = {
         const placement = context.pawnPlacement!;
         player.reserve.splice(context.reserveIndex, 1);
         player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false,
+            ...(subtype === PawnSubtype.VASSAL ? { summonOrigin: { type: 'vassal' as const } } : {}),
             hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
     },
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */

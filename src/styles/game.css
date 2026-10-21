@@ -10,23 +10,35 @@ body {
 }
 
 .card-pawn {
-  border: 3px solid #d97706;
-  background: linear-gradient(145deg, #2a220a, #1a1505);
+  --card-color: #eebb4f;
 }
 
 .card-token {
-  border: 3px solid #9ca3af;
-  background: linear-gradient(145deg, #30343b, #191c22);
+  --card-color: #9ca3af;
 }
 
 .card-action {
-  border: 3px solid #059669;
-  background: linear-gradient(145deg, #0a2a1b, #051a10);
+  --card-color: #20965b;
 }
 
 .card-condition {
-  border: 3px solid #db2777;
-  background: linear-gradient(145deg, #2a0a1b, #1a0510);
+  --card-color: #d94571;
+}
+
+:is(.card-pawn, .card-token, .card-action, .card-condition, .card-vassal, .card-merge) {
+  --card-light: color-mix(in srgb, var(--card-color) 24%, #000);
+  --card-dark: color-mix(in srgb, var(--card-color) 12%, #000);
+  border: 3px solid var(--card-color);
+  background: linear-gradient(145deg, var(--card-light), var(--card-dark));
+}
+
+.card-token {
+  --card-light: #30343b;
+  --card-dark: #191c22;
+}
+
+.card-type-label {
+  color: color-mix(in srgb, var(--card-color) 60%, white);
 }
 
 .card-inner-border {
@@ -235,15 +247,15 @@ body {
 }
 
 .glow-gold {
-  box-shadow: 0 0 20px #fbbf2466, inset 0 0 10px #fbbf2433;
+  box-shadow: 0 0 20px #eebb4f66, inset 0 0 10px #eebb4f33;
 }
 
 .glow-green {
-  box-shadow: 0 0 20px #34d39966, inset 0 0 10px #34d39933;
+  box-shadow: 0 0 20px #20965b66, inset 0 0 10px #20965b33;
 }
 
 .glow-pink {
-  box-shadow: 0 0 20px #f472b666, inset 0 0 10px #f472b633;
+  box-shadow: 0 0 20px #d9457166, inset 0 0 10px #d9457133;
 }
 
 @keyframes glow-pulse-yellow {
@@ -1034,15 +1046,13 @@ body {
 }
 
 .card-vassal {
-  border: 3px solid #ef4444;
-  background: linear-gradient(145deg, #420e16, #21070c);
-  box-shadow: 0 0 15px #ef444466;
+  --card-color: #7c2204;
+  box-shadow: 0 0 15px #7c220466;
 }
 
 .card-merge {
-  border: 3px solid #3b82f6;
-  background: linear-gradient(145deg, #102c55, #07152b);
-  box-shadow: 0 0 15px #3b82f666;
+  --card-color: #7465ec;
+  box-shadow: 0 0 15px #7465ec66;
 }
 
 .card-materials {
@@ -1050,9 +1060,9 @@ body {
   z-index: 10;
   flex-shrink: 0;
   padding: 3px 4px;
-  border: 1px solid #93c5fd80;
-  background: #07152b;
-  color: #dbeafe;
+  border: 1px solid color-mix(in srgb, var(--card-color) 50%, white);
+  background: var(--card-dark);
+  color: color-mix(in srgb, var(--card-color) 20%, white);
   font-size: 8px;
   line-height: 1.25;
   text-align: center;

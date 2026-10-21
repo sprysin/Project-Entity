@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, RefObject } from 'react';
-import { Card, CardType, GameState, PawnSubtype, Position } from '../types';
+import { Card, CardType, GameState, Position } from '../types';
 import { playSound } from '../audio';
 import type { ShatterSource } from './useAnimations';
 import { isContract } from '../game/cardHelpers';
@@ -8,9 +8,11 @@ import { useManagedTimeout } from './useManagedTimeout';
 export const VASSAL_SUMMON_MS = 1200;
 export const VASSAL_IMPACT_MS = 840;
 export const CONTRACT_ACTIVATION_MS = 1000;
+export const MERGE_SUMMON_MS = 2600;
+export const MERGE_CONVERGENCE_MS = MERGE_SUMMON_MS * .8;
 
 type Location = { key: string; card: Card; hidden: boolean; rotation: number; rect?: DOMRect; shatter?: ShatterSource; attached?: boolean };
-export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean; deckFlipDelay?: number; ritual?: boolean };
+export type CardMotion = { id: string; card: Card; hidden: boolean; from: DOMRect; to: DOMRect; rotation: number; fromRotation: number; delay?: number; duration?: number; activation?: boolean; deckFlipDelay?: number; ritual?: boolean; mergeMaterial?: boolean };
 
 /** Observe committed zone changes only. Animation never delays or mutates game state. */
 export function useCardMotion(game: GameState | null, refs: RefObject<Map<string, HTMLElement>>, viewerIndex?: number, suppressedCardIds: string[] = [], onActionDestroyed?: (key: string, source: ShatterSource) => void) {
@@ -71,6 +73,24 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         game.landStack?.forEach(zone => add(zone.card, 'land'));
         const batch: CardMotion[] = [];
         const reducedMotion = typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const mergePawns = new Set<string>();
+        const mergeMaterials = new Set<string>();
+        if (previousGame.current && !reducedMotion) {
+            for (const player of game.players) for (const zone of player.pawnZones) {
+                if (zone?.summonOrigin?.type !== 'merge' || zone.position === Position.HIDDEN) continue;
+                const id = zone.card.instanceId, source = previous.current.get(id), destination = next.get(id);
+                if (!source || /^\d+-pawn-\d+$/.test(source.key) || !destination?.rect) continue;
+                const materials = zone.summonOrigin.materialIds.map(id => previous.current.get(id));
+                if (!materials.length || materials.some(source => !source?.rect || !/^\d+-pawn-\d+$/.test(source.key))) continue;
+                mergePawns.add(id);
+                materials.forEach(source => {
+                    mergeMaterials.add(source!.card.instanceId);
+                    batch.push({ id: `${source!.card.instanceId}-merge-${performance.now()}`, card: source!.card,
+                        hidden: false, from: source!.rect!, to: destination.rect!, fromRotation: source!.rotation,
+                        rotation: destination.rotation, duration: MERGE_SUMMON_MS, mergeMaterial: true });
+                });
+            }
+        }
         // AI activations enter the chain directly; human activations were presented before selection.
         for (const link of game.chain ?? []) {
             if (!isContract(link.context.card) || previousGame.current?.chain?.includes(link)) continue;
@@ -114,15 +134,19 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
         const destroyed = new Set((game.destroyedCardIds ?? []).slice(previousGame.current?.destroyedCardIds?.length ?? 0));
         next.forEach((dest, id) => {
             const src = previous.current.get(id);
-            const ritual = !dest.hidden && dest.card.pawnSubtype === PawnSubtype.VASSAL && !!src && /^reserve-\d+$/.test(src.key)
+            const placement = game.players.flatMap(player => player.pawnZones).find(zone => zone?.card.instanceId === id);
+            const ritual = !dest.hidden && placement?.summonOrigin?.type === 'vassal' && !!src && /^reserve-\d+$/.test(src.key)
                 && /^\d+-pawn-\d+$/.test(dest.key);
+            const merge = mergePawns.has(id);
             if (previousGame.current && dest.card.type === CardType.PAWN && !dest.hidden
                 && /^\d+-pawn-\d+$/.test(dest.key) && (!src || !/^\d+-pawn-\d+$/.test(src.key))) {
-                if (ritual && !reducedMotion) schedule(() => playSound('high-effect'), VASSAL_IMPACT_MS);
+                if (merge) schedule(() => playSound('high-effect'), MERGE_CONVERGENCE_MS);
+                else if (ritual && !reducedMotion) schedule(() => playSound('high-effect'), VASSAL_IMPACT_MS);
                 else playSound(ritual ? 'high-effect' : 'toggle');
             }
             if (src && !src.attached && dest.attached) playSound('attach');
             if (suppressedCardIds.includes(id)) return;
+            if (mergeMaterials.has(id)) return;
             // A hand index changing is reflow, not a zone transfer.
             if (!src || src.key === dest.key || src.key.replace(/-hand-\d+$/, '-hand') === dest.key.replace(/-hand-\d+$/, '-hand')) return;
             if (/^deck-\d+$/.test(src.key) && /^\d+-hand-\d+$/.test(dest.key)) playSound('draw-tick');
@@ -138,7 +162,8 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             const waypoint = recordedStop?.key !== dest.key ? recordedStop?.rect : undefined;
             const activation = activated.current.has(id) && !isContract(dest.card);
             const token = `${id}-${performance.now()}`;
-            if (waypoint) {
+            // Merge materials supply the travel; the arriving Pawn uses only its landing reveal.
+            if (waypoint && !merge) {
                 batch.push({
                     id: `${token}-field`, card: dest.card, hidden: false, from: src.rect, to: waypoint,
                     rotation: 0, fromRotation: src.rotation, duration: 650, activation
@@ -147,7 +172,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
                     id: token, card: dest.card, hidden: dest.hidden, from: waypoint, to: dest.rect,
                     rotation: dest.rotation, fromRotation: 0, delay: 650
                 });
-            } else {
+            } else if (!merge) {
                 batch.push({
                     id: token, card: dest.card, hidden: dest.hidden,
                     from: src.rect, to: dest.rect, rotation: dest.rotation, fromRotation: src.rotation, activation,
@@ -157,7 +182,12 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
             const el = refs.current.get(dest.key);
             if (el && /-(pawn|action)-/.test(dest.key) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 const face = el.querySelector<HTMLElement>('[data-card-face]');
-                const landing = face?.animate?.(ritual ? [
+                const landing = face?.animate?.(merge ? [
+                    { opacity: 0, transform: 'scale(.96)' },
+                    { opacity: 0, transform: 'scale(.96)', offset: .8 },
+                    { opacity: 1, transform: 'scale(1.03)', offset: .9 },
+                    { opacity: 1, transform: 'scale(1)' }
+                ] : ritual ? [
                     { opacity: 0, transform: 'translateY(0) scale(1)' },
                     { opacity: 0, transform: 'translateY(0) scale(1)', offset: .699 },
                     { opacity: 1, transform: 'scale(.97)', offset: .7 },
@@ -169,7 +199,7 @@ export function useCardMotion(game: GameState | null, refs: RefObject<Map<string
                     { opacity: 1, transform: 'translateY(-14px) scale(1.06)', offset: .72 },
                     { opacity: 1, transform: 'translateY(3px) scale(.98)', offset: .85 },
                     { opacity: 1, transform: 'translateY(0) scale(1)' }
-                ], { duration: ritual ? VASSAL_SUMMON_MS : waypoint ? 1350 : 700, easing: ritual ? 'linear' : 'ease-out' });
+                ], { duration: merge ? MERGE_SUMMON_MS : ritual ? VASSAL_SUMMON_MS : waypoint ? 1350 : 700, easing: merge || ritual ? 'linear' : 'ease-out' });
                 if (landing) {
                     setLandings(current => [...current, landing]);
                     const finish = () => setLandings(current => current.filter(animation => animation !== landing));

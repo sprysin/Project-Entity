@@ -2,8 +2,11 @@
 .shop-inspector:modal { display: flex; align-items: center; justify-content: center; }
 .shop-inspector::backdrop { background: #03060ba6; backdrop-filter: blur(5px); }
 .shop-inspector__layout { position: relative; width: min(1100px, 100%); height: min(680px, 100%); display: flex; align-items: center; justify-content: center; gap: 40px; }
-.shop-inspector__card { width: min(360px, 34%, calc((100vh - 120px) * 2 / 3)); aspect-ratio: 2 / 3; flex-shrink: 0; border: 2px solid var(--pack-color); box-shadow: 0 0 0 2px var(--pack-color), 0 0 28px 8px color-mix(in srgb, var(--pack-color) 55%, transparent); }
+.shop-inspector__card { width: min(360px, 34%, calc((100vh - 120px) * 2 / 3)); aspect-ratio: 2 / 3; flex-shrink: 0; }
 .shop-inspector__card > div { width: 100%; height: 100%; }
+.shop-inspector__card .card-scale-face { isolation: isolate; }
+.shop-inspector__card .card-scale-face::before { content: ''; position: absolute; inset: -2.5px; z-index: -1; border-radius: 6.5px; background: var(--pack-color); pointer-events: none; }
+.shop-inspector__card .card-scale-face > div { box-shadow: none; }
 .shop-inspector .pack-showcase__description { height: 100%; background: #080b12d9; }
 .shop-inspector__close { position: absolute; top: calc(100% + 16px); left: 50%; transform: translateX(-50%); padding: 14px 24px; white-space: nowrap; border: 1px solid var(--pack-color); border-radius: 0; background: color-mix(in srgb, var(--pack-color) 14%, #080b12); color: var(--pack-color); font: 700 14px Orbitron, sans-serif; transition: background .2s, color .2s; }
 .shop-inspector__close:hover { background: color-mix(in srgb, var(--pack-color) 30%, #080b12); color: #fff2d6; }

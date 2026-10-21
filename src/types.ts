@@ -103,6 +103,8 @@ export interface PlacedCard {
   pawnTypeOverride?: { value: PawnType; dueTurn?: number };
   destructionPreventionsUsed?: number;
   specialSummoned?: boolean;
+  /** The actual summon procedure, distinct from a generic Special Summon. */
+  summonOrigin?: { type: 'vassal' } | { type: 'merge'; materialIds: string[] };
   /** Final ATK override, evaluated after continuous modifiers until turn end. */
   attackOverride?: { value: number; turn: number };
   counters?: Record<string, number>;

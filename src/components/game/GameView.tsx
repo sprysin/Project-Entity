@@ -3,10 +3,11 @@ import { canTribute, canTributeForSummon, canTargetWithEffect } from '../../game
 import React from 'react';
 import { activationPopupModes } from '../../game/responseTiming';
 import { createPortal } from 'react-dom';
-import { CardType, Phase, Position, OpponentMode, PlaytestDebugSettings, GameState, CardTarget } from '../../types';
+import { Attribute, CardType, Phase, Position, OpponentMode, PlaytestDebugSettings, GameState, CardTarget } from '../../types';
 import { useGameLogic } from '../../hooks/useGameLogic';
 import { checkActivationConditions, hasOnActivateEffect } from '../../game/cardHelpers';
 import { CardDetail } from '../cards/CardDetail';
+import { attributeColors } from '../cards/attributeColors';
 import { LandCardIcon } from '../icons/LandCardIcon';
 import { Pile, DeckPile, PileCounter } from './Pile';
 import { Zone } from './Zone';
@@ -493,8 +494,8 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
 
           {/* Render Active Animations (Flying Cards, Vortices, Floating Texts, Shatters) */}
           {state.cardMotions.map(motion => (
-            <div key={motion.id} className={`card-travel ${motion.ritual ? 'card-travel--ritual' : ''} ${motion.deckFlipDelay !== undefined ? 'card-travel--deck-insertion' : ''} ${motion.activation ? 'card-travel-activation' : ''}`}
-              onAnimationEnd={event => { if (event.target === event.currentTarget && ['card-zone-travel', 'vassal-card-travel'].includes(event.animationName)) state.finishMotion(motion.id); }}
+            <div key={motion.id} className={`card-travel ${motion.mergeMaterial ? 'card-travel--merge-material' : ''} ${motion.ritual ? 'card-travel--ritual' : ''} ${motion.deckFlipDelay !== undefined ? 'card-travel--deck-insertion' : ''} ${motion.activation ? 'card-travel-activation' : ''}`}
+              onAnimationEnd={event => { if (event.target === event.currentTarget && ['card-zone-travel', 'vassal-card-travel', 'merge-material-travel'].includes(event.animationName)) state.finishMotion(motion.id); }}
               style={{
                 left: (motion.from.left - (arenaBounds?.left ?? 0)) / arenaScale,
                 top: (motion.from.top - (arenaBounds?.top ?? 0)) / arenaScale,
@@ -507,6 +508,8 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                 '--from-rotation': `${motion.fromRotation}deg`,
                 '--to-rotation': `${motion.rotation}deg`,
                 '--bomb-flip-delay': `${motion.deckFlipDelay ?? 0}ms`,
+                '--material-color': attributeColors[motion.card.attribute ?? Attribute.NORMAL],
+                '--merge-duration': `${motion.duration ?? 0}ms`,
               } as React.CSSProperties}>
               <div className="card-travel-face w-full h-full">
                 {motion.deckFlipDelay !== undefined ? <div className="bomb-deck-flip" onAnimationEnd={event => {
@@ -515,6 +518,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
                   <div className="bomb-deck-flip__front"><CardDetail card={motion.card} className="w-full h-full" /></div>
                   <div className="bomb-deck-flip__back card-back" />
                 </div> : motion.hidden ? <div className="card-back w-full h-full" /> : <CardDetail card={motion.card} className="w-full h-full" />}
+                {motion.mergeMaterial && <span className="merge-material-color" aria-hidden="true" />}
               </div>
             </div>
           ))}

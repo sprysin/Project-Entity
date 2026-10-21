@@ -1,6 +1,6 @@
 import type { CardRarity } from '../types';
 const RARITY_COLORS: Record<CardRarity, string> = {
-  Common: '#b8c3d4', Uncommon: '#88dca2', Rare: '#77bbff', Epic: '#c28bff',
-  Legendary: '#edc56f', Mythic: '#30F0DD', Relic: '#D35400',
+  Common: '#e4e2dc', Uncommon: '#32ff7e', Rare: '#29b6ff', Epic: '#c066ff',
+  Legendary: '#ffd02e', Mythic: '#30F0DD', Relic: '#ff791f',
 };
 export const rarityColor = (rarity: CardRarity) => RARITY_COLORS[rarity];

@@ -213,7 +213,48 @@
   69.9% { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)) scale(1); }
   70%, 100% { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)) scale(1); }
 }
+.card-travel.card-travel--merge-material {
+  animation-name: merge-material-travel;
+  animation-timing-function: ease-in-out;
+  transform-origin: center;
+  filter: none;
+}
+.card-travel--merge-material .card-travel-face {
+  position: relative;
+  animation: merge-material-turn var(--merge-duration) ease-in-out both;
+  transform-origin: center;
+}
+.merge-material-color {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  animation: merge-material-color var(--merge-duration) linear both;
+}
+@keyframes merge-material-travel {
+  0%, 18% {
+    opacity: 1;
+    transform: translate(0, 0) scale(var(--travel-scale-x), var(--travel-scale-y));
+  }
+  74%, 80% {
+    opacity: 1;
+    transform: translate(var(--travel-x), var(--travel-y)) scale(1);
+  }
+  88%, 100% {
+    opacity: 0;
+    transform: translate(var(--travel-x), var(--travel-y)) scale(1);
+  }
+}
+@keyframes merge-material-turn {
+  0% { transform: rotate(var(--from-rotation)); }
+  18%, 100% { transform: rotate(var(--to-rotation)); }
+}
+@keyframes merge-material-color {
+  0%, 18% { opacity: 0; background: var(--material-color); box-shadow: 0 0 0 transparent; }
+  52% { opacity: 1; background: var(--material-color); box-shadow: 0 0 18px var(--material-color); }
+  74%, 100% { opacity: 1; background: #fff; box-shadow: 0 0 28px #fff; }
+}
 @media (prefers-reduced-motion: reduce) {
+  .card-travel.card-travel--merge-material { display: none; }
   .vassal-ritual__shockwave { display: none; }
   .level-diamonds > span::after { transition: none; }
   .vassal-ritual__circle { animation: ritual-fade 1500ms ease-out both; }

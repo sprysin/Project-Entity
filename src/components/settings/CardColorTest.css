@@ -1,0 +1,98 @@
+.settings-color-test-link {
+  margin-top: 32px;
+}
+
+.settings-color-test-link h2 {
+  font: 700 .9rem Orbitron, sans-serif;
+  text-transform: uppercase;
+}
+
+.card-color-test {
+  background: #080b10;
+}
+
+.card-color-test__body {
+  padding: 40px 48px 64px;
+}
+
+.card-color-test .settings-heading h1 {
+  font-size: 48px;
+  letter-spacing: -.03em;
+}
+
+.card-color-test__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.card-color-test__sample {
+  min-width: 0;
+}
+
+.card-color-test__sample-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.card-color-test__sample-heading h2 {
+  font: 700 16px Orbitron, sans-serif;
+}
+
+.card-color-test__sample-heading .page-back-button {
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.card-color-test__inputs {
+  display: flex;
+  gap: 8px;
+}
+
+.card-color-test__inputs input[type="color"] {
+  width: 48px;
+  height: 44px;
+  flex: none;
+  padding: 3px;
+  border: 1px solid #67809a;
+  background: #080f18;
+  cursor: pointer;
+}
+
+.card-color-test__inputs .settings-text-input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+}
+
+.card-color-test__inputs input:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 3px;
+}
+
+.card-color-test__inputs input[aria-invalid="true"] {
+  border-color: #fca5a5;
+}
+
+.card-color-test__help {
+  margin: 8px 0 16px;
+  color: #b2b9c4;
+  font-size: 12px;
+}
+
+.card-color-test__card {
+  margin-top: 16px;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+}
+
+.card-color-test__sample .card-scale-face > div {
+  --card-color: var(--test-color);
+  --card-light: var(--test-light);
+  --card-dark: var(--test-dark);
+  box-shadow: none;
+}

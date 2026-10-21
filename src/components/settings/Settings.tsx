@@ -3,6 +3,7 @@ import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
 import { getSettings, saveSettings } from '../../desktop/storage';
 import { playSound } from '../../audio';
+import CardColorTest from './CardColorTest';
 import './Settings.css';
 
 const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -10,6 +11,7 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [colorTestOpen, setColorTestOpen] = useState(false);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -26,6 +28,8 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setSaving(false);
     }
   };
+
+  if (colorTestOpen) return <CardColorTest onBack={() => setColorTestOpen(false)} />;
 
   return <main className="settings-page entity-page flex-1 overflow-y-auto font-mono">
     <div className="entity-topbar settings-topbar"><PageBrand section="SYSTEM / PREFERENCES" /><BackToHubButton onClick={onBack} disabled={saving} /></div>
@@ -85,6 +89,14 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <input id="fanned-out-piles" data-sound="toggle" type="checkbox" aria-describedby="fanned-out-piles-help" checked={preferences.fannedOutPiles} onChange={event => setPreferences({ ...preferences, fannedOutPiles: event.target.checked })} className="settings-toggle" />
         </div>
       </fieldset>
+      <section className="settings-panel settings-color-test-link">
+        <div className="settings-row">
+          <div className="settings-copy">
+            <h2>Card color test</h2>
+          </div>
+          <BackToHubButton label="Open card color test" onClick={() => setColorTestOpen(true)} disabled={saving} />
+        </div>
+      </section>
     </form>
   </main>;
 };
