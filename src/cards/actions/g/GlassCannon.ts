@@ -25,7 +25,7 @@ export default [{
         canActivate: (state, context) => !sourceZone(state, context) || [Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase)
             && Condition.OnceWhileOnField()(state, context) && state.players[context.playerIndex].pawnZones.includes(null)
             && state.players[context.playerIndex].hand.some(glass),
-        onFieldActivate: buildEffect([Effect.RequireFaceUpSource(), Effect.SetOnceWhileOnField(), Effect.SpecialSummonHandCards(glass, 3)]),
+        onFieldActivate: buildEffect([Effect.RequireFaceUpSource(), Effect.SetOnceWhileOnField(), Effect.SpecialSummonCards('hand', glass, 3)]),
         onPhaseChange: buildEffect([
             (state, context) => { if (state.currentPhase !== Phase.END || !sourceZone(state, context)?.hasUsedWhileOnField) return { halt: true }; },
             Effect.DestroySelf()

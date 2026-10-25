@@ -1,5 +1,6 @@
 import { fieldEntries, removeFieldIdentity } from './field';
-import { Card, GameState, Position } from '../types';
+import { Card, CardType, GameState, Position } from '../types';
+import { recordDuelAction } from './duelReport';
 import { cardRegistry } from '../cards/CardRegistry';
 import { sendToOwnerPile } from './cardOwnership';
 import { notifyFieldEvent } from './fieldEvents';
@@ -16,6 +17,12 @@ export function destroyFieldCard(state: GameState, instanceId: string, cause: 'b
             return false;
         }
         const card = zone.card;
+        const controllerIndex = target.type === 'land'
+            ? state.players.findIndex(player => player.id === card.ownerId) : target.playerIndex;
+        if ((cause === 'battle' || cause === 'effect') && controllerIndex >= 0 && controllerIndex !== destroyingPlayerIndex) {
+            recordDuelAction(state, destroyingPlayerIndex, card.type !== CardType.PAWN
+                ? 'actionDestructions' : cause === 'battle' ? 'battleDestructions' : 'effectDestructions');
+        }
         state.destroyedCardIds = [...(state.destroyedCardIds ?? []), instanceId];
         sendToOwnerPile(state, card, 'discard');
         removeFieldIdentity(state, instanceId);

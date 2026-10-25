@@ -368,7 +368,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
     useEffect(() => {
         if (!gameState?.response || gameState.response.ready || responseOptions.length === 0) setResponseFieldMode(null);
     }, [gameState?.response, responseOptions.length]);
-    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', busy: !!pendingEffectCard || !!triggeredEffect || !!gameState?.pendingHandSummons?.length || !!gameState?.peekEvents?.some(event => event.viewerPlayerIndex === 0),
+    useOpponentAI({ gameState, setGameState, enabled: opponentMode === 'ai', responsesOnly: !!debugSettings.aiResponsesOnly, busy: !!pendingEffectCard || !!triggeredEffect || !!gameState?.pendingHandSummons?.length || !!gameState?.peekEvents?.some(event => event.viewerPlayerIndex === 0),
         nextPhase, skipToEndPhase, requestAttack, resolveEffect });
 
     useEffect(() => {

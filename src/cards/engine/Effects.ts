@@ -12,6 +12,7 @@ import { notifyFieldEvent } from '../../game/fieldEvents';
 import { randomSelection, selectFieldCards, takeSelectedCard } from './Selections';
 import { handSummonCandidates } from '../../game/summonReactions';
 import { canPayLevelTribute, LevelTributeOptions } from '../../game/levelTributes';
+import { recordDuelAction } from '../../game/duelReport';
 
 export const Effect = {
     /** Temporary type overrides and continuous type changes share the same refresh path. */
@@ -42,16 +43,17 @@ export const Effect = {
             if (source && context.card.isAttached) source.attachedToInstanceIds = [card.instanceId];
         }
     },
-    /** Select several hand identities, then choose each Pawn's position and zone. */
-    SpecialSummonHandCards: (filter: CardFilter, maximum: number): EffectStep => (state, context) => {
+    /** Select several identities, then choose each Pawn's position and zone. */
+    SpecialSummonCards: (location: 'hand' | 'discard', filter: CardFilter, maximum: number): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
-        const eligible = (card: Card) => card.type === CardType.PAWN && !isReservePawn(card) && filter(card);
+        const pile = player[location];
+        const eligible = (card: Card) => card.type === CardType.PAWN && (location === 'discard' || !isReservePawn(card)) && filter(card);
         const ids = context.shuffleCardIds;
-        if (!ids) return { requireShuffleSelection: { playerIndex: context.playerIndex, location: 'hand', count: Math.min(maximum, player.pawnZones.filter(zone => !zone).length), upTo: true, filter: eligible } };
+        if (!ids) return { requireShuffleSelection: { playerIndex: context.playerIndex, location, count: Math.min(maximum, player.pawnZones.filter(zone => !zone).length), upTo: true, filter: eligible } };
         if (ids.length > maximum || new Set(ids).size !== ids.length) return { halt: true };
         const placements = context.pawnPlacements ?? [];
         for (let index = 0; index < ids.length; index++) {
-            const card = player.hand.find(card => card.instanceId === ids[index] && eligible(card));
+            const card = pile.find(card => card.instanceId === ids[index] && eligible(card));
             if (!card) { if (context.execution === 'resolve') continue; return { halt: true }; }
             const slots = player.pawnZones.flatMap((zone, slot) => !zone && !placements.slice(0, index).some(value => value?.slot === slot) ? [slot] : []);
             const placement = placements[index];
@@ -59,9 +61,9 @@ export const Effect = {
             if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
         }
         for (let index = 0; index < ids.length; index++) {
-            const slot = player.hand.findIndex(card => card.instanceId === ids[index]);
+            const slot = pile.findIndex(card => card.instanceId === ids[index] && eligible(card));
             if (slot < 0) continue;
-            const [card] = player.hand.splice(slot, 1), placement = placements[index];
+            const [card] = pile.splice(slot, 1), placement = placements[index];
             player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false, hasChangedPosition: false,
                 summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
         }
@@ -258,6 +260,7 @@ export const Effect = {
         player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false,
             ...(subtype === PawnSubtype.VASSAL ? { summonOrigin: { type: 'vassal' as const } } : {}),
             hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
+        if (subtype === PawnSubtype.VASSAL) recordDuelAction(state, context.playerIndex, 'vassalSummons');
     },
     /** Shuffle selected cards from hand, field, or discard into their owners' decks. */
     ShuffleFrom: (location: ShuffleLocation, count: number, filter: CardFilter = () => true, upTo = false): EffectStep => (state, context) => {

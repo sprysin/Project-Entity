@@ -1,5 +1,6 @@
 import React from 'react';
-import { getSettings } from '../../desktop/storage';
+import { getAccount, getSettings } from '../../desktop/storage';
+import { accountProgress } from '../../game/duelReport';
 import ProfileAvatar from '../common/ProfileAvatar';
 import './Home.css';
 
@@ -28,6 +29,7 @@ const navigation = [
 ] as const;
 
 export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules, onSettings, onAccount, onShop, onPreview }: HomeProps) {
+  const progress = accountProgress(getAccount().totalXp);
   const actions = {
     multiplayer: () => onPreview('multiplayer'),
     training: onTraining,
@@ -57,10 +59,10 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
     <header className="home-topbar">
       <div className="home-mark"><span className="home-mark__symbol" aria-hidden="true"><span /></span><span>PROJECT ENTITY <small>SIMULATION CARD GAME</small></span></div>
       <div className="home-topbar__right">
-        <span className="home-build">ALPHA / 1.5.0</span>
+        <span className="home-build">Alpha 3.2.0</span>
         <button type="button" data-sound="select" className="home-account" onClick={onAccount}>
           <span className="home-account__avatar"><ProfileAvatar image={getSettings().profileImage} /></span>
-          <span><small>ACCOUNT</small><strong>{getSettings().username}</strong></span>
+          <span><small>LEVEL {progress.level.toLocaleString()}</small><strong>{getSettings().username}</strong></span>
           <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         </button>
       </div>

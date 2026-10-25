@@ -2409,13 +2409,59 @@ body {
   z-index: 200;
   overflow-y: auto;
   color: #fff;
-  background: radial-gradient(ellipse at 50% 45%, #302713e8, #05070bf7 70%);
+  background: radial-gradient(ellipse at 50% 45%, #302713d9, #05070bd9 70%);
   animation: result-arrive .65s ease-out both;
 }
 
 .duel-result--defeat {
   --result-accent: #d87979;
-  background: radial-gradient(ellipse at 50% 45%, #341b22ed, #05070bf7 70%);
+  background: radial-gradient(ellipse at 50% 45%, #341b22d9, #05070bd9 70%);
+}
+
+.duel-result--draw {
+  --result-accent: #b7c9d9;
+  background: radial-gradient(ellipse at 50% 45%, #202c38d9, #05070bd9 70%);
+}
+
+.duel-result-layout {
+  position: relative;
+  width: min(1120px, calc(100% - 96px));
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 44px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+}
+.duel-result-heading { width: 100%; text-align: center; }
+.duel-result-heading .duel-result-winner { margin: 12px auto 0; }
+.duel-result-heading .duel-result-reason { margin: 16px auto 0; }
+.duel-result-heading .duel-result-empty { padding: 16px 0 0; font-size: 14px; }
+.duel-result-body {
+  width: 100%;
+  min-height: 600px;
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 620px);
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+}
+.duel-result-body--single { grid-template-columns: minmax(0, 620px); }
+.duel-result-layout .duel-result-content { min-height: 0; padding: 0; }
+.duel-result-layout .duel-mvp-stage { width: 256px; }
+.duel-result-report { min-width: 0; }
+.duel-result-footer { width: 100%; visibility: hidden; text-align: center; }
+.duel-result-footer.is-visible { visibility: visible; }
+.duel-result-footer > p { min-height: 22px; margin: 0 0 12px; color: #e0d3b4; font: 14px/1.6 var(--font-card-text); }
+.duel-result-footer > div { display: flex; justify-content: center; align-items: center; gap: 16px; }
+.duel-result-footer .duel-result-button { display: flex; align-items: center; gap: 20px; margin: 0; }
+.duel-result button:disabled { opacity: .45; cursor: default; }
+.duel-result:focus { outline: none; }
+@media (max-width: 760px) {
+  .duel-result-layout { width: calc(100% - 48px); padding: 40px 0; }
+  .duel-result-body { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .duel-result-report { min-height: 560px; }
 }
 
 .duel-result-content {
@@ -2446,10 +2492,10 @@ body {
   color: var(--result-accent);
 }
 
-.duel-result-content h2 {
+.duel-result-heading h2 {
   margin: 0;
   font-family: Orbitron, sans-serif;
-  font-size: clamp(48px, 12vw, 84px);
+  font-size: clamp(48px, 10vw, 96px);
   font-weight: 900;
   line-height: 1.15;
   text-transform: uppercase;
@@ -2713,7 +2759,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
 
   .duel-result,
-  .duel-result-content h2 {
+  .duel-result-heading h2 {
     animation: none;
   }
 

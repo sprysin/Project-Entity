@@ -38,7 +38,7 @@ export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => v
             <section className="quit-duel-dialog__panel" onClick={event => event.stopPropagation()}>
                 <div className="quit-duel-dialog__icon" aria-hidden="true"><i className="fa-solid fa-power-off" /></div>
                 <h2 id="quit-duel-title">Quit this duel?</h2>
-                <p id="quit-duel-description">Your current duel progress will be lost.</p>
+                <p id="quit-duel-description">Your current duel progress will be lost. Neither player earns account XP from an unfinished duel.</p>
                 <div className="quit-duel-dialog__actions">
                     <button data-sound="cancellation" ref={cancelButton} type="button" onClick={onCancel}>Keep Playing</button>
                     <button data-sound="select-small" ref={confirmButton} type="button" className="quit-duel-dialog__confirm" onClick={onConfirm}>Quit Duel</button>
@@ -48,11 +48,17 @@ export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => v
     );
 };
 
-export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; onQuit: () => void }> = ({ gameState, isDefeat, onQuit }) => {
+export const WinnerModal: React.FC<{
+    gameState: GameState; isDefeat?: boolean; onQuit: () => void; children?: React.ReactNode;
+    saving?: boolean; error?: string; onRetry?: () => void;
+}> = ({ gameState, isDefeat, onQuit, children, saving = false, error = '', onRetry }) => {
     const mvp = gameState.isDraw ? null : getDuelMvp(gameState);
     isDefeat = !gameState.isDraw && isDefeat;
-    const button = React.useRef<HTMLButtonElement>(null);
-    const [revealed, setRevealed] = React.useState(false);
+    const dialog = React.useRef<HTMLDivElement>(null);
+    const continueButton = React.useRef<HTMLButtonElement>(null);
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const [revealed, setRevealed] = React.useState(reducedMotion);
+    const [reportVisible, setReportVisible] = React.useState(reducedMotion);
     const defeatSoundPlayed = React.useRef(false);
     React.useEffect(() => {
         if (isDefeat && !defeatSoundPlayed.current) {
@@ -60,23 +66,39 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
             playSound('defeat');
         }
         const previous = document.activeElement as HTMLElement | null;
-        button.current?.focus();
-        const timer = setTimeout(() => setRevealed(true), 1000);
-        return () => { clearTimeout(timer); previous?.focus(); };
-    }, [isDefeat]);
+        dialog.current?.focus();
+        const timer = setTimeout(() => setRevealed(true), reducedMotion ? 0 : 1000);
+        // Let the flip (850ms) and damage reveal settle before introducing the report.
+        const reportTimer = setTimeout(() => setReportVisible(true), reducedMotion ? 0 : mvp ? 2700 : 1200);
+        return () => { clearTimeout(timer); clearTimeout(reportTimer); previous?.focus(); };
+    }, [isDefeat, reducedMotion, !!mvp]);
+    React.useEffect(() => {
+        if ((!children || reportVisible) && !saving && !error) continueButton.current?.focus({ preventScroll: true });
+    }, [reportVisible, saving, error, !!children]);
     return (
-        <div className={`duel-result ${isDefeat ? 'duel-result--defeat' : ''}`} role="dialog" aria-modal="true" aria-labelledby="duel-result-title" onKeyDown={event => { if (event.key === 'Tab') { event.preventDefault(); button.current?.focus(); } }}>
+        <div ref={dialog} tabIndex={-1} className={`duel-result ${isDefeat ? 'duel-result--defeat' : ''} ${gameState.isDraw ? 'duel-result--draw' : ''}`} role="dialog" aria-modal="true" aria-labelledby="duel-result-title" onKeyDown={event => {
+            if (event.key !== 'Tab') return;
+            const buttons = [...(event.currentTarget as HTMLDivElement).querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+            const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+            event.preventDefault();
+            if (!buttons.length) dialog.current?.focus();
+            else buttons[(index + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length]?.focus();
+        }}>
             <div className="duel-result-vfx" aria-hidden="true">
                 <div className="duel-result-ring" /><div className="duel-result-sweep" />
                 {Array.from({ length: 18 }, (_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}
             </div>
-            <section className="duel-result-content">
+            <div className="duel-result-layout">
+            <header className="duel-result-heading">
                 <p className="duel-result-eyebrow">Duel complete · Turn {gameState.turnNumber}</p>
                 <h2 id="duel-result-title">{gameState.isDraw ? 'Draw' : isDefeat ? 'Defeat' : 'Victory'}</h2>
                 <p className="duel-result-winner">{gameState.isDraw ? 'Both players reached 0 LP at the same time.' : `${gameState.winner} is victorious`}</p>
                 {gameState.resultReason === 'empty_deck' && <p className="duel-result-reason">A required draw could not be completed: the deck was empty.</p>}
-                {mvp ? <>
-                    <p className="duel-result-label">MVP</p>
+                {!mvp && !gameState.isDraw && <p className="duel-result-empty">No damage-dealing MVP this duel.</p>}
+            </header>
+            <div className={`duel-result-body ${!mvp || !children ? 'duel-result-body--single' : ''}`}>
+            {mvp && <section className="duel-result-content" aria-label={isDefeat ? 'Opponent’s MVP' : 'Duel MVP'}>
+                    <p className="duel-result-label">{isDefeat ? 'Opponent’s MVP' : 'MVP'}</p>
                     <div className="duel-mvp-stage">
                         <div className={`duel-mvp-card ${revealed ? 'is-revealed' : ''}`}>
                             <div className="duel-mvp-face duel-mvp-back card-back" aria-hidden="true" />
@@ -86,9 +108,16 @@ export const WinnerModal: React.FC<{ gameState: GameState; isDefeat?: boolean; o
                     <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
                         {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
                     </div>
-                </> : !gameState.isDraw && <p className="duel-result-empty">A victory beyond damage.<br /><span>No damage-dealing MVP this duel.</span></p>}
-                <button data-sound="select" ref={button} onClick={onQuit} className="duel-result-button">Continue</button>
-            </section>
+            </section>}
+            {children && <div className="duel-result-report">{reportVisible && children}</div>}
+            </div>
+            <footer className={`duel-result-footer ${!children || reportVisible ? 'is-visible' : ''}`}>
+                <p role="status">{error || (saving ? 'Saving account XP…' : '')}</p>
+                <div>{error && onRetry && <button className="deck-secondary" data-sound="select-small" onClick={onRetry}>Retry save</button>}
+                    <button ref={continueButton} data-sound="select" disabled={saving || !!error} onClick={onQuit} className="duel-result-button">Continue <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+                </div>
+            </footer>
+            </div>
         </div>
     );
 };

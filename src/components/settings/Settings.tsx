@@ -4,6 +4,7 @@ import PageBrand from '../common/PageBrand';
 import { getSettings, saveSettings } from '../../desktop/storage';
 import { playSound } from '../../audio';
 import CardColorTest from './CardColorTest';
+import StyleGuide from './StyleGuide';
 import './Settings.css';
 
 const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -12,6 +13,7 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [colorTestOpen, setColorTestOpen] = useState(false);
+  const [styleGuideOpen, setStyleGuideOpen] = useState(false);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -30,6 +32,7 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   if (colorTestOpen) return <CardColorTest onBack={() => setColorTestOpen(false)} />;
+  if (styleGuideOpen) return <StyleGuide onBack={() => setStyleGuideOpen(false)} />;
 
   return <main className="settings-page entity-page flex-1 overflow-y-auto font-mono">
     <div className="entity-topbar settings-topbar"><PageBrand section="SYSTEM / PREFERENCES" /><BackToHubButton onClick={onBack} disabled={saving} /></div>
@@ -95,6 +98,15 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <h2>Card color test</h2>
           </div>
           <BackToHubButton label="Open card color test" onClick={() => setColorTestOpen(true)} disabled={saving} />
+        </div>
+      </section>
+      <section className="settings-panel settings-color-test-link">
+        <div className="settings-row">
+          <div className="settings-copy">
+            <h2>UI style guide</h2>
+            <p>Browse the interface library: modals, buttons, typography, colors, and more.</p>
+          </div>
+          <BackToHubButton label="Open style guide" onClick={() => setStyleGuideOpen(true)} disabled={saving} />
         </div>
       </section>
     </form>

@@ -16,16 +16,18 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'P_Void_Caster',
-    name: 'Void Caster',
-    type: CardType.PAWN,
-    rarity: 'Uncommon',
-    level: 3,
-    attribute: Attribute.DARK,
-    pawnType: PawnType.MECHANICAL,
-    atk: 100,
-    def: 80,
-    effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',
-}, effect }
+    {
+        cardData: {
+            id: 'P_Void_Caster',
+            name: 'Void Caster',
+            type: CardType.PAWN,
+            rarity: 'Uncommon',
+            level: 3,
+            attribute: Attribute.DARK,
+            pawnType: PawnType.ARCANE,
+            atk: 100,
+            def: 80,
+            effectText: 'ON SUMMON: Add "Void Blast" from your Discard to your hand.',
+        }, effect
+    }
 ] satisfies CardModule;

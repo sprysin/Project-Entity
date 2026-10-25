@@ -6,7 +6,8 @@ import { matchesCardCatalog, cardSubtype } from '../../cards/CardRegistry';
 import { sortedCards } from '../../decks';
 import { CardDetail } from '../cards/CardDetail';
 import { CardPreview } from '../cards/CardPreview';
-import { CardType, Card } from '../../types';
+import { CardType, Card, PawnSubtype } from '../../types';
+import { isReservePawn } from '../../game/cardHelpers';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import './CardDatabase.css';
 
@@ -33,7 +34,9 @@ const CardDatabase: React.FC<CardDatabaseProps> = ({ onBack }) => {
     const filteredCards = sortedCards().filter(card => matchesCardCatalog(card, searchQuery) && filters.matches(card));
     const sections = searchQuery.trim()
         ? [{ type: 'search', label: 'Search results', icon: <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />, tone: 'pawn', entries: [...filteredCards].sort((a, b) => a.name.localeCompare(b.name)) }]
-        : catalogTypes.map(section => ({ ...section, entries: filteredCards.filter(card => card.type === section.type) }));
+        : catalogTypes.map(section => ({ ...section, entries: filteredCards.filter(card => card.type === section.type)
+            .sort((a, b) => Number(isReservePawn(a)) - Number(isReservePawn(b))
+                || Number(a.pawnSubtype === PawnSubtype.VASSAL) - Number(b.pawnSubtype === PawnSubtype.VASSAL)) }));
 
     return <div className="card-database entity-page">
         <header className="entity-topbar database-topbar">

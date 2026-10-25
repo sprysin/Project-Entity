@@ -21,7 +21,7 @@ export default [
             rarity: 'Uncommon',
             level: 5,
             attribute: Attribute.NORMAL,
-            pawnType: PawnType.WARRIOR,
+            pawnType: PawnType.ARCANE,
             atk: 170,
             def: 50,
             effectText: 'TRIBUTE SUMMON: Target 1 face-up Pawn on the field; it loses 20 ATK.',

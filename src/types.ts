@@ -165,6 +165,9 @@ export interface ResponseWindow {
 }
 
 export interface GameState {
+  /** Stable identity and committed scoring counters for this duel. */
+  duelId?: string;
+  duelStats?: [import('./game/duelReport').DuelStats, import('./game/duelReport').DuelStats];
   /** A resolved effect rewards a specific battle victory until turn end. */
   battleRewards?: { card: Card; playerIndex: number; pawnId: string; targetId: string; turn: number }[];
   /** Committed Bomb creation, retained so presentation can animate its source and deck. */
@@ -445,4 +448,5 @@ export interface PlaytestDebugSettings {
   alwaysGoFirst?: boolean;
   chooseStartingHand?: boolean;
   xray?: boolean;
+  aiResponsesOnly?: boolean;
 }

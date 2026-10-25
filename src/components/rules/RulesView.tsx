@@ -90,7 +90,7 @@ const topics: Topic[] = [
       'Contract Actions follow normal Action timing. Contract Conditions must be set first and can activate on a later turn, following normal Condition timing.',
       'A Contract summons its Vassal in face-up Attack or Defense Position. This counts as a Special Summon.',
       'Merge Pawns have a violet frame. Their required materials are listed directly below the artwork.',
-      'During either Main Phase, Merge Summon by sending the listed face-up Pawns you control to the Discard Pile. This is a Merge cost, not a tribute or destruction.',
+      'During either Main Phase, Merge Summon by sending the listed face-up Pawns you control to the Discard Pile.',
       'The Reserve glows yellow when a Merge Summon is available. Open it, choose Summon Pawn, select a Merge Pawn, then select its materials.',
       'Choose a Pawn zone and face-up Attack or Defense Position. You may use a zone freed by the materials. A Merge Summon counts as a Special Summon.'
     ]

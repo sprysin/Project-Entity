@@ -115,7 +115,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
     const damageEvents = amount > 0 ? [...(destructionState.damageEvents ?? []), {
         card: { ...damageSource }, playerIndex: damagePlayerIndex, amount, kind: 'battle' as const
     }] : destructionState.damageEvents;
-    let next: GameState = { ...gameState, destroyedCardIds: destructionState.destroyedCardIds, pendingEffects: destructionState.pendingEffects, pendingReactions: destructionState.pendingReactions, attacksThisTurn: [...(gameState.attacksThisTurn ?? []).filter(event => event.turn === gameState.turnNumber), { turn: gameState.turnNumber, card: { ...attackingPawn.card }, playerIndex: activeIndex }], damageEvents, players: players as [Player, Player], log: [...logs, ...destructionState.log].slice(0, 50) };
+    let next: GameState = { ...gameState, duelStats: destructionState.duelStats, destroyedCardIds: destructionState.destroyedCardIds, pendingEffects: destructionState.pendingEffects, pendingReactions: destructionState.pendingReactions, attacksThisTurn: [...(gameState.attacksThisTurn ?? []).filter(event => event.turn === gameState.turnNumber), { turn: gameState.turnNumber, card: { ...attackingPawn.card }, playerIndex: activeIndex }], damageEvents, players: players as [Player, Player], log: [...logs, ...destructionState.log].slice(0, 50) };
     for (const card of battleDestroyed) {
         const playerIndex = next.players.findIndex(player => player.discard.some(value => value.instanceId === card.instanceId));
         if (playerIndex >= 0 && cardRegistry.getEffect(card.id)?.onBattleDestroyed) {

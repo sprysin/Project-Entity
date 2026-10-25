@@ -16,7 +16,9 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn(), message: vi.fn() }));
 
-import { flushSaves, getActivationPopupMode, getSettings, saveProfile, saveSettings, getSavedDecks, hasCardPoolChanges, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
+import { awardDuelXp, getAccount, flushSaves, getSettings, saveProfile, saveSettings, getSavedDecks, hasCardPoolChanges, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
+import { createGame } from '../src/game/engine';
+import { accountProgress, damageScore, getDuelReport } from '../src/game/duelReport';
 import { newDeck } from '../src/decks';
 import { exportDeck, importDeck } from '../src/desktop/files';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -29,15 +31,26 @@ beforeEach(async () => {
   await initializeStorage();
 });
 
-it('persists decks and settings together across a restart, even with concurrent writes', async () => {
+it('awards completed duel XP once and persists progression with concurrent profile and deck writes', async () => {
+  const duel = createGame([{ id: 'p0', name: 'Player', deck: [] }, { id: 'p1', name: 'Opponent', deck: [] }]);
+  duel.duelStats![0] = { battleDestructions: 1, actionDestructions: 1, effectDestructions: 1, tributeSummons: 6, vassalSummons: 1, mergeSummons: 1 };
+  await awardDuelXp(duel);
+  expect([getDuelReport(duel, 0).xp, getDuelReport(duel, 1).xp, getAccount().totalXp]).toEqual([0, 0, 0]);
+  duel.winner = 'Player'; duel.resultReason = 'lp';
+  expect(getDuelReport(duel, 0)).toMatchObject({ total: 1375, xp: 137 });
+  expect(damageScore(810)).toBeGreaterThan(damageScore(800));
+  expect(Math.round(damageScore(1600))).toBe(1355);
+  expect(accountProgress(929)).toMatchObject({ level: 3, xp: 319, required: 320 });
+  expect(accountProgress(930)).toMatchObject({ level: 4, xp: 0, required: 330 });
   const deck = newDeck();
-  await Promise.all([saveDeckLibrary([deck]), saveActivationPopupMode('off'), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true })]);
+  await Promise.all([awardDuelXp(duel), awardDuelXp(duel), saveDeckLibrary([deck]), saveActivationPopupMode('off'), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true })]);
   const profileImage = 'data:image/webp;base64,UklGRg==';
   await saveProfile({ username: '  Drake  ', profileImage });
   await initializeStorage();
   expect(getSavedDecks()).toEqual([deck]);
-  expect(getActivationPopupMode()).toBe('off');
   expect(getSettings()).toEqual({ activationPopupMode: 'off', username: 'Drake', profileImage, volume: 35, fannedOutPiles: true });
+  await awardDuelXp(duel);
+  expect(getAccount()).toEqual({ totalXp: 137, lastDuelId: duel.duelId });
   expect(disk.files.has('save.json.tmp')).toBe(false);
 });
 
@@ -45,19 +58,22 @@ it('keeps the previous save and cached state when replacement fails, then suppor
   const deck = newDeck();
   await saveDeckLibrary([deck]);
   const original = disk.files.get('save.json');
+  const duel = { ...createGame([{ id: 'p0', name: 'Player', deck: [] }, { id: 'p1', name: 'Opponent', deck: [] }]), winner: 'Player', resultReason: 'lp' as const };
   disk.failRename = true;
-  await expect(saveDeckLibrary([])).rejects.toThrow('Disk unavailable');
+  await expect(awardDuelXp(duel)).rejects.toThrow('Disk unavailable');
   await expect(flushSaves()).rejects.toThrow('Disk unavailable');
   expect(disk.files.get('save.json')).toBe(original);
   expect(getSavedDecks()).toEqual([deck]);
+  expect(getAccount().totalXp).toBe(0);
   disk.failRename = false;
-  await saveDeckLibrary([]);
-  expect(getSavedDecks()).toEqual([]);
+  await awardDuelXp(duel);
+  expect(getAccount().totalXp).toBe(50);
 });
 
 it('migrates legacy arrays and rejects future versions and duplicate IDs', () => {
   const deck = newDeck();
-  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+  expect(migrateSave([deck])).toEqual({ version: 1, decks: [deck], account: { totalXp: 0, lastDuelId: null }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+  expect(() => migrateSave({ ...migrateSave([]), account: { totalXp: -1, lastDuelId: null } })).toThrow('Invalid account');
   expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false, profileIcon: 'star' } }).settings).toEqual({ activationPopupMode: 'off', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false });
   expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: true } }).settings.activationPopupMode).toBe('on');
   for (const activationPopupMode of ['always', true, null]) {

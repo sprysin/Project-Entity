@@ -6,7 +6,7 @@ import { isDrawingForTurn } from '../../game/phases';
 import { CardSelectionModal, MergeMaterialSelectionModal, DeckSelectionModal, DiscardSelectionModal, HandSelectionModal, PeekSelectionModal, LevelTributeSelectionModal, ReserveSelectionModal, ShuffleSelectionModal, VoidSelectionModal } from './SelectionModals';
 import { canMergeSummon } from '../../game/engine';
 import { checkActivationConditions } from '../../game/cardHelpers';
-import { EffectModal, WinnerModal } from './MatchModals';
+import { EffectModal } from './MatchModals';
 import { DuelPrompt } from './DuelPrompt';
 import { CardDetail } from '../cards/CardDetail';
 
@@ -86,8 +86,7 @@ export const GameOverlays: React.FC<{
     actions: GameLogic['actions'];
     actionsDisabled: boolean;
     viewerIndex: number;
-    onQuit: () => void;
-}> = ({ gameState, state, actions, actionsDisabled, viewerIndex, onQuit }) => {
+}> = ({ gameState, state, actions, actionsDisabled, viewerIndex }) => {
     const [responseSelection, setResponseSelection] = useState<{ request: GameState['response']; cardId: string } | null>(null);
     const [mergePawnIndex, setMergePawnIndex] = useState<number | null>(null);
     useEffect(() => setMergePawnIndex(null), [state.mergeSummon?.stage]);
@@ -167,7 +166,6 @@ export const GameOverlays: React.FC<{
             && !gameState.resolvingChain && (gameState.response || [Phase.MAIN1, Phase.MAIN2, Phase.BATTLE].includes(gameState.currentPhase))
             && (gameState.activePlayerIndex === 1 || gameState.response?.priority === 1) && !gameState.winner
             && <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 border border-yellow-600 bg-slate-950 px-4 py-2 text-sm text-yellow-400">{gameState.response?.priority === 0 ? 'Your response' : 'AI is thinking…'}</div>}
-        {gameState.winner && <WinnerModal gameState={gameState} isDefeat={state.opponentMode === 'ai' && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
         {!state.cardMovementPending && <>
         {state.mergeSummon?.stage === 'pawn' && <CardSelectionModal title="Special summon from Reserve"
             cards={gameState.players[gameState.activePlayerIndex].reserve} selectedIndex={mergePawnIndex} onSelect={setMergePawnIndex}

@@ -51,9 +51,9 @@ export const PACKS: readonly Pack[] = [
   },
   {
     id: 'fire', name: 'Flames of War', description: 'Burn through the opposition with an army to command.', icon: 'fa-fire', color: '#ff8652', rotationWeight: 3,
-    chaseCardIds: ['P_Gilded_Glass_Paladin', 'P_Force_Fire_Sparkling_Commander', 'P_Engine_Interloper'],
+    chaseCardIds: ['P_United_Army_Of_Soldiers', 'P_Force_Fire_Sparkling_Commander', 'P_Engine_Interloper'],
     cardIds: ['P_Infantry_Soldier', 'P_Soldier_Of_The_High_Ground', 'P_Force_Fire_Sparker', 'P_Force_Fire_Sparkling_Commander',
-      'P_Blazing_Pyrotechnic', 'P_Engine_Interloper', 'P_Gilded_Glass_Paladin', 'P_High_King',
+      'P_Blazing_Pyrotechnic', 'P_Engine_Interloper', 'P_United_Army_Of_Soldiers', 'P_High_King', 'P_Fledgling_Recruiter',
       'A_Call_To_Arms', 'A_Flaming_Phenix_Rebirth', 'A_Withering_Sword', 'C_Reinforcement', 'C_Orcustrated_Frontline_Unit', 'C_Last_Resort']
   },
   {

@@ -12,6 +12,7 @@ import { chooseAIAction, observeGame, updateKnownCards } from '../src/game/oppon
 import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { Require } from '../src/cards/engine/Requirements';
+import { getDuelReport } from '../src/game/duelReport';
 
 let serial = 0;
 const card = (id: string, pi = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `card-${serial++}`, ownerId: `player${pi + 1}` });
@@ -114,8 +115,8 @@ describe('response windows and chains', () => {
         expect(next.players[1].hand).toHaveLength(1);
         next = passAll(next);
         expect(next.players[1].lp).toBe(550);
-        expect(next.players[0].lp).toBe(800);
-        expect(next.players[1].hand).toHaveLength(1);
+        expect(getDuelReport(next, 0).rows.find(row => row.id === 'effectDamage')).toMatchObject({ count: 50, score: 60 });
+        expect(getDuelReport(next, 1).rows.find(row => row.id === 'effectDamage')).toMatchObject({ count: 0, score: 0 });
         expect(next.players[1].pawnZones[0]!.card.atk).toBe(120);
         const resolutionLogs = next.log.slice(0, 3);
         expect(resolutionLogs[0]).toContain('Void Blast');

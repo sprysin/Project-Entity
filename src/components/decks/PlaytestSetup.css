@@ -28,7 +28,7 @@
 .training-deck__list { display: grid; flex: 1; align-content: start; gap: 10px; min-height: 0; padding: 21px; overflow-y: auto; }
 .training-choice { display: flex; align-items: center; gap: 18px; min-height: 81px; padding: 10px 20px; border: 1px solid #78859270; clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px)); background: #1c2228; color: #e2e8f0; text-align: left; transition: background .2s, border-color .2s, transform .2s; }
 .training-choice:hover:not(:disabled) { transform: translateX(5px); border-color: #e1ad5c; background: #3a2d20; }
-.training-choice:disabled { cursor: not-allowed; background: #14191f; color: #98a2ae; border-color: #66717e40; }
+.training-choice:disabled { cursor: default; background: #14191f; color: #98a2ae; border-color: #66717e40; }
 .training-choice:disabled .training-choice__icon, .training-choice:disabled > i { color: #84909c; }
 .training-choice.is-selected { border-color: #facc15; background: linear-gradient(100deg, #3d350f, #171b1f); box-shadow: inset 4px 0 #facc15; }
 .training-choice__icon { display: grid; place-items: center; flex: none; width: 45px; height: 45px; border: 1px solid #9aa8b66b; color: #cbd5e1; font-size: 20px; }
@@ -45,12 +45,9 @@
 .training-debug__toggle > i:first-child { font-size: 22px; }
 .training-debug__toggle span { flex: 1; }
 .training-debug__toggle strong { display: block; font-size: 14px; letter-spacing: .1em; }
-.training-debug__toggle small { display: block; margin-top: 5px; color: #a4aaa9; font: 13px var(--font-card-text); }
-.training-debug__options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 24px 22px; }
-.training-debug__option { display: flex; align-items: start; gap: 11px; padding: 16px; border: 1px solid #78859270; cursor: pointer; }
-.training-debug__option input { margin-top: 3px; accent-color: #eab54f; }
+.training-debug__options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 24px 22px; }
+.training-debug__option { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid #78859270; cursor: pointer; }
 .training-debug__option strong { display: block; color: #eed09b; font-size: 11px; }
-.training-debug__option small { display: block; margin-top: 5px; color: #9fa7a6; font: 12px var(--font-card-text); }
 .training-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 29px; padding-top: 26px; border-top: 1px solid #cbd5e140; }
 .training-footer > span { color: #a99778; font-size: 11px; letter-spacing: .2em; }
 .training-footer button { padding: 21px 35px; clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px)); background: linear-gradient(100deg, #facc15, #eab308); color: #080b12; font: 900 16px Orbitron, sans-serif; letter-spacing: .08em; transition: filter .2s, transform .2s; }

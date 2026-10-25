@@ -59,5 +59,6 @@ it('destroys chained Attach cards when an attached target leaves the field', () 
     expect(revived.players[0].discard.map(c => c.instanceId)).toEqual([revival.source.instanceId, secondSource.instanceId]);
     expect(revived.players[0].pawnZones[1]?.card).toMatchObject({ instanceId: victim.instanceId, atk: victim.atk });
     expect(revived.players[1].discard).toEqual([]);
+    expect(revived.duelStats?.[0]).toMatchObject({ battleDestructions: 1, effectDestructions: 0, actionDestructions: 0 });
     expect(attachedVictim.players[0].actionZones[0]).not.toBeNull();
 });

@@ -39,7 +39,7 @@
 .shop-rotation-note { display: flex; gap: 14px; margin-top: 27px; color: #a4a7ad; font-size: 14px; }
 .shop-rotation-note i { color: #edc56f; }
 .shop-button { padding: 19px 28px; border: 1px solid #e3bd69; background: linear-gradient(110deg, #4b3c1e, #211e18); color: #ffe3a0; font: 12px Orbitron, sans-serif; letter-spacing: .08em; }
-.shop-button i { margin-left: 20px; }.shop-button:hover:not(:disabled) { filter: brightness(1.3); }.shop-button:disabled { opacity: .4; cursor: not-allowed; }
+.shop-button i { margin-left: 20px; }.shop-button:hover:not(:disabled) { filter: brightness(1.3); }.shop-button:disabled { opacity: .4; cursor: default; }
 .shop-body--opening { display: flex; flex-direction: column; overflow: hidden; padding: clamp(12px, 3vh, 42px) clamp(16px, 4vw, 80px) 24px; }
 .shop-body--opening .shop-heading { flex-shrink: 0; }
 .shop-body--opening .shop-notice:empty { display: none; }

@@ -292,7 +292,7 @@
   border-color: #d6b367 !important;
   background: var(--choice-rest);
   color: var(--choice-text);
-  cursor: wait;
+  cursor: default;
   animation: opening-ai-choice 2.8s ease-in-out both;
 }
 .duel-screen .opening-coin--ai-choosing .duel-prompt__actions .duel-prompt__secondary:disabled {

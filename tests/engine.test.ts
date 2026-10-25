@@ -5,6 +5,7 @@ import { applyCommand, applySystemCommand, createGame, GameCommand } from '../sr
 import { Card, GameState, Phase, Position } from '../src/types';
 import { cardRegistry } from '../src/cards/CardRegistry';
 import { passPriority, resolveChainStep, resolveChain, startPendingResponse } from '../src/game/chains';
+import { getDuelReport } from '../src/game/duelReport';
 
 let serial = 0;
 const card = (id: string, player = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `engine-${serial++}`, ownerId: `player${player + 1}` });
@@ -82,6 +83,7 @@ it('runs opening turns, summons, and a winning attack with no React or timers', 
     expect(state.players[1].lp).toBe(1); // Declaration opens responses; no damage yet.
     state = applySystemCommand(state, { type: 'completeDeferred' }).state;
     expect(state.winner).toBe('Player 1');
+    expect(getDuelReport(state, 0)).toMatchObject({ total: 500 + state.players[0].pawnZones[0]!.card.atk, xp: Math.floor((500 + state.players[0].pawnZones[0]!.card.atk) / 10) });
     expect(before.players[1].lp).toBe(1);
     expect(command(state, { type: 'phase' })).toBe(state);
 });
@@ -104,6 +106,7 @@ it('rejects wrong actors, nonexistent cards, duplicate tributes, and occupied de
     expect(next.players[0].discard).toHaveLength(2);
     expect(next.players[0].hand).toHaveLength(0);
     expect(next.players[0].pawnZones[0]?.card.instanceId).toBe(king.instanceId);
+    expect(next.duelStats?.[0]).toMatchObject({ tributeSummons: 1, battleDestructions: 0, effectDestructions: 0 });
     expect(state.players[0].discard).toHaveLength(0);
     const waiting = freeze({ ...state, pendingActivation: { cardId: king.instanceId, playerIndex: 0 } });
     for (const actor of [0, 1]) {

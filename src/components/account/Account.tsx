@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { getSettings, saveProfile } from '../../desktop/storage';
+import { getAccount, getSettings, saveProfile } from '../../desktop/storage';
+import AccountProgress from './AccountProgress';
 import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
 import ProfileAvatar from '../common/ProfileAvatar';
@@ -69,6 +70,7 @@ export default function Account({ onBack }: { onBack: () => void }) {
     <div className="entity-topbar"><PageBrand section="ACCOUNT / PROFILE" /><BackToHubButton onClick={onBack} disabled={saving || processing} /></div>
     <form className="account-shell" onSubmit={save}>
       <header className="account-heading"><span>PLAYER PROFILE SETTINGS</span><h1>DUELEST <em>ACCOUNT</em></h1></header>
+      <div className="account-progression"><AccountProgress totalXp={getAccount().totalXp} /></div>
       <div className="account-content">
         <div className="account-preview">
           <span className="account-preview__icon"><ProfileAvatar image={profile.profileImage} /></span>

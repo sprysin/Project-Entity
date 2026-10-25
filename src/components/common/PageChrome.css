@@ -45,7 +45,7 @@
 }
 .page-back-button:hover:not(:disabled) { filter: brightness(1.25) drop-shadow(0 0 9px #eab30855); transform: translateY(-2px); }
 .page-back-button:focus-visible { outline: 2px solid #fbd77e; outline-offset: 3px; }
-.page-back-button:disabled { opacity: .5; cursor: not-allowed; }
+.page-back-button:disabled { opacity: .5; cursor: default; }
 
 @media (max-width: 800px) {
   .entity-topbar { padding-inline: 24px; }

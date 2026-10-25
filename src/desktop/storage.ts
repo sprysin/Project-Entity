@@ -1,13 +1,15 @@
 import { BaseDirectory, exists, mkdir, readTextFile, rename, writeTextFile } from '@tauri-apps/plugin-fs';
 import { parseDeck, SavedDeck } from '../decks';
-import { ActivationPopupMode } from '../types';
+import { ActivationPopupMode, GameState } from '../types';
+import { getDuelReport } from '../game/duelReport';
 
 export interface SaveData {
   version: 1;
   decks: SavedDeck[];
+  account: { totalXp: number; lastDuelId: string | null };
   settings: { activationPopupMode: ActivationPopupMode; username: string; profileImage: string | null; volume: number; fannedOutPiles: boolean };
 }
-const empty = (): SaveData => ({ version: 1, decks: [], settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+const empty = (): SaveData => ({ version: 1, decks: [], account: { totalXp: 0, lastDuelId: null }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
 
 // Version 0 used an unversioned deck array. Keep excess copies editable on migration.
 export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveData {
@@ -37,7 +39,10 @@ export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveDa
       (profileImage !== null && (typeof profileImage !== 'string' || profileImage.length > 1_500_000 || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(profileImage))) ||
       typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 100 ||
       typeof fannedOutPiles !== 'boolean') throw new Error('Invalid settings in save file.');
-  return { version: 1, decks, settings: { activationPopupMode, username: username.trim(), profileImage, volume, fannedOutPiles } };
+  const account = data.account === undefined ? empty().account : data.account;
+  if (!account || !Number.isSafeInteger(account.totalXp) || account.totalXp < 0 ||
+      account.lastDuelId !== null && (typeof account.lastDuelId !== 'string' || !account.lastDuelId || account.lastDuelId.length > 128)) throw new Error('Invalid account progress in save file.');
+  return { version: 1, decks, account: { ...account }, settings: { activationPopupMode, username: username.trim(), profileImage, volume, fannedOutPiles } };
 }
 
 let current = empty();
@@ -57,6 +62,24 @@ export const getSavedDecks = () => structuredClone(current.decks);
 export const hasCardPoolChanges = () => cardPoolChanged;
 export const getActivationPopupMode = () => current.settings.activationPopupMode;
 export const getSettings = () => ({ ...current.settings });
+export const getAccount = () => ({ ...current.account });
+
+/** The queued save deduplicates StrictMode, rerenders, and retries atomically. */
+export async function awardDuelXp(state: GameState) {
+  const report = getDuelReport(state, 0);
+  if (!report.completed || !state.duelId) return { beforeXp: current.account.totalXp, afterXp: current.account.totalXp, xp: 0 };
+  const duelId = state.duelId;
+  const xp = report.xp;
+  let afterXp = 0;
+  await update(previous => {
+    afterXp = previous.account.totalXp;
+    if (previous.account.lastDuelId === duelId) return previous;
+    afterXp += xp;
+    if (!Number.isSafeInteger(afterXp) || !Number.isSafeInteger(xp) || xp < 0) throw new Error('Invalid duel XP.');
+    return { ...previous, account: { totalXp: afterXp, lastDuelId: duelId } };
+  });
+  return { beforeXp: afterXp - xp, afterXp, xp };
+}
 export const saveSettings = (settings: Pick<SaveData['settings'], 'username' | 'volume' | 'fannedOutPiles'>) => {
   const validated = migrateSave({ ...current, settings: { ...current.settings, ...settings } }).settings;
   return update(previous => ({ ...previous, settings: { ...previous.settings, username: validated.username, volume: validated.volume, fannedOutPiles: validated.fannedOutPiles } }));
@@ -71,6 +94,7 @@ function update(change: (previous: SaveData) => SaveData): Promise<void> {
   const job = writes.then(async () => {
     if (!ready) throw new Error('Save storage has not loaded.');
     const next = change(current);
+    if (next === current) return;
     await writeTextFile('save.json.tmp', JSON.stringify(next, null, 2), options);
     await rename('save.json.tmp', 'save.json', { oldPathBaseDir: BaseDirectory.AppData, newPathBaseDir: BaseDirectory.AppData });
     current = next;

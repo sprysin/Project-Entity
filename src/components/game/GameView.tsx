@@ -24,6 +24,7 @@ import { fieldActivations, handActivations } from '../../game/chains';
 import { canAttackDirectly, canTargetForAttack } from '../../game/cardHelpers';
 import { canAttack, canChangePosition as canChangePawnPosition, canMergeSummon } from '../../game/engine';
 import { QuitDuelDialog } from './MatchModals';
+import { CompletedDuel } from './DuelReport';
 import { getSettings } from '../../desktop/storage';
 import { OpeningCoin } from './OpeningCoin';
 import { CardSelectionModal } from './SelectionModals';
@@ -174,6 +175,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
 
   return (
     <div className={`duel-screen ${isLightTheme ? 'duel-screen--light' : 'duel-screen--dark'} flex-1 flex flex-col relative overflow-hidden font-mono select-none transition-colors duration-1000`}>
+      <div className="contents" inert={!!gameState.winner}>
       {/* HUD: Exit Control */}
       <OpeningCoin gameState={gameState} opponentMode={opponentMode} onChoose={actions.chooseTurnOrder} />
       <AttachmentOverlay />
@@ -525,7 +527,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
 
           {createPortal(<ShatterOverlay effects={state.shatterEffects} />, document.body)}
 
-          <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} viewerIndex={viewIndex} onQuit={onQuit} />
+          <GameOverlays gameState={gameState} activePlayer={activePlayer} state={state} actions={actions} actionsDisabled={actionsDisabled} viewerIndex={viewIndex} />
         </div>
 
         <GameSidebar viewerIndex={viewIndex} xray={xray} gameState={gameState} selectedCard={selectedCard} inspectedCard={state.inspectedPileCard} selectedFieldSlot={state.selectedFieldSlot} isOpen={state.isRightPanelOpen} setIsOpen={actions.setIsRightPanelOpen} />
@@ -551,6 +553,8 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
         playerName={activePlayer.name}
         deckName={activePlayer.deckName ?? (viewIndex === 0 ? initialDecks?.[0]?.name : initialDecks?.[1]?.name) ?? 'Random test deck'}
       />
+      </div>
+      {gameState.winner && <CompletedDuel gameState={gameState} isDefeat={!gameState.isDraw && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
     </div>
   );
 };

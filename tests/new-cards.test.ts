@@ -143,6 +143,7 @@ it('special summons validate placement and returned cards respect their source p
         expect(summon(duel, { ...context, pawnPlacement: { slot: 1, position: Position.HIDDEN } }).newState).toBe(duel);
         const result = summon(duel, { ...context, pawnPlacement: { slot: 1, position: Position.DEFENSE } }).newState;
         expect(result.players[0].pawnZones[1]).toMatchObject({ card: candidate, position: Position.DEFENSE, specialSummoned: true });
+        expect(result.duelStats?.[0]?.vassalSummons ?? 0).toBe(location === 'reserve' ? 1 : 0);
         if (location === 'reserve') {
             const queued = queueEventResponses(duel, result);
             const context = effectChoices(queued, pawn, 'summon')[0];

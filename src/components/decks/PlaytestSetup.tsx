@@ -3,6 +3,7 @@ import { deckSize, isDeckPlayable, SavedDeck } from '../../decks';
 import { getSavedDecks, getSettings } from '../../desktop/storage';
 import { OpponentMode, PlaytestDebugSettings } from '../../types';
 import ProfileAvatar from '../common/ProfileAvatar';
+import '../settings/Settings.css';
 import './PlaytestSetup.css';
 
 interface PlaytestSetupProps {
@@ -12,9 +13,10 @@ interface PlaytestSetupProps {
 
 const RANDOM_DECK = '';
 const debugOptions = [
-  ['alwaysGoFirst', 'Always go first', 'Take the first turn.'],
-  ['chooseStartingHand', 'Choose starting hand', 'Pick your opening five cards.'],
-  ['xray', 'Xray', 'Reveal the AI’s hidden information.'],
+  ['alwaysGoFirst', 'Always go first'],
+  ['chooseStartingHand', 'Choose starting hand'],
+  ['xray', 'Xray'],
+  ['aiResponsesOnly', 'Disable AI plays'],
 ] as const;
 
 // CC0 icon: https://www.svgrepo.com/svg/324471/robot-artificial-intelligence-android
@@ -98,9 +100,9 @@ export default function PlaytestSetup({ onBack, onStart }: PlaytestSetupProps) {
           <i className="fa-solid fa-sliders" aria-hidden="true" /><span><strong>PRACTICE MODIFIERS</strong></span><i className={`fa-solid ${debugOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`} aria-hidden="true" />
         </button>
         {debugOpen && <div id="playtest-debug-settings" className="training-debug__options">
-          {debugOptions.map(([key, label, description]) => <label key={key} className="training-debug__option">
-            <input type="checkbox" data-sound="toggle" checked={!!debug[key]} onChange={event => setDebug(current => ({ ...current, [key]: event.target.checked }))} />
-            <span><strong>{label}</strong><small>{description}</small></span>
+          {debugOptions.map(([key, label]) => <label key={key} className="training-debug__option">
+            <strong>{label}</strong>
+            <input className="settings-toggle" type="checkbox" role="switch" data-sound="toggle" checked={!!debug[key]} onChange={event => setDebug(current => ({ ...current, [key]: event.target.checked }))} />
           </label>)}
         </div>}
       </section>

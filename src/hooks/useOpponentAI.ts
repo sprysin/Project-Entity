@@ -6,8 +6,9 @@ import { applyCommand } from '../game/engine';
 import type { useEffectResolution } from './useEffectResolution';
 import { isDrawingForTurn } from '../game/phases';
 
-export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhase, skipToEndPhase, requestAttack, resolveEffect }: {
+export function useOpponentAI({ gameState, setGameState, enabled, responsesOnly = false, busy, nextPhase, skipToEndPhase, requestAttack, resolveEffect }: {
     gameState: GameState | null; setGameState: Dispatch<SetStateAction<GameState | null>>; enabled: boolean; busy: boolean;
+    responsesOnly?: boolean;
     nextPhase: () => void; skipToEndPhase: () => void; requestAttack: (index: number, target: number | 'direct') => void;
     resolveEffect: ReturnType<typeof useEffectResolution>['resolveEffect'];
 }) {
@@ -29,6 +30,12 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
         if (!gameState.response && ![Phase.MAIN1, Phase.MAIN2, Phase.BATTLE].includes(gameState.currentPhase)) return;
         const timer = setTimeout(() => {
             const { nextPhase, skipToEndPhase, requestAttack, resolveEffect } = handlers.current;
+            if (responsesOnly && !gameState.response) {
+                if (gameState.attackReplay) setGameState(prev => prev === gameState
+                    ? applyCommand(prev, 1, { type: 'attackReplay', retry: false }).state : prev);
+                else skipToEndPhase();
+                return;
+            }
             const observation = observeGame(gameState, 1, knownCards.current);
             if (gameState.attackReplay) {
                 const retry = applyCommand(gameState, 1, { type: 'attackReplay', retry: true }).state;
@@ -70,5 +77,5 @@ export function useOpponentAI({ gameState, setGameState, enabled, busy, nextPhas
             }
         }, gameState.response ? 0 : 350);
         return () => clearTimeout(timer);
-    }, [gameState, enabled, busy, setGameState]);
+    }, [gameState, enabled, responsesOnly, busy, setGameState]);
 }
