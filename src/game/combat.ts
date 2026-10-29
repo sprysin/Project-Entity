@@ -2,7 +2,7 @@ import { GameState, Phase, Player, Position } from '../types';
 import { checkVictory } from './finishEffect';
 import { cardRegistry } from '../cards/CardRegistry';
 import { destroyFieldCard } from './attachments';
-import { fieldStats, canPawnAttack, canAttackDirectly, canTargetForAttack } from './cardHelpers';
+import { fieldStats, canPawnAttack, canAttackDirectly, canTargetForAttack, spendCancelledAttack } from './cardHelpers';
 
 const quote = (value: string) => `"${value}"`;
 const lpLoss = (player: Player, amount: number) => `${quote(player.name)} -${amount} LP.`;
@@ -102,12 +102,7 @@ export function resolveCombat(gameState: GameState, attackerIndex: number, targe
 
     const placedAttacker = activePlayer.pawnZones[attackerIndex];
     if (placedAttacker) {
-        if (placedAttacker.attacksRemaining !== undefined) {
-            placedAttacker.attacksRemaining -= 1;
-            placedAttacker.hasAttacked = placedAttacker.attacksRemaining <= 0;
-        } else {
-            placedAttacker.hasAttacked = true;
-        }
+        spendCancelledAttack(placedAttacker);
     }
     players[activeIndex] = activePlayer;
     players[opponentIndex] = opponent;

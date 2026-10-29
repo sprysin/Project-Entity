@@ -87,6 +87,8 @@ export interface Card {
   atk: number;
   def: number;
   effectText: string;
+  /** Printed stats for generated tokens whose values vary by source. */
+  tokenOriginalStats?: { atk: number; def: number };
   ownerId: string;
   tributedByAction?: boolean;
   cannotBeTributed?: boolean;
@@ -100,6 +102,9 @@ export interface Card {
 }
 
 export interface PlacedCard {
+  summonedFromDiscard?: boolean;
+  pawnOnlyAttacks?: number;
+  attachedDueTurn?: number;
   pawnTypeOverride?: { value: PawnType; dueTurn?: number };
   destructionPreventionsUsed?: number;
   specialSummoned?: boolean;
@@ -359,6 +364,7 @@ export interface IEffect {
   normalSummonOnly?: boolean;
   /** Face-up Attach sources constrain attacks against the target's controller. */
   restrictsAttackTargetsToAttached?: boolean;
+  preventsAttachedPawnAttacks?: boolean;
   /** Immediate, selection-free effect when this card is drawn. */
   onDraw?(state: GameState, context: CardContext): EffectResult;
   /** Pawn ignition effects announced while the source remains in hand. */
@@ -388,7 +394,7 @@ export interface IEffect {
   counterSummon?: { counter: string; requiredCounters(card: Card): number | undefined };
   /** Continuous field-only stat changes; evaluated from the current board without mutating printed stats. */
   fieldStatModifier?(state: GameState, context: CardContext, placement: PlacedCard): { atk?: number; def?: number };
-  /** Observes a face-up normal/tribute summon while this source is face-up. */
+  /** Observes a face-up summon while this source is face-up; Special Summons have zero tributes. */
   onPawnSummoned?(state: GameState, context: CardContext & { summonedCard: Card; summoningPlayerIndex: number; tributeCount: number }): EffectResult;
   /** Shared hand-summon eligibility, rechecked when the command executes. */
   handSummonFilter?: CardFilter;

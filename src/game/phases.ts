@@ -71,6 +71,7 @@ export const advancePhaseState = (prev: GameState, destination?: Phase.END): Gam
             pawnZones: p.pawnZones.map(z => z ? {
                 ...z,
                 attacksRemaining: z.nextBattleAttacks ?? 1,
+                pawnOnlyAttacks: undefined,
                 nextBattleAttacks: undefined,
             } : null)
         })) as [Player, Player];

@@ -119,8 +119,11 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
     const visibleCounters = Object.entries<number>(counters ?? {}).filter(([, count]) => count > 0);
     const originalCard = cardRegistry.getCard(card.id);
     const changedAttribute = originalCard?.attribute !== undefined && card.attribute !== originalCard.attribute;
-    const displayedAtk = showOriginalStats ? originalCard?.atk ?? card.atk : card.atk;
-    const displayedDef = showOriginalStats ? originalCard?.def ?? card.def : card.def;
+    const originalPawnType = card.fieldOriginalPawnType ?? originalCard?.pawnType;
+    const changedPawnType = originalPawnType !== undefined && card.pawnType !== originalPawnType;
+    const originalStats = card.tokenOriginalStats ?? originalCard;
+    const displayedAtk = showOriginalStats ? originalStats?.atk ?? card.atk : card.atk;
+    const displayedDef = showOriginalStats ? originalStats?.def ?? card.def : card.def;
     const getStatColor = (current: number, original?: number) => {
         if (original === undefined) return 'text-yellow-400';
         if (current > original) return 'text-[var(--increased-stat-color)]';
@@ -173,7 +176,8 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                             <AttributeSymbol attribute={card.attribute} />
                         </div>
                         <span className={`text-[9px] font-orbitron text-slate-300 font-bold uppercase tracking-wider`}>
-                            [{card.pawnType || 'Unknown'}/{cardTypeLabel(card)}]
+                            [<span className={changedPawnType ? 'text-[var(--increased-stat-color)]' : undefined}
+                                aria-label={changedPawnType ? `${card.pawnType} type (changed)` : undefined}>{card.pawnType || 'Unknown'}</span>/{cardTypeLabel(card)}]
                         </span>
                     </div>
                 ) : (
@@ -220,8 +224,8 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
             {/* Footer: Stats (Entities only) */}
             {card.type === CardType.PAWN && (
                 <div className={`flex shrink-0 justify-between items-center px-4 py-1 mt-auto bg-black/50 border border-white/10 rounded-sm relative z-10`}>
-                    <span className={`font-orbitron font-bold ${getStatColor(displayedAtk, originalCard?.atk)} text-xs transition-all duration-300 ${highlightAtk && !showOriginalStats ? 'scale-125' : ''}`}>ATK: {displayedAtk}</span>
-                    <span className={`font-orbitron font-bold ${getStatColor(displayedDef, originalCard?.def)} text-xs transition-all duration-300 ${highlightDef && !showOriginalStats ? 'scale-125' : ''}`}>DEF: {displayedDef}</span>
+                    <span className={`font-orbitron font-bold ${getStatColor(displayedAtk, originalStats?.atk)} text-xs transition-all duration-300 ${highlightAtk && !showOriginalStats ? 'scale-125' : ''}`}>ATK: {displayedAtk}</span>
+                    <span className={`font-orbitron font-bold ${getStatColor(displayedDef, originalStats?.def)} text-xs transition-all duration-300 ${highlightDef && !showOriginalStats ? 'scale-125' : ''}`}>DEF: {displayedDef}</span>
                 </div>
             )}
         </div>

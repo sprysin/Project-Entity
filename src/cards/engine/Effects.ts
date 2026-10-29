@@ -38,6 +38,7 @@ export const Effect = {
         const placement = context.pawnPlacement!;
         player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false, hasChangedPosition: false,
             summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
+        player.pawnZones[placement.slot]!.summonedFromDiscard = true;
         if (attachSource) {
             const source = sourceZone(state, context);
             if (source && context.card.isAttached) source.attachedToInstanceIds = [card.instanceId];
@@ -65,7 +66,7 @@ export const Effect = {
             if (slot < 0) continue;
             const [card] = pile.splice(slot, 1), placement = placements[index];
             player.pawnZones[placement.slot] = { card, position: placement.position, hasAttacked: false, hasChangedPosition: false,
-                summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
+                summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true, summonedFromDiscard: location === 'discard' };
         }
     },
     BonusNextDraw: (count: number): EffectStep => (state, context) => {
@@ -180,7 +181,7 @@ export const Effect = {
     },
     SetTargetOriginalAttack: (): EffectStep => Effect.SetTargetAttack((state, context) => {
         const target = getEffectTarget(context), zone = target && targetZone(state, target);
-        return zone ? cardRegistry.getCard(zone.card.id)?.atk ?? zone.card.atk : 0;
+        return zone ? zone.card.tokenOriginalStats?.atk ?? cardRegistry.getCard(zone.card.id)?.atk ?? zone.card.atk : 0;
     }),
     randomSelection,
     /** Gather player-selected candidates independently of their eventual effect. */
@@ -218,7 +219,7 @@ export const Effect = {
         const card = takeSelectedCard(state, context, selectionIndex);
         if (!card) return { halt: true };
         player.pawnZones[placement.slot] = { card, position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true };
+            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true, summonedFromDiscard: selection.location === 'discard' };
         if (selection.location === 'deck') shuffleDeck(state.players[selection.playerIndex].deck);
     },
     /** Move a selection to its owner's pile; deck moves shuffle by default. */
@@ -408,8 +409,29 @@ export const Effect = {
             };
         }
     },
+    /** Destroy a selected Pawn, then replace it with an effectless token with its printed stats. */
+    ReplaceTargetWithToken: (id: string): EffectStep => (state, context) => {
+        const target = getEffectTarget(context), zone = target && targetZone(state, target);
+        if (!zone || zone.card.type !== CardType.PAWN) return { halt: true };
+        const original = zone.card.tokenOriginalStats ?? cardRegistry.getCard(zone.card.id) ?? zone.card;
+        const stats = { atk: original.atk, def: original.def };
+        const level = zone.card.level, attribute = zone.card.attribute;
+        if (!destroyFieldCard(state, zone.card.instanceId, 'effect', context.playerIndex)) return;
+        const result = Effect.SummonToken(id)(state, context);
+        if (result) return result;
+        const token = state.players[context.playerIndex].pawnZones[context.pawnPlacement!.slot]!;
+        Object.assign(token.card, stats, { level, attribute, tokenOriginalStats: stats });
+    },
+    /** Mill in deck order, preserving ownership and sent-to-Discard reactions. */
+    MillDeck: (count: number, playerIndex: Dynamic<number>, onSent?: (cards: Card[]) => EffectStep): EffectStep => (state, context) => {
+        const player = state.players[resolveDynamic(playerIndex, state, context)];
+        const cards = player.deck.splice(0, count);
+        for (const card of cards) sendToOwnerPile(state, card, 'discard');
+        const sent = cards.filter(card => player.discard.some(value => value.instanceId === card.instanceId));
+        return onSent?.(sent)(state, context);
+    },
     /** Grants attacks for this turn without bypassing other combat restrictions. */
-    GrantSelfAttacks: (count: number): EffectStep => (state, context) => {
+    GrantSelfAttacks: (count: number, pawnsOnly = false): EffectStep => (state, context) => {
         const zone = state.players[context.playerIndex].pawnZones.find(value => value?.card.instanceId === context.card.instanceId);
         if (!zone) return;
         if (zone.position === Position.HIDDEN) return { halt: true };
@@ -417,6 +439,7 @@ export const Effect = {
         if (state.currentPhase === Phase.BATTLE) zone.attacksRemaining = (zone.attacksRemaining ?? (zone.hasAttacked ? 0 : 1)) + count;
         else zone.nextBattleAttacks = (zone.nextBattleAttacks ?? 0) + count;
         zone.hasAttacked = false;
+        if (pawnsOnly) zone.pawnOnlyAttacks = (zone.pawnOnlyAttacks ?? 0) + count;
     },
     /** Attribute changes expire when the affected identity leaves the field. */
     ChangePawnAttribute: (attribute: Attribute, locate: (state: GameState, context: CardContext) => PlacedCard | null): EffectStep => (state, context) => {

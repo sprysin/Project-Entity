@@ -10,8 +10,8 @@ import { notifyFieldEvent } from './fieldEvents';
 import { levelTributeCandidates, levelTributeChoices } from './levelTributes';
 import { needsChoice } from '../cards/engine/Builder';
 import { multiSelectionCards } from '../cards/engine/Selections';
-
-export { needsChoice } from '../cards/engine/Builder';
+import { notifyPawnSummoned } from './summonReactions';
+import { queueRevealedSwitches } from './switches';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
     context = { ...context, battleDamage: context.battleDamage ?? state.response?.battleDamage, lpGain: context.lpGain ?? state.response?.lpGain };
@@ -427,12 +427,13 @@ export function queueEventResponses(before: GameState, after: GameState): GameSt
             const zone = after.players[playerIndex].pawnZones.find(value => value?.card.instanceId === card.instanceId);
             const handler = zone?.specialSummoned && cardRegistry.getEffect(card.id)?.onSpecialSummon;
             if (handler) after = handler(after, { card, playerIndex }).newState;
+            if (zone?.specialSummoned) after = notifyPawnSummoned(after, card, playerIndex, 0);
             const effect = cardRegistry.getEffect(card.id);
             if (zone?.specialSummoned && effect?.onSummon && !effect.normalSummonOnly) {
                 after.pendingReactions = [...(after.pendingReactions ?? []), { card, playerIndex, trigger: 'summon' }];
             }
         }
-        return { ...after, pendingResponse: { timing: 'summon', reason: summoned.map(entry => entry.card.name).join(', ') + ' summoned' } };
+        return { ...queueRevealedSwitches(before, after), pendingResponse: { timing: 'summon', reason: summoned.map(entry => entry.card.name).join(', ') + ' summoned' } };
     }
     if (before.currentPhase !== after.currentPhase || before.turnNumber !== after.turnNumber) {
         if (after.currentPhase === Phase.DRAW) return { ...after, pendingResponse: undefined };

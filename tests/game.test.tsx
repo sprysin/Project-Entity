@@ -216,7 +216,7 @@ it('discard and tribute costs are paid once after all activation selections are 
     act(() => vi.advanceTimersByTime(500));
     expect(game.gameState!.players[0].hand).toHaveLength(0);
     const maintenance = card('A_Mechanical_Maintenance'); const recovered = card('P_Solstice_Sentinel');
-    setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel')); s.players[0].pawnZones[1] = placed(card('P_Void_Caster')); });
+    setup(s => { s.players[0].hand = [maintenance]; s.players[0].discard = [recovered]; s.players[0].pawnZones[0] = placed(card('P_Solstice_Sentinel')); s.players[0].pawnZones[1] = placed(card('P_Solstice_Sentinel')); });
     act(() => game.actions.handleActionFromHand(maintenance, 'activate', 0));
     act(() => game.actions.setTributeSelection([0, 1]));
     act(() => game.actions.handleEffectTribute());

@@ -20,7 +20,10 @@ export const canTargetWithEffect = (card: Card): boolean => !card.effectTargetBl
 export const canSetPawn = (card: Card): boolean => !isToken(card);
 
 export const canPawnAttack = (state: GameState, playerIndex: number, zone: PlacedCard): boolean =>
-    cardRegistry.getEffect(zone.card.id)?.canAttack?.(state, { card: zone.card, playerIndex }, zone) ?? true;
+    !fieldEntries(state).some(({ zone: source }) => source.position !== Position.HIDDEN
+        && source.attachedToInstanceIds?.includes(zone.card.instanceId)
+        && cardRegistry.getEffect(source.card.id)?.preventsAttachedPawnAttacks)
+    && (cardRegistry.getEffect(zone.card.id)?.canAttack?.(state, { card: zone.card, playerIndex }, zone) ?? true);
 
 /** Multiple guards allow any guarded Pawn, while blocking other Pawns and direct attacks. */
 export function canTargetForAttack(state: GameState, playerIndex: number, target: PlacedCard | 'direct'): boolean {
@@ -31,9 +34,12 @@ export function canTargetForAttack(state: GameState, playerIndex: number, target
     return !guards.length || target !== 'direct' && guards.includes(target.card.instanceId);
 }
 
-export const canAttackDirectly = (state: GameState, playerIndex: number, card: Card): boolean =>
-    canTargetForAttack(state, playerIndex, 'direct') && (!state.players[1 - playerIndex].pawnZones.some(Boolean)
-    || (cardRegistry.getEffect(card.id)?.canAttackDirectly?.(state, { card, playerIndex }) ?? false));
+export const canAttackDirectly = (state: GameState, playerIndex: number, card: Card): boolean => {
+    const zone = state.players[playerIndex].pawnZones.find(zone => zone?.card.instanceId === card.instanceId);
+    return !(zone?.pawnOnlyAttacks && (zone.attacksRemaining ?? 1) <= zone.pawnOnlyAttacks)
+        && canTargetForAttack(state, playerIndex, 'direct') && (!state.players[1 - playerIndex].pawnZones.some(Boolean)
+        || (cardRegistry.getEffect(card.id)?.canAttackDirectly?.(state, { card, playerIndex }) ?? false));
+};
 
 /** Both rows use left-to-right board indices, so equal indices share a column. */
 export function opposingPawnInColumn(state: GameState, context: CardContext): PlacedCard | null {
@@ -66,6 +72,7 @@ export function cardsAtLocation(player: Player, location: SelectionLocation, sta
 
 /** A negated or declined attack still spends one of the Pawn's attacks. */
 export function spendCancelledAttack(zone: PlacedCard): void {
+    if (zone.pawnOnlyAttacks && (zone.attacksRemaining ?? 1) <= zone.pawnOnlyAttacks) zone.pawnOnlyAttacks--;
     if (zone.attacksRemaining !== undefined) zone.attacksRemaining = Math.max(0, zone.attacksRemaining - 1);
     zone.hasAttacked = zone.attacksRemaining === undefined || zone.attacksRemaining <= 0;
 }
