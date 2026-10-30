@@ -63,7 +63,7 @@ export function CompletedDuel({ gameState, isDefeat, onQuit }: { gameState: Game
     setSaving(true);
     setError('');
     void awardDuelXp(finished).then(result => { if (active) setReceipt(result); })
-      .catch(() => { if (active) setError('Account XP could not be saved. Retry to keep your progress.'); })
+      .catch(() => { if (active) setError('Duel progress could not be saved. Retry to keep your XP and statistics.'); })
       .finally(() => { if (active) setSaving(false); });
     return () => { active = false; };
   }, [finished, attempt]);

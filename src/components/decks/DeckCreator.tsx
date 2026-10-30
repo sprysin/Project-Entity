@@ -98,8 +98,8 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         catch { setNotice('Could not save the deck locally. Export to JSON to keep a copy.'); return; }
         finally { setBusy(false); }
         setDeck(saved); setDirty(false);
-        setNotice('Deck saved locally');
-        if (total(saved) < MIN_DECK_SIZE) setPrompt({ title: 'Deck saved', message: `This deck is unplayable. A playable deck needs 40–60 cards. This deck has ${total(saved)}; add ${MIN_DECK_SIZE - total(saved)} more.` });
+        const missing = MIN_DECK_SIZE - total(saved);
+        setNotice(missing > 0 ? `Deck saved. Add ${missing}+ more cards to reach minimum deck requirements.` : 'Deck saved locally');
     };
     const exportJson = async () => {
         if (!deck) return;
@@ -205,7 +205,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         {notice && <div className="deck-notice" role="status">{notice}<IconButton sound="cancellation" label="Dismiss notification" icon="fa-xmark" onClick={() => setNotice('')} /></div>}
         {prompt && <div className="deck-prompt-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setPrompt(null); }}>
             <section className="deck-prompt" role="dialog" aria-modal="true" aria-labelledby="deck-prompt-title" aria-describedby="deck-prompt-message" onKeyDown={event => { if (event.key === 'Escape') setPrompt(null); }}>
-                <span className="deck-eyebrow">PROJECT ENTITY</span><h2 id="deck-prompt-title">{prompt.title}</h2>
+                <h2 id="deck-prompt-title">{prompt.title}</h2>
                 <p id="deck-prompt-message">{prompt.message}</p>
                 <div className="deck-prompt-actions">{prompt.confirm && <button className="deck-secondary" onClick={() => setPrompt(null)}>Cancel</button>}<button autoFocus className="deck-primary" onClick={() => { const action = prompt.confirm; setPrompt(null); action?.(); }}>{prompt.confirmLabel ?? 'OK'}</button></div>
             </section>

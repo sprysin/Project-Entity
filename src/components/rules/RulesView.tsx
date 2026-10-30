@@ -2,7 +2,7 @@ import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
 import React, { useRef, useState } from 'react';
 import { CardDetail } from '../cards/CardDetail';
-import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
+import { AttributeIcon } from '../icons/AttributeIcon';
 import { attributeColors } from '../cards/attributeColors';
 import { cardRegistry } from '../../cards/CardRegistry';
 import { Attribute, Card, PawnType } from '../../types';
@@ -195,16 +195,7 @@ const pawnCardFields = [
 
 const pawnTypes = Object.values(PawnType);
 
-const attributes: { value: Attribute; icon?: string; glyph?: string; color: string }[] = [
-  { value: Attribute.FIRE, icon: 'fa-fire', color: attributeColors[Attribute.FIRE] },
-  { value: Attribute.WATER, icon: 'fa-droplet', color: attributeColors[Attribute.WATER] },
-  { value: Attribute.EARTH, icon: 'fa-mountain', color: attributeColors[Attribute.EARTH] },
-  { value: Attribute.AIR, icon: 'fa-wind', color: attributeColors[Attribute.AIR] },
-  { value: Attribute.ELECTRIC, icon: 'fa-bolt', color: attributeColors[Attribute.ELECTRIC] },
-  { value: Attribute.NORMAL, glyph: <NormalAttributeIcon />, color: attributeColors[Attribute.NORMAL] },
-  { value: Attribute.DARK, icon: 'fa-moon', color: attributeColors[Attribute.DARK] },
-  { value: Attribute.LIGHT, icon: 'fa-sun', color: attributeColors[Attribute.LIGHT] },
-];
+const attributes = Object.values(Attribute);
 
 type RuleSection = Partial<Topic> & {
   id: string; title: string; content?: 'pawn-card' | 'types' | 'attributes';
@@ -330,7 +321,7 @@ function SectionContent({ section }: { section: RuleSection }) {
   </>;
   if (section.content === 'attributes') return <>
     <p className="rulebook-page-intro">The circular icon beside a Pawn’s Type shows its Attribute. Like Types, Attributes are classifications used by card effects.</p>
-    <div className="rulebook-attribute-grid">{attributes.map(attribute => <article key={attribute.value} style={{ '--attribute-color': attribute.color } as React.CSSProperties}>{attribute.icon ? <i className={`fa-solid ${attribute.icon}`} aria-hidden="true" /> : <span className="rulebook-attribute-glyph" aria-hidden="true">{attribute.glyph}</span>}<h3>{attribute.value}</h3></article>)}</div>
+    <div className="rulebook-attribute-grid">{attributes.map(attribute => <article key={attribute} style={{ '--attribute-color': attributeColors[attribute] } as React.CSSProperties}><span className="rulebook-attribute-glyph"><AttributeIcon attribute={attribute} /></span><h3>{attribute}</h3></article>)}</div>
   </>;
   return <div className={section.examples?.length === 1 ? 'rulebook-illustrated-section' : undefined}>
     {section.examples && <div className="rulebook-section-examples">{section.examples.map(example => <figure key={example.id}><ExampleCard id={example.id} /><figcaption>{example.label}</figcaption></figure>)}</div>}

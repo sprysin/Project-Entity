@@ -25,7 +25,7 @@ export function useOpponentAI({ gameState, setGameState, enabled, responsesOnly 
         updateKnownCards(gameState, 1, knownCards.current);
     }, [enabled, gameState]);
     useEffect(() => {
-        if (!enabled || !gameState || gameState.drawnBombs?.length || isDrawingForTurn(gameState) || gameState.pendingResponse || gameState.openingCoin || gameState.winner || busy || gameState.pendingVoidReturns?.length || gameState.pendingVoidSelections?.length || gameState.response?.ready || gameState.resolvingChain) return;
+        if (!enabled || !gameState || gameState.drawnBombs?.length || isDrawingForTurn(gameState) || gameState.pendingResponse && !gameState.response || gameState.openingCoin || gameState.winner || busy || gameState.pendingVoidReturns?.length || gameState.pendingVoidSelections?.length || gameState.response?.ready || gameState.resolvingChain) return;
         if (gameState.response ? gameState.response.priority !== 1 : gameState.activePlayerIndex !== 1) return;
         if (!gameState.response && ![Phase.MAIN1, Phase.MAIN2, Phase.BATTLE].includes(gameState.currentPhase)) return;
         const timer = setTimeout(() => {

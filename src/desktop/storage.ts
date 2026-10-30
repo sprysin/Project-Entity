@@ -1,15 +1,38 @@
 import { BaseDirectory, exists, mkdir, readTextFile, rename, writeTextFile } from '@tauri-apps/plugin-fs';
 import { parseDeck, SavedDeck } from '../decks';
 import { ActivationPopupMode, GameState } from '../types';
-import { getDuelReport } from '../game/duelReport';
+import { DuelStats, emptyDuelStats, getDuelReport } from '../game/duelReport';
+
+export interface AccountStatistics extends DuelStats {
+  trackedSince: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  highestDuelScore: number;
+  mostDamageInDuel: number;
+}
+const emptyStatistics = (): AccountStatistics => ({
+  ...emptyDuelStats(), trackedSince: new Date().toISOString(),
+  wins: 0, losses: 0, draws: 0, highestDuelScore: 0, mostDamageInDuel: 0,
+});
+
+function parseStatistics(raw: unknown): AccountStatistics {
+  const defaults = emptyStatistics();
+  if (raw === undefined) return defaults;
+  const stats = raw as AccountStatistics;
+  if (!stats || typeof stats.trackedSince !== 'string' || !Number.isFinite(Date.parse(stats.trackedSince)) ||
+      (Object.keys(defaults) as (keyof AccountStatistics)[]).some(key => key !== 'trackedSince' &&
+        (!Number.isSafeInteger(stats[key]) || stats[key] < 0))) throw new Error('Invalid account statistics in save file.');
+  return { ...stats };
+}
 
 export interface SaveData {
   version: 1;
   decks: SavedDeck[];
-  account: { totalXp: number; lastDuelId: string | null };
+  account: { totalXp: number; lastDuelId: string | null; statistics: AccountStatistics };
   settings: { activationPopupMode: ActivationPopupMode; username: string; profileImage: string | null; volume: number; fannedOutPiles: boolean };
 }
-const empty = (): SaveData => ({ version: 1, decks: [], account: { totalXp: 0, lastDuelId: null }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+const empty = (): SaveData => ({ version: 1, decks: [], account: { totalXp: 0, lastDuelId: null, statistics: emptyStatistics() }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
 
 // Version 0 used an unversioned deck array. Keep excess copies editable on migration.
 export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveData {
@@ -42,7 +65,7 @@ export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveDa
   const account = data.account === undefined ? empty().account : data.account;
   if (!account || !Number.isSafeInteger(account.totalXp) || account.totalXp < 0 ||
       account.lastDuelId !== null && (typeof account.lastDuelId !== 'string' || !account.lastDuelId || account.lastDuelId.length > 128)) throw new Error('Invalid account progress in save file.');
-  return { version: 1, decks, account: { ...account }, settings: { activationPopupMode, username: username.trim(), profileImage, volume, fannedOutPiles } };
+  return { version: 1, decks, account: { ...account, statistics: parseStatistics(account.statistics) }, settings: { activationPopupMode, username: username.trim(), profileImage, volume, fannedOutPiles } };
 }
 
 let current = empty();
@@ -62,7 +85,7 @@ export const getSavedDecks = () => structuredClone(current.decks);
 export const hasCardPoolChanges = () => cardPoolChanged;
 export const getActivationPopupMode = () => current.settings.activationPopupMode;
 export const getSettings = () => ({ ...current.settings });
-export const getAccount = () => ({ ...current.account });
+export const getAccount = () => structuredClone(current.account);
 
 /** The queued save deduplicates StrictMode, rerenders, and retries atomically. */
 export async function awardDuelXp(state: GameState) {
@@ -76,7 +99,16 @@ export async function awardDuelXp(state: GameState) {
     if (previous.account.lastDuelId === duelId) return previous;
     afterXp += xp;
     if (!Number.isSafeInteger(afterXp) || !Number.isSafeInteger(xp) || xp < 0) throw new Error('Invalid duel XP.');
-    return { ...previous, account: { totalXp: afterXp, lastDuelId: duelId } };
+    const statistics = { ...previous.account.statistics };
+    statistics[state.isDraw ? 'draws' : report.won ? 'wins' : 'losses'] += 1;
+    for (const key of Object.keys(emptyDuelStats()) as (keyof DuelStats)[]) {
+      statistics[key] += state.duelStats?.[0][key] ?? 0;
+    }
+    const damage = report.rows.filter(row => row.id === 'battleDamage' || row.id === 'effectDamage')
+      .reduce((total, row) => total + row.count, 0);
+    statistics.highestDuelScore = Math.max(statistics.highestDuelScore, report.total);
+    statistics.mostDamageInDuel = Math.max(statistics.mostDamageInDuel, damage);
+    return { ...previous, account: { totalXp: afterXp, lastDuelId: duelId, statistics: parseStatistics(statistics) } };
   });
   return { beforeXp: afterXp - xp, afterXp, xp };
 }

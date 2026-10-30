@@ -1,6 +1,6 @@
 import { isGeneratedCard, isReservePawn } from '../../game/cardHelpers';
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
+import { AttributeIcon } from '../icons/AttributeIcon';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { Card, CardType, Attribute, PawnSubtype } from '../../types';
 import { cardSubtype, cardTypeLabel } from '../../cards/CardRegistry';
@@ -9,20 +9,6 @@ import { attributeColors } from './attributeColors';
 
 export const cardFrameClass = (card: Pick<Card, 'type' | 'pawnSubtype' | 'actionSubtype'>) =>
     isGeneratedCard(card) ? 'card-token' : card.pawnSubtype === PawnSubtype.MERGE ? 'card-merge' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
-
-const AttributeSymbol = ({ attribute }: { attribute?: Attribute }) => {
-    const icons: Partial<Record<Attribute, string>> = {
-        [Attribute.FIRE]: 'fa-fire',
-        [Attribute.WATER]: 'fa-droplet',
-        [Attribute.EARTH]: 'fa-mountain',
-        [Attribute.AIR]: 'fa-wind',
-        [Attribute.ELECTRIC]: 'fa-bolt',
-        [Attribute.LIGHT]: 'fa-sun',
-        [Attribute.DARK]: 'fa-moon',
-    };
-    const icon = attribute && icons[attribute];
-    return icon ? <i className={`fa-solid ${icon}`} /> : <NormalAttributeIcon />;
-};
 
 // Every face is laid out at 240 × 360, then uniformly scaled to its slot.
 const ScaledCard: React.FC<React.PropsWithChildren<{
@@ -170,10 +156,10 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                         {/* Attribute Bubble */}
                         <div aria-label={`${card.attribute ?? 'NORMAL'} attribute${changedAttribute ? ' (changed)' : ''}`} style={{
                             backgroundColor: attributeColors[card.attribute ?? Attribute.NORMAL],
-                            color: card.attribute === Attribute.DARK ? '#fff' : '#0f172a',
+                            color: '#0f172a',
                             boxShadow: card.attribute && card.attribute !== Attribute.NORMAL ? `0 0 10px ${attributeColors[card.attribute]}cc` : undefined,
-                        }} className={`w-5 h-5 text-[8px] rounded-full flex items-center justify-center font-bold border ${changedAttribute ? 'ring-2 ring-[var(--increased-stat-color)] border-[var(--increased-stat-color)]' : 'border-white/20'}`}>
-                            <AttributeSymbol attribute={card.attribute} />
+                        }} className={`w-5 h-5 text-[14px] rounded-full flex items-center justify-center font-bold border ${changedAttribute ? 'ring-2 ring-[var(--increased-stat-color)] border-[var(--increased-stat-color)]' : 'border-white/20'}`}>
+                            <AttributeIcon attribute={card.attribute} />
                         </div>
                         <span className={`text-[9px] font-orbitron text-slate-300 font-bold uppercase tracking-wider`}>
                             [<span className={changedPawnType ? 'text-[var(--increased-stat-color)]' : undefined}
@@ -200,7 +186,7 @@ export const CardDetail: React.FC<CardDetailProps> = ({ card, counters, isSet, c
                         {artworkSubtype === 'Contract' && <path d="M -8 15 V 85 M 108 15 V 85" />}
                     </svg>}
                     {card.type === CardType.PAWN ? (
-                        <AttributeSymbol attribute={card.attribute} />
+                        <AttributeIcon attribute={card.attribute} />
                     ) : card.type === CardType.ACTION ? (
                         <ActionCardIcon />
                     ) : (

@@ -1,5 +1,6 @@
 import './fixtures/attachedCondition';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
 import '../src/cards/pawns';
 import '../src/cards/actions';
 import '../src/cards/conditions';
@@ -13,6 +14,8 @@ import { buildEffect } from '../src/cards/engine/Builder';
 import { Effect } from '../src/cards/engine/Effects';
 import { Require } from '../src/cards/engine/Requirements';
 import { getDuelReport } from '../src/game/duelReport';
+import { act, create } from 'react-test-renderer';
+import { useOpponentAI } from '../src/hooks/useOpponentAI';
 
 let serial = 0;
 const card = (id: string, pi = 0): Card => ({ ...cardRegistry.getCard(id)!, instanceId: `card-${serial++}`, ownerId: `player${pi + 1}` });
@@ -212,7 +215,7 @@ describe('fair general AI', () => {
         expect(choice.kind === 'effect' && choice.context.target?.playerIndex === 0).toBe(false);
     });
 
-    it('chooses a quick defensive response that stops lethal damage', () => {
+    it('chooses a lethal defensive response and handles priority before queued LP-gain windows', () => {
         cardRegistry.register({ id: 'test-quick-defense', name: 'Quick defense', type: CardType.PAWN, rarity: 'Common', level: 1, atk: 10, def: 20, effectText: 'Quick: switch an attacker to Defense.' }, {
             timing: 'quick', onActivate: buildEffect([Require.Target('pawn'), Require.TargetMatchesPosition(Position.ATTACK), Effect.ChangeTargetPosition(Position.DEFENSE)])
         });
@@ -222,5 +225,43 @@ describe('fair general AI', () => {
         s.players[0].pawnZones[0] = zone(attacker);
         const next = openResponse(s, { kind: 'attack', attackerId: attacker.instanceId, targetId: defender.instanceId }, 'Attack');
         expect(chooseAIAction(observeGame(next, 1), 1)).toMatchObject({ kind: 'effect', context: { target: { playerIndex: 0, index: 0 } } });
+        const duel = game(), sword = card('A_Withering_Sword'), golem = card('P_Split_Golem');
+        duel.players[0].actionZones[0] = { ...zone(sword, Position.FACE_UP), summonedTurn: duel.turnNumber };
+        duel.players[0].pawnZones[0] = zone(golem);
+        duel.players[1].pawnZones[0] = zone(card('P_Goddess_Of_Fortune', 1));
+        duel.players[1].actionZones[0] = zone(card('C_Dark_Draw', 1), Position.HIDDEN);
+        duel.players[0].pawnZones[1] = zone(card('P_Void_Caster'));
+        let board = applyCommand(duel, 0, { type: 'activate', trigger: 'activate',
+            context: { card: sword, playerIndex: 0, target: { playerIndex: 0, type: 'pawn', index: 0 } } }).state;
+        expect(board.response?.priority).toBe(1);
+        expect(board.pendingResponse?.lpGain).toMatchObject({ playerIndex: 1, amount: 10 });
+        const update = vi.fn(change => { board = change(board); });
+        function Harness() {
+            useOpponentAI({ gameState: board, setGameState: update, enabled: true, busy: false,
+                nextPhase: vi.fn(), skipToEndPhase: vi.fn(), requestAttack: vi.fn(), resolveEffect: vi.fn() });
+            return null;
+        }
+        vi.useFakeTimers();
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        let root: ReturnType<typeof create> | undefined;
+        try {
+            act(() => { root = create(createElement(Harness)); });
+            act(() => vi.advanceTimersByTime(350));
+            expect(update).toHaveBeenCalledOnce();
+            expect(board.resolvingChain).toBeDefined();
+            board = resolveChainStep(board);
+            expect(board.players[0].pawnZones[0]?.card.atk).toBe(160);
+            expect(board.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([golem.instanceId]);
+            expect(board.players[1].lp).toBe(810);
+            board = startPendingResponse(board);
+            expect(board.response?.lpGain).toMatchObject({ playerIndex: 1, amount: 10 });
+            act(() => root!.update(createElement(Harness)));
+            act(() => vi.advanceTimersByTime(0));
+            expect(board.response).toBeUndefined();
+            expect(board.pendingResponse).toBeUndefined();
+        } finally {
+            act(() => root?.unmount());
+            vi.useRealTimers(); vi.unstubAllGlobals();
+        }
     });
 });

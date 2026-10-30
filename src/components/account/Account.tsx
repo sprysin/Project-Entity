@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { getAccount, getSettings, saveProfile } from '../../desktop/storage';
+import { accountProgress } from '../../game/duelReport';
 import AccountProgress from './AccountProgress';
+import AccountStatistics from './AccountStatistics';
 import BackToHubButton from '../common/BackToHubButton';
 import PageBrand from '../common/PageBrand';
 import ProfileAvatar from '../common/ProfileAvatar';
@@ -34,6 +36,7 @@ export default function Account({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const account = getAccount();
 
   const upload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -67,29 +70,29 @@ export default function Account({ onBack }: { onBack: () => void }) {
   };
 
   return <main className="account-page entity-page">
-    <div className="entity-topbar"><PageBrand section="ACCOUNT / PROFILE" /><BackToHubButton onClick={onBack} disabled={saving || processing} /></div>
-    <form className="account-shell" onSubmit={save}>
-      <header className="account-heading"><span>PLAYER PROFILE SETTINGS</span><h1>DUELEST <em>ACCOUNT</em></h1></header>
-      <div className="account-progression"><AccountProgress totalXp={getAccount().totalXp} /></div>
-      <div className="account-content">
-        <div className="account-preview">
-          <span className="account-preview__icon"><ProfileAvatar image={profile.profileImage} /></span>
-          <span className="account-preview__label">PLAYER</span>
-          <strong>{profile.username.trim() || 'Player'}</strong>
-        </div>
-        <div className="account-fields">
-          <label htmlFor="account-username">USERNAME</label>
-          <p id="account-username-help">Up to 24 characters. This name appears in matches.</p>
-          <input id="account-username" aria-describedby="account-username-help" type="text" maxLength={24} required value={profile.username} onChange={event => { setProfile(current => ({ ...current, username: event.target.value })); setFeedback(''); }} disabled={saving || processing} />
-          <div className="account-upload">
-            <label htmlFor="account-image">PROFILE IMAGE</label>
-            <p>Upload your own image. It will be cropped to a square.</p>
-            <input id="account-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={upload} disabled={saving || processing} />
-            {profile.profileImage && <button type="button" className="account-remove-image" onClick={() => { setProfile(current => ({ ...current, profileImage: null })); setFeedback(''); }} disabled={saving || processing}>REMOVE IMAGE</button>}
+    <div className="entity-topbar"><PageBrand section="ACCOUNT" /><BackToHubButton onClick={onBack} disabled={saving || processing} /></div>
+    <div className="account-shell">
+      <header className="account-heading"><h1>DUELEST <em>ACCOUNT</em></h1></header>
+      <div className="account-layout">
+        <form className="account-profile" aria-label="Player profile" onSubmit={save}>
+          <div className="account-preview">
+            <span className="account-preview__icon"><ProfileAvatar image={profile.profileImage} /></span>
+            <div className="account-preview__name"><h2>Level {accountProgress(account.totalXp).level.toLocaleString()}</h2><strong>{profile.username.trim() || 'Player'}</strong></div>
           </div>
-        </div>
+          <div className="account-fields">
+            <label htmlFor="account-username">USERNAME</label>
+            <input id="account-username" type="text" maxLength={24} required value={profile.username} onChange={event => { setProfile(current => ({ ...current, username: event.target.value })); setFeedback(''); }} disabled={saving || processing} />
+            <div className="account-upload">
+              <label htmlFor="account-image">PROFILE IMAGE</label>
+              <input id="account-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={upload} disabled={saving || processing} />
+              {profile.profileImage && <button type="button" className="account-remove-image" onClick={() => { setProfile(current => ({ ...current, profileImage: null })); setFeedback(''); }} disabled={saving || processing}>REMOVE IMAGE</button>}
+            </div>
+          </div>
+          <div className="account-progression"><AccountProgress totalXp={account.totalXp} /></div>
+          <footer className="account-actions"><button type="submit" data-sound="select" disabled={saving || processing || !profile.username.trim()}>{saving ? 'SAVING…' : processing ? 'PROCESSING…' : 'SAVE PROFILE'}</button><span role="status" aria-live="polite">{feedback}</span></footer>
+        </form>
+        <AccountStatistics statistics={account.statistics} />
       </div>
-      <footer className="account-actions"><span role="status" aria-live="polite">{feedback}</span><button type="submit" data-sound="select" disabled={saving || processing || !profile.username.trim()}>{saving ? 'SAVING…' : processing ? 'PROCESSING…' : 'SAVE PROFILE'}</button></footer>
-    </form>
+    </div>
   </main>;
 }

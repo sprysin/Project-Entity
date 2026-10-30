@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, 
 import { cardRegistry } from '../../cards/CardRegistry';
 import { rarityColor } from '../../cards/rarity';
 import { createGame } from '../../game/engine';
-import { CARD_RARITIES, type Card, type GameState } from '../../types';
+import { Attribute, CARD_RARITIES, type Card, type GameState } from '../../types';
 import { CardDetail, cardFrameClass } from '../cards/CardDetail';
 import { CardPreview } from '../cards/CardPreview';
 import { attributeColors } from '../cards/attributeColors';
@@ -23,7 +23,7 @@ import { emptyDuelStats, getDuelReport } from '../../game/duelReport';
 import { CardSelectionModal } from '../game/SelectionModals';
 import { ActionCardIcon } from '../icons/ActionCardIcon';
 import { LandCardIcon } from '../icons/LandCardIcon';
-import { NormalAttributeIcon } from '../icons/NormalAttributeIcon';
+import { AttributeIcon } from '../icons/AttributeIcon';
 import '../decks/DeckCreator.css';
 import '../game/GameView.css';
 import './StyleGuide.css';
@@ -201,7 +201,7 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
               <div className="style-guide__button-row"><code>Tribute progress · 3 / 5</code><LevelDiamonds required={5} selected={3} /></div>
               <div className="style-guide__context"><ContextMenu title="Card actions"><ContextMenuButton label="Activate" tone="gold" onClick={() => setFeedback('Context action selected.')} /><ContextMenuButton label="Set" onClick={() => setFeedback('Set example selected.')} /><ContextMenuButton label="Unavailable" disabled onClick={() => { }} /></ContextMenu></div>
               <div className="style-guide__icons">
-                <span><ActionCardIcon />Action</span><span><LandCardIcon />Land</span><span><NormalAttributeIcon />Normal</span><span><ProfileAvatar image={null} />Profile</span>
+                <span><ActionCardIcon />Action</span><span><LandCardIcon />Land</span><span><AttributeIcon attribute={Attribute.NORMAL} />Normal</span><span><AttributeIcon attribute={Attribute.DARK} />Dark</span><span><AttributeIcon attribute={Attribute.LIGHT} />Light</span><span><AttributeIcon attribute={Attribute.EARTH} />Earth</span><span><AttributeIcon attribute={Attribute.AIR} />Air</span><span><ProfileAvatar image={null} />Profile</span>
                 {['gear', 'magnifying-glass', 'layer-group', 'plus', 'trash', 'xmark', 'arrow-left', 'power-off'].map(icon => <span key={icon}><i className={`fa-solid fa-${icon}`} aria-hidden="true" />{icon}</span>)}
               </div>
               <p className="style-guide__source">game/HealthHud.tsx · game/LevelDiamonds.tsx · game/ContextMenu.tsx · icons/ · Font Awesome Solid</p>
