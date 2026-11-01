@@ -83,7 +83,7 @@ it('runs opening turns, summons, and a winning attack with no React or timers', 
     expect(state.players[1].lp).toBe(1); // Declaration opens responses; no damage yet.
     state = applySystemCommand(state, { type: 'completeDeferred' }).state;
     expect(state.winner).toBe('Player 1');
-    expect(getDuelReport(state, 0)).toMatchObject({ total: 500 + state.players[0].pawnZones[0]!.card.atk, xp: Math.floor((500 + state.players[0].pawnZones[0]!.card.atk) / 10) });
+    expect(getDuelReport(state, 0)).toMatchObject({ total: 900 + state.players[0].pawnZones[0]!.card.atk, xp: Math.floor((900 + state.players[0].pawnZones[0]!.card.atk) / 10) });
     expect(before.players[1].lp).toBe(1);
     expect(command(state, { type: 'phase' })).toBe(state);
 });

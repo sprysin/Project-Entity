@@ -16,10 +16,10 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn(), confirm: vi.fn(), message: vi.fn() }));
 
-import { awardDuelXp, getAccount, flushSaves, getSettings, saveProfile, saveSettings, getSavedDecks, hasCardPoolChanges, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
+import { awardDuelXp, getAccount, getCollection, flushSaves, getSettings, saveProfile, saveSettings, getSavedDecks, hasCardPoolChanges, initializeStorage, migrateSave, saveActivationPopupMode, saveDeckLibrary } from '../src/desktop/storage';
 import { createGame } from '../src/game/engine';
 import { cardRegistry } from '../src/cards/CardRegistry';
-import { newDeck } from '../src/decks';
+import { newDeck, deckSize, isDeckPlayable } from '../src/decks';
 import { exportDeck, importDeck } from '../src/desktop/files';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { stat } from '@tauri-apps/plugin-fs';
@@ -40,12 +40,12 @@ it('persists completed duel statistics and XP once with concurrent profile and d
   duel.damageEvents.push({ ...duel.damageEvents[0], amount: 100, kind: 'effect' }, { ...duel.damageEvents[0], playerIndex: 1, amount: 900 });
   duel.winner = 'Player'; duel.resultReason = 'lp';
   const deck = newDeck();
-  await Promise.all([awardDuelXp(duel), awardDuelXp(duel), saveDeckLibrary([deck]), saveActivationPopupMode('off'), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true })]);
+  await Promise.all([awardDuelXp(duel), awardDuelXp(duel), saveDeckLibrary([deck]), saveActivationPopupMode('off'), saveSettings({ username: '  Drake  ', volume: 35, fannedOutPiles: true, blueGreenBoard: true })]);
   const profileImage = 'data:image/webp;base64,UklGRg==';
   await saveProfile({ username: '  Drake  ', profileImage });
   await initializeStorage();
   expect(getSavedDecks()).toEqual([deck]);
-  expect(getSettings()).toEqual({ activationPopupMode: 'off', username: 'Drake', profileImage, volume: 35, fannedOutPiles: true });
+  expect(getSettings()).toEqual({ activationPopupMode: 'off', username: 'Drake', profileImage, volume: 35, fannedOutPiles: true, blueGreenBoard: true });
   await awardDuelXp(duel);
   expect(getAccount()).toMatchObject({ totalXp: 169, lastDuelId: duel.duelId, statistics: {
     ...duel.duelStats![0], wins: 1, losses: 0, draws: 0, highestDuelScore: 1695, mostDamageInDuel: 300,
@@ -57,6 +57,17 @@ it('persists completed duel statistics and XP once with concurrent profile and d
 });
 
 it('keeps the previous save and cached state when replacement fails, then supports retry', async () => {
+  const [starter] = getSavedDecks();
+  const pool = getCollection();
+  expect(starter.name).toBe('Starter Deck');
+  expect(isDeckPlayable(starter) && deckSize(starter) === 40).toBe(true);
+  expect(pool.cards).toEqual(starter.cards);
+  starter.cards.length = 0;
+  expect(getCollection()).toEqual(pool);
+  await saveDeckLibrary([]);
+  await initializeStorage();
+  expect(getSavedDecks()).toEqual([]);
+  expect(getCollection()).toEqual(pool);
   const deck = newDeck();
   await saveDeckLibrary([deck]);
   const original = disk.files.get('save.json');
@@ -68,23 +79,27 @@ it('keeps the previous save and cached state when replacement fails, then suppor
   expect(getAccount()).toMatchObject({ totalXp: 0, statistics: { wins: 0 } });
   disk.failRename = false;
   await awardDuelXp(duel);
-  expect(getAccount()).toMatchObject({ totalXp: 50, statistics: { wins: 1 } });
+  expect(getAccount()).toMatchObject({ totalXp: 90, statistics: { wins: 1 } });
 });
 
 it('migrates legacy arrays and rejects future versions and duplicate IDs', () => {
   const deck = newDeck();
-  expect(migrateSave([deck])).toMatchObject({ version: 1, decks: [deck], account: { totalXp: 0, lastDuelId: null, statistics: { wins: 0, losses: 0, draws: 0 } }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+  expect(migrateSave([deck])).toMatchObject({ version: 1, decks: [deck], account: { totalXp: 0, lastDuelId: null, statistics: { wins: 0, losses: 0, draws: 0 } }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false, blueGreenBoard: false } });
   const legacy = { ...migrateSave([]), account: { totalXp: 137, lastDuelId: 'old-duel' } };
   expect(migrateSave(legacy).account).toMatchObject({ ...legacy.account, statistics: { wins: 0, highestDuelScore: 0, trackedSince: expect.any(String) } });
   expect(() => migrateSave({ ...legacy, account: { ...legacy.account, statistics: { ...getAccount().statistics, wins: -1 } } })).toThrow('Invalid account statistics');
   expect(() => migrateSave({ ...migrateSave([]), account: { totalXp: -1, lastDuelId: null } })).toThrow('Invalid account');
-  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false, profileIcon: 'star' } }).settings).toEqual({ activationPopupMode: 'off', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false });
+  expect(migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: false, profileIcon: 'star' } }).settings).toEqual({ activationPopupMode: 'off', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false, blueGreenBoard: false });
   expect(() => migrateSave({ version: 1, decks: [], settings: { activationPopupMode: 'always' } })).toThrow('Invalid settings');
-  for (const settings of [{ username: ' ' }, { username: 'x'.repeat(25) }, { profileImage: 'https://example.com/image.png' }, { volume: -1 }, { volume: 101 }, { fannedOutPiles: 'yes' }]) {
+  for (const settings of [{ username: ' ' }, { username: 'x'.repeat(25) }, { profileImage: 'https://example.com/image.png' }, { volume: -1 }, { volume: 101 }, { fannedOutPiles: 'yes' }, { blueGreenBoard: 'yes' }]) {
     expect(() => migrateSave({ version: 1, decks: [], settings: { activationPopupsEnabled: true, ...settings } })).toThrow('Invalid settings');
   }
   expect(() => migrateSave({ version: 2 })).toThrow('Unsupported');
   expect(() => migrateSave([deck, deck])).toThrow('Duplicate');
+  const owned = { ...deck, cards: [{ cardId: 'P_Eggolem', quantity: 2 }] };
+  const migrated = migrateSave([owned, { ...owned, id: 'other', cards: [{ cardId: 'P_Eggolem', quantity: 3 }] }]);
+  expect(migrated.collection.cards).toEqual([{ cardId: 'P_Eggolem', quantity: 3 }]);
+  expect(() => migrateSave({ ...migrated, collection: { cards: [{ cardId: 'P_Eggolem', quantity: -1 }] } })).toThrow();
 });
 
 it('recovers changed card pools without overwriting saves, but still rejects damaged saves', async () => {

@@ -38,7 +38,7 @@ export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => v
             <section className="quit-duel-dialog__panel" onClick={event => event.stopPropagation()}>
                 <div className="quit-duel-dialog__icon" aria-hidden="true"><i className="fa-solid fa-power-off" /></div>
                 <h2 id="quit-duel-title">Quit this duel?</h2>
-                <p id="quit-duel-description">Your current duel progress will be lost. Neither player earns account XP from an unfinished duel.</p>
+                <p id="quit-duel-description">Your current duel progress will be lost. Neither player will earn XP.</p>
                 <div className="quit-duel-dialog__actions">
                     <button data-sound="cancellation" ref={cancelButton} type="button" onClick={onCancel}>Keep Playing</button>
                     <button data-sound="select-small" ref={confirmButton} type="button" className="quit-duel-dialog__confirm" onClick={onConfirm}>Quit Duel</button>
@@ -89,34 +89,34 @@ export const WinnerModal: React.FC<{
                 {Array.from({ length: 18 }, (_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}
             </div>
             <div className="duel-result-layout">
-            <header className="duel-result-heading">
-                <p className="duel-result-eyebrow">Duel complete · Turn {gameState.turnNumber}</p>
-                <h2 id="duel-result-title">{gameState.isDraw ? 'Draw' : isDefeat ? 'Defeat' : 'Victory'}</h2>
-                <p className="duel-result-winner">{gameState.isDraw ? 'Both players reached 0 LP at the same time.' : `${gameState.winner} is victorious`}</p>
-                {gameState.resultReason === 'empty_deck' && <p className="duel-result-reason">A required draw could not be completed: the deck was empty.</p>}
-                {!mvp && !gameState.isDraw && <p className="duel-result-empty">No damage-dealing MVP this duel.</p>}
-            </header>
-            <div className={`duel-result-body ${!mvp || !children ? 'duel-result-body--single' : ''}`}>
-            {mvp && <section className="duel-result-content" aria-label={isDefeat ? 'Opponent’s MVP' : 'Duel MVP'}>
-                    <p className="duel-result-label">{isDefeat ? 'Opponent’s MVP' : 'MVP'}</p>
-                    <div className="duel-mvp-stage">
-                        <div className={`duel-mvp-card ${revealed ? 'is-revealed' : ''}`}>
-                            <div className="duel-mvp-face duel-mvp-back card-back" aria-hidden="true" />
-                            <div className="duel-mvp-face duel-mvp-front" aria-hidden={!revealed}><CardDetail card={mvp.card} className="w-full h-full" /></div>
+                <header className="duel-result-heading">
+                    <p className="duel-result-eyebrow">Duel complete · Turn {gameState.turnNumber}</p>
+                    <h2 id="duel-result-title">{gameState.isDraw ? 'Draw' : isDefeat ? 'Defeat' : 'Victory'}</h2>
+                    <p className="duel-result-winner">{gameState.isDraw ? 'Both players reached 0 LP at the same time.' : `${gameState.winner} is victorious`}</p>
+                    {gameState.resultReason === 'empty_deck' && <p className="duel-result-reason">A required draw could not be completed: the deck was empty.</p>}
+                    {!mvp && !gameState.isDraw && <p className="duel-result-empty">No damage-dealing MVP this duel.</p>}
+                </header>
+                <div className={`duel-result-body ${!mvp || !children ? 'duel-result-body--single' : ''}`}>
+                    {mvp && <section className="duel-result-content" aria-label={isDefeat ? 'Opponent’s MVP' : 'Duel MVP'}>
+                        <p className="duel-result-label">{isDefeat ? 'Opponent’s MVP' : 'MVP'}</p>
+                        <div className="duel-mvp-stage">
+                            <div className={`duel-mvp-card ${revealed ? 'is-revealed' : ''}`}>
+                                <div className="duel-mvp-face duel-mvp-back card-back" aria-hidden="true" />
+                                <div className="duel-mvp-face duel-mvp-front" aria-hidden={!revealed}><CardDetail card={mvp.card} className="w-full h-full" /></div>
+                            </div>
                         </div>
-                    </div>
-                    <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
-                        {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
-                    </div>
-            </section>}
-            {children && <div className="duel-result-report">{reportVisible && children}</div>}
-            </div>
-            <footer className={`duel-result-footer ${!children || reportVisible ? 'is-visible' : ''}`}>
-                <p role="status">{error || (saving ? 'Saving account XP…' : '')}</p>
-                <div>{error && onRetry && <button className="deck-secondary" data-sound="select-small" onClick={onRetry}>Retry save</button>}
-                    <button ref={continueButton} data-sound="select" disabled={saving || !!error} onClick={onQuit} className="duel-result-button">Continue <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+                        <div className={`duel-mvp-stats ${revealed ? 'is-revealed' : ''}`} aria-live="polite">
+                            {revealed && <><h3>{mvp.card.name}</h3><p><strong>{mvp.total.toLocaleString()}</strong> damage dealt</p></>}
+                        </div>
+                    </section>}
+                    {children && <div className="duel-result-report">{reportVisible && children}</div>}
                 </div>
-            </footer>
+                <footer className={`duel-result-footer ${!children || reportVisible ? 'is-visible' : ''}`}>
+                    <p role="status">{error || (saving ? 'Saving account XP…' : '')}</p>
+                    <div>{error && onRetry && <button className="deck-secondary" data-sound="select-small" onClick={onRetry}>Retry save</button>}
+                        <button ref={continueButton} data-sound="select" disabled={saving || !!error} onClick={onQuit} className="duel-result-button">Continue <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+                    </div>
+                </footer>
             </div>
         </div>
     );

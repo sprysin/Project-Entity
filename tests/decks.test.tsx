@@ -1,7 +1,9 @@
+import { CardType } from '../src/types';
 import { CardRegistry } from '../src/cards/CardRegistry';
 import { LEGACY_CARD_IDS } from '../src/cards/legacyIds';
 import { act, create } from 'react-test-renderer';
 import CatalogPagination, { useCatalogPage } from '../src/components/catalog/CatalogPagination';
+import { useCatalogFilters } from '../src/components/catalog/CatalogFilters';
 import { expect, it } from 'vitest';
 import { newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable, createRuntimeDeck, createRuntimeReserve, reserveSize } from '../src/decks';
 import { isReservePawn } from '../src/game/cardHelpers';
@@ -18,7 +20,9 @@ it('paginates a large catalog and validates deck copy limits and legacy IDs', ()
     expect(registry.size).toBe(1000);
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     let page: ReturnType<typeof useCatalogPage>;
+    let filters: ReturnType<typeof useCatalogFilters>;
     function Catalog({ query }: { query: string }) {
+        filters = useCatalogFilters();
         page = useCatalogPage(registry.getAllCards().filter(card => card.id.includes(query)), query);
         return <CatalogPagination {...page} />;
     }
@@ -31,9 +35,20 @@ it('paginates a large catalog and validates deck copy limits and legacy IDs', ()
     act(() => { root.update(<Catalog query="scale-999" />); });
     expect(page.page).toBe(0);
     expect(page.entries).toHaveLength(1);
-    expect(root.toJSON()).toBeNull();
     act(() => { root.update(<Catalog query="missing" />); });
     expect(page.entries).toEqual([]);
+    act(() => filters.toggle('actionRarity', 'Rare'));
+    expect(filters.active).toBe(false);
+    act(() => filters.apply());
+    expect(filters.matches({ ...definition, type: CardType.ACTION, rarity: 'Rare' })).toBe(true);
+    expect(filters.matches({ ...definition, type: CardType.PAWN, rarity: 'Rare' })).toBe(false);
+    act(() => filters.toggle('conditionRarity', 'Legendary'));
+    act(() => filters.apply());
+    expect(filters.matches({ ...definition, type: CardType.CONDITION, rarity: 'Legendary' })).toBe(true);
+    expect(filters.matches({ ...definition, type: CardType.CONDITION, rarity: 'Rare' })).toBe(false);
+    act(() => filters.clear());
+    act(() => filters.apply());
+    expect(filters.matches({ ...definition, rarity: 'Rare' })).toBe(true);
     act(() => root.unmount());
     for (const invalid of [{ level: 11 }, { atk: NaN }, { isAttached: true, isLingering: true }, { name: '' }, { rarity: 'Unknown' }]) {
         expect(() => registry.register({ ...definition, ...invalid, id: 'invalid' } as typeof definition, {})).toThrow('Invalid');

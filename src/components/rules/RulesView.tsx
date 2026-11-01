@@ -364,18 +364,18 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   </button>;
   return <div ref={scroller} className="rulebook entity-page">
     <header className="rulebook-topbar entity-topbar"><PageBrand section="THE RULEBOOK" /><BackToHubButton onClick={onBack} /></header>
-    <div className="rulebook-shell">
+    <div className="rulebook-shell entity-shell">
       {chapter === null ? <>
         <section className="rulebook-cover">
           <div>
-            <h1 ref={heading} tabIndex={-1}>THE <em>RULEBOOK</em></h1>
+            <h1 className="entity-title" ref={heading} tabIndex={-1}>THE <em>RULEBOOK</em></h1>
             <p>Covers all the major rules and mechanics of standard play.<br />These are subject to change as the game receives balance updates.</p>
-            <div className="rulebook-cover-actions"><button data-sound="select-small" className="rulebook-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button><button className="rulebook-reference-link" onClick={() => open(chapters.length - 1)}>Quick reference <i className="fa-solid fa-book-open" aria-hidden="true" /></button></div>
+            <div className="rulebook-cover-actions"><button data-sound="select-small" className="entity-primary" onClick={() => open(0)}>Start with the basics <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button><button className="page-back-button" onClick={() => open(chapters.length - 1)}>Quick reference <i className="fa-solid fa-book-open" aria-hidden="true" /></button></div>
           </div>
           <div className="rulebook-card-fan" aria-label="Example Pawn, Action and Condition cards">{examples.map((example, index) => <div key={example.id} className={`rulebook-fan-item rulebook-fan-${index}`}><ExampleCard id={example.id} decorative /><span style={{ color: example.color }}>{example.label}</span></div>)}</div>
         </section>
         <nav className="rulebook-chapters" aria-label="Rulebook chapters">
-          {chapterGroups.map((group, index) => <section key={group.title} className={`rulebook-chapter-group chapter-tone-${index}`} aria-label={group.title}>
+          {chapterGroups.map((group, index) => <section key={group.title} className="rulebook-chapter-group entity-panel" aria-label={group.title}>
             <div className="rulebook-group-heading"><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><h2>{group.title}</h2><p>{group.description}</p></div></div>
             <div>{group.chapters.map(item => chapterButton(item))}</div>
           </section>)}
@@ -384,12 +384,12 @@ const RulesView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </> : <>
         <div className="rulebook-breadcrumb"><button data-sound="select-small" onClick={() => open(null)}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> All chapters</button><span>{group?.title ?? 'Reference'}</span></div>
         <div className="rulebook-reading-grid">
-          <aside className="rulebook-contents">
+          <aside className="rulebook-contents entity-panel">
             <details ref={contents} open={typeof window !== 'undefined' && window.matchMedia?.('(min-width: 901px)').matches}><summary>Contents <i className="fa-solid fa-chevron-down" aria-hidden="true" /></summary>
-              <nav aria-label="Rulebook contents">{chapterGroups.map((group, index) => <section key={group.title} className={`chapter-tone-${index}`}><h2>{group.title}</h2>{group.chapters.map(item => <React.Fragment key={item.id}>{chapterButton(item, true)}{chapter.id === item.id && <div className="rulebook-contents-sections">{item.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</div>}</React.Fragment>)}</section>)}{chapterButton(quickReference, true)}{chapter.id === quickReference.id && <div className="rulebook-contents-sections">{chapter.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</div>}</nav>
+              <nav aria-label="Rulebook contents">{chapterGroups.map(group => <section key={group.title}><h2>{group.title}</h2>{group.chapters.map(item => <React.Fragment key={item.id}>{chapterButton(item, true)}{chapter.id === item.id && <div className="rulebook-contents-sections">{item.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</div>}</React.Fragment>)}</section>)}{chapterButton(quickReference, true)}{chapter.id === quickReference.id && <div className="rulebook-contents-sections">{chapter.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</div>}</nav>
             </details>
           </aside>
-          <main className="rulebook-reading" key={chapter.id}>
+          <main className="rulebook-reading entity-panel" key={chapter.id}>
             <div className="rulebook-topic-heading"><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><p>{chapter.subtitle}</p></div>
             <nav className="rulebook-section-links" aria-label="In this chapter">{chapter.sections.map(section => <button key={section.id} aria-current={sectionId === section.id ? 'location' : undefined} onClick={() => open(selected, section.id)}>{section.title}</button>)}</nav>
             {chapter.sections.map(section => {

@@ -14,6 +14,31 @@ Each pack defines exactly three distinct `chaseCardIds` in `src/shop/packs.ts`, 
 
 The opening screen reuses CardDetail, existing audio settings, and shared page controls. Reduced-motion preferences disable opening, showcase, and reveal animations. The card inspector uses a native HTML dialog with keyboard focus containment and Escape dismissal.
 
+
 The Debug pulls button opens DEBUG_PACK's fixed seven-card list in rarity order, bypassing random draws and rotation. Edit that fixture in src/shop/packs.ts to change the sample cards. It shares the normal reveal animations, inspection, and completion controls. Opening counters and wrapper labels use the actual card count; cards stay in one row and shrink to fit the available width and height. The adjacent temporary Debug reroll packs button immediately draws a fresh lineup and resets the rotation timer to five minutes, saving both through the normal rotation persistence.
 
 Five-pack sessions generate five independent packs when started. Continue advances to the next pack, preserving the session through shop rotations. After the fifth pack, all 25 pulls appear in descending rarity-tier order, with duplicates retained and inspection available. Single-pack sessions return to selection on Continue.
+
+## Unfinished: 3D pack opening (parked 2026-10-31)
+
+The 3D wrapper and manual ripping feature is unfinished and needs a second round
+of visual and interaction polish before it is enabled again. The live shop has
+returned to its original flat CSS packs and automatic opening transition.
+
+The dormant prototype is preserved in `src/components/shop/PackArtwork.tsx` and
+`src/components/shop/packRenderer.ts`; Shop does not import it. Three.js dependencies
+remain available for resuming this work. Reference: https://www.holosticker.dev.
+
+Resume criteria and user preferences:
+- Preserve saturated artwork and text beneath gloss; avoid washed-out lighting.
+- Support each pack's own colors and theme.
+- Use card-like tall proportions, a true square diamond, and fuller icon/text layout.
+- Large, realistic top/bottom crimped seals with fewer grooves.
+- Keep the wrapper stationary and straight on the ripping screen.
+- Tear the top in either direction with a broad fold, without coiling or clipping.
+- Show only the tops of five cards during the rip; no bottom protrusion.
+- Space skips the manual rip. Keep the control below the pack and copy minimal.
+- Finish with a short white background flash, respecting reduced motion.
+- Reassess the overall material, seal geometry, proportions, and tear feel with the
+  user before considering this feature finished. Previous iterations did not meet
+  the required visual quality.

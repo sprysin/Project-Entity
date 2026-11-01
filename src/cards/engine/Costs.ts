@@ -26,11 +26,12 @@ export const Cost = {
     }),
     /** Void a hand card without treating it as a discard or tribute. */
     VoidHandCard: (filter: CardFilter): EffectStep => activationCost((state, context) => {
-        if (context.handIndex === undefined && !context.handSelectionId) return { requireHandSelection: { playerIndex: context.playerIndex, filter } };
+        const eligible = (card: Card) => card.instanceId !== context.card.instanceId && filter(card);
+        if (context.handIndex === undefined && !context.handSelectionId) return { requireHandSelection: { playerIndex: context.playerIndex, filter: eligible } };
         const player = state.players[context.playerIndex];
         const index = context.handSelectionId ? player.hand.findIndex(card => card.instanceId === context.handSelectionId) : context.handIndex!;
         const card = player.hand[index];
-        if (!card || !filter(card)) return { halt: true };
+        if (!card || !eligible(card)) return { halt: true };
         player.hand.splice(index, 1);
         sendToOwnerPile(state, card, 'void');
     }),

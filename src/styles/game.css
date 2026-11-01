@@ -967,8 +967,6 @@ body {
   overflow-y: auto;
   padding: 8px;
   border-top: 1px solid #d4af372e;
-  scrollbar-width: thin;
-  scrollbar-color: var(--duel-accent) #11151a;
 }
 
 .duel-card-choice {
@@ -1133,8 +1131,6 @@ body {
   gap: 16px;
   overflow-x: auto;
   padding: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--duel-accent) #11151a;
 }
 
 .response-cards__card {

@@ -10,6 +10,7 @@ export interface SavedDeck {
     version: 1;
     id: string;
     name: string;
+    starter?: boolean;
     cards: { cardId: string; quantity: number }[];
     reserve?: { cardId: string; quantity: number }[];
 }
@@ -102,5 +103,5 @@ export function parseDeck(value: unknown, enforceLimits = true, allowUnavailable
     if (enforceLimits && reserveSize({ ...deck, reserve }) > MAX_RESERVE_SIZE) throw new Error('The Reserve cannot contain more than 10 cards.');
     cards.sort((a, b) => positions.get(a.cardId)! - positions.get(b.cardId)!);
     reserve.sort((a, b) => positions.get(a.cardId)! - positions.get(b.cardId)!);
-    return { version: 1, id: deck.id, name: deck.name.trim(), cards, ...(deck.reserve === undefined ? {} : { reserve }) };
+    return { version: 1, id: deck.id, name: deck.name.trim(), ...(deck.starter === true ? { starter: true } : {}), cards, ...(deck.reserve === undefined ? {} : { reserve }) };
 }

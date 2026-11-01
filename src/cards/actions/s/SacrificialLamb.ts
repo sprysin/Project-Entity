@@ -1,3 +1,4 @@
+import { Effect } from '../../engine/Effects';
 import { IEffect, CardType } from '../../../types';
 import { CardModule } from '../../CardRegistry';
 import { buildEffect, EffectStep } from '../../engine/Builder';
@@ -16,7 +17,7 @@ const resolveTributeAndGainAttack: EffectStep = (state, context) => {
         sendToOwnerPile(state, { ...fieldTribute, tributedByAction: true }, 'discard');
         player.pawnZones[tributeIndex] = null;
     }
-    state.players[context.playerIndex].lp += tributed.atk;
+    Effect.RestoreLP(context.playerIndex, tributed.atk)(state, context);
 };
 
 const effect: IEffect = {

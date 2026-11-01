@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { getAccount, getSettings, saveProfile } from '../../desktop/storage';
+import React, { useRef, useState } from 'react';
+import { getAccount, getSettings, resetAccount, saveProfile } from '../../desktop/storage';
 import { accountProgress } from '../../game/duelReport';
 import AccountProgress from './AccountProgress';
 import AccountStatistics from './AccountStatistics';
@@ -36,7 +36,25 @@ export default function Account({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const resetDialog = useRef<HTMLDialogElement>(null);
+  const [resetting, setResetting] = useState(false);
   const account = getAccount();
+
+  const reset = async () => {
+    setResetting(true);
+    setSaving(true);
+    setFeedback('');
+    try {
+      await resetAccount();
+      setFeedback('Account reset. Level, XP, and duel statistics have been cleared.');
+    } catch (error) {
+      setFeedback(`Account could not be reset: ${String(error)}`);
+    } finally {
+      resetDialog.current?.close();
+      setResetting(false);
+      setSaving(false);
+    }
+  };
 
   const upload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -84,15 +102,24 @@ export default function Account({ onBack }: { onBack: () => void }) {
             <input id="account-username" type="text" maxLength={24} required value={profile.username} onChange={event => { setProfile(current => ({ ...current, username: event.target.value })); setFeedback(''); }} disabled={saving || processing} />
             <div className="account-upload">
               <label htmlFor="account-image">PROFILE IMAGE</label>
-              <input id="account-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={upload} disabled={saving || processing} />
-              {profile.profileImage && <button type="button" className="account-remove-image" onClick={() => { setProfile(current => ({ ...current, profileImage: null })); setFeedback(''); }} disabled={saving || processing}>REMOVE IMAGE</button>}
+              <div className={`account-upload__controls${profile.profileImage ? ' account-upload__controls--has-image' : ''}`}><input id="account-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={upload} disabled={saving || processing} />
+              {profile.profileImage && <button type="button" className="account-remove-image" onClick={() => { setProfile(current => ({ ...current, profileImage: null })); setFeedback(''); }} disabled={saving || processing}>REMOVE IMAGE</button>}</div>
             </div>
           </div>
           <div className="account-progression"><AccountProgress totalXp={account.totalXp} /></div>
-          <footer className="account-actions"><button type="submit" data-sound="select" disabled={saving || processing || !profile.username.trim()}>{saving ? 'SAVING…' : processing ? 'PROCESSING…' : 'SAVE PROFILE'}</button><span role="status" aria-live="polite">{feedback}</span></footer>
+          <footer className="account-actions"><button type="submit" data-sound="select" disabled={saving || processing || !profile.username.trim()}>{saving ? 'SAVING…' : processing ? 'PROCESSING…' : 'SAVE PROFILE'}</button><button type="button" className="account-reset" disabled={saving || processing} onClick={() => resetDialog.current?.showModal()}>RESET ACCOUNT</button><span role="status" aria-live="polite">{feedback}</span></footer>
         </form>
         <AccountStatistics statistics={account.statistics} />
       </div>
     </div>
+    <dialog ref={resetDialog} className="account-reset-dialog" aria-labelledby="account-reset-title" aria-describedby="account-reset-description" onCancel={event => { if (resetting) event.preventDefault(); }}>
+      <h2 id="account-reset-title">Reset account?</h2>
+      <p id="account-reset-description">This permanently removes all your XP and duel statistics, including your duel record and personal bests. You will return to Level 1. This cannot be undone.</p>
+      <p>Your username, profile image, decks, and card collection will be kept.</p>
+      <div className="account-reset-dialog__actions">
+        <button type="button" autoFocus disabled={resetting} onClick={() => resetDialog.current?.close()}>Cancel</button>
+        <button type="button" className="account-reset" disabled={resetting} onClick={reset}>{resetting ? 'Resetting…' : 'Reset account'}</button>
+      </div>
+    </dialog>
   </main>;
 }

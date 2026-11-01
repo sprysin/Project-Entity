@@ -2,6 +2,7 @@ import { BaseDirectory, exists, mkdir, readTextFile, rename, writeTextFile } fro
 import { parseDeck, SavedDeck } from '../decks';
 import { ActivationPopupMode, GameState } from '../types';
 import { DuelStats, emptyDuelStats, getDuelReport } from '../game/duelReport';
+import starterDeck from '../data/starter-deck.json';
 
 export interface AccountStatistics extends DuelStats {
   trackedSince: string;
@@ -29,14 +30,27 @@ function parseStatistics(raw: unknown): AccountStatistics {
 export interface SaveData {
   version: 1;
   decks: SavedDeck[];
+  collection: Pick<SavedDeck, 'cards' | 'reserve'>;
   account: { totalXp: number; lastDuelId: string | null; statistics: AccountStatistics };
-  settings: { activationPopupMode: ActivationPopupMode; username: string; profileImage: string | null; volume: number; fannedOutPiles: boolean };
+  settings: { activationPopupMode: ActivationPopupMode; username: string; profileImage: string | null; volume: number; fannedOutPiles: boolean; blueGreenBoard: boolean };
 }
-const empty = (): SaveData => ({ version: 1, decks: [], account: { totalXp: 0, lastDuelId: null, statistics: emptyStatistics() }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false } });
+const empty = (): SaveData => ({ version: 1, decks: [], collection: { cards: [], reserve: [] }, account: { totalXp: 0, lastDuelId: null, statistics: emptyStatistics() }, settings: { activationPopupMode: 'auto', username: 'Player 1', profileImage: null, volume: 80, fannedOutPiles: false, blueGreenBoard: false } });
+
+function collectionFromDecks(decks: SavedDeck[]): SaveData['collection'] {
+  const pool: SaveData['collection'] = { cards: [], reserve: [] };
+  for (const pile of ['cards', 'reserve'] as const) {
+    const quantities = new Map<string, number>();
+    for (const deck of decks) for (const entry of deck[pile] ?? []) {
+      quantities.set(entry.cardId, Math.max(quantities.get(entry.cardId) ?? 0, entry.quantity));
+    }
+    pool[pile] = [...quantities].map(([cardId, quantity]) => ({ cardId, quantity }));
+  }
+  return pool;
+}
 
 // Version 0 used an unversioned deck array. Keep excess copies editable on migration.
 export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveData {
-  const data = (Array.isArray(raw) ? { ...empty(), decks: raw } : raw) as SaveData & { settings: { activationPopupsEnabled?: boolean } };
+  const data = (Array.isArray(raw) ? { ...empty(), decks: raw, collection: undefined } : raw) as SaveData & { settings: { activationPopupsEnabled?: boolean } };
   if (!data || data.version !== 1 || !Array.isArray(data.decks) ||
       !data.settings || data.settings.activationPopupMode === undefined && typeof data.settings.activationPopupsEnabled !== 'boolean') throw new Error('Unsupported or damaged save file. Your existing file has been preserved.');
   const activationPopupMode = data.settings.activationPopupMode === undefined ? (data.settings.activationPopupsEnabled ? 'on' : 'off') : data.settings.activationPopupMode;
@@ -58,14 +72,24 @@ export function migrateSave(raw: unknown, onCardPoolChange?: () => void): SaveDa
   const profileImage = data.settings.profileImage ?? null;
   const volume = data.settings.volume ?? 80;
   const fannedOutPiles = data.settings.fannedOutPiles ?? false;
+  const blueGreenBoard = data.settings.blueGreenBoard ?? false;
   if (typeof username !== 'string' || !username.trim() || username.trim().length > 24 ||
       (profileImage !== null && (typeof profileImage !== 'string' || profileImage.length > 1_500_000 || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(profileImage))) ||
       typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 100 ||
-      typeof fannedOutPiles !== 'boolean') throw new Error('Invalid settings in save file.');
+      typeof fannedOutPiles !== 'boolean' || typeof blueGreenBoard !== 'boolean') throw new Error('Invalid settings in save file.');
   const account = data.account === undefined ? empty().account : data.account;
   if (!account || !Number.isSafeInteger(account.totalXp) || account.totalXp < 0 ||
       account.lastDuelId !== null && (typeof account.lastDuelId !== 'string' || !account.lastDuelId || account.lastDuelId.length > 128)) throw new Error('Invalid account progress in save file.');
-  return { version: 1, decks, account: { ...account, statistics: parseStatistics(account.statistics) }, settings: { activationPopupMode, username: username.trim(), profileImage, volume, fannedOutPiles } };
+  let collection = collectionFromDecks(decks);
+  if (data.collection !== undefined) {
+    if (!data.collection || !Array.isArray(data.collection.cards)) throw new Error('Invalid card collection in save file.');
+    const parsed = parseDeck({ ...data.collection, version: 1, id: 'collection', name: 'Collection' }, false, !!onCardPoolChange);
+    const original = [...data.collection.cards, ...data.collection.reserve ?? []];
+    const loaded = [...parsed.cards, ...parsed.reserve ?? []];
+    if (original.some(entry => !loaded.some(card => card.cardId === entry.cardId))) onCardPoolChange?.();
+    collection = { cards: parsed.cards, reserve: parsed.reserve ?? [] };
+  }
+  return { version: 1, decks, collection, account: { ...account, statistics: parseStatistics(account.statistics) }, settings: { activationPopupMode, username: username.trim(), profileImage, volume, fannedOutPiles, blueGreenBoard } };
 }
 
 let current = empty();
@@ -78,10 +102,17 @@ export async function initializeStorage() {
   ready = false;
   cardPoolChanged = false;
   await mkdir('', { ...options, recursive: true });
-  current = await exists('save.json', options) ? migrateSave(JSON.parse(await readTextFile('save.json', options)), () => { cardPoolChanged = true; }) : empty();
+  const hasSave = await exists('save.json', options);
+  if (hasSave) current = migrateSave(JSON.parse(await readTextFile('save.json', options)), () => { cardPoolChanged = true; });
+  else {
+    const deck = parseDeck({ ...starterDeck, id: crypto.randomUUID(), starter: true });
+    current = { ...empty(), decks: [deck], collection: collectionFromDecks([deck]) };
+  }
   ready = true;
+  if (!hasSave) await update(previous => ({ ...previous }));
 }
 export const getSavedDecks = () => structuredClone(current.decks);
+export const getCollection = () => structuredClone(current.collection);
 export const hasCardPoolChanges = () => cardPoolChanged;
 export const getActivationPopupMode = () => current.settings.activationPopupMode;
 export const getSettings = () => ({ ...current.settings });
@@ -112,14 +143,19 @@ export async function awardDuelXp(state: GameState) {
   });
   return { beforeXp: afterXp - xp, afterXp, xp };
 }
-export const saveSettings = (settings: Pick<SaveData['settings'], 'username' | 'volume' | 'fannedOutPiles'>) => {
+export const saveSettings = (settings: Pick<SaveData['settings'], 'username' | 'volume' | 'fannedOutPiles' | 'blueGreenBoard'>) => {
   const validated = migrateSave({ ...current, settings: { ...current.settings, ...settings } }).settings;
-  return update(previous => ({ ...previous, settings: { ...previous.settings, username: validated.username, volume: validated.volume, fannedOutPiles: validated.fannedOutPiles } }));
+  return update(previous => ({ ...previous, settings: { ...previous.settings, username: validated.username, volume: validated.volume, fannedOutPiles: validated.fannedOutPiles, blueGreenBoard: validated.blueGreenBoard } }));
 };
 export const saveProfile = (profile: Pick<SaveData['settings'], 'username' | 'profileImage'>) => {
   const validated = migrateSave({ ...current, settings: { ...current.settings, ...profile } }).settings;
   return update(previous => ({ ...previous, settings: { ...previous.settings, username: validated.username, profileImage: validated.profileImage } }));
 };
+
+export const resetAccount = () => update(previous => ({
+  ...previous,
+  account: { totalXp: 0, lastDuelId: previous.account.lastDuelId, statistics: emptyStatistics() },
+}));
 
 // Serialize writes and replace only after the complete temporary file is written.
 function update(change: (previous: SaveData) => SaveData): Promise<void> {

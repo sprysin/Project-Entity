@@ -19,6 +19,6 @@
 .pack-showcase__heading h2 { margin: 0 0 12px; padding: 12px; border-width: 2px; font: 700 clamp(18px, 2.8cqw, 26px)/1.35 Orbitron, sans-serif; }
 .pack-showcase__typing { padding: 0 8px 10px; font-weight: 700; }
 .pack-showcase__heading .pack-showcase__bar { height: 0; border-width: 0 0 2px; background: transparent; box-shadow: none; }
-.pack-showcase__text { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 8px; scrollbar-color: var(--pack-color) #080b12; }
+.pack-showcase__text { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 8px; }
 .pack-showcase__text p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pack-showcase__text:focus-visible { outline: 2px solid var(--pack-color); outline-offset: -2px; }

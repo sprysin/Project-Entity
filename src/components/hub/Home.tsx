@@ -48,18 +48,15 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
       <div className="home-orbit home-orbit--outer" />
       <div className="home-orbit home-orbit--inner" />
       <div className="home-core"><span className="home-core__logo" /></div>
-      <div className="home-card home-card--one" />
-      <div className="home-card home-card--two" />
-      <div className="home-card home-card--three" />
-      <div className="home-spark home-spark--one">✦</div>
-      <div className="home-spark home-spark--two">✦</div>
-      <div className="home-spark home-spark--three">✦</div>
+      <div className="home-card home-card--one card-pawn" />
+      <div className="home-card home-card--two card-condition" />
+      <div className="home-card home-card--three card-action" />
     </div>
 
     <header className="home-topbar">
       <div className="home-mark"><span className="home-mark__symbol" aria-hidden="true"><span /></span><span>PROJECT ENTITY <small>SIMULATION CARD GAME</small></span></div>
       <div className="home-topbar__right">
-        <span className="home-build">Alpha 3.2.0</span>
+        <span className="home-build">Alpha 3.5.5</span>
         <button type="button" data-sound="select" className="home-account" onClick={onAccount}>
           <span className="home-account__avatar"><ProfileAvatar image={getSettings().profileImage} /></span>
           <span><small>LEVEL {progress.level.toLocaleString()}</small><strong>{getSettings().username}</strong></span>
@@ -71,7 +68,6 @@ export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules
     <div className="home-main">
       <div className="home-left">
         <div className="home-heading">
-          <span className="home-kicker"><span className="home-live-dot" /> Pending...</span>
           <h1>PROJECT <em>ENTITY</em></h1>
         </div>
         <nav aria-label="Main menu" className="home-navigation">

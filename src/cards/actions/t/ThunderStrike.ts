@@ -1,3 +1,4 @@
+import { Effect } from '../../engine/Effects';
 import { setPawnPosition } from '../../../game/cardHelpers';
 import { CardType, IEffect, Position } from '../../../types';
 import { CardModule } from '../../CardRegistry';
@@ -17,7 +18,7 @@ const effect: IEffect = {
             setPawnPosition(zone, Position.DEFENSE);
             routed++;
         }
-        state.players[context.playerIndex].lp += routed * 20;
+        Effect.RestoreLP(context.playerIndex, routed * 20)(state, context);
     }])
 };
 

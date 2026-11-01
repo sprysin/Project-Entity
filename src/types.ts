@@ -209,7 +209,8 @@ export interface GameState {
   currentPhase: Phase;
   turnNumber: number;
   damageEvents?: { card: Card; playerIndex: number; amount: number; kind: 'battle' | 'effect' }[];
-  lpGainEvents?: { playerIndex: number; amount: number }[];
+  lpGainEvents?: { playerIndex: number; amount: number; sourcePlayerIndex?: number }[];
+  effectDamageTaken?: number[];
   /** Pending private reveals. The viewer dismisses each event after inspecting it. */
   peekEvents?: PeekEvent[];
   log: string[];

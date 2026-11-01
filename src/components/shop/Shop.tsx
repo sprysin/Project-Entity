@@ -152,9 +152,8 @@ export default function Shop({ onBack }: { onBack: () => void }) {
       <BackToHubButton onClick={browsing ? onBack : returnToShop} label={browsing ? undefined : 'Back to shop'} />
     </header>
     <div className={`shop-body${opening ? ' shop-body--opening' : selected ? ' shop-body--detail' : ''}`}>
-      {!selected && !summary && <div className="shop-heading"><div>{browsing && <span className="shop-eyebrow">VENDOR: CARD DEALER</span>}
-        <h1 ref={heading} tabIndex={-1}>{opening ? opening.pack.name : summary ? 'SESSION PULLS' : selected ? selected.pack.name : <>PACK <em>SELECTION</em></>}</h1>
-        {browsing && <p></p>}</div>
+      {!selected && !summary && <div className="shop-heading entity-section-heading"><div>{browsing && <span className="shop-eyebrow">VENDOR: CARD DEALER</span>}
+        <h1 className="entity-title" ref={heading} tabIndex={-1}>{opening ? opening.pack.name : summary ? 'SESSION PULLS' : selected ? selected.pack.name : <>PACK <em>SELECTION</em></>}</h1></div>
         {browsing && <div className="shop-clock"><small>NEXT ROTATION</small><strong> {timer}</strong></div>}
       </div>}
       {opening && session && session.batches.length > 1 && <span className="shop-session-progress">PACK {session.index + 1} / {session.batches.length}</span>}
@@ -189,22 +188,22 @@ export default function Shop({ onBack }: { onBack: () => void }) {
             </button>;
           })}</div>
         <div className="shop-opening-actions">
-          {!complete ? <button className="shop-button" disabled={!ready} onClick={() => reveal()}>REVEAL ALL</button>
-            : <button className="shop-button" data-sound="select" onClick={continueOpening}>CONTINUE <i className="fa-solid fa-arrow-right" /></button>}
+          {!complete ? <button className="shop-button entity-primary" disabled={!ready} onClick={() => reveal()}>REVEAL ALL</button>
+            : <button className="shop-button entity-primary" data-sound="select" onClick={continueOpening}>CONTINUE <i className="fa-solid fa-arrow-right" /></button>}
         </div>
       </section> : summary ? <section className="shop-results" aria-label="Session pulls">
-        <div className="shop-results__heading"><div className="shop-results__title"><h1 ref={heading} tabIndex={-1}>SESSION PULLS</h1><span>{results.length} CARDS</span></div><button className="shop-button" data-sound="select" onClick={returnToShop}>CONTINUE</button></div>
+        <div className="shop-results__heading"><div className="shop-results__title"><h1 className="entity-title" ref={heading} tabIndex={-1}>SESSION PULLS</h1><span>{results.length} CARDS</span></div><button className="shop-button entity-primary" data-sound="select" onClick={returnToShop}>CONTINUE</button></div>
         <div className="shop-results__grid">{results.map(({ card, index }) => <button key={index} className="shop-result" style={tone(rarityColor(card.rarity))} data-rarity-tier={CARD_RARITY_TIERS[card.rarity]} data-sound="select-small" aria-label={`Inspect ${card.name}, ${card.rarity}`} onClick={() => setInspected(card)}>
           <div className="shop-result__card"><CardDetail card={asCard(card, index)} /></div><span>{card.rarity}</span>
         </button>)}</div>
       </section> : selected ? <section className="shop-pack-detail" style={tone(selected.pack.color)} aria-label="Pack details">
-        <div className="shop-pack-detail__showcase">
+        <div className="shop-pack-detail__showcase entity-panel">
           <div className="shop-pack-detail__strip"><span>{selected.slot === 0 ? 'TEMP PACK' : `FEATURED SLOT / 0${selected.slot}`}</span><span>PACK SHOWCASE</span></div>
           <PackShowcase pack={selected.pack} onInspect={setInspected} />
           <div className="shop-pack-detail__edition"><span>PROJECT ENTITY</span><span>{String(PACK_SIZE).padStart(2, '0')} CARDS / PACK</span></div>
         </div>
-        <div className="shop-pack-detail__copy">
-          <header className="shop-pack-detail__header"><span className="shop-eyebrow">PACK DETAILS</span><h1 ref={heading} tabIndex={-1}>{selected.pack.name}</h1><p>{selected.pack.description}</p></header>
+        <div className="shop-pack-detail__copy entity-panel">
+          <header className="shop-pack-detail__header"><span className="shop-eyebrow">PACK DETAILS</span><h1 className="entity-title" ref={heading} tabIndex={-1}>{selected.pack.name}</h1><p>{selected.pack.description}</p></header>
           <dl className="shop-pack-detail__stats">
             <div><dt>CARDS IN POOL</dt><dd>{selected.pack.cardIds.length}</dd></div>
             <div><dt>CARDS PER PACK</dt><dd>{PACK_SIZE}</dd></div>
@@ -212,15 +211,15 @@ export default function Shop({ onBack }: { onBack: () => void }) {
           </dl>
           <div className="shop-pack-detail__purchase">
             <div className="shop-pack-detail__actions">
-              <button className="shop-button shop-pack-option" aria-label="OPEN 1 PACK" onClick={() => startOpening(selected.pack, selected.slot, 1)}><strong>OPEN 1 PACK</strong><small>{PACK_SIZE} cards</small></button>
-              <button className="shop-button shop-pack-option shop-pack-option--batch" aria-label="OPEN 5 PACKS" onClick={() => startOpening(selected.pack, selected.slot, 5)}><strong>OPEN 5 PACKS</strong><small>{PACK_SIZE * 5} cards</small></button>
+              <button className="entity-primary shop-pack-option" aria-label="OPEN 1 PACK" onClick={() => startOpening(selected.pack, selected.slot, 1)}><strong>OPEN 1 PACK</strong><small>{PACK_SIZE} cards</small></button>
+              <button className="entity-primary shop-pack-option shop-pack-option--batch" aria-label="OPEN 5 PACKS" onClick={() => startOpening(selected.pack, selected.slot, 5)}><strong>OPEN 5 PACKS</strong><small>{PACK_SIZE * 5} cards</small></button>
             </div>
           </div>
         </div>
       </section> : <>
         <div className="shop-pack-grid">{rotation.packIds.map((id, index) => {
           const pack = PACKS.find(entry => entry.id === id)!;
-          return <button key={`${index}-${id}`} className="shop-pack" style={tone(pack.color)} data-sound="select" onClick={() => { setSelected({ pack, slot: index }); setNotice(''); }}>
+          return <button key={`${index}-${id}`} className="shop-pack entity-panel" style={tone(pack.color)} data-sound="select" onClick={() => { setSelected({ pack, slot: index }); setNotice(''); }}>
             <span className="shop-pack__top">{index === 0 ? 'TEMP PACK' : `FEATURED SLOT / 0${index}`}</span>
             <PackArtwork pack={pack} /><div className="shop-pack__copy"><h2>{pack.name}</h2>
               <span className="shop-pack__cta">PACK COST <span>000</span></span>
@@ -228,8 +227,8 @@ export default function Shop({ onBack }: { onBack: () => void }) {
           </button>;
         })}</div>
         <div className="shop-opening-actions">
-          <button type="button" className="shop-button" data-sound="select" onClick={() => { setSession(null); beginOpening(DEBUG_PACK, packCards(DEBUG_PACK)); }}>Debug pulls</button>
-          <button type="button" className="shop-button" data-sound="select" onClick={() => {
+          <button type="button" className="shop-button entity-primary" data-sound="select" onClick={() => { setSession(null); beginOpening(DEBUG_PACK, packCards(DEBUG_PACK)); }}>Debug pulls</button>
+          <button type="button" className="shop-button entity-primary" data-sound="select" onClick={() => {
             const time = Date.now();
             setNow(time);
             setRotation(current => advanceRotation({ ...current, expiresAt: time }, time));

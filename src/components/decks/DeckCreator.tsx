@@ -91,7 +91,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         if (!libraryReadable) { setNotice('Local library unavailable. Export to JSON to keep a copy.'); return; }
         setBusy(true);
         try {
-            const next = [...library.filter(item => item.id !== saved.id), saved];
+            const next = [saved, ...library.filter(item => item.id !== saved.id)];
             await saveDeckLibrary(next);
             setLibrary(next);
         }
@@ -139,9 +139,9 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                     <IconButton sound={deleteMode ? 'cancellation' : undefined} label={deleteMode ? 'Cancel deleting' : 'Delete a deck'} icon={deleteMode ? 'fa-xmark' : 'fa-trash-can'} active={deleteMode} disabled={!library.length} onClick={() => { setDeleteMode(value => !value); setNotice(deleteMode ? '' : 'Select a deck to delete'); }} />
                 </div>
                 <div className="deck-library-grid">
-                    {library.map(item => <div key={item.id} className={`deck-library-tile${deleteMode ? ' is-delete-mode' : ''}`}>
+                    {library.map(item => <div key={item.id} className={`deck-library-tile${item.starter || item.name === 'Starter Deck' ? ' is-starter' : ''}${deleteMode ? ' is-delete-mode' : ''}`}>
                         <button data-sound={deleteMode ? undefined : 'select-small'} className="deck-library-open" aria-label={`${deleteMode ? 'Delete' : 'Open'} ${item.name}`} onClick={() => deleteMode ? deleteDeck(item) : open(item)}>
-                            <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ transform: `translateX(${(i - 1) * 45}px) rotate(${(i - 1) * 9}deg)` }}>{face(cards.find(c => c.id === entry.cardId)!)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
+                            <div className="deck-library-art">{item.cards.length ? item.cards.slice(0, 3).map((entry, i) => <div key={entry.cardId} style={{ '--fan-index': i - 1 } as React.CSSProperties}>{face(cards.find(c => c.id === entry.cardId)!)}</div>) : <i className="fa-solid fa-layer-group" aria-hidden="true" />}</div>
                             <div className="deck-tile-caption"><strong>{item.name}</strong><span>{total(item)} cards <i className={`fa-solid ${deleteMode ? 'fa-trash-can' : 'fa-arrow-right'}`} aria-hidden="true" /></span></div>
                         </button>
                     </div>)}

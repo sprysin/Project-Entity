@@ -59,6 +59,7 @@
   inset: -24px calc(-1 * var(--field-frame-padding)) -24px calc(-1 * (var(--field-frame-padding) + var(--reserve-width) + var(--reserve-gap)));
   z-index: -2;
   /* The phase seam cuts into the right edge; the Land side stays continuous. */
+  /* Inset toward the plate at the concave notch so the fill cannot erase its rim. */
   clip-path: polygon(
     24px 0, calc(100% - 24px) 0, 100% 24px,
     100% calc(50% - 36px), calc(100% - 14px) calc(50% - 22px),
@@ -74,8 +75,8 @@
   z-index: -1;
   clip-path: polygon(
     23px 0, calc(100% - 23px) 0, 100% 23px,
-    100% calc(50% - 37px), calc(100% - 14px) calc(50% - 23px),
-    calc(100% - 14px) calc(50% + 23px), 100% calc(50% + 37px),
+    100% calc(50% - 35px), calc(100% - 14px) calc(50% - 21px),
+    calc(100% - 14px) calc(50% + 21px), 100% calc(50% + 35px),
     100% calc(100% - 23px), calc(100% - 23px) 100%,
     23px 100%, 0 calc(100% - 23px), 0 23px
   );
@@ -338,6 +339,42 @@
 .duel-screen .field-zone--land.field-zone--empty > .field-zone-placeholder :is(svg, span) { color: var(--zone-accent); }
 .duel-screen--light .field-zone--land.field-zone--idle { background: radial-gradient(ellipse at center, #9ebfa620, transparent 68%), #c6d2ce; border-color: #55796388; box-shadow: inset 0 0 18px #536a5c14; }
 .duel-screen--light .field-zone--land.field-zone--empty > .field-zone-placeholder :is(svg, span) { color: #476353; }
+/* Neutral foundation; card-type accents stay subdued until a zone is actionable. */
+.duel-screen--neon-punk {
+  color: #f8fafc;
+  background: radial-gradient(ellipse at 50% 45%, #242118 0, #111111 34%, #06080c 75%);
+}
+.duel-screen--neon-punk .game-field-surface { --field-surface: #121212; --field-line: #b8b4a54d; }
+.duel-screen--neon-punk .field-zone--pawn { --zone-accent: #eebb4f; }
+.duel-screen--neon-punk .field-zone--action { --zone-accent: #20965b; }
+.duel-screen--neon-punk .field-zone--land { --zone-accent: #a3a3a3; }
+.duel-screen--neon-punk .field-zone--idle {
+  background: linear-gradient(145deg, #20202065, #070707b3);
+  box-shadow: inset 0 0 22px #ffffff03, 0 5px 12px #0005;
+}
+.duel-screen--neon-punk .field-zone--idle:hover { box-shadow: inset 0 0 25px color-mix(in srgb, var(--zone-accent) 20%, transparent), 0 0 15px color-mix(in srgb, var(--zone-accent) 25%, transparent); }
+.duel-screen--neon-punk .field-zone--land.field-zone--idle { background: #09090999; border-color: #a3a3a34d; box-shadow: inset 0 0 18px #0005; }
+.duel-screen--neon-punk .field-zone--land.field-zone--idle:hover { border-color: var(--zone-accent); }
+.duel-screen--neon-punk .history-pile { background: #0b0b0beb; }
+.duel-screen--neon-punk .history-pile--slate .history-pile__card::after { background: #80808040; }
+.duel-screen--neon-punk .pile-drawer { background: #0b0b0b; }
+.duel-screen--neon-punk .pile-drawer .text-slate-400 { color: #a3a3a3; }
+.duel-screen--neon-punk .history-pile--purple { background: #3a294bc9; }
+.duel-screen--neon-punk .deck-pile--empty { background: #111111c2; }
+.duel-screen--neon-punk .game-data-sidebar { background: linear-gradient(180deg, #191919f5, #090909f5); }
+.duel-screen--neon-punk .phase-track::before { background: linear-gradient(90deg, #1b1b1b, #090909 52%, #1b1b1b); }
+.duel-screen--neon-punk .phase-track__step:not(.is-current)::before { background: #191919; }
+.duel-screen--neon-punk .duel-opponent-hand::before { background: linear-gradient(#0b0b0be8, #0b0b0b00); }
+.duel-screen--neon-punk .duel-active-hand::before { background: linear-gradient(#0b0b0b00, #0b0b0be8); }
+/* Self-play's opposing view keeps its light/dark distinction in neutral grays. */
+.duel-screen--neon-punk.duel-screen--light { color: #202020; background: radial-gradient(ellipse at 50% 45%, #f0efed, #d1d0ce 58%, #959593); }
+.duel-screen--neon-punk.duel-screen--light .game-field-surface { --field-surface: #dcdad6; --field-line: #77736a66; }
+.duel-screen--neon-punk.duel-screen--light .field-zone--idle { background: linear-gradient(145deg, #f4f2eea8, #c6c5c3ad); box-shadow: inset 0 0 20px #706b602b; }
+.duel-screen--neon-punk.duel-screen--light .field-zone--empty > .field-zone-placeholder :is(i, span, svg) { color: #484848; }
+.duel-screen--neon-punk.duel-screen--light .field-zone--land.field-zone--idle { background: #cccac6; border-color: #77736a66; }
+.duel-screen--neon-punk.duel-screen--light .phase-track::before { background: #d8d6d0; }
+.duel-screen--neon-punk.duel-screen--light .duel-opponent-hand::before { background: linear-gradient(#e5e4e1cf, #e5e4e100); }
+.duel-screen--neon-punk.duel-screen--light .duel-active-hand::before { background: linear-gradient(#e5e4e100, #e5e4e1cf); }
 /* Elevate only the field opening a menu, so the phase row never covers it. */
 .duel-screen .game-player-field:has(.field-context-menu) { z-index: 30; }
 .game-land-stack.game-corner-button {

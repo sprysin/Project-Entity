@@ -23,7 +23,10 @@
 .deck-library-tile.is-delete-mode:hover { border-color: #fb7185; box-shadow: 0 12px 40px #4c051955; }
 .deck-library-tile.is-delete-mode .deck-tile-caption span { color: #fda4af; }
 .deck-library-art { height: 230px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: radial-gradient(ellipse at bottom, #eab30815, transparent 75%); }
-.deck-library-art > div { width: 108px; position: absolute; }
+.deck-library-art > div { width: 108px; position: absolute; transform: translateX(calc(var(--fan-index) * 45px)) rotate(calc(var(--fan-index) * 9deg)); transition: transform .24s ease-out; }
+.deck-library-tile:hover .deck-library-art > div, .deck-library-tile:focus-within .deck-library-art > div { transform: translateX(calc(var(--fan-index) * 57px)) translateY(-5px) rotate(calc(var(--fan-index) * 14deg)); }
+.deck-library-tile.is-starter { border: 2px solid #eab308; }
+@media (prefers-reduced-motion: reduce) { .deck-library-art > div { transition: none; } }
 .deck-library-art > i { font-size: 54px; color: #475569; }
 .deck-tile-caption { padding: 20px; border-top: 1px solid #ffffff0a; }
 .deck-tile-caption strong { display: block; font: 14px Orbitron, sans-serif; color: #f1f5f9; overflow-wrap: anywhere; }

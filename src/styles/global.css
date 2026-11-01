@@ -12,7 +12,7 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #020617;
+  background: #06080c;
 }
 
 .game-surface {
@@ -27,9 +27,9 @@
 :root {
   --font-card-text: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --increased-stat-color: #52caff;
-  --scrollbar-track: #070a0f;
-  --scrollbar-thumb: #475569;
-  --scrollbar-thumb-hover: #ca8a04;
+  --scrollbar-track: #06080c;
+  --scrollbar-thumb: #8a8a8a;
+  --scrollbar-thumb-hover: #eab308;
 }
 
 * {
@@ -37,29 +37,56 @@
   scrollbar-width: thin;
 }
 
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+/* Standard properties override pseudo-elements in Chromium unless reset. */
+@media (forced-colors: none) {
+@supports selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-color: auto;
+    scrollbar-width: auto;
+  }
+
+  *::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    box-shadow: inset 0 0 0 1px #ffffff14;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    min-width: 36px;
+    min-height: 36px;
+    border: 3px solid var(--scrollbar-track);
+    border-radius: 0;
+    background: linear-gradient(90deg, #626262, #c6c6c6 48%, var(--scrollbar-thumb));
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:horizontal {
+    background-image: linear-gradient(0deg, #626262, #c6c6c6 48%, var(--scrollbar-thumb));
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: #f7d47e;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
+  }
 }
 
-*::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-}
-
-*::-webkit-scrollbar-thumb {
-  min-height: 36px;
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: var(--scrollbar-thumb);
-  background-clip: padding-box;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scrollbar-thumb-hover);
-}
-
-*::-webkit-scrollbar-corner {
-  background: var(--scrollbar-track);
 }
 
 .card-travel {

@@ -38,6 +38,14 @@ export function getDuelReport(state: GameState, playerIndex: number) {
     }
     const completed = !!state.winner && (state.resultReason === 'lp' || state.resultReason === 'empty_deck');
     const won = completed && !state.isDraw && state.winner === state.players[playerIndex].name;
+    const lpGained = (state.lpGainEvents ?? []).reduce((total, event) => total +
+        (event.playerIndex === playerIndex && event.sourcePlayerIndex === playerIndex ? event.amount : 0), 0);
+    const tookDamage = (state.effectDamageTaken?.[playerIndex] ?? 0) > 0 ||
+        (state.damageEvents ?? []).some(event => event.playerIndex !== playerIndex && event.amount > 0);
+    const brink = state.players[playerIndex].lp > 0 && state.players[playerIndex].lp <= 100;
+    const victory = !tookDamage ? { label: 'No-Damage Taken Victory', score: 900 }
+        : brink ? { label: 'LP on Brink Victory', score: 800 }
+        : { label: 'Duel victory', score: DUEL_POINTS.victory };
     const entries = [
         { id: 'battleDestructions', label: 'Pawns destroyed by battle', count: stats.battleDestructions, score: stats.battleDestructions * DUEL_POINTS.battleDestructions },
         { id: 'actionDestructions', label: 'Actions / Conditions destroyed', count: stats.actionDestructions, score: stats.actionDestructions * DUEL_POINTS.actionDestructions },
@@ -47,7 +55,8 @@ export function getDuelReport(state: GameState, playerIndex: number) {
         { id: 'mergeSummons', label: 'Merge summons', count: stats.mergeSummons, score: stats.mergeSummons * DUEL_POINTS.mergeSummons },
         { id: 'battleDamage', label: 'Battle damage dealt', count: damage.battle, score: damageScore(damage.battle) },
         { id: 'effectDamage', label: 'Effect damage dealt', count: damage.effect, score: damageScore(damage.effect) * 1.2 },
-        { id: 'victory', label: 'Duel victory', count: won ? 1 : 0, score: won ? DUEL_POINTS.victory : 0 },
+        { id: 'lpGained', label: 'LP gained', count: lpGained, score: lpGained },
+        { id: 'victory', label: victory.label, count: won ? 1 : 0, score: won ? victory.score : 0 },
     ];
     // Round the cumulative score only; integer row contributions still sum exactly.
     let exactTotal = 0;

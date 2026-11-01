@@ -607,6 +607,8 @@ export const Effect = {
                 amount: resolvedAmount, kind: 'effect'
             }];
         }
+        draftState.effectDamageTaken = [...(draftState.effectDamageTaken ?? [])];
+        draftState.effectDamageTaken[resolvedPlayerIndex] = (draftState.effectDamageTaken[resolvedPlayerIndex] ?? 0) + resolvedAmount;
         draftState.players[resolvedPlayerIndex].lp -= resolvedAmount;
         Object.assign(draftState, notifyFieldEvent(draftState, 'onEffectDamage', {
             damageCard: context.card, damageEffectId: context.effectId,
@@ -626,7 +628,7 @@ export const Effect = {
         if (resolvedAmount <= 0) return;
 
         draftState.players[resolvedPlayerIndex].lp += resolvedAmount;
-        draftState.lpGainEvents = [...(draftState.lpGainEvents ?? []), { playerIndex: resolvedPlayerIndex, amount: resolvedAmount }];
+        draftState.lpGainEvents = [...(draftState.lpGainEvents ?? []), { playerIndex: resolvedPlayerIndex, amount: resolvedAmount, sourcePlayerIndex: context.playerIndex }];
     },
 
     /** Temporarily removes a Pawn; its return is independent of the effect source. */

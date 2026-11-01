@@ -1,4 +1,12 @@
 .entity-page {
+  --page-accent: #facc15;
+  --page-gold: #f7d47e;
+  --page-text: #f8fafc;
+  --page-muted: #b8b8b8;
+  --page-panel: #111111;
+  --page-border: #a6a6a659;
+  --page-rule: #ffffff1f;
+  --page-gold-border: #c99a4e;
   color: #f8fafc;
   background-color: #06080c;
   background-image:
@@ -7,6 +15,58 @@
     repeating-linear-gradient(0deg, transparent 0 68px, #eab30816 69px),
     repeating-linear-gradient(90deg, transparent 0 68px, #eab30813 69px);
 }
+
+.entity-shell, .settings-shell {
+  width: min(100%, 1600px);
+  margin: 0 auto;
+  padding: 40px 56px;
+}
+.entity-section-heading, .settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #cba15482;
+}
+.entity-title, .settings-heading h1 {
+  margin: 0;
+  color: var(--page-text);
+  font: 900 56px/1.15 Orbitron, sans-serif;
+  letter-spacing: -.03em;
+  text-wrap: balance;
+}
+.entity-title em, .settings-heading h1 em { color: var(--page-accent); font-style: normal; }
+.entity-panel, .settings-panel {
+  min-width: 0;
+  margin: 0;
+  padding: 0 32px;
+  border: 1px solid var(--page-border);
+  border-top-color: var(--page-gold-border);
+  background: var(--page-panel);
+}
+.entity-primary, .settings-actions > .settings-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 0 32px;
+  border: 1px solid #e6bf6e;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background: linear-gradient(110deg, #5b451b, #242017);
+  color: #ffe6a2;
+  font: 700 14px Orbitron, sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: filter .2s;
+}
+.entity-primary:hover:not(:disabled), .settings-save:hover:not(:disabled) { filter: brightness(1.25); }
+.entity-primary:disabled, .settings-save:disabled { opacity: .5; cursor: default; }
+.entity-page .entity-primary:focus-visible, .settings-save:focus-visible { outline: 2px solid #fff; outline-offset: -6px; }
+.entity-page ::selection { background: var(--page-gold); color: var(--page-panel); }
 
 .entity-topbar {
   display: flex;
@@ -48,6 +108,14 @@
 .page-back-button:disabled { opacity: .5; cursor: default; }
 
 @media (max-width: 800px) {
+  .entity-shell, .settings-shell { padding: 24px; }
+  .entity-title, .settings-heading h1 { font-size: 36px; }
+  .entity-section-heading, .settings-header { flex-wrap: wrap; }
+  .entity-panel, .settings-panel { padding-inline: 20px; }
   .entity-topbar { padding-inline: 24px; }
   .page-brand__copy strong { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-primary, .settings-save { transition: none; }
 }

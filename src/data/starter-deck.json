@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "id": "starter-deck",
+  "name": "Starter Deck",
+  "cards": [
+    {
+      "cardId": "P_Arc_Angel_Cosine",
+      "quantity": 2
+    },
+    {
+      "cardId": "P_Blazing_Pyrotechnic",
+      "quantity": 3
+    },
+    {
+      "cardId": "P_Eggolem",
+      "quantity": 3
+    },
+    {
+      "cardId": "P_Engine_Interloper",
+      "quantity": 2
+    },
+    {
+      "cardId": "P_Force_Fire_Sparker",
+      "quantity": 3
+    },
+    {
+      "cardId": "P_Glitter_Grub",
+      "quantity": 2
+    },
+    {
+      "cardId": "P_Goddess_Of_Fortune",
+      "quantity": 3
+    },
+    {
+      "cardId": "P_High_King",
+      "quantity": 3
+    },
+    {
+      "cardId": "P_Quickstrike_Serpent",
+      "quantity": 1
+    },
+    {
+      "cardId": "A_For_The_Greater_Good",
+      "quantity": 2
+    },
+    {
+      "cardId": "A_Sacrificial_Lamb",
+      "quantity": 3
+    },
+    {
+      "cardId": "A_Void_Blast",
+      "quantity": 3
+    },
+    {
+      "cardId": "C_Conflicted_Mind_Madness",
+      "quantity": 3
+    },
+    {
+      "cardId": "C_Containment_Zone",
+      "quantity": 1
+    },
+    {
+      "cardId": "C_Reinforcement",
+      "quantity": 3
+    },
+    {
+      "cardId": "C_Shared_Healing",
+      "quantity": 3
+    }
+  ]
+}

@@ -28,7 +28,18 @@ import '../decks/DeckCreator.css';
 import '../game/GameView.css';
 import './StyleGuide.css';
 
-const sections = ['Typography', 'Colors', 'Buttons', 'Controls', 'Modals', 'Cards', 'Game UI', 'Duel Report'] as const;
+const sections = ['Style guide breakdown', 'Typography', 'Colors', 'Buttons', 'Controls', 'Modals', 'Cards', 'Game UI', 'Duel Report'] as const;
+const interfacePalette = [
+  { label: 'Black', color: '#06080c', use: 'Use for backgrounds. Separate panels with charcoal rather than a new accent color.' },
+  { label: 'Gold', color: '#eab308', use: 'Use for primary actions and emphasis. Keep secondary controls less prominent.' },
+  { label: 'Silver', color: '#8a8a8a', use: 'Use for metallic framing. Build the finish with neutral gray-to-white highlights.' },
+  { label: 'White', color: '#f8fafc', use: 'Use for readable text and strong contrast, including light checkerboard squares.' },
+];
+const cardAccentPalette = [
+  { label: 'Main Deck Pawn', color: '#eebb4f' },
+  { label: 'Action', color: '#20965b' },
+  { label: 'Condition', color: '#d94571' },
+];
 const frames = ['card-pawn', 'card-vassal', 'card-merge', 'card-action', 'card-condition', 'card-token'];
 const cards: Card[] = frames.flatMap(frame => {
   const definition = cardRegistry.getAllCards().find(card => cardFrameClass(card) === frame);
@@ -82,7 +93,7 @@ function GuideSection({ title, description, active, children }: { title: string;
 }
 
 export default function StyleGuide({ onBack }: { onBack: () => void }) {
-  const [activeSection, setActiveSection] = useState<typeof sections[number]>('Typography');
+  const [activeSection, setActiveSection] = useState<typeof sections[number]>('Style guide breakdown');
   const [preview, setPreview] = useState<Preview>(null);
   const [inspected, setInspected] = useState<Card | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -149,6 +160,70 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
               }}>{section}</button>)}
           </div>
           <div key={activeSection} id="guide-panel" className="style-guide__content" role="tabpanel" aria-labelledby={`guide-tab-${sections.indexOf(activeSection)}`} tabIndex={0}>
+            <GuideSection title="Style guide breakdown" active={activeSection === 'Style guide breakdown'}>
+              <div className="style-guide__direction">
+                <h3>Neon Punk</h3>
+                <p>Project Entity is a tactical card game with a bold Neon Punk style. The main colors are black, gold, silver, and white.</p>
+                <p>Give new UI a sense of strategy and confidence. Chess motifs and metallic details are ways to express that style, with room to vary the composition for each feature. Keep the player's choices easy to read.</p>
+              </div>
+              <h3>Main interface palette</h3>
+              <div className="style-guide__swatches style-guide__palette">{interfacePalette.map(({ label, color, use }) => <figure key={label}>
+                <span style={{ background: color }} /><figcaption>{label}<code>{color}</code><p>{use}</p></figcaption>
+              </figure>)}</div>
+              <h3>Card accents</h3>
+              <div className="style-guide__swatches">{cardAccentPalette.map(({ label, color }) => <figure key={label}>
+                <span style={{ background: color }} /><figcaption>{label}<code>{color}</code></figcaption>
+              </figure>)}</div>
+              <p className="style-guide__note">Bring these colors into UI that relates to the matching card type. An accent can help a player recognize a category without changing the whole screen's palette. Use purple for Void-related UI, paired with a label or icon to make its meaning clear.</p>
+              <div className="style-guide__rules">
+                <section>
+                  <div>
+                  <h3>Project Entity logo</h3>
+                  <p>The Project Entity logo is the mark shown here, paired with the PROJECT ENTITY wordmark. Use the existing logo asset at src/styles/Logo/ProjEntityLogo.svg and the shared PageBrand component when adding branding to a screen.</p>
+                  <p>Keep the logo's proportions intact. The gold square diamond frames the white mark in page headers; the home screen also uses the mark on its own.</p>
+                  </div>
+                  <div className="style-guide__reference">
+                    <PageBrand section="Logo reference" />
+                  </div>
+                </section>
+                <section>
+                  <div>
+                  <h3>Chess and checkers</h3>
+                  <p>Use the chess influence to suggest planning, opposition, or ownership. Checkers can give a surface character; chess symbols can connect a control to its role in play. Choose whichever supports the feature, and allow the motif to take a different form in a new layout.</p>
+                  <p>Keep patterns quiet enough for text to read. Avoid adding chess pieces to unrelated controls or filling every available space with checks.</p>
+                  </div>
+                  <div className="style-guide__reference style-guide__chess-example" role="img" aria-label="Opposing light and dark checkered Pawn tiles">
+                    <div className="style-guide__pawn-tile style-guide__pawn-tile--light"><i className="fa-solid fa-chess-pawn" aria-hidden="true" /></div>
+                    <div className="style-guide__pawn-tile style-guide__pawn-tile--dark"><i className="fa-solid fa-chess-pawn" aria-hidden="true" /></div>
+                  </div>
+                </section>
+                <section>
+                  <div>
+                  <h3>Metallic framing</h3>
+                  <p>Use gold and silver to give an element weight or importance. Metal can be a small detail, a divider, or the frame of a larger surface. Its shape and prominence should suit the content rather than follow one standard panel design.</p>
+                  <p>Let simpler elements sit alongside the more elaborate ones. If every border demands attention, the framing stops helping. Keep silver neutral and avoid bulky bevels that crowd the content.</p>
+                  </div>
+                  <div className="style-guide__reference" role="img" aria-label="Angular silver frame with a gold diamond and deck count">
+                    <div className="style-guide__metal-example"><div><i className="fa-solid fa-layer-group" aria-hidden="true" /><span><small>DECK</small><strong>40 <span>/ 40</span></strong></span></div></div>
+                  </div>
+                </section>
+                <section>
+                  <div>
+                  <h3>Square diamonds and glow</h3>
+                  <p>The square diamond is our main design shape: a square rotated 45 degrees, with equal sides and right angles. Repeat it in brand framing, action emblems, and tribute indicators so new screens feel part of Project Entity.</p>
+                  <p>Keep standalone diamonds square rather than stretching them into narrow rhombuses. Clipped corners and angular panels carry the same shape into larger controls. Avoid soft, rounded shapes becoming the dominant visual language.</p>
+                  <p>Use glow to draw attention to something the player can act on or needs to notice. Leave quieter areas around it, and keep the lettering sharp.</p>
+                  </div>
+                  <div className="style-guide__reference" role="img" aria-label="Gold angular Settings control with a white diamond inside an outlined diamond">
+                    <div className="style-guide__glow-example"><span className="style-guide__action-emblem" aria-hidden="true" /><span>SETTINGS</span><i className="fa-solid fa-chevron-right" aria-hidden="true" /></div>
+                  </div>
+                </section>
+              </div>
+              <h3>When building a new screen</h3>
+              <p className="style-guide__note">Reuse the closest component shown in this guide before adding a new one. Compare duel elements against the field and menu elements against the account screen. Check the result with keyboard navigation and long text, including disabled states.</p>
+              <p className="style-guide__source">Visual references: common/PageChrome.css · hub/Home.css · settings/Settings.css · styles/global.css · styles/game.css. Component examples in this guide remain the implementation reference.</p>
+            </GuideSection>
+
             <GuideSection title="Typography" active={activeSection === 'Typography'} description="Orbitron gives the interface its identity. Monospace keeps rules, labels, and card text readable.">
               <div className="style-guide__type-row"><code>Orbitron · display</code><div className="settings-heading"><h1>PROJECT <em>ENTITY</em></h1></div></div>
               <div className="style-guide__type-row"><code>Orbitron · heading</code><h3 className="font-orbitron text-2xl font-bold">Your next move starts here.</h3></div>
@@ -179,6 +254,16 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
                 <div className="settings-row"><div className="settings-copy"><label htmlFor="guide-toggle">Toggle</label><p>{enabled ? 'Enabled' : 'Disabled'}</p></div><input id="guide-toggle" className="settings-toggle" type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} /></div>
               </div>
               <div className="style-guide__button-row"><code>Filter dialog / page navigation</code><CatalogFilters {...filters} /><CatalogPagination page={page} pages={3} total={145} onPage={setPage} /></div>
+              <h3>Scrollbars</h3>
+              <p className="style-guide__note">Silver handles sit inside a dark track, with gold feedback on hover and drag. Scroll, drag the handles, or focus an example and use the arrow keys.</p>
+              <div className="style-guide__scroll-examples">
+                <div className="style-guide__scroll-vertical" role="region" aria-label="Vertical scrollbar example" tabIndex={0}>
+                  {interfacePalette.map(({ label, use }) => <p key={label}><strong>{label}</strong>{use}</p>)}
+                </div>
+                <div className="style-guide__scroll-horizontal" role="region" aria-label="Horizontal scrollbar example" tabIndex={0}>
+                  <div>{interfacePalette.map(({ label, color }) => <span key={label}><i style={{ background: color }} aria-hidden="true" />{label}</span>)}</div>
+                </div>
+              </div>
               <div className="style-guide__feedback"><p className="settings-error">Error example: Settings could not be saved. Please try again.</p><p className="text-yellow-300">Success example: Settings saved.</p></div>
               <p className="style-guide__source">settings/Settings.css · catalog/CatalogFilters.tsx · catalog/CatalogPagination.tsx</p>
             </GuideSection>

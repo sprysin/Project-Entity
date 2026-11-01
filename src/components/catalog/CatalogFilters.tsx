@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ActionSubtype, Attribute, Card, CardType, ConditionSubtype, PawnSubtype, PawnType } from '../../types';
+import { ActionSubtype, Attribute, Card, CARD_RARITIES, CardType, ConditionSubtype, PawnSubtype, PawnType } from '../../types';
 import { cardSubtype } from '../../cards/CardRegistry';
 import { isReservePawn } from '../../game/cardHelpers';
 import PageBrand from '../common/PageBrand';
 import './CatalogFilters.css';
 
-type FilterGroup = 'level' | 'pawnType' | 'attribute' | 'pawnSubtype' | 'action' | 'condition' | 'all';
+type FilterGroup = 'level' | 'pawnType' | 'attribute' | 'pawnSubtype' | 'action' | 'condition' | 'all' | 'pawnRarity' | 'actionRarity' | 'conditionRarity';
 type Filters = Record<FilterGroup, string[]>;
-const emptyFilters = (): Filters => ({ level: [], pawnType: [], attribute: [], pawnSubtype: [], action: [], condition: [], all: [] });
+const emptyFilters = (): Filters => ({ level: [], pawnType: [], attribute: [], pawnSubtype: [], action: [], condition: [], all: [], pawnRarity: [], actionRarity: [], conditionRarity: [] });
 const cardTypes = [{ type: CardType.PAWN, label: 'Pawn' }, { type: CardType.ACTION, label: 'Action' }, { type: CardType.CONDITION, label: 'Condition' }] as const;
 const groups = [
     { key: 'pawnSubtype', label: 'Subtype', options: ['Standard', PawnSubtype.VASSAL, PawnSubtype.MERGE, PawnSubtype.SWITCH] },
@@ -19,7 +19,8 @@ const subtypeGroups = {
     [CardType.ACTION]: { key: 'action', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach', ...Object.values(ActionSubtype).filter(subtype => subtype !== ActionSubtype.BOMB)] },
     [CardType.CONDITION]: { key: 'condition', label: 'Subtype', options: ['Normal', 'Lingering', 'Attach', ...Object.values(ConditionSubtype)] },
 } as const;
-const hasSelection = (filters: Filters, type: CardType) => filters.all.includes(type) || (type === CardType.PAWN
+const rarityGroups = { [CardType.PAWN]: 'pawnRarity', [CardType.ACTION]: 'actionRarity', [CardType.CONDITION]: 'conditionRarity' } as const;
+const hasSelection = (filters: Filters, type: CardType) => filters.all.includes(type) || filters[rarityGroups[type]].length > 0 || (type === CardType.PAWN
     ? groups.some(({ key }) => filters[key].length > 0) : filters[subtypeGroups[type].key].length > 0);
 
 export function useCatalogFilters() {
@@ -33,19 +34,21 @@ export function useCatalogFilters() {
         apply: () => setApplied(filters),
         toggle: (group: FilterGroup, value: string) => setFilters(previous => {
             const next = { ...previous, [group]: previous[group].includes(value) ? previous[group].filter(item => item !== value) : [...previous[group], value] };
-            const type = group === 'all' ? value as CardType : group === 'action' ? CardType.ACTION : group === 'condition' ? CardType.CONDITION : CardType.PAWN;
+            const type = group === 'all' ? value as CardType : group === 'action' || group === 'actionRarity' ? CardType.ACTION : group === 'condition' || group === 'conditionRarity' ? CardType.CONDITION : CardType.PAWN;
             if (group === 'all') {
+                next[rarityGroups[type]] = [];
                 if (type === CardType.PAWN) groups.forEach(({ key }) => { next[key] = []; });
                 else next[subtypeGroups[type].key] = [];
             } else next.all = next.all.filter(item => item !== type);
             return next;
         }),
         clear: () => setFilters(emptyFilters()),
-        matches: (card: Pick<Card, 'type' | 'level' | 'pawnType' | 'attribute' | 'pawnSubtype' | 'actionSubtype' | 'conditionSubtype' | 'isAttached' | 'isLingering'>) =>
-            !active || applied.all.includes(card.type) || (hasSelection(applied, card.type) && (card.type === CardType.PAWN
+        matches: (card: Pick<Card, 'rarity' | 'type' | 'level' | 'pawnType' | 'attribute' | 'pawnSubtype' | 'actionSubtype' | 'conditionSubtype' | 'isAttached' | 'isLingering'>) =>
+            (!applied[rarityGroups[card.type]].length || applied[rarityGroups[card.type]].includes(card.rarity)) &&
+            (!active || applied.all.includes(card.type) || (hasSelection(applied, card.type) && (card.type === CardType.PAWN
                 ? groups.every(({ key }) => !applied[key].length || applied[key].includes(String(card[key]))
                     || key === 'pawnSubtype' && applied[key].includes('Standard') && !isReservePawn(card))
-                : applied[subtypeGroups[card.type].key].includes(cardSubtype(card)!))),
+                : (!applied[subtypeGroups[card.type].key].length || applied[subtypeGroups[card.type].key].includes(cardSubtype(card)!))))),
     };
 }
 
@@ -91,6 +94,12 @@ export default function CatalogFilters({ filters, toggle, active, clear, begin, 
                     aria-label={`${label} ${value}`} aria-pressed={filters[key].includes(value)}
                     onClick={() => toggle(key, value)}>{key === 'attribute' ? value : value.charAt(0) + value.slice(1).toLowerCase()}</button>)}
             </div>)}
+            <div className="catalog-filters__options" role="group" aria-label="Rarity filters">
+                <span>Rarity</span>
+                {CARD_RARITIES.map(rarity => <button key={rarity} type="button" data-sound="toggle"
+                    aria-label={`Rarity ${rarity}`} aria-pressed={filters[rarityGroups[tab]].includes(rarity)}
+                    onClick={() => toggle(rarityGroups[tab], rarity)}>{rarity}</button>)}
+            </div>
             </div>
             <footer><button className="catalog-filters__clear" type="button" onClick={clear}>Clear filters</button><button type="submit" className="catalog-filters__search"><i className="fa-solid fa-magnifying-glass" aria-hidden="true" /> Search</button></footer>
             </form>

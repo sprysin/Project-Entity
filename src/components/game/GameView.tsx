@@ -26,6 +26,7 @@ import { canAttack, canChangePosition as canChangePawnPosition, canMergeSummon }
 import { QuitDuelDialog } from './MatchModals';
 import { CompletedDuel } from './DuelReport';
 import { getSettings } from '../../desktop/storage';
+import Settings from '../settings/Settings';
 import { OpeningCoin } from './OpeningCoin';
 import { CardSelectionModal } from './SelectionModals';
 import { XrayOverlay } from './XrayOverlay';
@@ -48,6 +49,7 @@ interface GameViewProps {
 const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode = 'self' as OpponentMode, debugSettings = {} as PlaytestDebugSettings }) => {
   const { gameState, state, actions } = useGameLogic(initialDecks, opponentMode, debugSettings);
   const [startingHandIndices, setStartingHandIndices] = React.useState<number[]>([]);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   if (state.startingHandCards) return <CardSelectionModal
     title={`Choose starting hand (${startingHandIndices.length}/5)`}
@@ -62,13 +64,21 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
 
   if (!gameState) return <div className="flex-1 flex items-center justify-center font-orbitron text-yellow-500 uppercase text-3xl">System Initialization...</div>;
 
-  return <DuelBoard gameState={gameState} state={state} actions={actions} onQuit={onQuit}
-    initialDecks={initialDecks} opponentMode={opponentMode} debugSettings={debugSettings} />;
+  return <>
+    <div className={settingsOpen ? 'hidden' : 'flex flex-1 min-h-0'}>
+      <DuelBoard gameState={gameState} state={state} actions={actions} onQuit={onQuit}
+        onSettings={() => setSettingsOpen(true)} initialDecks={initialDecks} opponentMode={opponentMode} debugSettings={debugSettings} />
+    </div>
+    {settingsOpen && <Settings backLabel="Back to duel" onBack={() => {
+      setSettingsOpen(false);
+      requestAnimationFrame(() => document.getElementById('duel-settings')?.focus());
+    }} />}
+  </>;
 };
 
-type DuelBoardProps = GameViewProps & Pick<ReturnType<typeof useGameLogic>, 'state' | 'actions'> & { gameState: GameState };
+type DuelBoardProps = GameViewProps & Pick<ReturnType<typeof useGameLogic>, 'state' | 'actions'> & { gameState: GameState; onSettings: () => void };
 
-const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit, initialDecks, opponentMode, debugSettings }) => {
+const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit, onSettings, initialDecks, opponentMode, debugSettings }) => {
   const summonReverbs = useSummonReverb(gameState);
   const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
   const [viewingLand, setViewingLand] = React.useState(false);
@@ -104,7 +114,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   const activePlayer = gameState.players[viewIndex];
   const oppIdx = (viewIndex + 1) % 2;
   const opponent = gameState.players[oppIdx];
-  const { fannedOutPiles, profileImage } = getSettings();
+  const { fannedOutPiles, profileImage, blueGreenBoard } = getSettings();
   const reveal = gameState.peekEvents?.find(event => event.viewerPlayerIndex === viewIndex);
   const drawnBomb = gameState.drawnBombs?.[0];
   const renderPendingReveal = (playerIndex: number) => {
@@ -174,7 +184,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
   };
 
   return (
-    <div className={`duel-screen ${isLightTheme ? 'duel-screen--light' : 'duel-screen--dark'} flex-1 flex flex-col relative overflow-hidden font-mono select-none transition-colors duration-1000`}>
+    <div className={`duel-screen ${blueGreenBoard ? 'duel-screen--blue-green' : 'duel-screen--neon-punk'} ${isLightTheme ? 'duel-screen--light' : 'duel-screen--dark'} flex-1 flex flex-col relative overflow-hidden font-mono select-none transition-colors duration-1000`}>
       <div className="contents" inert={!!gameState.winner}>
       {/* HUD: Exit Control */}
       <OpeningCoin gameState={gameState} opponentMode={opponentMode} onChoose={actions.chooseTurnOrder} />
@@ -191,6 +201,11 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
         <button data-sound="select-small" type="button" onClick={() => actions.setIsDeckViewerOpen(true)} className="game-corner-button game-corner-button--secondary">
           <span className="game-corner-button__icon" aria-hidden="true"><i className="fa-solid fa-layer-group" /></span>
           <span>DECK LIST</span>
+          <i className="fa-solid fa-chevron-right game-corner-button__detail" aria-hidden="true" />
+        </button>
+        <button id="duel-settings" data-sound="select-small" type="button" onClick={onSettings} className="game-corner-button game-corner-button--secondary">
+          <span className="game-corner-button__icon" aria-hidden="true"><i className="fa-solid fa-gear" /></span>
+          <span>SETTINGS</span>
           <i className="fa-solid fa-chevron-right game-corner-button__detail" aria-hidden="true" />
         </button>
         <button

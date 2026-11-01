@@ -164,24 +164,38 @@ it('special summons validate placement and returned cards respect their source p
     }
 });
 
-it('revival selects converted Discard identities after costs while keeping previews reversible', () => {
-    const game = state();
-    const source = card('C_What_Grows_In_The_Graveyard');
-    const payment = card('P_Tomaterror');
-    const undead = card('P_Zombie_Necromancer');
-    game.players[0].actionZones[0] = placed(source, Position.HIDDEN);
-    game.players[0].hand = [payment];
-    game.players[0].discard = [undead];
-    const preview = runEffect(game, { card: source, playerIndex: 0, handIndex: 0 }, 'activate');
-    expect(preview.requireDiscardSelection?.cards?.[0]).toMatchObject({ instanceId: undead.instanceId, pawnType: PawnType.PLANT });
-    expect(game.players[0].discard[0].pawnType).toBe(PawnType.UNDEAD);
-    expect(game.players[0].hand).toEqual([payment]);
-    const choice = effectChoices(game, source, 'activate').find(context => context.pawnPlacement?.slot === 2)!;
-    const result = resolveChain(addChainLink(game, choice, 'activate'));
-    expect(result.players[0].void.map(card => card.instanceId)).toEqual([payment.instanceId]);
-    expect(result.players[0].discard).toEqual([]);
-    expect(result.players[0].pawnZones[2]?.card).toMatchObject({ instanceId: undead.instanceId, pawnType: PawnType.PLANT });
-    expect(result.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([undead.instanceId]);
+it('revival validates costs and Discard targets while keeping previews reversible', () => {
+    for (const id of ['C_What_Grows_In_The_Graveyard', 'A_For_The_Greater_Good']) {
+        const game = state();
+        const source = card(id), payment = card('P_Tomaterror'), undead = card('P_Zombie_Necromancer');
+        const greaterGood = id === 'A_For_The_Greater_Good';
+        game.players[0].actionZones[0] = placed(source, Position.HIDDEN);
+        game.players[0].hand = [payment];
+        if (greaterGood) {
+            game.players[0].pawnZones[0] = placed({ ...card('P_Solstice_Sentinel'), level: 3 });
+            expect(effectChoices(game, source, 'activate')).toEqual([]);
+            game.players[0].discard = [source, { ...undead, level: 5 }];
+            expect(effectChoices(game, source, 'activate')).toEqual([]);
+            game.players[0].hand = [source, payment];
+            const request = runEffect(game, { card: source, playerIndex: 0 }, 'activate').requireHandSelection!;
+            expect(request.filter!(source)).toBe(false);
+            expect(runEffect(game, { card: source, playerIndex: 0, handIndex: 0 }, 'activate').halted).toBe(true);
+            game.players[0].hand = [payment];
+        }
+        game.players[0].discard = [undead];
+        const context = { card: source, playerIndex: 0, handIndex: 0, ...(greaterGood ? { tributeIndices: [0] } : {}) };
+        const preview = runEffect(game, context, 'activate');
+        expect(preview.requireDiscardSelection?.cards?.[0]).toMatchObject({ instanceId: undead.instanceId, pawnType: greaterGood ? PawnType.UNDEAD : PawnType.PLANT });
+        expect(game.players[0]).toMatchObject({ hand: [payment], discard: [undead], void: [] });
+        const choice = effectChoices(game, source, 'activate').find(context => context.pawnPlacement?.slot === 2 && context.discardCardIds?.[0] === undead.instanceId)!;
+        const result = resolveChain(addChainLink(game, choice, 'activate'));
+        expect(result.players[0].void).toEqual([payment]);
+        expect(result.players[0].pawnZones[2]?.card).toMatchObject({ instanceId: undead.instanceId, pawnType: greaterGood ? PawnType.UNDEAD : PawnType.PLANT });
+        if (greaterGood) {
+            expect(result.players[0].pawnZones[0]).toBeNull();
+            expect(result.players[0].discard.some(value => value.instanceId === payment.instanceId)).toBe(false);
+        } else expect(result.players[0].actionZones[0]?.attachedToInstanceIds).toEqual([undead.instanceId]);
+    }
 });
 
 it('battle revival returns a controlled card to its owner when temporary control expires', () => {

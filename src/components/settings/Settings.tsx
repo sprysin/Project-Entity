@@ -7,7 +7,7 @@ import CardColorTest from './CardColorTest';
 import StyleGuide from './StyleGuide';
 import './Settings.css';
 
-const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const Settings: React.FC<{ onBack: () => void; backLabel?: string }> = ({ onBack, backLabel }) => {
   const [preferences, setPreferences] = useState(getSettings);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -34,8 +34,8 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   if (colorTestOpen) return <CardColorTest onBack={() => setColorTestOpen(false)} />;
   if (styleGuideOpen) return <StyleGuide onBack={() => setStyleGuideOpen(false)} />;
 
-  return <main className="settings-page entity-page flex-1 overflow-y-auto font-mono">
-    <div className="entity-topbar settings-topbar"><PageBrand section="SYSTEM / PREFERENCES" /><BackToHubButton onClick={onBack} disabled={saving} /></div>
+  return <main className="settings-page entity-page flex-1 min-h-0 font-mono">
+    <div className="entity-topbar settings-topbar"><PageBrand section="SYSTEM / PREFERENCES" /><BackToHubButton label={backLabel} onClick={onBack} disabled={saving} /></div>
     <form className="settings-shell" onSubmit={save} onChange={() => { setMessage(''); setError(''); }}>
       <header className="settings-header">
         <div className="settings-heading">
@@ -86,29 +86,39 @@ const Settings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         <div className="settings-row">
           <div className="settings-copy">
+            <label htmlFor="blue-green-board">Blue-green duel board</label>
+            <p id="blue-green-board-help">Use the original cool-toned board instead of black and charcoal.</p>
+          </div>
+          <label className="settings-switch"><input id="blue-green-board" data-sound="toggle" type="checkbox" aria-describedby="blue-green-board-help" checked={preferences.blueGreenBoard} onChange={event => setPreferences({ ...preferences, blueGreenBoard: event.target.checked })} className="settings-toggle" /><span aria-hidden="true">{preferences.blueGreenBoard ? 'On' : 'Off'}</span></label>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-copy">
             <label htmlFor="fanned-out-piles">Fanned out Discard &amp; Void Pile</label>
             <p id="fanned-out-piles-help">Show the four most recent cards in each pile. When off, show only the latest card.</p>
           </div>
-          <input id="fanned-out-piles" data-sound="toggle" type="checkbox" aria-describedby="fanned-out-piles-help" checked={preferences.fannedOutPiles} onChange={event => setPreferences({ ...preferences, fannedOutPiles: event.target.checked })} className="settings-toggle" />
+          <label className="settings-switch"><input id="fanned-out-piles" data-sound="toggle" type="checkbox" aria-describedby="fanned-out-piles-help" checked={preferences.fannedOutPiles} onChange={event => setPreferences({ ...preferences, fannedOutPiles: event.target.checked })} className="settings-toggle" /><span aria-hidden="true">{preferences.fannedOutPiles ? 'On' : 'Off'}</span></label>
         </div>
       </fieldset>
-      <section className="settings-panel settings-color-test-link">
+      <div className="settings-tools">
+      <section className="settings-panel settings-tool">
         <div className="settings-row">
           <div className="settings-copy">
             <h2>Card color test</h2>
           </div>
-          <BackToHubButton label="Open card color test" onClick={() => setColorTestOpen(true)} disabled={saving} />
+          <button type="button" className="page-back-button" data-sound="select" onClick={() => setColorTestOpen(true)} disabled={saving}>Open card color test <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
         </div>
       </section>
-      <section className="settings-panel settings-color-test-link">
+      <section className="settings-panel settings-tool">
         <div className="settings-row">
           <div className="settings-copy">
             <h2>UI style guide</h2>
             <p>Browse the interface library: modals, buttons, typography, colors, and more.</p>
           </div>
-          <BackToHubButton label="Open style guide" onClick={() => setStyleGuideOpen(true)} disabled={saving} />
+          <button type="button" className="page-back-button" data-sound="select" onClick={() => setStyleGuideOpen(true)} disabled={saving}>Open style guide <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
         </div>
       </section>
+      </div>
     </form>
   </main>;
 };
