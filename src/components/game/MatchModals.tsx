@@ -5,7 +5,7 @@ import { CardDetail } from '../cards/CardDetail';
 import { DuelPrompt } from './DuelPrompt';
 import { playSound } from '../../audio';
 
-export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => void }> = ({ onCancel, onConfirm }) => {
+export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => void; title?: string; message?: string }> = ({ onCancel, onConfirm, title = 'Quit this duel?', message = 'Your current duel progress will be lost. Neither player will earn XP.' }) => {
     const cancelButton = React.useRef<HTMLButtonElement>(null);
     const confirmButton = React.useRef<HTMLButtonElement>(null);
 
@@ -37,8 +37,8 @@ export const QuitDuelDialog: React.FC<{ onCancel: () => void; onConfirm: () => v
         >
             <section className="quit-duel-dialog__panel" onClick={event => event.stopPropagation()}>
                 <div className="quit-duel-dialog__icon" aria-hidden="true"><i className="fa-solid fa-power-off" /></div>
-                <h2 id="quit-duel-title">Quit this duel?</h2>
-                <p id="quit-duel-description">Your current duel progress will be lost. Neither player will earn XP.</p>
+                <h2 id="quit-duel-title">{title}</h2>
+                <p id="quit-duel-description">{message}</p>
                 <div className="quit-duel-dialog__actions">
                     <button data-sound="cancellation" ref={cancelButton} type="button" onClick={onCancel}>Keep Playing</button>
                     <button data-sound="select-small" ref={confirmButton} type="button" className="quit-duel-dialog__confirm" onClick={onConfirm}>Quit Duel</button>
@@ -59,11 +59,11 @@ export const WinnerModal: React.FC<{
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const [revealed, setRevealed] = React.useState(reducedMotion);
     const [reportVisible, setReportVisible] = React.useState(reducedMotion);
-    const defeatSoundPlayed = React.useRef(false);
+    const resultSoundPlayed = React.useRef(false);
     React.useEffect(() => {
-        if (isDefeat && !defeatSoundPlayed.current) {
-            defeatSoundPlayed.current = true;
-            playSound('defeat');
+        if (!gameState.isDraw && !resultSoundPlayed.current) {
+            resultSoundPlayed.current = true;
+            playSound(isDefeat ? 'defeat' : 'high-effect');
         }
         const previous = document.activeElement as HTMLElement | null;
         dialog.current?.focus();
@@ -71,7 +71,7 @@ export const WinnerModal: React.FC<{
         // Let the flip (850ms) and damage reveal settle before introducing the report.
         const reportTimer = setTimeout(() => setReportVisible(true), reducedMotion ? 0 : mvp ? 2700 : 1200);
         return () => { clearTimeout(timer); clearTimeout(reportTimer); previous?.focus(); };
-    }, [isDefeat, reducedMotion, !!mvp]);
+    }, [isDefeat, gameState.isDraw, reducedMotion, !!mvp]);
     React.useEffect(() => {
         if ((!children || reportVisible) && !saving && !error) continueButton.current?.focus({ preventScroll: true });
     }, [reportVisible, saving, error, !!children]);

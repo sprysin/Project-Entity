@@ -5,7 +5,7 @@ import { Effect } from '../../engine/Effects';
 
 const effect: IEffect = {
     onBattleDestroyed: buildEffect([
-        Effect.SpecialSummonFromDeck(card => card.attribute === Attribute.EARTH && card.atk <= 100, Position.ATTACK)
+        Effect.SummonFromDeck(card => card.attribute === Attribute.EARTH && card.atk <= 100, Position.ATTACK)
     ])
 };
 

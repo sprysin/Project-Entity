@@ -14,7 +14,7 @@ import { notifyPawnSummoned } from './summonReactions';
 import { queueRevealedSwitches } from './switches';
 
 export function runEffect(state: GameState, context: CardContext, trigger: EffectTrigger): EffectResult {
-    context = { ...context, battleDamage: context.battleDamage ?? state.response?.battleDamage, lpGain: context.lpGain ?? state.response?.lpGain };
+    context = { ...context, battleDamage: context.battleDamage ?? state.response?.battleDamage, lpGain: context.lpGain ?? state.response?.lpGain, fieldDestructions: context.fieldDestructions ?? state.response?.fieldDestructions };
     if (isLand(context.card) && ['activate', 'field_activate', 'phase'].includes(trigger)
         && activeLand(state)?.card.instanceId !== context.card.instanceId) return { newState: state, halted: true };
     if (context.execution !== 'costs' && (context.targets ?? (context.target ? [context.target] : [])).some(target => {
@@ -109,7 +109,7 @@ export function effectChoices(state: GameState, card: Card, trigger: EffectTrigg
             });
         } else if (result.requirePeekSelection && context.peekIndex === undefined) {
             const req = result.requirePeekSelection;
-            state.players[req.playerIndex].hand.forEach((_c, peekIndex) => visit({ ...context, peekIndex }, depth + 1));
+            (req.cards ?? state.players[req.playerIndex].hand).forEach((_c, peekIndex) => visit({ ...context, peekIndex }, depth + 1));
         } else if (result.requireShuffleSelection && !context.shuffleCardIds) {
             const req = result.requireShuffleSelection;
             const cardIds = multiSelectionCards(state, req).map(card => card.instanceId);
@@ -191,7 +191,7 @@ export function addChainLink(state: GameState, context: CardContext, trigger: Ef
 }
 
 function appendChainLink(state: GameState, context: CardContext, trigger: EffectTrigger, buildingTriggers: boolean): GameState {
-    context = { ...context, battleDamage: state.response?.battleDamage, lpGain: state.response?.lpGain };
+    context = { ...context, battleDamage: state.response?.battleDamage, lpGain: state.response?.lpGain, fieldDestructions: state.response?.fieldDestructions };
     if (isDrawingForTurn(state)) return state;
     if (isLand(context.card) && trigger === 'field_activate'
         && (context.playerIndex !== state.activePlayerIndex || ![Phase.MAIN1, Phase.MAIN2].includes(state.currentPhase))) return state;
@@ -233,6 +233,7 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
     if (source && context.card.type !== CardType.PAWN) source.position = Position.FACE_UP;
     const targets = context.targets ?? (context.target ? [context.target] : []);
     const target = targets[0];
+    const peekRequest = context.peekIndex === undefined ? undefined : runEffect(state, { ...context, peekIndex: undefined }, trigger).requirePeekSelection;
     const link: ChainLink = {
         sourceHandId: trigger === 'hand_activate' ? context.card.instanceId : undefined,
         tributeIds: tributeCards.map(card => card.instanceId),
@@ -246,13 +247,14 @@ function appendChainLink(state: GameState, context: CardContext, trigger: Effect
         discardId: context.discardIndex === undefined ? undefined : state.players[context.playerIndex].discard[context.discardIndex]?.instanceId,
         deckId: context.deckIndex === undefined ? undefined : state.players[context.playerIndex].deck[context.deckIndex]?.instanceId,
         reserveId: context.reserveIndex === undefined ? undefined : state.players[context.playerIndex].reserve[context.reserveIndex]?.instanceId,
-        peekCardId: context.peekIndex === undefined ? undefined : state.players[1 - context.playerIndex].hand[context.peekIndex]?.instanceId,
+        peekCardId: context.peekIndex === undefined ? undefined : (peekRequest?.cards ?? state.players[1 - context.playerIndex].hand)[context.peekIndex]?.instanceId,
+        peekFieldSelection: !!peekRequest?.cards,
     };
     next.chain = [...(state.chain ?? []), link];
     // An accepted activation interrupts the End Phase request; the turn player can reconsider.
     if (state.deferredAction?.kind === 'end') next.deferredAction = undefined;
     next.pendingResponse = undefined;
-    next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated`, timing: 'activation', battleDamage: state.response?.battleDamage, lpGain: state.response?.lpGain };
+    next.response = { priority: 1 - context.playerIndex, passes: 0, reason: `${context.card.name} activated`, timing: 'activation', battleDamage: state.response?.battleDamage, lpGain: state.response?.lpGain, fieldDestructions: state.response?.fieldDestructions };
     next = notifyFieldEvent(next, 'onEffectActivated', { activatedCard: context.card, activatingPlayerIndex: context.playerIndex });
     next = checkVictory(notifyAttachedActivation(state, next, context.card));
     return buildingTriggers ? next : autoPass(next);
@@ -282,7 +284,7 @@ export function addSimultaneousTriggers(state: GameState, triggers: Simultaneous
     return autoPass(next);
 }
 
-export function resolveChain(state: GameState, chooseTargets?: (state: GameState, link: ChainLink) => CardTarget[]): GameState {
+export function resolveChain(state: GameState, chooseTargets?: (state: GameState, link: ChainLink) => CardTarget[] | CardContext): GameState {
     if (state.pendingActivation) return state;
     let next = state;
     while (next.chain?.length && !next.winner && !next.pendingVoidReturns?.length && !next.pendingVoidSelections?.length) {
@@ -306,14 +308,17 @@ export function startPendingTriggers(state: GameState): GameState {
 }
 
 /** Resolve one link so the host can display each resulting board state. */
-export function resolveChainStep(state: GameState, selectedTargets?: CardTarget[]): GameState {
+export function resolveChainStep(state: GameState, selection?: CardTarget[] | CardContext): GameState {
+    const selectedTargets = Array.isArray(selection) ? selection : selection?.targets;
     if (state.pendingActivation || state.pendingVoidReturns?.length || state.pendingVoidSelections?.length) return state;
-    if (state.pendingChainTarget && !selectedTargets) return state;
+    if (state.pendingChainTarget && !selection) return state;
     const link = state.chain?.at(-1);
     if (!link) return state;
-    let next = selectedTargets ? { ...state, pendingChainTarget: undefined } : state;
+    let next = selection ? { ...state, pendingChainTarget: undefined } : state;
     if (!next.winner) {
-        const context = { ...link.context, handIndex: undefined, execution: 'resolve' as const };
+        const resuming = link.context.sequenceStep !== undefined;
+        const context = { ...link.context, ...(!resuming ? { handIndex: undefined } : {}),
+            ...(!Array.isArray(selection) ? selection : {}), execution: 'resolve' as const };
         const effect = cardRegistry.getEffect(context.card.id);
         if (effect?.targetsAtResolution) {
             if (selectedTargets?.length) {
@@ -344,14 +349,21 @@ export function resolveChainStep(state: GameState, selectedTargets?: CardTarget[
         if (link.deckId) { context.deckIndex = p.deck.findIndex(c => c.instanceId === link.deckId); invalid ||= context.deckIndex < 0; }
         if (link.reserveId) { context.reserveIndex = p.reserve.findIndex(c => c.instanceId === link.reserveId); invalid ||= context.reserveIndex < 0; }
         if (link.peekCardId) {
-            context.peekIndex = next.players[1 - context.playerIndex].hand.findIndex(c => c.instanceId === link.peekCardId);
+            const candidates = link.peekFieldSelection
+                ? runEffect(next, { ...context, peekIndex: undefined }, link.trigger).requirePeekSelection?.cards ?? []
+                : next.players[1 - context.playerIndex].hand;
+            context.peekIndex = candidates.findIndex(c => c.instanceId === link.peekCardId);
             invalid ||= context.peekIndex < 0;
         }
         const before = next;
-        const paid = runEffect(next, { ...context, execution: 'costs' }, link.trigger);
+        const paid = resuming ? { newState: next } : runEffect(next, { ...context, execution: 'costs' }, link.trigger);
         const costFailed = paid.halted || needsChoice(paid);
         if (!costFailed) next = paid.newState;
         const result = costFailed || invalid && !effect?.allowMissingTargets ? undefined : runEffect(next, context, link.trigger);
+        if (result?.sequenceContext) return {
+            ...queueEventResponses(state, result.newState), pendingChainTarget: true,
+            chain: [...next.chain!.slice(0, -1), { context: result.sequenceContext, trigger: link.trigger }]
+        };
         const fizzled = !result || result.halted || needsChoice(result);
         next = finishEffect(fizzled ? next : result.newState, context.card,
             costFailed ? `"${context.card.name}" resolved without effect: its cost can no longer be paid.`
@@ -403,8 +415,13 @@ export function openResponse(state: GameState, action: NonNullable<GameState['de
 export function queueEventResponses(before: GameState, after: GameState): GameState {
     if (before === after || after.winner) return after;
     refreshFieldTypes(after);
+    const destructions = after.fieldDestructionEvents?.slice(before.fieldDestructionEvents?.length ?? 0);
+    if (destructions?.length) after = { ...after, pendingResponse: {
+        ...after.pendingResponse, timing: after.pendingResponse?.timing ?? 'minor_action',
+        reason: after.pendingResponse?.reason ?? 'Cards destroyed', fieldDestructions: destructions
+    } };
     if ((after.lpGainEvents?.length ?? 0) > (before.lpGainEvents?.length ?? 0)) {
-        after = { ...after, pendingResponse: { timing: 'activation', reason: 'Life points gained', lpGain: after.lpGainEvents!.at(-1) } };
+        after = { ...after, pendingResponse: { fieldDestructions: after.pendingResponse?.fieldDestructions, timing: 'activation', reason: 'Life points gained', lpGain: after.lpGainEvents!.at(-1) } };
     }
     // End Phase maintenance also catches counters earned after phase entry.
     if (after.currentPhase === Phase.END) {
@@ -433,11 +450,11 @@ export function queueEventResponses(before: GameState, after: GameState): GameSt
                 after.pendingReactions = [...(after.pendingReactions ?? []), { card, playerIndex, trigger: 'summon' }];
             }
         }
-        return { ...queueRevealedSwitches(before, after), pendingResponse: { timing: 'summon', reason: summoned.map(entry => entry.card.name).join(', ') + ' summoned' } };
+        return { ...queueRevealedSwitches(before, after), pendingResponse: { fieldDestructions: after.pendingResponse?.fieldDestructions, timing: 'summon', reason: summoned.map(entry => entry.card.name).join(', ') + ' summoned' } };
     }
     if (before.currentPhase !== after.currentPhase || before.turnNumber !== after.turnNumber) {
         if (after.currentPhase === Phase.DRAW) return { ...after, pendingResponse: undefined };
-        return { ...after, pendingResponse: { timing: 'phase_entry', reason: `Entered ${after.currentPhase}` } };
+        return { ...after, pendingResponse: { fieldDestructions: after.pendingResponse?.fieldDestructions, timing: 'phase_entry', reason: `Entered ${after.currentPhase}` } };
     }
     return after;
 }

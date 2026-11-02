@@ -37,6 +37,8 @@ import './GameView.css';
 
 interface GameViewProps {
   onQuit: () => void;
+  onComplete?: (gameState: GameState) => void;
+  quitMessage?: string;
   opponentMode?: OpponentMode;
   initialDecks?: [SavedDeck | null, SavedDeck | null];
   debugSettings?: PlaytestDebugSettings;
@@ -46,7 +48,7 @@ interface GameViewProps {
  * GameView Component
  * The core battle interface. Manages game state, turn logic, animations, and user interactions.
  */
-const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode = 'self' as OpponentMode, debugSettings = {} as PlaytestDebugSettings }) => {
+const GameView: React.FC<GameViewProps> = ({ onQuit, onComplete, quitMessage, initialDecks, opponentMode = 'self' as OpponentMode, debugSettings = {} as PlaytestDebugSettings }) => {
   const { gameState, state, actions } = useGameLogic(initialDecks, opponentMode, debugSettings);
   const [startingHandIndices, setStartingHandIndices] = React.useState<number[]>([]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -66,7 +68,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
 
   return <>
     <div className={settingsOpen ? 'hidden' : 'flex flex-1 min-h-0'}>
-      <DuelBoard gameState={gameState} state={state} actions={actions} onQuit={onQuit}
+      <DuelBoard gameState={gameState} state={state} actions={actions} onQuit={onQuit} onComplete={onComplete} quitMessage={quitMessage}
         onSettings={() => setSettingsOpen(true)} initialDecks={initialDecks} opponentMode={opponentMode} debugSettings={debugSettings} />
     </div>
     {settingsOpen && <Settings backLabel="Back to duel" onBack={() => {
@@ -78,7 +80,7 @@ const GameView: React.FC<GameViewProps> = ({ onQuit, initialDecks, opponentMode 
 
 type DuelBoardProps = GameViewProps & Pick<ReturnType<typeof useGameLogic>, 'state' | 'actions'> & { gameState: GameState; onSettings: () => void };
 
-const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit, onSettings, initialDecks, opponentMode, debugSettings }) => {
+const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit, onComplete, quitMessage, onSettings, initialDecks, opponentMode, debugSettings }) => {
   const summonReverbs = useSummonReverb(gameState);
   const [isQuitConfirmationOpen, setIsQuitConfirmationOpen] = React.useState(false);
   const [viewingLand, setViewingLand] = React.useState(false);
@@ -223,7 +225,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
       </div>
 
       {isQuitConfirmationOpen && (
-        <QuitDuelDialog
+        <QuitDuelDialog message={quitMessage}
           onCancel={() => setIsQuitConfirmationOpen(false)}
           onConfirm={onQuit}
         />
@@ -569,7 +571,7 @@ const DuelBoard: React.FC<DuelBoardProps> = ({ gameState, state, actions, onQuit
         deckName={activePlayer.deckName ?? (viewIndex === 0 ? initialDecks?.[0]?.name : initialDecks?.[1]?.name) ?? 'Random test deck'}
       />
       </div>
-      {gameState.winner && <CompletedDuel gameState={gameState} isDefeat={!gameState.isDraw && gameState.winner !== gameState.players[0].name} onQuit={onQuit} />}
+      {gameState.winner && <CompletedDuel gameState={gameState} isDefeat={!gameState.isDraw && gameState.winner !== gameState.players[0].name} onQuit={() => onComplete ? onComplete(gameState) : onQuit()} />}
     </div>
   );
 };

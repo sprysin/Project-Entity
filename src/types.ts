@@ -162,7 +162,10 @@ export interface PendingEffect {
 
 export type ActivationPopupMode = 'off' | 'auto' | 'on';
 export type ResponseTiming = 'summon' | 'attack' | 'activation' | 'turn_end' | 'phase_exit' | 'phase_entry' | 'battle_step' | 'chain_resolved' | 'minor_action' | 'draw';
+export interface FieldDestructionEvent { card: Card; controllerIndex: number; }
+
 export interface ResponseWindow {
+  fieldDestructions?: FieldDestructionEvent[];
   lpGain?: { playerIndex: number; amount: number };
   timing: ResponseTiming;
   reason: string;
@@ -179,6 +182,7 @@ export interface GameState {
   bombInsertions?: { sourceId: string; playerIndex: number; cards: Card[] }[];
   /** Ordered destruction events; sending to the Discard does not record one. */
   destroyedCardIds?: string[];
+  fieldDestructionEvents?: FieldDestructionEvent[];
   /** Public draw reveals shown before the card's destruction animation. */
   drawnBombs?: { card: Card; playerIndex: number }[];
   /** Bottom to top; only the final entry is active. Optional for older snapshots. */
@@ -195,7 +199,7 @@ export interface GameState {
   /** Triggered effects wait until the current chain and deferred action have finished. */
   pendingTriggers?: { context: CardContext; trigger: Extract<EffectTrigger, 'summon' | 'phase' | 'discard' | 'tribute' | 'battle_destroy'> }[];
   drawProgress?: { turn: number; remaining: number };
-  response?: { priority: number; passes: number; reason: string; timing?: ResponseTiming; ready?: boolean; battleDamage?: ResponseWindow['battleDamage']; lpGain?: ResponseWindow['lpGain'] };
+  response?: { priority: number; passes: number; reason: string; timing?: ResponseTiming; ready?: boolean; battleDamage?: ResponseWindow['battleDamage']; lpGain?: ResponseWindow['lpGain']; fieldDestructions?: FieldDestructionEvent[] };
   /** Event responses wait for trigger choices and the entire resolving chain. */
   pendingResponse?: ResponseWindow;
   /** The top resolving link is waiting for its controller's target selection. */
@@ -270,7 +274,9 @@ export interface ShuffleSelectionRequest {
 }
 
 export interface PeekSelectionRequest {
-  /** The player whose hand supplies the card and who makes the selection. */
+  /** Explicit candidates for a choice; otherwise use the selecting player's hand. */
+  cards?: Card[];
+  /** The player who makes the selection. */
   playerIndex: number;
   /** The only player allowed to see the selected card. */
   viewerPlayerIndex: number;
@@ -307,6 +313,7 @@ export type TargetSelectPosition = 'hidden' | 'faceup' | 'both';
 export type TargetSelectScope = 'active' | 'opponent' | 'both';
 
 export type EffectResult = {
+  sequenceContext?: CardContext;
   requireEffectChoice?: { id: string; label: string; disabled: boolean }[];
   newState: GameState;
   requirePawnPlacement?: { playerIndex: number; position?: Position; slots?: number[]; placementIndex?: number };
@@ -327,6 +334,8 @@ export type EffectResult = {
 };
 
 export interface CardContext {
+  sequenceStep?: number;
+  fieldDestructions?: FieldDestructionEvent[];
   lpGain?: ResponseWindow['lpGain'];
   battleDamage?: ResponseWindow['battleDamage'];
   handSelectionId?: string;
@@ -418,6 +427,8 @@ export interface IEffect {
 
   // Triggered when a card is Tributed
   onTribute?(state: GameState, context: CardContext): EffectResult;
+  /** Immediate response when this Pawn is tributed by another Pawn. */
+  onTributedByPawn?(state: GameState, context: CardContext & { tributingCard: Card }): void;
 
   // Triggered when this card is discarded from the hand by a card cost.
   onDiscard?(state: GameState, context: CardContext): EffectResult;
@@ -447,6 +458,7 @@ export interface ChainLink {
   deckId?: string;
   reserveId?: string;
   peekCardId?: string;
+  peekFieldSelection?: boolean;
 }
 
 export type OpponentMode = 'self' | 'ai';

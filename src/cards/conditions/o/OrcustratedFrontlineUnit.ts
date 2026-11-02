@@ -8,8 +8,12 @@ const effect: IEffect = {
         const player = state.players[context.playerIndex];
         if (context.summoningPlayerIndex === context.playerIndex || !context.tributeCount
             || !player.pawnZones.includes(null) || !player.hand.some(effect.handSummonFilter!)) return { newState: state };
-        return { newState: { ...state, pendingHandSummons: [...(state.pendingHandSummons ?? []),
-            { sourceId: context.card.instanceId, playerIndex: context.playerIndex }] } };
+        return {
+            newState: {
+                ...state, pendingHandSummons: [...(state.pendingHandSummons ?? []),
+                { sourceId: context.card.instanceId, playerIndex: context.playerIndex }]
+            }
+        };
     },
     onActivate: buildEffect([
         // Revealing the lingering Condition arms its summon trigger.
@@ -17,16 +21,18 @@ const effect: IEffect = {
 };
 
 export default [
-{ cardData: {
-    id: 'C_Orcustrated_Frontline_Unit',
-    name: 'Orcustrated Frontline Unit',
-    type: CardType.CONDITION,
-    rarity: 'Epic',
-    isLingering: true,
-    level: 0,
-    atk: 0,
-    def: 0,
-    // Note a special summon that doesnt denote the position means the player chooses whether it goes to face up attack or face up defense
-    effectText: 'Whenever your opponent tribute summons a Pawn, special summon 1 level 4 or lower Light Attribute Pawn from your hand. ',
-}, effect }
+    {
+        cardData: {
+            id: 'C_Orcustrated_Frontline_Unit',
+            name: 'Orcustrated Frontline Unit',
+            type: CardType.CONDITION,
+            rarity: 'Common',
+            isLingering: true,
+            level: 0,
+            atk: 0,
+            def: 0,
+            // Note a special summon that doesnt denote the position means the player chooses whether it goes to face up attack or face up defense
+            effectText: 'Whenever your opponent tribute summons a Pawn, special summon 1 level 4 or lower Light Attribute Pawn from your hand. ',
+        }, effect
+    }
 ] satisfies CardModule;

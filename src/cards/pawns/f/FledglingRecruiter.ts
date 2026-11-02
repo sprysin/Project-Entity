@@ -18,7 +18,7 @@ export default [{
     },
     effect: {
         onBattleDestroyed: buildEffect([
-            Effect.SpecialSummonFromDeck(card => card.attribute === Attribute.NORMAL && card.atk <= 100, Position.ATTACK)
+            Effect.SummonFromDeck(card => card.attribute === Attribute.NORMAL && card.atk <= 100, Position.ATTACK)
         ])
     }
 }] satisfies CardModule;

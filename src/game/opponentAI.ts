@@ -281,12 +281,12 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
     const resolvingLink = state.pendingChainTarget ? state.chain?.at(-1) : undefined;
     // Forecast delayed choices without storing them on the announced chain link.
     const settleChain = (queued: GameState, preferred?: CardContext) => resolveChain(queued, (pending, link) => {
-        if (preferred?.card.instanceId === link.context.card.instanceId) {
+        if (link.context.sequenceStep === undefined && preferred?.card.instanceId === link.context.card.instanceId) {
             const preview = runEffect(pending, { ...preferred, execution: 'resolve' }, link.trigger);
-            if (!preview.halted && !needsChoice(preview)) return preferred.targets ?? (preferred.target ? [preferred.target] : []);
+            if (!preview.halted && !needsChoice(preview)) return preferred;
         }
         const choice = chooseAIAction(observeGame(pending, link.context.playerIndex), link.context.playerIndex);
-        return choice.kind === 'effect' ? choice.context.targets ?? (choice.context.target ? [choice.context.target] : []) : [];
+        return choice.kind === 'effect' ? choice.context : [];
     });
     function* effectOutcomes(board: GameState, activations: { card: Card; trigger: EffectTrigger }[], limit: number) {
         for (const { card, trigger } of activations) for (const choice of effectChoices(board, card, trigger, limit)) {
@@ -354,7 +354,7 @@ export function chooseAIAction(observation: GameState, player: number, reactionC
     };
     const considerEffect = (base: GameState, card: Card, trigger: EffectTrigger, fromHand = false) => {
         for (const context of effectChoices(base, card, trigger, 160, resolvingLink?.context)) {
-            const queued = resolvingLink ? resolveChainStep(base, context.targets ?? (context.target ? [context.target] : []))
+            const queued = resolvingLink ? resolveChainStep(base, context)
                 : addChainLink(base, context, trigger);
             if (queued === base) continue;
             let next = queued.response ? settleChain(queued, context) : queued;

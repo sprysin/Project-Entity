@@ -19,7 +19,6 @@ export default [
             name: 'Containment Zone',
             type: CardType.CONDITION,
             rarity: 'Rare',
-            isAttached: true,
             level: 0,
             atk: 0,
             def: 0,

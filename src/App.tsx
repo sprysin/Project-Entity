@@ -9,12 +9,13 @@ import PlaytestSetup from './components/decks/PlaytestSetup';
 import Settings from './components/settings/Settings';
 import Account from './components/account/Account';
 import Shop from './components/shop/Shop';
+import Singleplayer from './components/singleplayer/Singleplayer';
 import { OpponentMode, PlaytestDebugSettings } from './types';
 import { SavedDeck } from './decks';
 import { useUiSounds } from './hooks/useUiSounds';
 import { hasCardPoolChanges } from './desktop/storage';
 
-type View = 'HOME' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS' | 'ACCOUNT' | 'PREVIEW' | 'SHOP';
+type View = 'SINGLEPLAYER' | 'HOME' | 'PLAYTEST_SETUP' | 'GAME' | 'CARDS' | 'RULES' | 'DECKS' | 'SETTINGS' | 'ACCOUNT' | 'PREVIEW' | 'SHOP';
 
 const GAME_WIDTH = 2048;
 const GAME_HEIGHT = 1152;
@@ -46,6 +47,7 @@ const App: React.FC = () => {
     <div className="game-viewport">
       <div className="game-surface overflow-hidden bg-slate-950 text-slate-100 flex flex-col" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
       {currentView === 'HOME' && <Home
+        onSingleplayer={() => setCurrentView('SINGLEPLAYER')}
         onTraining={() => setCurrentView('PLAYTEST_SETUP')}
         onDeckEditor={() => setCurrentView('DECKS')}
         onCardDatabase={() => setCurrentView('CARDS')}
@@ -56,6 +58,7 @@ const App: React.FC = () => {
         onPreview={feature => { setPreview(feature); setCurrentView('PREVIEW'); }}
       />}
       {currentView === 'PREVIEW' && <WorkInProgress feature={preview} onBack={() => setCurrentView('HOME')} />}
+      {currentView === 'SINGLEPLAYER' && <Singleplayer onBack={() => setCurrentView('HOME')} />}
       {currentView === 'SHOP' && <Shop onBack={() => setCurrentView('HOME')} />}
 
       {currentView === 'PLAYTEST_SETUP' && (

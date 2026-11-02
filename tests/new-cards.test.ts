@@ -136,7 +136,7 @@ it('special summons validate placement and returned cards respect their source p
         player[location] = [candidate];
         player.pawnZones[0] = placed(card('P_Solstice_Sentinel'));
         const step = location === 'reserve' ? Effect.SummonFromReserve(pawn.pawnSubtype!, () => true)
-            : location === 'deck' ? Effect.SpecialSummonFromDeck(() => true) : Effect.SpecialSummonFromHand(() => true);
+            : location === 'deck' ? Effect.SummonFromDeck(() => true) : Effect.SpecialSummonFromHand(() => true);
         const context = { card: contract, playerIndex: 0, handIndex: 0, deckIndex: 0, reserveIndex: 0 };
         const summon = buildEffect([step]);
         for (const slot of [-1, 0, 0.5, 5]) expect(summon(duel, { ...context, pawnPlacement: { slot, position: Position.ATTACK } }).newState).toBe(duel);

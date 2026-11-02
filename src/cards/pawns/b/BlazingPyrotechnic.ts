@@ -15,6 +15,6 @@ export default [{
             const opposite = opposingPawnInColumn(state, context);
             return !!opposite && opposite.card.attribute !== Attribute.FIRE;
         },
-        onActivate: buildEffect([Effect.ChangePawnAttribute(Attribute.FIRE, opposingPawnInColumn)])
+        onActivate: buildEffect([Effect.ChangePawnInfo({ attribute: Attribute.FIRE }, opposingPawnInColumn)])
     }
 }] satisfies CardModule;

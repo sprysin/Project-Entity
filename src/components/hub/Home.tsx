@@ -8,6 +8,7 @@ export type HomePreview = 'multiplayer' | 'towers';
 
 interface HomeProps {
   onTraining: () => void;
+  onSingleplayer: () => void;
   onDeckEditor: () => void;
   onCardDatabase: () => void;
   onRules: () => void;
@@ -18,9 +19,9 @@ interface HomeProps {
 }
 
 const navigation = [
-  { number: '01', label: 'MULTIPLAYER', detail: 'Play against other players', icon: 'fa-globe', kind: 'multiplayer', featured: true, badge: 'COMING SOON' },
-  { number: '02', label: 'TRAINING', detail: 'Practice against the AI', icon: 'fa-crosshairs', kind: 'training', featured: true },
-  { number: '03', label: 'TOWERS', detail: '[WORKING ON]', icon: 'fa-chess-rook', kind: 'towers', featured: true, badge: 'COMING SOON' },
+  { number: '01', label: 'MULTIPLAYER', detail: 'Online matchmaking & trading', icon: 'fa-globe', kind: 'multiplayer', featured: true, badge: 'COMING SOON' },
+  { number: '02', label: 'SINGLEPLAYER', detail: 'Solo gamemode selection', icon: 'fa-chess-rook', kind: 'singleplayer', featured: true },
+  { number: '03', label: 'TRAINING', detail: 'Practice against the AI', icon: 'fa-crosshairs', kind: 'training', featured: true },
   { number: '04', label: 'DECK EDITOR', detail: 'View your custom decks', icon: 'fa-layer-group', kind: 'deck' },
   { number: '05', label: 'SHOP', detail: 'Discover packs', icon: 'fa-bag-shopping', kind: 'shop' },
   { number: '06', label: 'CARD DATABASE', detail: 'View all cards in game', icon: 'fa-table-cells-large', kind: 'cards' },
@@ -28,14 +29,14 @@ const navigation = [
   { number: '08', label: 'SETTINGS', detail: 'Tweak audio & visuals', icon: 'fa-gear', kind: 'settings' },
 ] as const;
 
-export default function Home({ onTraining, onDeckEditor, onCardDatabase, onRules, onSettings, onAccount, onShop, onPreview }: HomeProps) {
+export default function Home({ onSingleplayer, onTraining, onDeckEditor, onCardDatabase, onRules, onSettings, onAccount, onShop, onPreview }: HomeProps) {
   const progress = accountProgress(getAccount().totalXp);
   const actions = {
     multiplayer: () => onPreview('multiplayer'),
     training: onTraining,
     deck: onDeckEditor,
     cards: onCardDatabase,
-    towers: () => onPreview('towers'),
+    singleplayer: onSingleplayer,
     shop: onShop,
     rules: onRules,
     settings: onSettings,

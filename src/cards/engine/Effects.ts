@@ -1,5 +1,5 @@
 import { fieldEntries, sourceZone, targetZone, removeFieldIdentity } from '../../game/field';
-import { activationCost, activationReservation, EffectStep } from './Builder';
+import { activationCost, activationReservation, EffectStep, needsChoice } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { ActionSubtype, Attribute, Card, CardContext, CardFilter, CardType, GameState, PawnSubtype, PawnType, Phase, PlacedCard, Position, ShuffleLocation, TargetSelectScope } from '../../types';
 import { canSetPawn, cardsAtLocation, fieldStats, isContract, isReservePawn, refreshFieldTypes, setPawnPosition, shuffleDeck, spendCancelledAttack } from '../../game/cardHelpers';
@@ -9,20 +9,27 @@ import { drawCards } from '../../game/draw';
 import { sendToOwnerPile } from '../../game/cardOwnership';
 import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 import { notifyFieldEvent } from '../../game/fieldEvents';
-import { randomSelection, selectFieldCards, takeSelectedCard } from './Selections';
-import { handSummonCandidates } from '../../game/summonReactions';
+import { chooseCard, randomSelection, selectFieldCards, takeSelectedCard } from './Selections';
 import { canPayLevelTribute, LevelTributeOptions } from '../../game/levelTributes';
 import { recordDuelAction } from '../../game/duelReport';
 
 export const Effect = {
-    /** Temporary type overrides and continuous type changes share the same refresh path. */
-    ChangeTargetPawnType: (value: PawnType, duration: 'field' | 'end_of_turn' | 'end_of_next_turn' | 'end_of_your_next_turn' = 'field', targetIndex = 0): EffectStep => (state, context) => {
-        const target = getEffectTarget(context, targetIndex);
-        const zone = target?.type === 'pawn' ? targetZone(state, target) : undefined;
-        if (!zone) return { halt: true };
-        const delay = duration === 'end_of_next_turn' ? 1 : duration === 'end_of_your_next_turn' ? state.activePlayerIndex === context.playerIndex ? 2 : 1 : 0;
-        zone.pawnTypeOverride = { value, ...(duration === 'field' ? {} : { dueTurn: state.turnNumber + delay }) };
-        refreshFieldTypes(state);
+    /** Attribute changes last on the field; Pawn Type overrides also support timed expiration. */
+    ChangePawnInfo: (info: { attribute: Attribute; pawnType?: never; duration?: never } | {
+        pawnType: PawnType; attribute?: never; duration?: 'field' | 'end_of_turn' | 'end_of_next_turn' | 'end_of_your_next_turn';
+    }, locate: number | ((state: GameState, context: CardContext) => PlacedCard | null | undefined) = 0): EffectStep => (state, context) => {
+        const target = typeof locate === 'number' ? getEffectTarget(context, locate) : undefined;
+        const zone = typeof locate === 'function' ? locate(state, context) : target && targetZone(state, target);
+        if (!zone || zone.card.type !== CardType.PAWN) return { halt: true };
+        if (info.attribute !== undefined) {
+            zone.card.fieldOriginalAttribute ??= zone.card.attribute;
+            zone.card.attribute = info.attribute;
+        } else {
+            const duration = info.duration ?? 'field';
+            const delay = duration === 'end_of_next_turn' ? 1 : duration === 'end_of_your_next_turn' ? state.activePlayerIndex === context.playerIndex ? 2 : 1 : 0;
+            zone.pawnTypeOverride = { value: info.pawnType, ...(duration === 'field' ? {} : { dueTurn: state.turnNumber + delay }) };
+            refreshFieldTypes(state);
+        }
     },
     ChangeDiscardPawnTypes: (from: PawnType, to: PawnType): EffectStep => (state, context) => {
         for (const card of state.players[context.playerIndex].discard) if (card.type === CardType.PAWN && card.pawnType === from) card.pawnType = to;
@@ -80,14 +87,29 @@ export const Effect = {
         if (attacker) spendCancelledAttack(attacker);
         state.deferredAction = undefined;
     },
+    /** Move a controller's field cards without targeting, destruction, or tribute. */
+    MoveControlledCards: (scope: 'active' | 'opponent', destination: 'discard' | 'void', type: 'pawn' | 'any' = 'any', requiredCount?: number): EffectStep => (state, context) => {
+        const controller = scope === 'active' ? context.playerIndex : 1 - context.playerIndex;
+        const entries = fieldEntries(state).filter(({ zone, target }) =>
+            (target.type === 'land' ? zone.card.ownerId === state.players[controller].id : target.playerIndex === controller)
+            && (type === 'any' || target.type === 'pawn'));
+        if (requiredCount !== undefined && entries.length !== requiredCount) return { halt: true };
+        for (const { zone } of entries) {
+            sendToOwnerPile(state, zone.card, destination);
+            removeFieldIdentity(state, zone.card.instanceId);
+        }
+        Object.assign(state, destroyOrphanedAttachments(state));
+    },
     SelectFieldCards: selectFieldCards,
+    ChooseCard: chooseCard,
     /** Destroy only the selected identities that are still on the field. */
     DestroySelectedFieldCards: (): EffectStep => (state, context) => {
         for (const id of context.shuffleCardIds ?? []) destroyFieldCard(state, id, 'effect', context.playerIndex);
     },
-    /** Move Attach cards and their tracked stat bonuses to this face-up Pawn. */
-    ReattachSelectedToSelf: (): EffectStep => (state, context) => {
-        const destination = sourceZone(state, context);
+    /** Move Attach cards and their tracked stat bonuses to a face-up Pawn; defaults to self. */
+    ReattachSelected: (locate: number | ((state: GameState, context: CardContext) => PlacedCard | null | undefined) = sourceZone): EffectStep => (state, context) => {
+        const target = typeof locate === 'number' ? getEffectTarget(context, locate) : undefined;
+        const destination = typeof locate === 'function' ? locate(state, context) : target && targetZone(state, target);
         if (!destination || destination.position === Position.HIDDEN || destination.card.type !== CardType.PAWN) return;
         for (const id of context.shuffleCardIds ?? []) {
             const source = fieldEntries(state).find(({ zone }) => zone.card.instanceId === id)?.zone;
@@ -143,11 +165,30 @@ export const Effect = {
         if (index < 0) return { halt: true };
         return Effect.SpecialSummonFromHand(card => card.instanceId === context.card.instanceId)(state, { ...context, handIndex: index, handSelectionId: context.card.instanceId });
     },
-    QueueHandSummon: (mandatory = false): EffectStep => (state, context) => {
-        if (!handSummonCandidates(state, { sourceId: context.card.instanceId, playerIndex: context.playerIndex }).length) return;
-        state.pendingHandSummons = [...(state.pendingHandSummons ?? []), {
-            sourceId: context.card.instanceId, playerIndex: context.playerIndex, mandatory
-        }];
+    /** Resolve stages in order, committing completed stages before requesting the next choice. */
+    SequenceResolution: (...steps: EffectStep[]): EffectStep => {
+        if (steps.some(step => step.activationCost || step.activationReservation || step.sequenceResolution)) throw new Error('SequenceResolution stages must be resolution effects, without costs, reservations, or nested sequences.');
+        return Object.assign((state: GameState, context: CardContext) => {
+            if (context.execution !== 'resolve') return;
+            for (let index = context.sequenceStep ?? 0; index < steps.length; index++) {
+                const draft = structuredClone(state);
+                const result = steps[index](draft, context);
+                if (result && needsChoice(result)) return { ...result, sequenceContext: { ...context, sequenceStep: index } };
+                if (result && result.halt) return;
+                Object.assign(state, draft);
+                context = { ...context, sequenceStep: index + 1,
+                    handIndex: undefined, handSelectionId: undefined, discardIndex: undefined, discardCardIds: undefined,
+                    deckIndex: undefined, reserveIndex: undefined, peekIndex: undefined, shuffleCardIds: undefined,
+                    pawnPlacement: undefined, pawnPlacements: undefined, materialIds: undefined, tributeIndices: undefined };
+                if (state.winner) break;
+            }
+        }, { sequenceResolution: true });
+    },
+    MultiplyTargetAttackForTurn: (factor: number, targetIndex = 0): EffectStep => (state, context) => {
+        const target = getEffectTarget(context, targetIndex);
+        const zone = target && targetZone(state, target);
+        if (!zone) return { halt: true };
+        return Effect.MultiplySelfAttackForTurn(factor)(state, { ...context, card: zone.card, playerIndex: target!.playerIndex });
     },
     MultiplySelfAttackForTurn: (factor: number): EffectStep => (state, context) => {
         const zone = sourceZone(state, context);
@@ -179,10 +220,6 @@ export const Effect = {
         if (!zone || zone.card.type !== CardType.PAWN) return { halt: true };
         zone.attackOverride = { value: resolveDynamic(value, state, context), turn: state.turnNumber };
     },
-    SetTargetOriginalAttack: (): EffectStep => Effect.SetTargetAttack((state, context) => {
-        const target = getEffectTarget(context), zone = target && targetZone(state, target);
-        return zone ? zone.card.tokenOriginalStats?.atk ?? cardRegistry.getCard(zone.card.id)?.atk ?? zone.card.atk : 0;
-    }),
     randomSelection,
     /** Gather player-selected candidates independently of their eventual effect. */
     SelectDiscardCards: (filter: CardFilter, count: number, purpose?: 'summon'): EffectStep => (state, context) => {
@@ -318,54 +355,44 @@ export const Effect = {
         const zone = sourceZone(state, context);
         if (!zone || zone.position === Position.HIDDEN) return { halt: true };
     },
-    /** Summon one Pawn per requirement, choosing all placements before moving cards. */
-    SpecialSummonDeckCards: (filters: readonly CardFilter[]): EffectStep => (state, context) => {
+    /** Choose one Pawn, or summon one per supplied requirement; validate every placement before moving cards. */
+    SummonFromDeck: (filter: CardFilter | readonly CardFilter[], position?: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
+        const multiple = typeof filter !== 'function';
+        const filters = typeof filter === 'function' ? [filter] : filter;
+        if (!filters.length || player.pawnZones.filter(zone => !zone).length < filters.length) return { halt: true };
         const cards: Card[] = [];
         for (const filter of filters) {
-            const card = player.deck.find(card => card.type === CardType.PAWN && !isReservePawn(card)
-                && filter(card) && !cards.includes(card));
-            if (!card) return { halt: true };
+            const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card) && !cards.includes(card);
+            if (!player.deck.some(eligible)) return { halt: true };
+            if (!multiple && context.deckIndex === undefined) return { requireDeckSelection: {
+                playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon'
+            } };
+            const card = multiple ? player.deck.find(eligible) : player.deck[context.deckIndex!];
+            if (!card || !eligible(card)) return { halt: true };
             cards.push(card);
         }
-        if (!cards.length || player.pawnZones.filter(zone => !zone).length < cards.length) return { halt: true };
-        const placements = context.pawnPlacements ?? [];
+        const placements = multiple ? context.pawnPlacements ?? [] : [context.pawnPlacement];
         for (let index = 0; index < cards.length; index++) {
-            const slots = player.pawnZones.flatMap((zone, slot) => !zone && !placements.slice(0, index).some(value => value.slot === slot) ? [slot] : []);
+            const slots = player.pawnZones.flatMap((zone, slot) => !zone && !placements.slice(0, index).some(value => value?.slot === slot) ? [slot] : []);
             const placement = placements[index];
-            if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, slots, placementIndex: index } };
-            if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
+            if (!placement) return { requirePawnPlacement: { playerIndex: context.playerIndex, slots, position, ...(multiple ? { placementIndex: index } : {}) } };
+            if (!slots.includes(placement.slot) || (position ? placement.position !== position
+                : ![Position.ATTACK, Position.DEFENSE].includes(placement.position))) return { halt: true };
         }
         cards.forEach((card, index) => {
-            const placement = placements[index];
+            const placement = placements[index]!;
             player.deck.splice(player.deck.indexOf(card), 1);
             player.pawnZones[placement.slot] = { card, position: placement.position, specialSummoned: true,
                 hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false };
         });
         shuffleDeck(player.deck);
     },
-    /** Select a Pawn from the Deck, choose an empty zone, then summon and shuffle. */
-    SpecialSummonFromDeck: (filter: CardFilter, position?: Position.ATTACK | Position.DEFENSE): EffectStep => (state, context) => {
-        const player = state.players[context.playerIndex];
-        const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card);
-        if (!player.pawnZones.includes(null) || !player.deck.some(eligible)) return { halt: true };
-        if (context.deckIndex === undefined) return { requireDeckSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' } };
-        const card = player.deck[context.deckIndex];
-        if (!card || !eligible(card)) return { halt: true };
-        const placementResult = Effect.RequirePawnPlacement(position)(state, context);
-        if (placementResult) return placementResult;
-        const placement = context.pawnPlacement!;
-        player.deck.splice(context.deckIndex, 1);
-        player.pawnZones[placement.slot] = {
-            card, position: placement.position, hasAttacked: false,
-            hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true
-        };
-        shuffleDeck(player.deck);
-    },
     SpecialSummonFromHand: (filter: CardFilter, position?: Position): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
         const eligible: CardFilter = card => card.type === CardType.PAWN && !isReservePawn(card) && filter(card)
             && (position !== Position.HIDDEN || canSetPawn(card));
+        if (!player.hand.some(eligible) || !player.pawnZones.includes(null)) return { halt: true };
         if (context.handIndex === undefined && !context.handSelectionId) return {
             requireHandSelection: { playerIndex: context.playerIndex, filter: eligible, purpose: 'summon', prompt: 'Select a Pawn to special summon' }
         };
@@ -388,7 +415,7 @@ export const Effect = {
     }),
 
     /** Placement is chosen before activation; both humans and AI use the same request. */
-    SummonToken: (id: string, count = 1): EffectStep => (state, context) => {
+    SummonToken: (id: string, count = 1, properties: Partial<Pick<Card, 'atk' | 'def' | 'level' | 'attribute'>> = {}): EffectStep => (state, context) => {
         const player = state.players[context.playerIndex];
         const definition = cardRegistry.getCard(id);
         if (!definition || definition.pawnSubtype !== PawnSubtype.TOKEN || !Number.isInteger(count) || count < 1) return { halt: true };
@@ -402,25 +429,13 @@ export const Effect = {
             if (!slots.includes(placement.slot) || ![Position.ATTACK, Position.DEFENSE].includes(placement.position)) return { halt: true };
         }
         for (const placement of placements.slice(0, count)) {
-            const card: Card = { ...definition, ownerId: player.id, instanceId: crypto.randomUUID() };
+            const card: Card = { ...definition, ...properties, ownerId: player.id, instanceId: crypto.randomUUID() };
+            if (properties.atk !== undefined || properties.def !== undefined) card.tokenOriginalStats = { atk: card.atk, def: card.def };
             player.pawnZones[placement!.slot] = {
                 card, position: placement!.position, hasAttacked: false,
                 hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: false, specialSummoned: true
             };
         }
-    },
-    /** Destroy a selected Pawn, then replace it with an effectless token with its printed stats. */
-    ReplaceTargetWithToken: (id: string): EffectStep => (state, context) => {
-        const target = getEffectTarget(context), zone = target && targetZone(state, target);
-        if (!zone || zone.card.type !== CardType.PAWN) return { halt: true };
-        const original = zone.card.tokenOriginalStats ?? cardRegistry.getCard(zone.card.id) ?? zone.card;
-        const stats = { atk: original.atk, def: original.def };
-        const level = zone.card.level, attribute = zone.card.attribute;
-        if (!destroyFieldCard(state, zone.card.instanceId, 'effect', context.playerIndex)) return;
-        const result = Effect.SummonToken(id)(state, context);
-        if (result) return result;
-        const token = state.players[context.playerIndex].pawnZones[context.pawnPlacement!.slot]!;
-        Object.assign(token.card, stats, { level, attribute, tokenOriginalStats: stats });
     },
     /** Mill in deck order, preserving ownership and sent-to-Discard reactions. */
     MillDeck: (count: number, playerIndex: Dynamic<number>, onSent?: (cards: Card[]) => EffectStep): EffectStep => (state, context) => {
@@ -441,20 +456,13 @@ export const Effect = {
         zone.hasAttacked = false;
         if (pawnsOnly) zone.pawnOnlyAttacks = (zone.pawnOnlyAttacks ?? 0) + count;
     },
-    /** Attribute changes expire when the affected identity leaves the field. */
-    ChangePawnAttribute: (attribute: Attribute, locate: (state: GameState, context: CardContext) => PlacedCard | null): EffectStep => (state, context) => {
-        const zone = locate(state, context);
-        if (!zone) return { halt: true };
-        zone.card.fieldOriginalAttribute ??= zone.card.attribute;
-        zone.card.attribute = attribute;
-    },
     /** Destroys the selected field card. */
-    DestroyTarget: (targetIndex = 0): EffectStep => (draftState, context) => {
+    DestroyTarget: (targetIndex = 0, onDestroyed?: EffectStep): EffectStep => (draftState, context) => {
         const target = getEffectTarget(context, targetIndex);
         if (!target) return { halt: true };
         const zone = targetZone(draftState, target);
         if (!zone) return { halt: true };
-        destroyFieldCard(draftState, zone.card.instanceId, 'effect', context.playerIndex);
+        if (destroyFieldCard(draftState, zone.card.instanceId, 'effect', context.playerIndex)) return onDestroyed?.(draftState, context);
     },
     /** Has the opponent choose one card in their hand to reveal privately to this effect's controller. */
     PeekOpponentHand: (): EffectStep => (draftState, context) => {

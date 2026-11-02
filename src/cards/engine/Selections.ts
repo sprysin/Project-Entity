@@ -4,6 +4,20 @@ import { EffectStep } from './Builder';
 import { canTargetWithEffect, cardsAtLocation } from '../../game/cardHelpers';
 import { Dynamic, resolveDynamic } from './Dynamic';
 
+/** Choose from explicit candidates without introducing effect targets. */
+export const chooseCard = (candidates: Dynamic<readonly SelectedCard[]>, chooser: Dynamic<number>, selectionIndex = 0): EffectStep => (state, context) => {
+    const cards = resolveDynamic(candidates, state, context);
+    const playerIndex = resolveDynamic(chooser, state, context);
+    if (!cards.length || !state.players[playerIndex]) return { halt: true };
+    if (context.peekIndex === undefined) return { requirePeekSelection: {
+        playerIndex, viewerPlayerIndex: context.playerIndex, cards: cards.map(selection => selection.card), prompt: 'Select 1 card'
+    } };
+    const selection = cards[context.peekIndex];
+    if (!selection) return { halt: true };
+    context.selections = [...(context.selections ?? [])];
+    context.selections[selectionIndex] = { ...selection, isTarget: false };
+};
+
 /** One candidate list for effect validation, the picker, and AI enumeration. */
 export function multiSelectionCards(state: GameState, request: ShuffleSelectionRequest): Card[] {
     const cards = request.fieldScope !== undefined ? fieldEntries(state)

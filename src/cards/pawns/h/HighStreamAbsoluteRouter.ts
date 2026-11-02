@@ -23,7 +23,7 @@ export default [{
             Effect.SelectFieldCards({
                 filter: zone => !!zone.card.isAttached && zone.position !== Position.HIDDEN
             }),
-            Effect.ReattachSelectedToSelf()
+            Effect.ReattachSelected()
         ])
     }
 }] satisfies CardModule;

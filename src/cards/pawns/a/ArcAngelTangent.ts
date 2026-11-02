@@ -33,6 +33,6 @@ export default [{
             }
             return Effect.ModifySelfStats(switched * 30, 0)(state, context);
         }]),
-        onDestroyed: buildEffect([Effect.SpecialSummonDeckCards(materials.map(name => card => matchesCardName(card, name)))])
+        onDestroyed: buildEffect([Effect.SummonFromDeck(materials.map(name => card => matchesCardName(card, name)))])
     }
 }] satisfies CardModule;

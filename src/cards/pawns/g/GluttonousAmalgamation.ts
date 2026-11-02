@@ -24,7 +24,7 @@ export default [{
             Require.Targets(Query.CounterPayment(), 'pawn', 'opponent', 1),
             Effect.ModifySelfStats((state, context) => Query.CounterPayment()(state, context) * 50, 0, true),
             (state, context) => {
-                for (let index = 1; index <= Query.CounterPayment()(state, context); index++) Effect.ChangeTargetPawnType(PawnType.PRIMAL, 'field', index)(state, context);
+                for (let index = 1; index <= Query.CounterPayment()(state, context); index++) Effect.ChangePawnInfo({ pawnType: PawnType.PRIMAL }, index)(state, context);
             }
         ])
     }

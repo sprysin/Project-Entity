@@ -27,7 +27,7 @@ export default [{
             (state, context) => {
                 const player = state.players[context.playerIndex];
                 if (player.pawnZones.includes(null) && player.deck.some(card => matchesCardName(card, context.card.name))) {
-                    return Effect.SpecialSummonFromDeck(card => matchesCardName(card, context.card.name), Position.DEFENSE)(state, context);
+                    return Effect.SummonFromDeck(card => matchesCardName(card, context.card.name), Position.DEFENSE)(state, context);
                 }
             }
         ])

@@ -91,6 +91,7 @@ export const useEffectResolution = (
         if (!gameState || gameState.winner) return;
         const resolvingLink = gameState.pendingChainTarget && gameState.chain?.at(-1)?.context.card.instanceId === card.instanceId
             ? gameState.chain.at(-1) : undefined;
+        if (resolvingLink && pendingContext.current.triggerType === undefined) pendingContext.current = { ...resolvingLink.context, triggerType: resolvingLink.trigger };
         const controllerIndex = gameState.players.findIndex((p, index) => p.pawnZones.some(z => z?.card.instanceId === card.instanceId)
             || p.actionZones.some(z => z?.card.instanceId === card.instanceId)
             || gameState.pendingReactions?.some(entry => entry.card.instanceId === card.instanceId && entry.playerIndex === index));
@@ -146,7 +147,8 @@ export const useEffectResolution = (
             battleAttacker: gameState.pendingReactions?.find(entry => entry.card.instanceId === card.instanceId)?.battleAttacker,
             discardCardIds: actualDiscardCardIds,
             execution: resolvingLink ? 'resolve' : undefined };
-        const peekResult = previewEffect(gameState, contextForPeek, actualTriggerType);
+        const resolutionContext = { ...contextForPeek, sequenceStep: resolvingLink?.context.sequenceStep };
+        const peekResult = previewEffect(gameState, resolutionContext, actualTriggerType);
         setTriggeredEffect(null);
 
         if (isContract(card) && !resolvingLink && !peekResult.halted && !pendingContext.current.activationPresented) {
@@ -222,16 +224,16 @@ export const useEffectResolution = (
             setPendingTriggerType(actualTriggerType);
             const continueSelection = () => {
                 if (selectionState.autoSelectPeekForPlayer === peekResult.requirePeekSelection!.playerIndex) {
-                    const hand = gameState.players[peekResult.requirePeekSelection!.playerIndex].hand;
+                    const hand = peekResult.requirePeekSelection!.cards ?? gameState.players[peekResult.requirePeekSelection!.playerIndex].hand;
                     const chosenIndex = Math.floor(Math.random() * hand.length);
                     resolveEffect(card, target, actualDiscardIndex, actualHandIndex, actualDeckIndex,
                         actualTriggerType, actualTributeIndices, actualTargets, chosenIndex);
                     return;
                 }
-                setPeekSelectionReq({ ...peekResult.requirePeekSelection!, title: card.name, prompt: 'Select a card in your hand to show' });
+                setPeekSelectionReq({ ...peekResult.requirePeekSelection!, title: card.name, prompt: peekResult.requirePeekSelection!.prompt ?? 'Select a card in your hand to show' });
                 setSelectedPeekIndex(null);
             };
-            if (selectionState.preparePeekSelection && !pendingContext.current.peekAnimationPlayed) {
+            if (!peekResult.requirePeekSelection.cards && selectionState.preparePeekSelection && !pendingContext.current.peekAnimationPlayed) {
                 pendingContext.current.peekAnimationPlayed = true;
                 selectionState.preparePeekSelection(card, continueSelection);
             } else {
@@ -282,7 +284,7 @@ export const useEffectResolution = (
         // Apply the effect to game state
         setGameState(prev => {
             if (!prev || prev.winner) return prev;
-            return applyCommand(prev, activeIndex, resolvingLink ? { type: 'chainTargets', targets: actualTargets }
+            return applyCommand(prev, activeIndex, resolvingLink ? { type: 'chainTargets', targets: actualTargets, context: resolutionContext }
                 : { type: 'activate', context: contextForPeek, trigger: actualTriggerType }).state;
         });
 
@@ -379,7 +381,7 @@ export const useEffectResolution = (
     const handlePeekSelection = useCallback((index: number) => {
         if (!selectionState.peekSelectionReq || !gameState || !selectionState.pendingEffectCard) return;
         const owner = selectionState.peekSelectionReq.playerIndex;
-        if (!gameState.players[owner].hand[index]) return;
+        if (!(selectionState.peekSelectionReq.cards ?? gameState.players[owner].hand)[index]) return;
         setPeekSelectionReq(null);
         setSelectedPeekIndex(null);
         resolveEffect(selectionState.pendingEffectCard, undefined, undefined, undefined, undefined,

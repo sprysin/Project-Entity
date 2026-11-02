@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { cardRegistry } from '../../cards/CardRegistry';
 import { rarityColor } from '../../cards/rarity';
 import { createGame } from '../../game/engine';
@@ -17,6 +17,7 @@ import { DuelPrompt } from '../game/DuelPrompt';
 import { HealthHud } from '../game/HealthHud';
 import { LevelDiamonds } from '../game/LevelDiamonds';
 import { QuitDuelDialog, WinnerModal } from '../game/MatchModals';
+import DraftMatchResult from '../singleplayer/DraftMatchResult';
 import { DuelReport } from '../game/DuelReport';
 import AccountProgress from '../account/AccountProgress';
 import { emptyDuelStats, getDuelReport } from '../../game/duelReport';
@@ -29,6 +30,11 @@ import '../game/GameView.css';
 import './StyleGuide.css';
 
 const sections = ['Style guide breakdown', 'Typography', 'Colors', 'Buttons', 'Controls', 'Modals', 'Cards', 'Game UI', 'Duel Report'] as const;
+// Change one role here to update its previews and font labels together.
+const tempFonts = {
+  header: { family: 'Nippo Medium', weight: 500 },
+  body: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', label: 'System monospace' },
+};
 const interfacePalette = [
   { label: 'Black', color: '#06080c', use: 'Use for backgrounds. Separate panels with charcoal rather than a new accent color.' },
   { label: 'Gold', color: '#eab308', use: 'Use for primary actions and emphasis. Keep secondary controls less prominent.' },
@@ -62,6 +68,9 @@ const modalExamples = [
   { id: 'victory', title: 'Victory', detail: 'Result screen · MVP reveal', source: 'game/MatchModals.tsx' },
   { id: 'defeat', title: 'Defeat', detail: 'Result screen · alternate tone', source: 'game/MatchModals.tsx' },
   { id: 'draw', title: 'Draw', detail: 'Result screen · tied life points', source: 'game/MatchModals.tsx' },
+  { id: 'draft-victory', title: 'Draft Match Victory', detail: 'Match finale · final score', source: 'singleplayer/DraftMatchResult.tsx' },
+  { id: 'draft-defeat', title: 'Draft Match Defeat', detail: 'Match finale · defeat', source: 'singleplayer/DraftMatchResult.tsx' },
+  { id: 'draft-draw', title: 'Draft Match Draw', detail: 'Match finale · tied score', source: 'singleplayer/DraftMatchResult.tsx' },
 ] as const;
 const reportExamples = [
   { id: 'report', title: 'Victory', detail: 'MVP · level up' },
@@ -93,6 +102,7 @@ function GuideSection({ title, description, active, children }: { title: string;
 }
 
 export default function StyleGuide({ onBack }: { onBack: () => void }) {
+  const [useTempFont, setUseTempFont] = useState(true);
   const [activeSection, setActiveSection] = useState<typeof sections[number]>('Style guide breakdown');
   const [preview, setPreview] = useState<Preview>(null);
   const [inspected, setInspected] = useState<Card | null>(null);
@@ -108,6 +118,17 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
   const previewHost = useRef<HTMLDivElement>(null);
   const close = () => { setPreview(null); setPeeking(false); };
   const finish = (message: string) => { setFeedback(message); close(); };
+
+  useEffect(() => {
+    const toggleFont = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.key.toLowerCase() !== 'x') return;
+      if (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest('input, textarea, select'))) return;
+      event.preventDefault();
+      setUseTempFont(current => !current);
+    };
+    window.addEventListener('keydown', toggleFont);
+    return () => window.removeEventListener('keydown', toggleFont);
+  }, []);
 
   // The examples use real overlays; keep keyboard navigation inside the preview.
   useEffect(() => {
@@ -137,7 +158,11 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
     }
   };
 
-  return <>
+  return <div className={`style-guide-font-scope${useTempFont ? ' style-guide-font-preview' : ''}`} style={useTempFont ? {
+    '--current-font': tempFonts.body.family,
+    '--current-header-font': tempFonts.header.family,
+    '--current-header-weight': tempFonts.header.weight,
+  } as CSSProperties : undefined}>
     <main className="style-guide entity-page flex-1 min-h-0 font-mono" inert={preview !== null}>
       <div className="entity-topbar"><PageBrand section="SETTINGS / UI STYLE GUIDE" /><BackToHubButton label="Back to settings" onClick={onBack} /></div>
       <div className="style-guide__body">
@@ -224,12 +249,13 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
               <p className="style-guide__source">Visual references: common/PageChrome.css · hub/Home.css · settings/Settings.css · styles/global.css · styles/game.css. Component examples in this guide remain the implementation reference.</p>
             </GuideSection>
 
-            <GuideSection title="Typography" active={activeSection === 'Typography'} description="Orbitron gives the interface its identity. Monospace keeps rules, labels, and card text readable.">
-              <div className="style-guide__type-row"><code>Orbitron · display</code><div className="settings-heading"><h1>PROJECT <em>ENTITY</em></h1></div></div>
-              <div className="style-guide__type-row"><code>Orbitron · heading</code><h3 className="font-orbitron text-2xl font-bold">Your next move starts here.</h3></div>
-              <div className="style-guide__type-row"><code>Monospace · body</code><p>Draw a card, plan your turn, and build your strategy.<br />ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789</p></div>
-              <div className="style-guide__type-row"><code>Card text · CSS variable</code><p className="font-card-text">Once per turn: You can activate this effect.<br />ATK 120 / DEF 100</p></div>
-              <p className="style-guide__source">Fonts: styles/global.css · shared headings: settings/Settings.css</p>
+            <GuideSection title="Typography" active={activeSection === 'Typography'} description={`The temporary preset uses ${tempFonts.header.family} headers and ${tempFonts.body.label} body text. Press X to compare with the original fonts.`}>
+              <div className="style-guide__type-row"><code>{useTempFont ? tempFonts.header.family : 'Orbitron'}</code><code>Display · 32px</code><div className="settings-heading"><h1>PROJECT <em>ENTITY</em></h1></div></div>
+              <div className="style-guide__type-row"><code>{useTempFont ? tempFonts.header.family : 'Orbitron'}</code><code>Heading · 15px</code><h3>Your next move starts here.</h3></div>
+              <div className="style-guide__type-row"><code>{useTempFont ? tempFonts.body.label : 'System monospace'}</code><code>Body · 16px</code><p>Draw a card, plan your turn, and build your strategy.<br />ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789</p></div>
+              <div className="style-guide__type-row"><code>System monospace</code><code>Current game body · 16px</code><p className="style-guide__original font-mono">Draw a card, plan your turn, and build your strategy.<br />ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789</p></div>
+              <div className="style-guide__type-row"><code>{useTempFont ? tempFonts.body.label : 'System monospace'}</code><code>Card text · 16px</code><p className="font-card-text">Once per turn: You can activate this effect.<br />ATK 120 / DEF 100</p></div>
+              <p className="style-guide__source">Preview fonts: {tempFonts.header.family} headers · {tempFonts.body.label} body · Scoped to the Style Guide</p>
             </GuideSection>
 
             <GuideSection title="Colors" active={activeSection === 'Colors'} description="Attribute and rarity swatches read directly from the shared palettes.">
@@ -309,6 +335,7 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
     </main>
     {inspected && <CardPreview card={inspected} onClose={() => setInspected(null)} />}
     {preview && <div ref={previewHost} className="style-guide__preview duel-screen font-mono" onKeyDown={handlePreviewKeyDown}>
+      {preview.startsWith('draft-') && <DraftMatchResult score={preview === 'draft-defeat' ? [0, 2] : preview === 'draft-draw' ? [2, 2] : [2, 1]} games={preview === 'draft-defeat' ? 2 : 3} username="Sample player" profileImage={null} onContinue={close} />}
       {(reportExamples.some(example => example.id === preview) || ['victory', 'defeat', 'draw'].includes(preview)) && <WinnerModal gameState={sampleResult(preview)} isDefeat={preview.includes('defeat')} onQuit={() => finish('Result preview completed. Account XP was not changed.')}>
         <DuelReport report={getDuelReport(sampleResult(preview), 0)} beforeXp={280} />
       </WinnerModal>}
@@ -318,5 +345,5 @@ export default function StyleGuide({ onBack }: { onBack: () => void }) {
       {preview === 'deck' && <DeckViewModal isOpen onClose={close} deck={cards} playerName="Sample player" deckName="Style guide sample deck" />}
       {preview === 'pile' && <PileViewModal viewingDiscardIdx={0} viewingVoidIdx={null} gameState={sampleGame} setViewingDiscardIdx={close} setViewingVoidIdx={close} onSelectCard={card => { close(); setInspected(card); }} />}
     </div>}
-  </>;
+  </div>;
 }

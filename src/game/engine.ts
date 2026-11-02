@@ -28,7 +28,7 @@ export type GameCommand =
     | { type: 'position'; index: number }
     | { type: 'activate'; context: CardContext; trigger: EffectTrigger }
     | { type: 'cancelEffect'; cardId: string }
-    | { type: 'chainTargets'; targets: CardTarget[] }
+    | { type: 'chainTargets'; targets: CardTarget[]; context?: CardContext }
     | { type: 'attack'; attackerIndex: number; targetIndex: number | 'direct' }
     | { type: 'attackReplay'; retry: boolean }
     | { type: 'confirmHandSummon'; sourceId: string; cardId: string; slot: number; position: Position }
@@ -206,7 +206,12 @@ function reduceCommand(state: GameState, actor: number, command: GameCommand): G
             if (!required && (command.hidden ? player.hiddenSummonUsed : player.normalSummonUsed)) return state;
             if (player.pawnZones[command.slot] && !tributes.includes(command.slot)) return state;
             const next = structuredClone(state), p = next.players[actor];
-            tributes.forEach(index => { sendToOwnerPile(next, p.pawnZones[index]!.card, 'discard'); p.pawnZones[index] = null; });
+            tributes.forEach(index => {
+                const material = p.pawnZones[index]!.card;
+                const handler = cardRegistry.getEffect(material.id)?.onTributedByPawn;
+                sendToOwnerPile(next, material, 'discard'); p.pawnZones[index] = null;
+                if (handler) handler(next, { card: material, playerIndex: actor, tributingCard: card });
+            });
             p.pawnZones[command.slot] = {
                 card: { ...card }, position: command.hidden ? Position.HIDDEN : Position.ATTACK,
                 hasAttacked: false, hasChangedPosition: false, summonedTurn: state.turnNumber, isSetTurn: command.hidden
@@ -324,7 +329,8 @@ export function applyCommand(state: GameState, actor: number, command: GameComma
         const link = state.chain?.at(-1);
         return {
             state: state.pendingChainTarget && link?.context.playerIndex === actor && command.type === 'chainTargets'
-                ? resolveChainStep(state, command.targets) : state, events: []
+                ? resolveChainStep(state, command.context ? { ...command.context, card: link.context.card,
+                    playerIndex: link.context.playerIndex, sequenceStep: link.context.sequenceStep } : command.targets) : state, events: []
         };
     }
     if (state.pendingActivation) {

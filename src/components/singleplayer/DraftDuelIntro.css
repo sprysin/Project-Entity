@@ -1,0 +1,182 @@
+.draft-intro {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  background: #06080c;
+  color: #f8fafc;
+  --intro-ease: cubic-bezier(.16, 1, .3, 1);
+}
+
+.draft-intro__field {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(125deg, #524012, #15150f 55%, #06080c);
+  clip-path: polygon(0 0, 60% 0, 40% 100%, 0 100%);
+  animation: draft-field-left 4.2s var(--intro-ease) both;
+}
+.draft-intro__field--ai {
+  background: linear-gradient(305deg, #353b44, #12161c 55%, #06080c);
+  clip-path: polygon(60% 0, 100% 0, 100% 100%, 40% 100%);
+  animation-name: draft-field-right;
+}
+.draft-intro__field::after {
+  content: '';
+  position: absolute;
+  inset: 55% -10% -30%;
+  background: repeating-conic-gradient(#ffffff09 0% 25%, transparent 0% 50%) 0 0 / 100px 100px;
+  transform: perspective(650px) rotateX(50deg);
+  mask-image: linear-gradient(transparent, #000);
+}
+.draft-intro__title {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  margin: 0;
+  text-align: center;
+  padding: 0 24px 18px;
+  font: italic 500 88px/1 'Nippo Medium', Orbitron, sans-serif;
+  letter-spacing: .12em;
+  text-indent: .12em;
+  text-shadow: 0 8px 24px #0008;
+  animation: draft-intro-copy 4.2s var(--intro-ease) both;
+}
+.draft-intro__title:focus { outline: none; }
+.draft-intro__title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #eab308 25% 50%, #cbd5e1 50% 75%, transparent);
+}
+.draft-intro__matchup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px minmax(0, 1fr);
+  align-items: center;
+  margin: 0 160px;
+}
+.draft-intro__contender {
+  position: relative;
+  isolation: isolate;
+  --contender-color: #eab308;
+  --arrival: -260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: start;
+  min-width: 0;
+  text-align: center;
+  animation: draft-contender 4.2s var(--intro-ease) both;
+}
+.draft-intro__contender::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -90px;
+  width: 470px;
+  height: 480px;
+  pointer-events: none;
+  color: var(--contender-color);
+  background: radial-gradient(ellipse, currentColor, transparent 68%);
+  opacity: .2;
+  animation: draft-portrait-pulse 1.4s ease-in-out 3;
+}
+.draft-intro__contender--ai { --contender-color: #cbd5e1; --arrival: 260px; grid-column: 3; }
+.draft-intro__portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 270px;
+  height: 300px;
+  padding: 5px;
+  margin-bottom: 32px;
+  color: var(--contender-color);
+  background: var(--contender-color);
+  clip-path: polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px);
+}
+.draft-intro__portrait::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: #0d1016;
+  clip-path: inherit;
+}
+.draft-intro__portrait > i { position: relative; font-size: 140px; }
+.draft-intro__portrait > img { position: relative; width: 100%; height: 100%; object-fit: cover; clip-path: inherit; }
+.draft-intro__contender h2 {
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  font: 500 48px/1.15 'Nippo Medium', Orbitron, sans-serif;
+}
+.draft-intro__contender p { margin-top: 16px; color: #eab308; font: 16px ui-monospace, monospace; letter-spacing: .12em; }
+.draft-intro__versus { position: absolute; left: 50%; top: 50%; width: 180px; height: 160px; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.draft-intro__versus::before {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 650px;
+  left: calc(50% - 1px);
+  top: calc(50% - 325px);
+  background: #eab308;
+  mask-image: linear-gradient(#000 0% 38%, transparent 43% 57%, #000 62% 100%);
+  transform: rotate(19deg);
+  animation: draft-slash 4.2s var(--intro-ease) both;
+}
+.draft-intro__versus span {
+  position: relative;
+  padding: 24px 20px 24px 0;
+  color: #eab308;
+  font: 500 96px/1 'Nippo Medium', Orbitron, sans-serif;
+  font-style: italic;
+  animation: draft-versus 4.2s var(--intro-ease) both;
+}
+
+@keyframes draft-field-left {
+  0% { transform: translateX(-65%); }
+  18%, 86% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+@keyframes draft-field-right {
+  0% { transform: translateX(65%); }
+  18%, 86% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+@keyframes draft-contender {
+  0%, 7% { opacity: 0; transform: translateX(var(--arrival)); }
+  24%, 85% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(var(--arrival)); }
+}
+@keyframes draft-versus {
+  0%, 18% { opacity: 0; transform: scale(1.7) rotate(-12deg); }
+  30%, 85% { opacity: 1; transform: scale(1) rotate(0); }
+  100% { opacity: 0; transform: scale(.9); }
+}
+@keyframes draft-slash {
+  0%, 14% { opacity: 0; transform: rotate(19deg) scaleY(0); }
+  26%, 85% { opacity: 1; transform: rotate(19deg) scaleY(1); }
+  100% { opacity: 0; transform: rotate(19deg) scaleY(1.2); }
+}
+@keyframes draft-intro-copy {
+  0% { opacity: 0; }
+  18%, 85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes draft-portrait-pulse {
+  0%, 100% { opacity: .16; transform: scale(.9); }
+  50% { opacity: .38; transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .draft-intro *, .draft-intro *::before { animation: none; }
+  .draft-intro__matchup { animation: draft-intro-settle .2s ease-out; }
+}
+@keyframes draft-intro-settle { from { opacity: .5; } to { opacity: 1; } }

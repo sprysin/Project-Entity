@@ -3,6 +3,9 @@ import { CardModule } from '../../CardRegistry';
 import { buildEffect } from '../../engine/Builder';
 import { Condition, Require } from '../../engine/Requirements';
 import { Effect } from '../../engine/Effects';
+import { Query } from '../../engine/Queries';
+import { getEffectTarget } from '../../engine/Targets';
+import { targetZone } from '../../../game/field';
 
 export default [{ cardData: {
     id: 'A_Phantasmagoria', name: 'Phantasmagoria', type: CardType.ACTION, actionSubtype: ActionSubtype.LAND,
@@ -13,7 +16,14 @@ export default [{ cardData: {
     canActivate: Condition.SoftOncePerTurn(),
     onFieldActivate: buildEffect([
         Require.Target('pawn', 'faceup', 'active', 0, card => card.pawnType === PawnType.UNDEAD),
-        Effect.SetSoftOncePerTurn(), Effect.ReplaceTargetWithToken('P_Spirit_Token')
+        Effect.SetSoftOncePerTurn(),
+        (state, context) => {
+            const target = getEffectTarget(context), zone = target && targetZone(state, target);
+            if (!zone || zone.card.type !== CardType.PAWN) return { halt: true };
+            const properties = { atk: Query.OriginalStat('atk')(state, context), def: Query.OriginalStat('def')(state, context),
+                level: zone.card.level, attribute: zone.card.attribute };
+            return Effect.DestroyTarget(0, Effect.SummonToken('P_Spirit_Token', 1, properties))(state, context);
+        }
     ])
 } }, { cardData: {
     id: 'P_Spirit_Token', name: 'Spirit', type: CardType.PAWN, pawnSubtype: PawnSubtype.TOKEN,

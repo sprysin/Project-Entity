@@ -1,7 +1,14 @@
 import { GameState, CardContext, Attribute, Position, TargetSelectScope } from '../../types';
 import { Dynamic, resolveDynamic } from './Dynamic';
+import { targetZone } from '../../game/field';
+import { getEffectTarget } from './Targets';
+import { cardRegistry } from '../CardRegistry';
 
 export const Query = {
+    OriginalStat: (stat: 'atk' | 'def', targetIndex = 0) => (state: GameState, context: CardContext): number => {
+        const target = getEffectTarget(context, targetIndex), zone = target && targetZone(state, target);
+        return zone ? zone.card.tokenOriginalStats?.[stat] ?? cardRegistry.getCard(zone.card.id)?.[stat] ?? zone.card[stat] : 0;
+    },
     CounterPayment: () => (_state: GameState, context: CardContext): number => Number(context.effectId?.replace(/^counters:/, '') ?? 0),
     /** Counts the total number of Face-Up Pawns with a specific Attribute across the entire field. */
     CountPawnAttribute: (attribute: Attribute, scope: TargetSelectScope = 'both', excludeSelf = false) => (state: GameState, context: CardContext): number => {

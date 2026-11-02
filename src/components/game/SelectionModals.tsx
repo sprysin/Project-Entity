@@ -179,7 +179,7 @@ interface HandSelectionModalProps {
 
 export const HandSelectionModal: React.FC<HandSelectionModalProps> = ({ selectionReq, gameState, selectedHandSelectionIndex, setSelectedHandSelectionIndex, handleHandSelection }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal searchLabel="Hand selection" title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} filter={selectionReq.filter} />;
+    return <CardSelectionModal hiddenCardIds={selectionReq.cards ? fieldEntries(gameState).filter(({ zone }) => zone.position === Position.HIDDEN).map(({ zone }) => zone.card.instanceId) : undefined} searchLabel={selectionReq.cards ? "Field selection" : "Hand selection"} title={selectionReq.title ?? 'Select a card'} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedHandSelectionIndex} onSelect={setSelectedHandSelectionIndex} onConfirm={handleHandSelection} emptyLabel="No cards in hand" confirmLabel={selectionReq.purpose === 'summon' ? 'Choose Pawn' : 'Confirm discard'} filter={selectionReq.filter} />;
 };
 
 export const PeekSelectionModal: React.FC<{
@@ -188,7 +188,7 @@ export const PeekSelectionModal: React.FC<{
     filter?: (card: Card) => boolean; confirmLabel?: string; cancellable?: boolean;
 }> = ({ selectionReq, gameState, selectedPeekIndex, setSelectedPeekIndex, cancelEffect, handlePeekSelection, filter, confirmLabel = 'Show this card', cancellable = false }) => {
     if (!selectionReq || !gameState) return null;
-    return <CardSelectionModal searchLabel="Hand selection" title={selectionReq.title ?? 'Select a card to show'} prompt={selectionReq.prompt} cards={gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedPeekIndex} onSelect={setSelectedPeekIndex} onCancel={cancellable ? cancelEffect : undefined} onConfirm={handlePeekSelection} emptyLabel="No cards in hand" confirmLabel={confirmLabel} filter={filter} />;
+    return <CardSelectionModal hiddenCardIds={selectionReq.cards ? fieldEntries(gameState).filter(({ zone }) => zone.position === Position.HIDDEN).map(({ zone }) => zone.card.instanceId) : undefined} searchLabel={selectionReq.cards ? "Field selection" : "Hand selection"} title={selectionReq.title ?? (selectionReq.cards ? 'Select a Pawn' : 'Select a card to show')} prompt={selectionReq.prompt} cards={selectionReq.cards ?? gameState.players[selectionReq.playerIndex].hand} selectedIndex={selectedPeekIndex} onSelect={setSelectedPeekIndex} onCancel={cancellable ? cancelEffect : undefined} onConfirm={handlePeekSelection} emptyLabel={selectionReq.cards ? "No eligible Pawns" : "No cards in hand"} confirmLabel={selectionReq.cards ? 'Select this card' : confirmLabel} filter={filter} />;
 };
 
 export const DiscardSelectionModal: React.FC<{

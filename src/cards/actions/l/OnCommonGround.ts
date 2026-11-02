@@ -4,6 +4,7 @@ import { fieldStats } from '../../../game/cardHelpers';
 import { buildEffect } from '../../engine/Builder';
 import { Condition, Require } from '../../engine/Requirements';
 import { Effect } from '../../engine/Effects';
+import { Query } from '../../engine/Queries';
 
 export default [{
     cardData: {
@@ -28,7 +29,7 @@ export default [{
                 const original = cardRegistry.getCard(card.id);
                 return !!zone && !!original && fieldStats(state, zone).atk !== original.atk;
             })(state, context),
-            Effect.SetOnceWhileOnField(), Effect.SetTargetOriginalAttack()
+            Effect.SetOnceWhileOnField(), Effect.SetTargetAttack(Query.OriginalStat('atk'))
         ])
     }
 }] satisfies CardModule;

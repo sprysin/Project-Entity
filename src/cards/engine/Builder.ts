@@ -1,7 +1,7 @@
 import { GameState, CardContext, EffectResult } from '../../types';
 
 export type EffectStepResult = Omit<EffectResult, 'newState' | 'halted'> & { halt?: boolean };
-export type EffectStep = ((draftState: GameState, context: CardContext) => EffectStepResult | void) & { activationCost?: boolean; activationReservation?: boolean; sendsMaterials?: boolean };
+export type EffectStep = ((draftState: GameState, context: CardContext) => EffectStepResult | void) & { activationCost?: boolean; activationReservation?: boolean; sendsMaterials?: boolean; sequenceResolution?: boolean };
 export const activationCost = (step: EffectStep): EffectStep => Object.assign(step, { activationCost: true });
 export const activationReservation = (step: EffectStep): EffectStep => Object.assign(step, { activationReservation: true });
 export type ConditionStep = (state: GameState, context: CardContext) => boolean;
@@ -12,10 +12,12 @@ export function needsChoice(result: Omit<EffectResult, 'newState'>): boolean {
 }
 
 export const buildEffect = (steps: EffectStep[]) => {
+    if (steps.filter(step => step.sequenceResolution).length > 1) throw new Error('Use one SequenceResolution block per effect handler.');
     const execute = (state: GameState, context: CardContext): EffectResult => {
         context = { ...context };
         const draftState = structuredClone(state);
         for (const step of steps) {
+            if (context.sequenceStep !== undefined && !step.sequenceResolution) continue;
             if (draftState.winner) break;
             if (context.execution === 'reserve' && !step.activationReservation) continue;
             if (context.execution === 'costs' && !step.activationCost) continue;

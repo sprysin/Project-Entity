@@ -23,6 +23,7 @@ export function destroyFieldCard(state: GameState, instanceId: string, cause: 'b
             recordDuelAction(state, destroyingPlayerIndex, card.type !== CardType.PAWN
                 ? 'actionDestructions' : cause === 'battle' ? 'battleDestructions' : 'effectDestructions');
         }
+        state.fieldDestructionEvents = [...(state.fieldDestructionEvents ?? []), { card: { ...card }, controllerIndex }];
         state.destroyedCardIds = [...(state.destroyedCardIds ?? []), instanceId];
         sendToOwnerPile(state, card, 'discard');
         removeFieldIdentity(state, instanceId);

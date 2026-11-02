@@ -4,16 +4,16 @@
 .style-guide .settings-heading h1 { font-size: 48px; letter-spacing: -.03em; }
 .style-guide__layout { display: grid; flex: 1; min-height: 0; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; margin-top: 32px; }
 .style-guide__nav { display: grid; align-content: start; gap: 8px; }
-.style-guide__nav button { padding: 16px 14px; color: #f7d47e; border: 1px solid transparent; border-bottom-color: #c99a4e40; font: 700 12px Orbitron, sans-serif; text-align: left; }
+.style-guide__nav button { padding: 16px 14px; color: #f7d47e; border: 1px solid transparent; border-bottom-color: #c99a4e40; font: 700 12px var(--current-header-font, Orbitron), sans-serif; text-align: left; }
 .style-guide__nav button:hover { background: #292714; }
 .style-guide__nav button[aria-selected="true"] { border-color: #c99a4e; background: #292714; color: #ffe19b; }
 .style-guide__content { min-width: 0; min-height: 0; overflow-y: auto; padding: 4px 16px 16px 4px; }
 .style-guide__content:focus-visible { outline: 1px solid #f7d47e; outline-offset: 2px; }
 .style-guide__section { padding-bottom: 16px; }
 .style-guide__section > header { margin-bottom: 28px; }
-.style-guide__section h2 { font: 700 26px Orbitron, sans-serif; color: #f7d47e; }
+.style-guide__section h2 { font: 700 26px var(--current-header-font, Orbitron), sans-serif; color: #f7d47e; }
 .style-guide__section > header p { max-width: 75ch; margin-top: 12px; color: #a4b1c0; font-size: 14px; line-height: 1.8; }
-.style-guide__section h3 { font: 700 15px Orbitron, sans-serif; }
+.style-guide__section h3:not(:where(.card-title-box *)) { font: 700 15px var(--current-header-font, Orbitron), sans-serif; }
 .style-guide__section code, .style-guide__source { color: #a4b1c0; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
 .style-guide__source { margin-top: 24px; }
 .style-guide__direction { max-width: 75ch; margin-bottom: 36px; }
@@ -38,10 +38,10 @@
 .style-guide__metal-example { width: 212px; padding: 2px; background: linear-gradient(125deg, #fff 0%, #b7b7b7 18%, #555 37%, #f8fafc 53%, #8a8a8a 72%, #ddd 100%); clip-path: polygon(0 0, 88% 0, 100% 26%, 100% 100%, 8% 100%, 0 80%); }
 .style-guide__metal-example > div { display: flex; align-items: center; gap: 15px; min-height: 82px; padding: 16px 20px; background: linear-gradient(125deg, #242425, #0d0e10 65%); clip-path: polygon(0 0, 88% 0, 100% 26%, 100% 100%, 8% 100%, 0 80%); }
 .style-guide__metal-example > div > i:first-child { color: #f7d47e; font-size: 22px; }
-.style-guide__metal-example small { display: block; color: #c4c4c4; font: 700 9px Orbitron, sans-serif; letter-spacing: .14em; }
-.style-guide__metal-example strong { display: block; margin-top: 7px; color: #fff; font: 700 24px Orbitron, sans-serif; white-space: nowrap; }
+.style-guide__metal-example small { display: block; color: #c4c4c4; font: 700 9px var(--current-header-font, Orbitron), sans-serif; letter-spacing: .14em; }
+.style-guide__metal-example strong { display: block; margin-top: 7px; color: #fff; font: 700 24px var(--current-header-font, Orbitron), sans-serif; white-space: nowrap; }
 .style-guide__metal-example strong span { color: #a3a3a3; font-size: 12px; }
-.style-guide__glow-example { position: relative; display: flex; align-items: center; gap: 18px; width: 212px; min-height: 62px; padding: 12px 17px; color: #ffe6a2; font: 700 11px Orbitron, sans-serif; letter-spacing: .08em; filter: drop-shadow(0 4px 12px #eab30830); }
+.style-guide__glow-example { position: relative; display: flex; align-items: center; gap: 18px; width: 212px; min-height: 62px; padding: 12px 17px; color: #ffe6a2; font: 700 11px var(--current-header-font, Orbitron), sans-serif; letter-spacing: .08em; filter: drop-shadow(0 4px 12px #eab30830); }
 .style-guide__glow-example::before, .style-guide__glow-example::after { content: ''; position: absolute; inset: 0; z-index: -2; clip-path: polygon(0 0, 91% 0, 100% 30%, 100% 100%, 9% 100%, 0 70%); background: linear-gradient(110deg, #ffe6a2, #c99a4e 45%, #69501d); }
 .style-guide__glow-example::after { inset: 1px; z-index: -1; background: linear-gradient(105deg, #554011, #211e12 60%, #111315); }
 .style-guide__action-emblem { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid #f7d47e; transform: rotate(45deg); box-shadow: 0 0 12px #eab30870, inset 0 0 9px #eab30830; }
@@ -50,10 +50,11 @@
 .style-guide__reports { max-width: 680px; }
 .style-guide__report-previews { display: grid; gap: 10px; }
 .style-guide__report-previews > button { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; align-items: center; gap: 16px; width: 100%; padding: 18px 20px; text-align: left; }
-.style-guide__report-previews > button span { color: #c9c1ac; font: 13px var(--font-card-text); }
+.style-guide__report-previews > button span { color: #c9c1ac; font: 13px var(--current-font, var(--font-card-text)); }
 .style-guide__progress-sample { margin-top: 36px; padding-top: 24px; border-top: 1px solid #c99a4e40; }
 .style-guide__progress-sample h3 { margin-bottom: 24px; }
-.style-guide__type-row { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; align-items: center; padding: 22px 0; border-bottom: 1px solid #334155; }
+.style-guide__type-row { display: grid; grid-template-columns: 150px 190px minmax(0, 1fr); gap: 24px; align-items: center; padding: 22px 0; border-bottom: 1px solid #334155; }
+.style-guide__type-row > * { min-width: 0; overflow-wrap: anywhere; }
 .style-guide__type-row p { font-size: 15px; line-height: 1.8; }
 .style-guide__type-row .settings-heading h1 { margin: 0; font-size: 32px; }
 .style-guide__swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin: 18px 0 32px; }
@@ -105,4 +106,32 @@
   .style-guide__type-row { grid-template-columns: 1fr; gap: 12px; }
   .style-guide__cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .style-guide__modal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+
+
+@font-face {
+  font-family: 'Nippo Medium';
+  src: url('../../assets/fonts/nippo/Nippo-Medium.otf') format('opentype');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+.style-guide-font-scope {
+  display: contents;
+}
+.style-guide-font-preview {
+  --font-card-text: var(--current-font);
+}
+/* Override shared component fonts only in this preview; preserve icon glyphs. */
+.style-guide-font-preview :where(:not(i, [class*="fa-"], .style-guide__original)) {
+  font-family: var(--current-font) !important;
+}
+.style-guide .style-guide__type-row p { font-size: 16px; line-height: 1.7; }
+.style-guide-font-preview :is(h1, h2, h3, h4, h5, h6, .health-hud__name):not(:where(.card-title-box *)) {
+  font-weight: var(--current-header-weight) !important;
+}
+.style-guide-font-preview :is(h1, h2, h3, h4, h5, h6, h1 *, h2 *, h3 *, h4 *, h5 *, h6 *, .health-hud__name) {
+  font-family: var(--current-header-font), sans-serif !important;
 }

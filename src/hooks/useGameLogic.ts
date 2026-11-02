@@ -313,6 +313,7 @@ export const useGameLogic = (initialDecks: [SavedDeck | null, SavedDeck | null] 
         if (opponentMode === 'ai' && link.context.playerIndex === 1) {
             const action = chooseAIAction(observeGame(gameState, 1), 1);
             setGameState(previous => previous === gameState ? applyCommand(previous, 1, { type: 'chainTargets',
+                context: action.kind === 'effect' ? action.context : undefined,
                 targets: action.kind === 'effect' ? action.context.targets ?? (action.context.target ? [action.context.target] : []) : [] }).state : previous);
         } else resolveEffect(link.context.card, undefined, undefined, undefined, undefined, link.trigger);
     }, [gameState, pendingEffectCard, targetSelectMode, opponentMode, resolveEffect]);

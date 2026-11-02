@@ -18,7 +18,7 @@ export default [{
         level: 0,
         atk: 0,
         def: 0,
-        effectText: 'Once per turn: discard 1 card, target 1 face-up Primal or Plant Pawn on either field; send it to the Discard pile. If a Pawn is sent to the Discard pile by this effect, put 1 Oven Counter on this card.'
+        effectText: 'Once per turn: discard 1 card, target 1 face-up Primal or Plant Pawn on either field; send it to the Discard pile then put 1 Oven Counter on this card.'
     },
     effect: {
         canActivate: (state, context) => !sourceZone(state, context) || Condition.SoftOncePerTurn()(state, context)

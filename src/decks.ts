@@ -21,13 +21,16 @@ export const MAX_DECK_SIZE = 60;
 export const MAX_RESERVE_SIZE = 10;
 export const deckSize = (deck: SavedDeck) => deck.cards.reduce((sum, entry) => sum + entry.quantity, 0);
 export const reserveSize = (deck: SavedDeck) => (deck.reserve ?? []).reduce((sum, entry) => sum + entry.quantity, 0);
-export const canAddCard = (deck: SavedDeck, cardId: string) => {
+export type CardPool = Readonly<Record<string, number>>;
+export const canAddCard = (deck: SavedDeck, cardId: string, pool?: CardPool) => {
     const card = cardRegistry.getCard(cardId);
     if (!card || isGeneratedCard(card)) return false;
     const entries = isReservePawn(card) ? deck.reserve ?? [] : deck.cards;
     return (isReservePawn(card) ? reserveSize(deck) < MAX_RESERVE_SIZE : deckSize(deck) < MAX_DECK_SIZE)
-        && (entries.find(e => e.cardId === cardId)?.quantity ?? 0) < MAX_COPIES;
+        && (entries.find(e => e.cardId === cardId)?.quantity ?? 0) < Math.min(MAX_COPIES, pool ? pool[cardId] ?? 0 : MAX_COPIES);
 };
+export const isDeckInPool = (deck: SavedDeck, pool: CardPool) =>
+    [...deck.cards, ...deck.reserve ?? []].every(entry => entry.quantity <= (pool[entry.cardId] ?? 0));
 export const isDeckPlayable = (deck: SavedDeck) => {
     try { parseDeck(deck); } catch { return false; }
     return deckSize(deck) >= MIN_DECK_SIZE;

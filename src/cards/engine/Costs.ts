@@ -2,6 +2,7 @@ import { canSetPawn, canTribute, setPawnPosition } from '../../game/cardHelpers'
 import { activationCost, EffectStep } from './Builder';
 import { Dynamic, resolveDynamic } from './Dynamic';
 import { Card, CardContext, CardFilter, Position, ShuffleLocation, TargetSelectPosition, TargetSelectScope } from '../../types';
+import { cardRegistry } from '../CardRegistry';
 import { Effect } from './Effects';
 import { getEffectTarget } from './Targets';
 import { targetZone } from '../../game/field';
@@ -10,6 +11,7 @@ import { levelTributeCandidates, LevelTributeOptions } from '../../game/levelTri
 import { destroyFieldCard, destroyOrphanedAttachments } from '../../game/attachments';
 
 export const Cost = {
+    SendControlledPawns: (count: number): EffectStep => activationCost(Effect.MoveControlledCards('active', 'discard', 'pawn', count)),
     /** Remove a fixed or player-chosen number of counters from a selected source. */
     RemoveCounters: (name: string, amount: number | 'any', targetIndex = 0, maximum?: Dynamic<number>): EffectStep => activationCost((state, context) => {
         const target = getEffectTarget(context, targetIndex);
@@ -60,6 +62,8 @@ export const Cost = {
         for (const entry of selected) {
             const card = { ...entry!.card, tributedByAction: !options.sendOnly && context.card.type === 'ACTION' };
             sendToOwnerPile(state, card, 'discard');
+            const handler = !options.sendOnly && card.instanceId !== context.card.instanceId && context.card.type === 'PAWN' && cardRegistry.getEffect(card.id)?.onTributedByPawn;
+            if (handler) handler(state, { card, playerIndex: context.playerIndex, tributingCard: context.card });
             if (entry!.location === 'hand') player.hand = player.hand.filter(value => value.instanceId !== card.instanceId);
             else player.pawnZones = player.pawnZones.map(zone => zone?.card.instanceId === card.instanceId ? null : zone);
         }
@@ -125,7 +129,10 @@ export const Cost = {
         if (indices.length !== count || new Set(indices).size !== count || indices.some(i => !player.pawnZones[i] || !canTribute(player.pawnZones[i]!.card) || (filter && !filter(player.pawnZones[i]!.card, context)))) return { halt: true };
         context.tributeCards = indices.map(i => player.pawnZones[i]!.card);
         indices.forEach(i => {
-            sendToOwnerPile(draftState, { ...player.pawnZones[i]!.card, tributedByAction: context.card.type === 'ACTION' }, 'discard');
+            const material = player.pawnZones[i]!.card;
+            sendToOwnerPile(draftState, { ...material, tributedByAction: context.card.type === 'ACTION' }, 'discard');
+            const handler = material.instanceId !== context.card.instanceId && context.card.type === 'PAWN' && cardRegistry.getEffect(material.id)?.onTributedByPawn;
+            if (handler) handler(draftState, { card: material, playerIndex: context.playerIndex, tributingCard: context.card });
             player.pawnZones[i] = null;
         });
     }),

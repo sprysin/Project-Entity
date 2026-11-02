@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { CardDetail } from '../cards/CardDetail';
 import { CardPreview } from '../cards/CardPreview';
 import { CardDefinition } from '../../cards/CardRegistry';
-import { SavedDeck, newDeck, parseDeck, sortedCards, canAddCard, deckSize as total, reserveSize, MIN_DECK_SIZE, MAX_RESERVE_SIZE } from '../../decks';
+import { SavedDeck, CardPool, newDeck, parseDeck, sortedCards, canAddCard, isDeckPlayable, isDeckInPool, deckSize as total, reserveSize, MIN_DECK_SIZE, MAX_RESERVE_SIZE } from '../../decks';
 import { isReservePawn } from '../../game/cardHelpers';
 import { getSavedDecks, saveDeckLibrary } from '../../desktop/storage';
 import { exportDeck, importDeck } from '../../desktop/files';
@@ -27,10 +27,12 @@ function IconButton({ label, icon, onClick, disabled = false, active = false, so
     return <button data-sound={sound} type="button" className={`deck-icon-button${active ? ' is-active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} onClick={onClick} disabled={disabled}><i aria-hidden="true" className={`fa-solid ${icon}`} /></button>;
 }
 
-export default function DeckCreator({ onBack }: { onBack: () => void }) {
-    const cards = sortedCards();
+export default function DeckCreator({ onBack, draft }: { onBack: () => void; draft?: {
+    deck: SavedDeck; pool: CardPool; onDone: (deck: SavedDeck) => void;
+} }) {
+    const cards = sortedCards().filter(card => !draft || (draft.pool[card.id] ?? 0) > 0);
     const [library, setLibrary] = useState<SavedDeck[]>([]);
-    const [deck, setDeck] = useState<SavedDeck | null>(null);
+    const [deck, setDeck] = useState<SavedDeck | null>(() => draft ? structuredClone(draft.deck) : null);
     const [selected, setSelected] = useState<CardDefinition | null>(cards[0] ?? null);
     const [inspected, setInspected] = useState<CardDefinition | null>(null);
     const [search, setSearch] = useState('');
@@ -43,6 +45,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
     const [prompt, setPrompt] = useState<{ title: string; message: string; confirm?: () => void; confirmLabel?: string } | null>(null);
 
     useEffect(() => {
+        if (draft) return;
         try { setLibrary(getSavedDecks()); }
         catch { setLibraryReadable(false); setNotice('Local library unavailable. You can still save and open JSON files.'); }
     }, []);
@@ -69,11 +72,12 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         closeDeck();
     };
     const closeDeck = () => {
+        if (draft) { onBack(); return; }
         setDeck(null); setDirty(false); setNotice('');
     };
     const changeQuantity = (card: CardDefinition, delta: number) => {
         if (!deck) return;
-        if (delta > 0 && !canAddCard(deck, card.id)) return;
+        if (delta > 0 && !canAddCard(deck, card.id, draft?.pool)) return;
         const pile = isReservePawn(card) ? 'reserve' : 'cards';
         const entries = deck[pile] ?? [];
         const previous = entries.find(e => e.cardId === card.id)?.quantity ?? 0;
@@ -88,6 +92,14 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
         let saved: SavedDeck;
         try { saved = parseDeck({ ...deck, name: deck.name.trim() || 'Untitled deck' }); }
         catch (error) { setPrompt({ title: 'Could not save deck', message: error instanceof Error ? error.message : 'Please check your deck.' }); return; }
+        if (draft) {
+            if (!isDeckPlayable(saved) || !isDeckInPool(saved, draft.pool)) {
+                setPrompt({ title: 'Deck not ready', message: 'Use 40–60 cards from your draft pool, up to 3 owned copies per card, and up to 10 Reserve cards.' });
+                return;
+            }
+            draft.onDone(saved);
+            return;
+        }
         if (!libraryReadable) { setNotice('Local library unavailable. Export to JSON to keep a copy.'); return; }
         setBusy(true);
         try {
@@ -148,25 +160,25 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                     {!library.length && <button data-sound="select" className="deck-empty-library" onClick={() => { open(newDeck()); setDirty(true); }}><i className="fa-solid fa-layer-group" aria-hidden="true" /><span>Build your first deck</span><i className="fa-solid fa-plus" aria-hidden="true" /></button>}
                 </div>
             </div>
-        </main> : <div className="deck-editor">
-            <header className="entity-topbar deck-editor-topbar">
-                <PageBrand section="DECK EDITOR / WORKSPACE" />
-                <div className="deck-editor-topbar__actions"><span>BUILD / {total(deck)} CARDS</span><button data-sound="cancellation" type="button" className="page-back-button" onClick={leave}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back to decks</button></div>
-            </header>
+        </main> : <div className={`deck-editor${draft ? ' deck-editor--draft' : ''}`}>
+            {draft ? <div className="deck-draft-back"><BackToHubButton onClick={leave} /></div> : <header className="entity-topbar deck-editor-topbar">
+                <PageBrand section={draft ? "DRAFT DUEL / DECK EDITOR" : "DECK EDITOR / WORKSPACE"} />
+                <div className="deck-editor-topbar__actions"><span>BUILD / {total(deck)} CARDS</span><button data-sound="cancellation" type="button" className="page-back-button" onClick={leave}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> {draft ? 'Back to standby' : 'Back to decks'}</button></div>
+            </header>}
             <aside className="deck-preview" aria-label="Card viewer">
                 <div className="deck-preview-nav"><span>CARD VIEWER</span><i className="fa-solid fa-chess-pawn text-yellow-500" aria-hidden="true" /></div>
                 {selected && <button type="button" data-sound="select-small" className="deck-preview-face" aria-label={`Inspect ${selected.name}`} aria-haspopup="dialog" onClick={() => setInspected(selected)}>{face(selected)}</button>}
                 {selected && <div className="deck-preview-controls">
                     <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Remove ${selected.name}`} onClick={() => changeQuantity(selected, -1)} disabled={!quantity(selected)}>Remove card <span aria-hidden="true">−</span></button>
-                    <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Add ${selected.name}`} onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id)}>Add card <span aria-hidden="true">+</span></button>
+                    <button data-sound="toggle" type="button" className="deck-quantity-button" aria-label={`Add ${selected.name}`} onClick={() => changeQuantity(selected, 1)} disabled={!canAddCard(deck, selected.id, draft?.pool)}>Add card <span aria-hidden="true">+</span></button>
                 </div>}
             </aside>
             <main className="deck-center" aria-label="Deck contents">
                 <header className="deck-center-header">
                     <input aria-label="Deck name" maxLength={80} value={deck.name} onChange={e => { setDeck({ ...deck, name: e.target.value }); setDirty(true); setNotice(''); }} placeholder="Deck name" />
                     <span className="deck-unsaved" title={dirty ? 'Unsaved changes' : 'Saved'} aria-label={dirty ? 'Unsaved changes' : 'Saved'}>{dirty ? '●' : ''}</span>
-                    <button data-sound="select" className="deck-primary" onClick={save} title="Save deck locally"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save</button>
-                    <IconButton sound="select-small" label="Export deck to JSON" icon="fa-file-export" onClick={exportJson} />
+                    <button data-sound="select" className="deck-primary" onClick={save} title={draft ? "Continue to duel standby" : "Save deck locally"}>{draft ? <>Continue <i className="fa-solid fa-arrow-right" aria-hidden="true" /></> : <><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save</>}</button>
+                    {!draft && <IconButton sound="select-small" label="Export deck to JSON" icon="fa-file-export" onClick={exportJson} />}
                 </header>
                 <div className="deck-counts"><span>{total(deck)} <span className="text-slate-500">cards</span></span>{types.map((type, i) => <span key={type} title={type} aria-label={`${type} count`}><TypeIcon type={type} icon={icons[i]} className={`deck-type-${type}`} /> {deck.cards.filter(e => cards.find(c => c.id === e.cardId)?.type === type).reduce((sum, e) => sum + e.quantity, 0)}</span>)}</div>
                 <div className="deck-content" style={{ '--deck-rows': Math.max(4, Math.ceil(total(deck) / 10)) } as React.CSSProperties}>
@@ -181,7 +193,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                     </section>)}
                 </div>
             </main>
-            <aside className="deck-catalog" aria-label="All cards">
+            <aside className="deck-catalog" aria-label={draft ? "Draft card pool" : "All cards"}>
                 <label className="deck-search"><i className="fa-solid fa-search" aria-hidden="true" /><input aria-label="Search cards" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} /></label>
                 <div className="catalog-toolbar">
                     <CatalogFilters {...filters} />
@@ -195,6 +207,7 @@ export default function DeckCreator({ onBack }: { onBack: () => void }) {
                             <div className="deck-section-rule"><TypeIcon type={type} icon={icons[i]} /><span /></div>
                             <div className="deck-catalog-grid">{entries.map(card => <div className="deck-catalog-card" key={card.id}>
                                 <button data-sound="select-small" className={`deck-card-select ${selected?.id === card.id ? 'is-selected' : ''}`} aria-label={`View ${card.name}; right click to add to deck`} title="Right click or double click to add to deck" onClick={() => setSelected(card)} onDoubleClick={() => changeQuantity(card, 1)} onContextMenu={event => { event.preventDefault(); changeQuantity(card, 1); }}>{face(card)}</button>
+                                {draft && <span className="draft-copy-count" aria-label={`${quantity(card)} in deck, ${draft.pool[card.id]} available`}>({quantity(card)}/{draft.pool[card.id]})</span>}
                             </div>)}</div>
                         </section>;
                     })}

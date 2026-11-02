@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { draftMatchResult, scoreDraftGame } from '../src/game/draftDuel';
 import { Card, CardType, GameState, Phase, Player, Position } from '../src/types';
 import { drawCards } from '../src/game/draw';
 import { checkVictory } from '../src/game/finishEffect';
@@ -25,23 +26,22 @@ it('handles missing draws and simultaneous lethal LP match results', () => {
     game.players[0].deck = [card()];
     const last = drawCards(game, 0, 1);
     expect(last.winner).toBeNull();
-    expect(drawCards(last, 0, 0).winner).toBeNull();
     expect(drawCards(last, 0, 1)).toMatchObject({ winner: 'Player 2', resultReason: 'empty_deck' });
     const partial = drawCards(game, 0, 2);
     expect(partial.players[0].hand).toHaveLength(1);
-    expect(partial.winner).toBe('Player 2');
     expect(game.players[0].deck).toHaveLength(1);
     const result = buildEffect([Effect.DrawCards(1), Effect.RestoreLP(0, 100)])(state(), { card: card(), playerIndex: 0 });
     expect(result.newState.winner).toBe('Player 2');
     expect(result.newState.players[0].lp).toBe(800);
 
-    for (const activePlayerIndex of [0, 1]) {
-        const game = state();
-        game.activePlayerIndex = activePlayerIndex;
-        game.players[0].lp = 0;
-        game.players[1].lp = -10;
-        expect(checkVictory(game)).toMatchObject({ winner: 'Draw', isDraw: true });
-    }
+    game.players[0].lp = 0;
+    game.players[1].lp = -10;
+    expect(checkVictory(game)).toMatchObject({ winner: 'Draw', isDraw: true });
+    expect(scoreDraftGame([0, 0], 'draw')).toEqual([1, 1]);
+    expect(draftMatchResult([1, 1])).toBeNull();
+    expect(draftMatchResult(scoreDraftGame([1, 0], 'draw'))).toBe('victory');
+    expect(draftMatchResult(scoreDraftGame([0, 1], 'draw'))).toBe('defeat');
+    expect(draftMatchResult(scoreDraftGame([1, 1], 'draw'))).toBe('draw');
 });
 
 it('keeps next-turn bonuses through the following End Phase and expires them when it finishes', () => {

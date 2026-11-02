@@ -11,25 +11,26 @@ export const cardFrameClass = (card: Pick<Card, 'type' | 'pawnSubtype' | 'action
     isGeneratedCard(card) ? 'card-token' : card.pawnSubtype === PawnSubtype.MERGE ? 'card-merge' : isReservePawn(card) ? 'card-vassal' : card.type === CardType.PAWN ? 'card-pawn' : card.type === CardType.ACTION ? 'card-action' : 'card-condition';
 
 // Every face is laid out at 240 × 360, then uniformly scaled to its slot.
-const ScaledCard: React.FC<React.PropsWithChildren<{
+export const ScaledCard: React.FC<React.PropsWithChildren<{
     className: string;
+    baseWidth?: number;
     onClick?: () => void;
     domRef?: (el: HTMLElement | null) => void;
-}>> = ({ children, className, onClick, domRef }) => {
+}>> = ({ children, className, onClick, domRef, baseWidth = 240 }) => {
     const slot = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
     useLayoutEffect(() => {
         const element = slot.current;
         if (!element) return;
-        const update = () => setScale(Math.min(element.clientWidth / 240, element.clientHeight / 360));
+        const update = () => setScale(Math.min(element.clientWidth / baseWidth, element.clientHeight / (baseWidth * 1.5)));
         update();
         const observer = new ResizeObserver(update);
         observer.observe(element);
         return () => observer.disconnect();
-    }, []);
+    }, [baseWidth]);
     return <div ref={element => { slot.current = element; domRef?.(element); }}
         onClick={onClick} className={`card-scale-slot ${className}`}>
-        <div className="card-scale-face" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
+        <div className="card-scale-face" style={{ width: baseWidth, height: baseWidth * 1.5, transform: `translate(-50%, -50%) scale(${scale})` }}>
             {children}
         </div>
     </div>;

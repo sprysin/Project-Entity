@@ -25,7 +25,7 @@ export default [{
             }];
             return { newState: state };
         },
-        onHandReturn: buildEffect([Effect.RequireFaceUpSource(), Effect.SetSoftOncePerTurn('hand_return'), Effect.DrawCards(1), Effect.QueueHandSummon(true)]),
-        handSummonFilter: card => card.attribute === Attribute.AIR
+        onHandReturn: buildEffect([Effect.RequireFaceUpSource(), Effect.SetSoftOncePerTurn('hand_return'),
+            Effect.SequenceResolution(Effect.DrawCards(1), Effect.SpecialSummonFromHand(card => card.attribute === Attribute.AIR))])
     }
 }] satisfies CardModule;
